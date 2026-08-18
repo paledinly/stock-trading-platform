@@ -1,0 +1,16 @@
+.env
+.idea/
+.vscode/
+**/build/
+**/.gradle/
+web/node_modules/
+web/dist/
+web/.npm-cache/
+web/*.tsbuildinfo
+web/vite.config.js
+web/vite.config.d.ts
+backend/.gradle-user-home/
+mobile/.dart_tool/
+mobile/build/
+mobile/.flutter-plugins*
+*.log
