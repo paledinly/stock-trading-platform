@@ -1,22 +1,9 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'app/app.dart';
+export 'app/app.dart' show StockPlatformApp;
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const ProviderScope(child: StockPlatformApp()));
 }
-
-class StockPlatformApp extends StatelessWidget {
-  const StockPlatformApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Stock Platform',
-      theme: ThemeData.dark(useMaterial3: true),
-      home: const Scaffold(
-        body: Center(child: Text('Foundation ready')),
-      ),
-    );
-  }
-}
-

@@ -1,3 +1,3 @@
 package com.sunmo.stockplatform.scanner.infrastructure;
 import com.sunmo.stockplatform.scanner.domain.*;import org.springframework.data.domain.Pageable;import org.springframework.data.jpa.repository.JpaRepository;import java.util.*;
-public interface ScannerDetectionRepository extends JpaRepository<ScannerDetection,Long>{List<ScannerDetection> findByTypeOrderByDetectedAtDesc(ScannerType type,Pageable pageable);List<ScannerDetection> findAllByOrderByDetectedAtDesc(Pageable pageable);Optional<ScannerDetection> findById(Long id);}
+public interface ScannerDetectionRepository extends JpaRepository<ScannerDetection,Long>{List<ScannerDetection> findByTypeOrderByDetectedAtDesc(ScannerType type,Pageable pageable);List<ScannerDetection> findAllByOrderByDetectedAtDesc(Pageable pageable);Optional<ScannerDetection> findById(Long id);List<ScannerDetection> findByDetectedAtBetweenOrderByDetectedAtAsc(java.time.Instant from,java.time.Instant to);}
