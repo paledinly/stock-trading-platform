@@ -117,6 +117,9 @@ git log --oneline --decorate --max-count=10 --all
 
 ## 주요 확인 문서
 
+- `docs/DEVELOPMENT_HANDOFF.md` — 현재 미커밋 Phase 1·2A와 이후 개발 순서
+- `docs/PHASE_1_DATA_RELIABILITY_REPORT.md`
+- `docs/PHASE_2A_PERFORMANCE_RELIABILITY_REPORT.md`
 - `docs/PHASE_7_REPORT.md`
 - `docs/PHASE_8_REPORT.md`
 - 루트 설계 문서 및 README

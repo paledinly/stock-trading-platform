@@ -4,4 +4,8 @@ import java.net.URI;
 import java.time.Duration;
 @ConfigurationProperties(prefix="market.realtime")
 public record RealtimeMarketProperties(boolean enabled, URI websocketUrl, Duration candleWatermark,
-                                       Duration quoteTtl, int replaySize) {}
+                                       Duration quoteTtl, int replaySize, int subscriptionLimit) {
+    public RealtimeMarketProperties {
+        subscriptionLimit = subscriptionLimit <= 0 ? 41 : subscriptionLimit;
+    }
+}

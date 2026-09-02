@@ -7,4 +7,5 @@ public interface StockCandleRepository extends JpaRepository<StockCandle,Long>{
  List<StockCandle> findTop6ByStockIdAndTimeframeAndStartTimeBeforeOrderByStartTimeDesc(Long stockId,String timeframe,Instant startTime);
  Optional<StockCandle> findByStockIdAndTimeframeAndStartTime(Long stockId,String timeframe,Instant startTime);
  List<StockCandle> findByStockIdAndTimeframeAndStartTimeBetweenOrderByStartTimeAsc(Long stockId,String timeframe,Instant from,Instant to);
+ List<StockCandle> findByStockIdAndTimeframeAndStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(Long stockId,String timeframe,Instant from,Instant to);
 }

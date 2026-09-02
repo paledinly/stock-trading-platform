@@ -56,6 +56,10 @@ resilience4j:
         limit-for-period: ${KIS_QUOTE_RATE_LIMIT:15}
         limit-refresh-period: 1s
         timeout-duration: 0
+      kisMinuteCandle:
+        limit-for-period: ${KIS_MINUTE_RATE_LIMIT:5}
+        limit-refresh-period: 1s
+        timeout-duration: 2s
   circuitbreaker:
     instances:
       kisAuth:
@@ -68,11 +72,23 @@ resilience4j:
         minimum-number-of-calls: 10
         failure-rate-threshold: 50
         wait-duration-in-open-state: 10s
+      kisMinuteCandle:
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
 
 market:
+  performance:
+    flush-interval: ${MARKET_PERFORMANCE_FLUSH_INTERVAL:1s}
+  backfill:
+    enabled: ${MARKET_BACKFILL_ENABLED:true}
+    refresh-interval: ${MARKET_BACKFILL_REFRESH_INTERVAL:1m}
+    max-requests-per-query: ${MARKET_BACKFILL_MAX_REQUESTS:14}
   realtime:
     enabled: ${MARKET_REALTIME_ENABLED:false}
     websocket-url: ${KIS_WEBSOCKET_URL:ws://ops.koreainvestment.com:21000}
     candle-watermark: ${MARKET_CANDLE_WATERMARK:2s}
     quote-ttl: ${MARKET_QUOTE_TTL:16h}
     replay-size: ${MARKET_SSE_REPLAY_SIZE:1000}
+    subscription-limit: ${KIS_WEBSOCKET_SUBSCRIPTION_LIMIT:41}

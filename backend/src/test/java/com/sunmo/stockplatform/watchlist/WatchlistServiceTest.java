@@ -17,7 +17,8 @@ class WatchlistServiceTest {
     private final WatchlistGroupRepository groups = mock(WatchlistGroupRepository.class);
     private final WatchlistItemRepository items = mock(WatchlistItemRepository.class);
     private final StockRepository stocks = mock(StockRepository.class);
-    private final WatchlistService service = new WatchlistService(groups, items, stocks);
+    private final com.sunmo.stockplatform.market.application.RealtimeSubscriptionRegistry subscriptions = mock(com.sunmo.stockplatform.market.application.RealtimeSubscriptionRegistry.class);
+    private final WatchlistService service = new WatchlistService(groups, items, stocks, subscriptions);
 
     @Test
     void createsTrimmedGroupAtTheEnd() {

@@ -37,7 +37,11 @@ public class QuoteService {
 
     public StockQuote getQuote(String stockCode) {
         var stock = stockService.getByCode(stockCode);
-        subscriptions.add(stockCode);
+        try {
+            subscriptions.add(stockCode);
+        } catch (IllegalStateException error) {
+            log.warn("Quote for {} will use REST without realtime subscription: {}", stockCode, error.getMessage());
+        }
         MarketTick tick = quoteStateStore.get(stockCode).orElse(null);
         StockQuote baseline = snapshots.get(stockCode);
         if (baseline == null || !isToday(baseline.quotedAt())) {
