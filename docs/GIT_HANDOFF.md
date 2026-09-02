@@ -125,3 +125,13 @@ git log --oneline --decorate --max-count=10 --all
 - 루트 설계 문서 및 README
 
 작업을 시작할 때 이 문서와 `git status --short`의 실시간 결과가 다르면 실시간 Git 상태를 우선하며, 차이점을 사용자에게 알린다.
+
+## 최근 개발 반영
+
+2026-09-02 기준 Phase 1 데이터 신뢰성과 Phase 2A 성과 신뢰성 구현은 다음 기능 커밋으로 정리됐다.
+
+```text
+6737bc7 feat: harden market data and performance recovery
+```
+
+세부 변경, 검증 상태, Phase 2B 이후 순서는 `docs/DEVELOPMENT_HANDOFF.md`를 확인한다.

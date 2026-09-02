@@ -19,13 +19,13 @@ git log -3 --oneline
 git diff --check
 ```
 
-현재 기준 마지막 원격 반영 커밋은 다음과 같다.
+2026-09-02 Phase 1·Phase 2A 기능 구현 커밋은 다음과 같다.
 
 ```text
-fdfec15 fix: merge realtime quotes and render candle chart
+6737bc7 feat: harden market data and performance recovery
 ```
 
-Phase 1 데이터 신뢰성 개선과 Phase 2A 성과 신뢰성 개선은 아직 commit 또는 push하지 않았다. 다음 에이전트는 사용자 지시 없이 reset, restore, checkout, clean, stash, pull, rebase를 실행하지 않는다.
+이 커밋은 `main` 브랜치에 push하는 대상으로 검증됐다. 다음 에이전트는 `git status -sb`와 `git log -3 --oneline`으로 원격 반영 상태를 다시 확인한다. 사용자 지시 없이 reset, restore, checkout, clean, stash, pull, rebase를 실행하지 않는다.
 
 다음 기존 미추적 항목은 이번 개발 결과가 아니므로 수정하거나 스테이징하지 않는다.
 
@@ -169,11 +169,40 @@ V4 trade/journal
 V5 stock_candle
 V6 scanner
 V7 detection_performance
-V8 stock candle backfill hardening     (미커밋)
-V9 detection performance hardening     (미커밋)
+V8 stock candle backfill hardening
+V9 detection performance hardening
 ```
 
-V8과 V9는 아직 공유 DB에 적용됐다고 가정하면 안 된다. 애플리케이션 시작 전 DB 백업 및 Flyway 상태를 확인한다. 이미 적용된 migration 파일을 이후 수정하지 말고 필요한 변경은 V10 이상으로 추가한다.
+V8과 V9는 Git에 반영됐지만 공유 DB에 적용됐다고 가정하면 안 된다. 애플리케이션 시작 전 DB 백업 및 Flyway 상태를 확인한다. 이미 적용된 migration 파일을 이후 수정하지 말고 필요한 변경은 V10 이상으로 추가한다.
+
+## 6.1 2026-09-02 Push 내용
+
+대상 브랜치: `main`
+
+기능 커밋:
+
+```text
+6737bc7 feat: harden market data and performance recovery
+```
+
+포함 범위:
+
+- Phase 1 데이터 신뢰성 개선 전체
+- Phase 2A 성과 신뢰성 개선 전체
+- Flyway V8·V9
+- Backend 신규 및 회귀 테스트
+- Phase 보고서와 개발 인수인계 문서
+
+Push 직전 검증 결과:
+
+```text
+Backend tests: 33 passed
+Gradle: BUILD SUCCESSFUL
+git diff --check: passed
+staged secret scan: no matches
+```
+
+다음 개발 시작점은 `Phase 2B Feature Engine`이다. 실제 장중 KIS 검증에서 Phase 1 문제가 발견되면 Phase 2B보다 해당 문제를 우선 수정한다.
 
 ## 7. 다음 작업: Phase 2B Feature Engine
 
