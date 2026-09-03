@@ -26,4 +26,3 @@ public class ApplicationException extends RuntimeException {
         return status;
     }
 }
-

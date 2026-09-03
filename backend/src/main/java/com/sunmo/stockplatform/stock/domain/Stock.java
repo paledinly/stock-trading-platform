@@ -43,7 +43,7 @@ public class Stock {
     }
 
     public Stock(String stockCode, String standardCode, String stockName, Market market,
-                 MarketType marketType, boolean managed, boolean tradingHalted, Instant syncedAt) {
+            MarketType marketType, boolean managed, boolean tradingHalted, Instant syncedAt) {
         this.stockCode = stockCode;
         this.standardCode = standardCode;
         this.stockName = stockName;
@@ -56,7 +56,7 @@ public class Stock {
     }
 
     public void synchronize(String standardCode, String stockName, Market market, MarketType marketType,
-                            boolean managed, boolean tradingHalted, Instant syncedAt) {
+            boolean managed, boolean tradingHalted, Instant syncedAt) {
         this.standardCode = standardCode;
         this.stockName = stockName;
         this.market = market;
@@ -84,17 +84,51 @@ public class Stock {
         updatedAt = Instant.now();
     }
 
-    public Long getId() { return id; }
-    public String getStockCode() { return stockCode; }
-    public String getStandardCode() { return standardCode; }
-    public String getStockName() { return stockName; }
-    public Market getMarket() { return market; }
-    public MarketType getMarketType() { return marketType; }
-    public boolean isEtf() { return etf; }
-    public boolean isEtn() { return etn; }
-    public boolean isManaged() { return managed; }
-    public boolean isTradingHalted() { return tradingHalted; }
-    public boolean isActive() { return active; }
-    public Instant getMasterSyncedAt() { return masterSyncedAt; }
-}
+    public Long getId() {
+        return id;
+    }
 
+    public String getStockCode() {
+        return stockCode;
+    }
+
+    public String getStandardCode() {
+        return standardCode;
+    }
+
+    public String getStockName() {
+        return stockName;
+    }
+
+    public Market getMarket() {
+        return market;
+    }
+
+    public MarketType getMarketType() {
+        return marketType;
+    }
+
+    public boolean isEtf() {
+        return etf;
+    }
+
+    public boolean isEtn() {
+        return etn;
+    }
+
+    public boolean isManaged() {
+        return managed;
+    }
+
+    public boolean isTradingHalted() {
+        return tradingHalted;
+    }
+
+    public boolean isActive() {
+        return active;
+    }
+
+    public Instant getMasterSyncedAt() {
+        return masterSyncedAt;
+    }
+}

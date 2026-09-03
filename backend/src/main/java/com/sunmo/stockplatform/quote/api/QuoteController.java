@@ -21,4 +21,3 @@ public class QuoteController {
         return quoteService.getQuote(stockCode);
     }
 }
-

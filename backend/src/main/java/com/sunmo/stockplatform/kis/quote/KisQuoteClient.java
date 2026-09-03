@@ -25,7 +25,7 @@ public class KisQuoteClient implements QuoteProvider {
     private final KisQuoteMapper mapper;
 
     public KisQuoteClient(RestClient kisRestClient, KisProperties properties, KisTokenManager tokenManager,
-                          KisQuoteMapper mapper) {
+            KisQuoteMapper mapper) {
         this.restClient = kisRestClient;
         this.properties = properties;
         this.tokenManager = tokenManager;

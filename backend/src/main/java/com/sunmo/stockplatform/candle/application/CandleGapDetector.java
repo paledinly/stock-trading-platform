@@ -13,7 +13,8 @@ public class CandleGapDetector {
         Set<Instant> found = new HashSet<>(existing);
         List<Instant> gaps = new ArrayList<>();
         for (Instant bucket = open; bucket.isBefore(limit); bucket = bucket.plus(Duration.ofMinutes(5))) {
-            if (!found.contains(bucket)) gaps.add(bucket);
+            if (!found.contains(bucket))
+                gaps.add(bucket);
         }
         return gaps;
     }

@@ -13,12 +13,10 @@ public record StockResponse(
         boolean etn,
         boolean managed,
         boolean tradingHalted,
-        Instant masterSyncedAt
-) {
+        Instant masterSyncedAt) {
     public static StockResponse from(Stock stock) {
         return new StockResponse(stock.getStockCode(), stock.getStockName(), stock.getMarket().name(),
                 stock.getMarketType().name(), stock.isEtf(), stock.isEtn(), stock.isManaged(),
                 stock.isTradingHalted(), stock.getMasterSyncedAt());
     }
 }
-

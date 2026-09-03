@@ -113,20 +113,21 @@ export function Phase3App() {
 
   return <div className="phase3">
     <header>
-      <a href="/"><i>ST</i><span><b>Stock Track</b><small>국내주식 모니터링</small></span></a>
+      <a href="/"><i>주</i><span><b>주식 모니터</b><small>국내주식 모니터링</small></span></a>
       <Search select={setSelected} />
       <em>● KRX 데이터</em>
     </header>
     <main>
       <section className="hero">
-        <div><p>PHASE 3 · BASIC STOCK APP</p><h1>오늘의 시장을<br /><span>한눈에.</span></h1>
+        <div><p>3단계 · 종목 모니터링</p><h1>오늘의 시장을<br /><span>한눈에.</span></h1>
           <small>관심 종목을 모으고 현재 흐름을 빠르게 확인하세요.</small></div>
         <aside><small>관심 종목</small><b>{items.length}</b><span>{lists.data?.groups.length ?? 0}개 그룹</span></aside>
       </section>
       {error && <div className="alert">{error.message}</div>}
       <div className="columns">
         <section className="panel watch">
-          <div className="title"><span><small>MY WATCHLIST</small><h2>관심종목</h2></span><b>{items.length}</b></div>
+          <section className="menuGuide"><h2>사용 안내</h2><p>상단 검색창에서 종목명이나 코드를 검색하고, 관심종목 그룹에 추가합니다. 종목을 선택하면 현재가, 오늘 5분봉, 거래량과 거래대금을 확인할 수 있습니다.</p></section>
+          <div className="title"><span><small>내 관심종목</small><h2>관심종목</h2></span><b>{items.length}</b></div>
           <form onSubmit={event => {
             event.preventDefault()
             if (name.trim()) create.mutate(name)

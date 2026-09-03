@@ -28,7 +28,7 @@ public class QuoteService {
     private final Map<String, StockQuote> snapshots = new ConcurrentHashMap<>();
 
     public QuoteService(StockService stockService, QuoteProvider quoteProvider, QuoteStateStore quoteStateStore,
-                        RealtimeSubscriptionRegistry subscriptions) {
+            RealtimeSubscriptionRegistry subscriptions) {
         this.stockService = stockService;
         this.quoteProvider = quoteProvider;
         this.quoteStateStore = quoteStateStore;
@@ -48,7 +48,8 @@ public class QuoteService {
             try {
                 baseline = quoteProvider.getQuote(stock);
             } catch (RuntimeException error) {
-                if (tick == null) throw error;
+                if (tick == null)
+                    throw error;
                 log.warn("Using realtime-only quote for {} because baseline quote failed: {}",
                         stockCode, error.getMessage());
                 baseline = fromTick(stockCode, stock.getStockName(), stock.getMarket().name(), tick);
@@ -60,7 +61,8 @@ public class QuoteService {
     }
 
     static StockQuote merge(StockQuote previous, MarketTick tick) {
-        if (!tick.occurredAt().isAfter(previous.quotedAt())) return previous;
+        if (!tick.occurredAt().isAfter(previous.quotedAt()))
+            return previous;
         BigDecimal current = tick.price();
         BigDecimal previousClose = previous.currentPrice().subtract(previous.change());
         BigDecimal change = current.subtract(previousClose);
@@ -73,7 +75,8 @@ public class QuoteService {
         long volume = Math.max(previous.accumulatedVolume(), tick.cumulativeVolume());
         BigDecimal tradingValue = max(previous.accumulatedTradingValue(), tick.cumulativeTradingValue());
         Instant quotedAt = tick.occurredAt().isAfter(previous.quotedAt()) ? tick.occurredAt() : previous.quotedAt();
-        return new StockQuote(previous.stockCode(), previous.stockName(), previous.market(), current, change, changeRate,
+        return new StockQuote(previous.stockCode(), previous.stockName(), previous.market(), current, change,
+                changeRate,
                 open, high, low, volume, tradingValue, quotedAt);
     }
 
@@ -92,8 +95,10 @@ public class QuoteService {
     }
 
     private static BigDecimal max(BigDecimal left, BigDecimal right) {
-        if (left == null) return right == null ? BigDecimal.ZERO : right;
-        if (right == null) return left;
+        if (left == null)
+            return right == null ? BigDecimal.ZERO : right;
+        if (right == null)
+            return left;
         return left.max(right);
     }
 }

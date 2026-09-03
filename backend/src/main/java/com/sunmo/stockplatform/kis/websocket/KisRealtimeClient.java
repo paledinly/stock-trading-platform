@@ -47,7 +47,7 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
     private final AtomicBoolean connecting = new AtomicBoolean();
     private final AtomicBoolean reconnectScheduled = new AtomicBoolean();
     private final AtomicBoolean stopping = new AtomicBoolean();
-    private final java.util.Map<String,Boolean> pendingSubscriptions = new ConcurrentHashMap<>();
+    private final java.util.Map<String, Boolean> pendingSubscriptions = new ConcurrentHashMap<>();
     private final Object subscriptionLock = new Object();
     private final StringBuilder fragments = new StringBuilder();
     private volatile WebSocket socket;
@@ -55,8 +55,8 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
     private long nextSubscriptionAt;
 
     public KisRealtimeClient(KisApprovalClient approval, KisRealtimeTickParser parser, MarketDataService market,
-                             RealtimeSubscriptionRegistry subscriptions, RealtimeMarketProperties properties,
-                             RealtimeDiagnostics diagnostics, ObjectMapper objectMapper) {
+            RealtimeSubscriptionRegistry subscriptions, RealtimeMarketProperties properties,
+            RealtimeDiagnostics diagnostics, ObjectMapper objectMapper) {
         this.approval = approval;
         this.parser = parser;
         this.market = market;
@@ -81,7 +81,8 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
     }
 
     private void connect() {
-        if (!connecting.compareAndSet(false, true)) return;
+        if (!connecting.compareAndSet(false, true))
+            return;
         try {
             approvalKey = approval.issue();
             HttpClient.newHttpClient().newWebSocketBuilder().buildAsync(properties.websocketUrl(), this)
@@ -96,7 +97,8 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
                             nextSubscriptionAt = 0;
                         }
                         log.info("KIS websocket connected");
-                        subscriptions.all().stream().sorted(Comparator.naturalOrder()).forEach(code -> send(code, true));
+                        subscriptions.all().stream().sorted(Comparator.naturalOrder())
+                                .forEach(code -> send(code, true));
                     });
         } catch (RuntimeException error) {
             connecting.set(false);
@@ -105,9 +107,11 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
     }
 
     private void scheduleReconnect(Throwable error) {
-        if (stopping.get()) return;
+        if (stopping.get())
+            return;
         diagnostics.disconnected();
-        if (!reconnectScheduled.compareAndSet(false, true)) return;
+        if (!reconnectScheduled.compareAndSet(false, true))
+            return;
         log.warn("KIS websocket disconnected; retrying in {} seconds: {}",
                 RECONNECT_DELAY_SECONDS, rootMessage(error));
         scheduler.schedule(() -> {
@@ -128,7 +132,8 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
             sendAt = Math.max(now, nextSubscriptionAt);
             nextSubscriptionAt = sendAt + SUBSCRIPTION_INTERVAL_MILLIS;
         }
-        scheduler.schedule(() -> sendSubscription(current, code, subscribe), Math.max(0, sendAt - now), TimeUnit.MILLISECONDS);
+        scheduler.schedule(() -> sendSubscription(current, code, subscribe), Math.max(0, sendAt - now),
+                TimeUnit.MILLISECONDS);
     }
 
     private void sendSubscription(WebSocket expected, String code, boolean subscribe) {
@@ -139,12 +144,14 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
         String message = "{\"header\":{\"approval_key\":\"" + approvalKey
                 + "\",\"custtype\":\"P\",\"tr_type\":\"" + (subscribe ? "1" : "2") + "\",\"content-type\":\"utf-8\"},"
                 + "\"body\":{\"input\":{\"tr_id\":\"H0STCNT0\",\"tr_key\":\"" + code + "\"}}}";
-        pendingSubscriptions.put(code,subscribe);
-        if (subscribe) diagnostics.subscriptionRequested(code);
+        pendingSubscriptions.put(code, subscribe);
+        if (subscribe)
+            diagnostics.subscriptionRequested(code);
         log.info("Requesting KIS H0STCNT0 {} for {}", subscribe ? "subscription" : "unsubscription", code);
         expected.sendText(message, true).whenComplete((ignored, error) -> {
             if (error != null) {
-                if (subscribe) diagnostics.subscriptionAcknowledged(code, false, "send failed: " + rootMessage(error));
+                if (subscribe)
+                    diagnostics.subscriptionAcknowledged(code, false, "send failed: " + rootMessage(error));
                 log.warn("Failed to send KIS subscription for {}: {}", code, rootMessage(error));
             }
         });
@@ -175,9 +182,11 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
                 handleControlMessage(webSocket, message);
                 return;
             }
-            if (!message.startsWith("0|H0STCNT0|")) return;
+            if (!message.startsWith("0|H0STCNT0|"))
+                return;
             String[] parts = message.split("\\|", 4);
-            if (parts.length != 4) throw new IllegalArgumentException("Invalid H0STCNT0 frame");
+            if (parts.length != 4)
+                throw new IllegalArgumentException("Invalid H0STCNT0 frame");
             int count = Integer.parseInt(parts[2]);
             var ticks = parser.parseMany(parts[3], count);
             diagnostics.ticksReceived(ticks.size());
@@ -197,7 +206,8 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
                 webSocket.sendText(message, true);
                 return;
             }
-            if (!"H0STCNT0".equals(trId)) return;
+            if (!"H0STCNT0".equals(trId))
+                return;
             String code = root.path("header").path("tr_key").asText();
             String resultCode = root.path("body").path("rt_cd").asText();
             String resultMessage = root.path("body").path("msg1").asText();
@@ -206,11 +216,16 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
                 log.warn("KIS H0STCNT0 response omitted stock code: code={}, message={}", resultCode, resultMessage);
                 return;
             }
-            boolean subscribing=pendingSubscriptions.remove(code)!=Boolean.FALSE;
-            if(subscribing)diagnostics.subscriptionAcknowledged(code, success, resultMessage);else diagnostics.subscriptionRemoved(code,success,resultMessage);
-            if (success) log.info("KIS H0STCNT0 subscription accepted for {}: {}", code, resultMessage);
-            else log.warn("KIS H0STCNT0 subscription rejected for {}: code={}, message={}",
-                    code, resultCode, resultMessage);
+            boolean subscribing = pendingSubscriptions.remove(code) != Boolean.FALSE;
+            if (subscribing)
+                diagnostics.subscriptionAcknowledged(code, success, resultMessage);
+            else
+                diagnostics.subscriptionRemoved(code, success, resultMessage);
+            if (success)
+                log.info("KIS H0STCNT0 subscription accepted for {}: {}", code, resultMessage);
+            else
+                log.warn("KIS H0STCNT0 subscription rejected for {}: code={}, message={}",
+                        code, resultCode, resultMessage);
         } catch (Exception error) {
             throw new IllegalArgumentException("Invalid KIS control message", error);
         }
@@ -218,7 +233,8 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
 
     @Override
     public CompletionStage<?> onClose(WebSocket webSocket, int status, String reason) {
-        if (socket == webSocket) socket = null;
+        if (socket == webSocket)
+            socket = null;
         if (!stopping.get() && status != WebSocket.NORMAL_CLOSURE) {
             scheduleReconnect(new IllegalStateException("close " + status + ": " + reason));
         }
@@ -227,7 +243,8 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
 
     @Override
     public void onError(WebSocket webSocket, Throwable error) {
-        if (socket == webSocket) socket = null;
+        if (socket == webSocket)
+            socket = null;
         scheduleReconnect(error);
     }
 
@@ -244,7 +261,8 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
 
     private String rootMessage(Throwable error) {
         Throwable current = error;
-        while (current.getCause() != null) current = current.getCause();
+        while (current.getCause() != null)
+            current = current.getCause();
         return current.getMessage() == null ? current.getClass().getSimpleName() : current.getMessage();
     }
 }

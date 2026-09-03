@@ -7,6 +7,8 @@ import java.util.Optional;
 
 public interface WatchlistGroupRepository extends JpaRepository<WatchlistGroup, Long> {
     List<WatchlistGroup> findByOwnerIdOrderByDisplayOrderAscIdAsc(Long ownerId);
+
     Optional<WatchlistGroup> findByIdAndOwnerId(Long id, Long ownerId);
+
     boolean existsByOwnerIdAndName(Long ownerId, String name);
 }

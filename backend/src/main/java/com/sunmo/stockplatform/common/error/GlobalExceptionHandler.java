@@ -18,7 +18,7 @@ public class GlobalExceptionHandler {
         return detail;
     }
 
-    @ExceptionHandler({ConstraintViolationException.class, MethodArgumentNotValidException.class})
+    @ExceptionHandler({ ConstraintViolationException.class, MethodArgumentNotValidException.class })
     ProblemDetail handleValidation(Exception exception) {
         ProblemDetail detail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMessage());
         detail.setTitle(ErrorCode.INVALID_REQUEST.name());
@@ -26,4 +26,3 @@ public class GlobalExceptionHandler {
         return detail;
     }
 }
-

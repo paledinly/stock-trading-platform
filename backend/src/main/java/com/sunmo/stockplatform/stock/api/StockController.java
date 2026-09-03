@@ -21,7 +21,7 @@ public class StockController {
 
     @GetMapping("/search")
     public List<StockResponse> search(@RequestParam("q") String query,
-                                      @RequestParam(defaultValue = "20") @Min(1) @Max(50) int limit) {
+            @RequestParam(defaultValue = "20") @Min(1) @Max(50) int limit) {
         return stockService.search(query, limit).stream().map(StockResponse::from).toList();
     }
 
@@ -30,4 +30,3 @@ public class StockController {
         return StockResponse.from(stockService.getByCode(stockCode));
     }
 }
-

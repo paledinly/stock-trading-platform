@@ -30,7 +30,8 @@ public class StockMasterSyncService {
         for (var master : masterStocks) {
             var stock = repository.findByStockCode(master.stockCode())
                     .orElseGet(() -> new Stock(master.stockCode(), master.standardCode(), master.stockName(),
-                            master.market(), master.marketType(), master.managed(), master.tradingHalted(), synchronizedAt));
+                            master.market(), master.marketType(), master.managed(), master.tradingHalted(),
+                            synchronizedAt));
             if (stock.getId() != null) {
                 stock.synchronize(master.standardCode(), master.stockName(), master.market(), master.marketType(),
                         master.managed(), master.tradingHalted(), synchronizedAt);
@@ -44,4 +45,3 @@ public class StockMasterSyncService {
         return synchronize(Market.KOSPI) + synchronize(Market.KOSDAQ);
     }
 }
-

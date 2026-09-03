@@ -19,4 +19,3 @@ public class StockMasterSyncScheduler {
         service.synchronizeAll();
     }
 }
-

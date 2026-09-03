@@ -1,8 +1,218 @@
 package com.sunmo.stockplatform.scanner.domain;
-import com.sunmo.stockplatform.stock.domain.Stock;import jakarta.persistence.*;import java.math.BigDecimal;import java.time.*;import java.util.UUID;
-@Entity @Table(name="scanner_detection")
+
+import com.sunmo.stockplatform.stock.domain.Stock;
+import jakarta.persistence.*;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.UUID;
+
+@Entity
+@Table(name = "scanner_detection")
 public class ScannerDetection {
- @Id @GeneratedValue(strategy=GenerationType.IDENTITY)private Long id;@Column(name="event_id",nullable=false,unique=true)private UUID eventId;@ManyToOne(fetch=FetchType.LAZY,optional=false)@JoinColumn(name="stock_id")private Stock stock;@ManyToOne(fetch=FetchType.LAZY,optional=false)@JoinColumn(name="scanner_setting_id")private ScannerSetting setting;@Enumerated(EnumType.STRING)@Column(name="scanner_type",nullable=false)private ScannerType type;@Column(name="detected_at",nullable=false)private Instant detectedAt;@Column(name="detected_price",nullable=false,precision=20,scale=4)private BigDecimal detectedPrice;@Column(name="five_minute_change_rate",precision=12,scale=6)private BigDecimal changeRate;@Column(name="volume_ratio",precision=12,scale=6)private BigDecimal volumeRatio;@Column(name="current_5m_volume",nullable=false)private long currentVolume;@Column(name="current_5m_trading_value",nullable=false,precision=20,scale=4)private BigDecimal currentValue;@Column(name="daily_trading_value",precision=20,scale=4)private BigDecimal dailyValue;@Column(name="momentum_score",precision=12,scale=6)private BigDecimal score;@Column(name="setting_snapshot",nullable=false,columnDefinition="text")private String settingSnapshot;@Column(name="source_event_id")private String sourceEventId;@Column(name="algorithm_version",nullable=false)private String algorithmVersion;@Column(name="market_session_date",nullable=false)private LocalDate sessionDate;
- protected ScannerDetection(){}public ScannerDetection(UUID event,Stock stock,ScannerSetting setting,Instant at,BigDecimal price,BigDecimal change,BigDecimal ratio,long volume,BigDecimal value,BigDecimal daily,BigDecimal score,String snapshot,String source){this.eventId=event;this.stock=stock;this.setting=setting;this.type=setting.getType();this.detectedAt=at;this.detectedPrice=price;this.changeRate=change;this.volumeRatio=ratio;this.currentVolume=volume;this.currentValue=value;this.dailyValue=daily;this.score=score;this.settingSnapshot=snapshot;this.sourceEventId=source;this.algorithmVersion="momentum-v1";this.sessionDate=at.atZone(ZoneId.of("Asia/Seoul")).toLocalDate();}
- public Long getId(){return id;}public UUID getEventId(){return eventId;}public Stock getStock(){return stock;}public ScannerSetting getSetting(){return setting;}public ScannerType getType(){return type;}public Instant getDetectedAt(){return detectedAt;}public LocalDate getSessionDate(){return sessionDate;}public BigDecimal getDetectedPrice(){return detectedPrice;}public BigDecimal getChangeRate(){return changeRate;}public BigDecimal getVolumeRatio(){return volumeRatio;}public long getCurrentVolume(){return currentVolume;}public BigDecimal getCurrentValue(){return currentValue;}public BigDecimal getDailyValue(){return dailyValue;}public BigDecimal getScore(){return score;}public String getSettingSnapshot(){return settingSnapshot;}
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "event_id", nullable = false, unique = true)
+    private UUID eventId;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "stock_id")
+    private Stock stock;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "scanner_setting_id")
+    private ScannerSetting setting;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "scanner_type", nullable = false)
+    private ScannerType type;
+
+    @Column(name = "detected_at", nullable = false)
+    private Instant detectedAt;
+
+    @Column(name = "detected_price", nullable = false, precision = 20, scale = 4)
+    private BigDecimal detectedPrice;
+
+    @Column(name = "five_minute_change_rate", precision = 12, scale = 6)
+    private BigDecimal changeRate;
+
+    @Column(name = "volume_ratio", precision = 12, scale = 6)
+    private BigDecimal volumeRatio;
+
+    @Column(name = "current_5m_volume", nullable = false)
+    private long currentVolume;
+
+    @Column(name = "current_5m_trading_value", nullable = false, precision = 20, scale = 4)
+    private BigDecimal currentValue;
+
+    @Column(name = "daily_trading_value", precision = 20, scale = 4)
+    private BigDecimal dailyValue;
+
+    @Column(name = "momentum_score", precision = 12, scale = 6)
+    private BigDecimal score;
+
+    @Column(name = "setting_snapshot", nullable = false, columnDefinition = "text")
+    private String settingSnapshot;
+
+    @Column(name = "feature_snapshot", columnDefinition = "text")
+    private String featureSnapshot;
+
+    @Column(name = "feature_version", length = 30)
+    private String featureVersion;
+
+    @Column(name = "detection_reason", columnDefinition = "text")
+    private String detectionReason;
+
+    @Column(name = "opportunity_score", precision = 6, scale = 3)
+    private BigDecimal opportunityScore;
+
+    @Column(name = "risk_score", precision = 6, scale = 3)
+    private BigDecimal riskScore;
+
+    @Column(name = "score_breakdown", columnDefinition = "text")
+    private String scoreBreakdown;
+
+    @Column(name = "score_version", length = 30)
+    private String scoreVersion;
+
+    @Column(name = "source_event_id")
+    private String sourceEventId;
+
+    @Column(name = "algorithm_version", nullable = false)
+    private String algorithmVersion;
+
+    @Column(name = "market_session_date", nullable = false)
+    private LocalDate sessionDate;
+
+    protected ScannerDetection() {
+    }
+
+    public ScannerDetection(UUID event, Stock stock, ScannerSetting setting, Instant at, BigDecimal price,
+            BigDecimal change, BigDecimal ratio, long volume, BigDecimal value, BigDecimal daily,
+            BigDecimal score, String snapshot, String source) {
+        this.eventId = event;
+        this.stock = stock;
+        this.setting = setting;
+        this.type = setting.getType();
+        this.detectedAt = at;
+        this.detectedPrice = price;
+        this.changeRate = change;
+        this.volumeRatio = ratio;
+        this.currentVolume = volume;
+        this.currentValue = value;
+        this.dailyValue = daily;
+        this.score = score;
+        this.settingSnapshot = snapshot;
+        this.sourceEventId = source;
+        this.algorithmVersion = "momentum-v1";
+        this.sessionDate = at.atZone(ZoneId.of("Asia/Seoul")).toLocalDate();
+    }
+
+    public void attachFeatureSnapshot(String version, String snapshot) {
+        this.featureVersion = version;
+        this.featureSnapshot = snapshot;
+    }
+
+    public void recordReason(String reason) {
+        this.detectionReason = reason;
+    }
+
+    public void attachOpportunityRisk(BigDecimal opportunity, BigDecimal risk, String version, String breakdown) {
+        this.opportunityScore = opportunity;
+        this.riskScore = risk;
+        this.scoreVersion = version;
+        this.scoreBreakdown = breakdown;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public UUID getEventId() {
+        return eventId;
+    }
+
+    public Stock getStock() {
+        return stock;
+    }
+
+    public ScannerSetting getSetting() {
+        return setting;
+    }
+
+    public ScannerType getType() {
+        return type;
+    }
+
+    public Instant getDetectedAt() {
+        return detectedAt;
+    }
+
+    public LocalDate getSessionDate() {
+        return sessionDate;
+    }
+
+    public BigDecimal getDetectedPrice() {
+        return detectedPrice;
+    }
+
+    public BigDecimal getChangeRate() {
+        return changeRate;
+    }
+
+    public BigDecimal getVolumeRatio() {
+        return volumeRatio;
+    }
+
+    public long getCurrentVolume() {
+        return currentVolume;
+    }
+
+    public BigDecimal getCurrentValue() {
+        return currentValue;
+    }
+
+    public BigDecimal getDailyValue() {
+        return dailyValue;
+    }
+
+    public BigDecimal getScore() {
+        return score;
+    }
+
+    public String getSettingSnapshot() {
+        return settingSnapshot;
+    }
+
+    public String getFeatureSnapshot() {
+        return featureSnapshot;
+    }
+
+    public String getFeatureVersion() {
+        return featureVersion;
+    }
+
+    public String getDetectionReason() {
+        return detectionReason;
+    }
+
+    public BigDecimal getOpportunityScore() {
+        return opportunityScore;
+    }
+
+    public BigDecimal getRiskScore() {
+        return riskScore;
+    }
+
+    public String getScoreBreakdown() {
+        return scoreBreakdown;
+    }
+
+    public String getScoreVersion() {
+        return scoreVersion;
+    }
 }

@@ -14,8 +14,7 @@ public record KisProperties(
         Duration tokenRefreshSkew,
         Duration connectTimeout,
         Duration readTimeout,
-        Master master
-) {
+        Master master) {
     public record Master(boolean syncEnabled, String cron, URI kospiUrl, URI kosdaqUrl) {
     }
 
@@ -25,4 +24,3 @@ public record KisProperties(
         }
     }
 }
-

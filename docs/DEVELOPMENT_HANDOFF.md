@@ -299,6 +299,146 @@ KIS 실시간 등록은 체결·호가 등을 합산해 기본 41건 한도이�
 - Virtual Detection 및 Performance
 - Scanner 설정 비교와 전략 통계
 
+## 8.1 2026-09-03 Phase 2B·Phase 3·Phase 4 진행 상태
+
+상세 문서:
+
+- `docs/PHASE_2B_FEATURE_ENGINE_REPORT.md`
+- `docs/PHASE_3_ADVANCED_SCANNER_REPORT.md`
+- `docs/PHASE_4_OPPORTUNITY_RISK_SCORE_REPORT.md`
+
+완료 내용:
+
+- H0STCNT0 parser 확장 필드 매핑
+- `MarketFeatureSnapshot`, `MarketFeatureEngine`, `IntradayFeatureState`
+- VWAP, VWAP 거리, VWAP slope, Volume Ratio, Turnover Ratio, buy/sell delta, Day High Distance
+- 최신 feature 조회 API `GET /api/v1/stocks/{stockCode}/features/latest`
+- Detection 시점 feature snapshot 저장
+- `VOLUME_BREAKOUT`, `TURNOVER_BREAKOUT`, `HIGH_BREAKOUT`, `VWAP_BREAKOUT`, `VWAP_RECLAIM`, `PULLBACK_REBREAK`
+- 구조화된 `scanner-reason-v1` detection reason 저장
+- Web Scanner 고급 타입 탭 노출
+- Flyway `V10__add_market_feature_snapshot.sql`
+- Flyway `V11__add_advanced_scanner_types.sql`
+- `OpportunityRiskScorer` 기반 Opportunity/Risk 분리 점수
+- Detection별 score breakdown JSON 및 `opportunity-risk-v1` 저장
+- Web Scanner 탐지 목록의 Opportunity/Risk 표시
+- Flyway `V12__add_opportunity_risk_score.sql`
+
+검증 결과:
+
+```text
+Backend tests: passed
+Web tests: passed
+Web build: passed
+git diff --check: passed
+```
+
+## 8.2 2026-09-03 Phase 5 진행 상태
+
+상세 문서:
+
+- `docs/PHASE_5_MARKET_RADAR_REPORT.md`
+
+완료 내용:
+
+- Web Scanner workspace를 `Market Radar`로 확장
+- 종목명/코드, Opportunity 최소값, Risk 최대값 후보 필터
+- Opportunity/Risk 기반 후보 정렬
+- Detection Detail 패널
+- Detection reason, score breakdown, performance 상태 표시
+- Detection/VWAP/BUY/SELL marker가 있는 상세 차트
+- Realtime status 기반 운영 상태 카드
+- Scanner 설정 생성/수정/삭제 UI
+
+검증 결과:
+
+```text
+Web tests: passed
+Web build: passed
+git diff --check: passed
+```
+
+## 8.3 2026-09-03 Phase 6 진행 상태
+
+상세 문서:
+
+- `docs/PHASE_6_ADVANCED_PERFORMANCE_ANALYTICS_REPORT.md`
+
+완료 내용:
+
+- `GET /api/v1/scanner-analytics` 확장
+- Target/Stop 기준 파라미터
+- minimum sample size 파라미터
+- Target/Stop outcome summary
+- 시간대별 성과 bucket
+- scanner type + Opportunity band + Risk band 기반 Signal Combination
+- Historical Edge summary
+- 샘플 수 기반 confidence 표시
+- Web Analytics workspace를 `Signal Edge Lab`으로 확장
+
+검증 결과:
+
+```text
+Backend tests: passed
+Web tests: passed
+Web build: passed
+git diff --check: passed
+```
+
+## 8.4 2026-09-03 Phase 7 진행 상태
+
+상세 문서:
+
+- `docs/PHASE_7_MARKET_WIDE_SCANNER_REPORT.md`
+
+완료 내용:
+
+- `GET /api/v1/market-wide/scan`
+- stock master 기반 tradable universe 조회
+- KIS REST quote 기반 Broad Scan
+- market regime summary
+- broad candidate score
+- realtime subscription capacity 기반 precision eligibility
+- Web Market-wide Scanner workspace
+- 후보별 Precision 구독 action
+
+검증 결과:
+
+```text
+Backend tests: passed
+Web tests: passed
+Web build: passed
+git diff --check: passed
+```
+
+## 8.5 2026-09-03 Phase 8 진행 상태
+
+상세 문서:
+
+- `docs/PHASE_8_BACKTESTING_REPORT.md`
+
+완료 내용:
+
+- `GET /api/v1/backtests/run`
+- stored 5-minute candle 기반 scanner replay
+- `ScannerEvaluator` 재사용
+- Virtual Detection 생성
+- 5분/30분/60분/max return/max drawdown Virtual Performance
+- 설정별 전략 통계
+- candle 기반 historical feature proxy
+- Web Backtesting workspace
+
+검증 결과:
+
+```text
+Backend tests: passed
+Web tests: passed
+Web build: passed
+git diff --check: passed
+```
+
+다음 개발 시작점은 신규 Phase보다 장중 실데이터 검증 및 안정화다. 특히 Phase 2B field mapping, candle coverage, Phase 3 detection reason, Phase 4 score distribution, Phase 7 broad scan candidate quality, Phase 8 replay 결과를 같은 날짜 데이터로 비교한다.
+
 ## 9. 다음 에이전트가 주의할 코드 위험
 
 - `DetectionPerformanceTracker`는 detached JPA entity를 registry에 보관한다. batch `saveAll` 반환 entity를 registry에 다시 등록해 version을 갱신하며 `onTick`, `flushDirty`, `finalizeMarketClose`를 동기화한다. 이 부분을 단순화하면서 optimistic locking 안전성을 깨뜨리지 않는다.

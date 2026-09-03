@@ -56,12 +56,12 @@ class HttpKisAuthClient implements KisAuthClient {
     }
 
     private record TokenRequest(@JsonProperty("grant_type") String grantType,
-                                String appkey,
-                                String appsecret) {
+            String appkey,
+            String appsecret) {
     }
 
     private record TokenResponse(@JsonProperty("access_token") String accessToken,
-                                 @JsonProperty("expires_in") Long expiresIn,
-                                 @JsonProperty("access_token_token_expired") String expiresAt) {
+            @JsonProperty("expires_in") Long expiresIn,
+            @JsonProperty("access_token_token_expired") String expiresAt) {
     }
 }

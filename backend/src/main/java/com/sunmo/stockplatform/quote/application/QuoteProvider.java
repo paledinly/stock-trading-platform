@@ -6,4 +6,3 @@ import com.sunmo.stockplatform.stock.domain.Stock;
 public interface QuoteProvider {
     StockQuote getQuote(Stock stock);
 }
-

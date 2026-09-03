@@ -8,4 +8,3 @@ public enum ErrorCode {
     KIS_API_ERROR,
     STOCK_MASTER_SYNC_FAILED
 }
-

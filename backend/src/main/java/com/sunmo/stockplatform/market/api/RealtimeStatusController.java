@@ -16,7 +16,7 @@ public class RealtimeStatusController {
     private final StringRedisTemplate redis;
 
     public RealtimeStatusController(RealtimeDiagnostics diagnostics, RealtimeSubscriptionRegistry subscriptions,
-                                    ObjectProvider<StringRedisTemplate> redis) {
+            ObjectProvider<StringRedisTemplate> redis) {
         this.diagnostics = diagnostics;
         this.subscriptions = subscriptions;
         this.redis = redis.getIfAvailable();
@@ -29,13 +29,16 @@ public class RealtimeStatusController {
     }
 
     private String redisStatus() {
-        if (redis == null) return "UNAVAILABLE";
+        if (redis == null)
+            return "UNAVAILABLE";
         try (var connection = redis.getRequiredConnectionFactory().getConnection()) {
             return "PONG".equalsIgnoreCase(connection.ping()) ? "UP" : "DOWN";
+        } catch (RuntimeException error) {
+            return "DOWN";
         }
-        catch (RuntimeException error) { return "DOWN"; }
     }
 
     public record Status(RealtimeDiagnostics.Snapshot realtime, String redisStatus,
-                         int subscriptionCount, int subscriptionLimit, int subscriptionRemaining) {}
+            int subscriptionCount, int subscriptionLimit, int subscriptionRemaining) {
+    }
 }

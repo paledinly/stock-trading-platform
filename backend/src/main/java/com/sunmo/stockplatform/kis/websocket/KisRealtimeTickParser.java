@@ -25,7 +25,8 @@ public class KisRealtimeTickParser {
     }
 
     public List<MarketTick> parseMany(String payload, int count) {
-        if (count < 1) throw new IllegalArgumentException("H0STCNT0 trade count must be positive: " + count);
+        if (count < 1)
+            throw new IllegalArgumentException("H0STCNT0 trade count must be positive: " + count);
         String[] fields = payload.split("\\^", -1);
         int required = count * FIELDS_PER_TRADE;
         if (fields.length < required) {
@@ -45,14 +46,24 @@ public class KisRealtimeTickParser {
         Instant occurredAt = date.atTime(time).atZone(SEOUL).toInstant();
         return new MarketTick(fields[offset], date, occurredAt, decimal(fields[offset + 2]),
                 number(fields[offset + 12]), number(fields[offset + 13]), decimal(fields[offset + 14]),
-                sequence.incrementAndGet());
+                sequence.incrementAndGet(), decimal(fields[offset + 7]), decimal(fields[offset + 8]),
+                decimal(fields[offset + 9]), decimal(fields[offset + 18]), nullableNumber(fields[offset + 19]),
+                nullableNumber(fields[offset + 20]), decimal(fields[offset + 22]),
+                "Y".equalsIgnoreCase(fields[offset + 35].trim()),
+                decimal(fields[offset + 45]), decimal(fields[offset + 40]));
     }
 
     private BigDecimal decimal(String value) {
-        return new BigDecimal(value.trim());
+        String normalized = value == null ? "" : value.trim();
+        return normalized.isEmpty() ? BigDecimal.ZERO : new BigDecimal(normalized);
     }
 
     private long number(String value) {
         return Long.parseLong(value.trim());
+    }
+
+    private Long nullableNumber(String value) {
+        String normalized = value == null ? "" : value.trim();
+        return normalized.isEmpty() ? null : Long.parseLong(normalized);
     }
 }

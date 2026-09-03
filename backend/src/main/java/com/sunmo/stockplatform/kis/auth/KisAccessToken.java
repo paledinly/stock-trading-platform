@@ -7,4 +7,3 @@ public record KisAccessToken(String value, Instant expiresAt) {
         return expiresAt.isBefore(threshold) || expiresAt.equals(threshold);
     }
 }
-

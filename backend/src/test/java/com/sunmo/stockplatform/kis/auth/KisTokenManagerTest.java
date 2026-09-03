@@ -12,9 +12,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 class KisTokenManagerTest {
     private final Instant now = Instant.parse("2026-08-17T00:00:00Z");
     private final Clock clock = Clock.fixed(now, ZoneOffset.UTC);
-    private final KisProperties properties = new KisProperties(true, URI.create("https://example.test"), "key", "secret",
+    private final KisProperties properties = new KisProperties(true, URI.create("https://example.test"), "key",
+            "secret",
             Duration.ofMinutes(5), Duration.ofSeconds(3), Duration.ofSeconds(5),
-            new KisProperties.Master(false, "0 0 0 * * *", URI.create("https://example.test/kospi"), URI.create("https://example.test/kosdaq")));
+            new KisProperties.Master(false, "0 0 0 * * *", URI.create("https://example.test/kospi"),
+                    URI.create("https://example.test/kosdaq")));
 
     @Test
     void reusesTokenUntilRefreshWindow() {
@@ -38,4 +40,3 @@ class KisTokenManagerTest {
         assertThat(manager.getAccessToken()).isEqualTo("token-2");
     }
 }
-

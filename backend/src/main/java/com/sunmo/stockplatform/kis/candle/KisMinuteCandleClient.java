@@ -36,12 +36,12 @@ public class KisMinuteCandleClient {
     public List<MinuteCandle> fetch(String stockCode, LocalTime through) {
         properties.requireCredentials();
         JsonNode body = client.get().uri(builder -> builder.path(ENDPOINT)
-                        .queryParam("FID_COND_MRKT_DIV_CODE", "J")
-                        .queryParam("FID_INPUT_ISCD", stockCode)
-                        .queryParam("FID_INPUT_HOUR_1", through.format(TIME))
-                        .queryParam("FID_PW_DATA_INCU_YN", "Y")
-                        .queryParam("FID_ETC_CLS_CODE", "")
-                        .build())
+                .queryParam("FID_COND_MRKT_DIV_CODE", "J")
+                .queryParam("FID_INPUT_ISCD", stockCode)
+                .queryParam("FID_INPUT_HOUR_1", through.format(TIME))
+                .queryParam("FID_PW_DATA_INCU_YN", "Y")
+                .queryParam("FID_ETC_CLS_CODE", "")
+                .build())
                 .header("authorization", "Bearer " + tokens.getAccessToken())
                 .header("appkey", properties.appKey())
                 .header("appsecret", properties.appSecret())
@@ -56,7 +56,8 @@ public class KisMinuteCandleClient {
         for (JsonNode row : body.path("output2")) {
             String rawDate = row.path("stck_bsop_date").asText(LocalDate.now(SEOUL).format(DATE));
             String rawTime = row.path("stck_cntg_hour").asText();
-            if (rawTime.length() != 6) continue;
+            if (rawTime.length() != 6)
+                continue;
             Instant start = LocalDate.parse(rawDate, DATE).atTime(LocalTime.parse(rawTime, TIME))
                     .atZone(SEOUL).toInstant();
             result.add(new MinuteCandle(start, decimal(row, "stck_oprc"), decimal(row, "stck_hgpr"),
@@ -68,7 +69,8 @@ public class KisMinuteCandleClient {
 
     private BigDecimal decimal(JsonNode row, String field) {
         BigDecimal value = nullableDecimal(row, field);
-        if (value == null || value.signum() <= 0) throw new IllegalArgumentException("Invalid KIS field: " + field);
+        if (value == null || value.signum() <= 0)
+            throw new IllegalArgumentException("Invalid KIS field: " + field);
         return value;
     }
 

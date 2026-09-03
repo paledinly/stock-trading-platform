@@ -14,8 +14,10 @@ import java.util.List;
 @Component
 public class KisMasterParser {
     private static final Charset CP949 = Charset.forName("MS949");
-    private static final int[] KOSPI_WIDTHS = {2,1,4,4,4,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,9,5,5,1,1,1};
-    private static final int[] KOSDAQ_WIDTHS = {2,1,4,4,4,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,9,5,5,1,1,1};
+    private static final int[] KOSPI_WIDTHS = { 2, 1, 4, 4, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+            1, 1, 1, 1, 1, 1, 1, 9, 5, 5, 1, 1, 1 };
+    private static final int[] KOSDAQ_WIDTHS = { 2, 1, 4, 4, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+            1, 1, 9, 5, 5, 1, 1, 1 };
 
     public List<MasterStock> parse(byte[] content, Market market) {
         String text = new String(content, CP949);
@@ -23,7 +25,8 @@ public class KisMasterParser {
         int suffixLength = market == Market.KOSPI ? 228 : 222;
         int[] widths = market == Market.KOSPI ? KOSPI_WIDTHS : KOSDAQ_WIDTHS;
         for (String rawLine : text.split("\\R")) {
-            if (rawLine.isBlank()) continue;
+            if (rawLine.isBlank())
+                continue;
             if (rawLine.length() <= suffixLength + 21) {
                 throw invalid("KIS master line is shorter than expected for " + market);
             }
@@ -44,7 +47,8 @@ public class KisMasterParser {
     }
 
     private MarketType marketType(String groupCode, String etpCode) {
-        if ("3".equals(etpCode) || "4".equals(etpCode)) return MarketType.ETN;
+        if ("3".equals(etpCode) || "4".equals(etpCode))
+            return MarketType.ETN;
         if ("EF".equals(groupCode) || "FE".equals(groupCode) || "1".equals(etpCode) || "2".equals(etpCode)) {
             return MarketType.ETF;
         }
@@ -53,9 +57,11 @@ public class KisMasterParser {
 
     private String field(String suffix, int[] widths, int index) {
         int start = 0;
-        for (int i = 0; i < index; i++) start += widths[i];
+        for (int i = 0; i < index; i++)
+            start += widths[i];
         int end = start + widths[index];
-        if (end > suffix.length()) throw invalid("KIS master suffix format changed");
+        if (end > suffix.length())
+            throw invalid("KIS master suffix format changed");
         return suffix.substring(start, end).trim();
     }
 
@@ -63,4 +69,3 @@ public class KisMasterParser {
         return new ApplicationException(ErrorCode.STOCK_MASTER_SYNC_FAILED, HttpStatus.BAD_GATEWAY, message);
     }
 }
-

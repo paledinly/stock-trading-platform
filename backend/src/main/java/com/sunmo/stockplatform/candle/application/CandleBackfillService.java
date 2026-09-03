@@ -26,28 +26,36 @@ public class CandleBackfillService {
     private final Map<String, Instant> lastAttempt = new ConcurrentHashMap<>();
 
     public CandleBackfillService(KisMinuteCandleClient client, StockCandleRepository repository,
-                                 CandleBackfillProperties properties, RealtimeDiagnostics diagnostics) {
-        this.client = client; this.repository = repository; this.properties = properties; this.diagnostics = diagnostics;
+            CandleBackfillProperties properties, RealtimeDiagnostics diagnostics) {
+        this.client = client;
+        this.repository = repository;
+        this.properties = properties;
+        this.diagnostics = diagnostics;
     }
 
     @Transactional
     public int backfillToday(Stock stock, List<Instant> gaps, Instant now) {
-        if (!properties.enabled() || gaps.isEmpty() || throttled(stock.getStockCode(), now)) return 0;
+        if (!properties.enabled() || gaps.isEmpty() || throttled(stock.getStockCode(), now))
+            return 0;
         lastAttempt.put(stock.getStockCode(), now);
         diagnostics.backfillStarted(stock.getStockCode(), gaps.size());
         try {
             Map<Instant, MinuteCandle> minutes = fetchPages(stock.getStockCode(), gaps);
             int saved = 0;
             for (FiveMinuteBackfill candle : aggregate(minutes.values())) {
-                if (!gaps.contains(candle.startTime())) continue;
-                StockCandle entity = repository.findByStockIdAndTimeframeAndStartTime(stock.getId(), "5M", candle.startTime())
+                if (!gaps.contains(candle.startTime()))
+                    continue;
+                StockCandle entity = repository
+                        .findByStockIdAndTimeframeAndStartTime(stock.getId(), "5M", candle.startTime())
                         .orElseGet(() -> new StockCandle(stock, candle.startTime(), candle.open(), candle.high(),
                                 candle.low(), candle.close(), candle.volume(), candle.tradingValue(), true, 0,
                                 CandleSource.BACKFILL));
-                if (entity.getSource() == CandleSource.REALTIME && entity.isFinalCandle()) continue;
+                if (entity.getSource() == CandleSource.REALTIME && entity.isFinalCandle())
+                    continue;
                 entity.revise(candle.open(), candle.high(), candle.low(), candle.close(), candle.volume(),
                         candle.tradingValue(), true, 0, CandleSource.BACKFILL);
-                repository.save(entity); saved++;
+                repository.save(entity);
+                saved++;
             }
             diagnostics.backfillSucceeded(stock.getStockCode(), gaps.size(), saved);
             return saved;
@@ -69,10 +77,12 @@ public class CandleBackfillService {
         Map<Instant, MinuteCandle> result = new TreeMap<>();
         for (int request = 0; request < properties.maxRequestsPerQuery(); request++) {
             List<MinuteCandle> page = client.fetch(code, cursor);
-            if (page.isEmpty()) break;
+            if (page.isEmpty())
+                break;
             page.forEach(candle -> result.put(candle.startTime(), candle));
             Instant oldest = page.stream().map(MinuteCandle::startTime).min(Comparator.naturalOrder()).orElseThrow();
-            if (!oldest.isAfter(earliest)) break;
+            if (!oldest.isAfter(earliest))
+                break;
             cursor = oldest.atZone(SEOUL).toLocalTime().minusMinutes(1);
         }
         return result;
@@ -95,23 +105,28 @@ public class CandleBackfillService {
             BigDecimal low = rows.stream().map(MinuteCandle::low).min(Comparator.naturalOrder()).orElseThrow();
             long volume = rows.stream().mapToLong(MinuteCandle::volume).sum();
             BigDecimal lastCumulative = rows.getLast().cumulativeTradingValue();
-            boolean openingBucket=entry.getKey().atZone(SEOUL).toLocalTime().equals(LocalTime.of(9,0));
-            BigDecimal value = lastCumulative != null && priorCumulative != null && lastCumulative.compareTo(priorCumulative) >= 0
-                    ? lastCumulative.subtract(priorCumulative)
-                    : openingBucket && lastCumulative != null ? lastCumulative
-                    : rows.stream().map(row -> row.close().multiply(BigDecimal.valueOf(row.volume())))
-                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+            boolean openingBucket = entry.getKey().atZone(SEOUL).toLocalTime().equals(LocalTime.of(9, 0));
+            BigDecimal value = lastCumulative != null && priorCumulative != null
+                    && lastCumulative.compareTo(priorCumulative) >= 0
+                            ? lastCumulative.subtract(priorCumulative)
+                            : openingBucket && lastCumulative != null ? lastCumulative
+                                    : rows.stream().map(row -> row.close().multiply(BigDecimal.valueOf(row.volume())))
+                                            .reduce(BigDecimal.ZERO, BigDecimal::add);
             result.add(new FiveMinuteBackfill(entry.getKey(), open, high, low, close, volume, value));
-            if (lastCumulative != null) priorCumulative = lastCumulative;
+            if (lastCumulative != null)
+                priorCumulative = lastCumulative;
         }
         return result;
     }
 
     private String rootMessage(Throwable error) {
-        Throwable current = error; while (current.getCause() != null) current = current.getCause();
+        Throwable current = error;
+        while (current.getCause() != null)
+            current = current.getCause();
         return current.getMessage() == null ? current.getClass().getSimpleName() : current.getMessage();
     }
 
     public record FiveMinuteBackfill(Instant startTime, BigDecimal open, BigDecimal high, BigDecimal low,
-                                     BigDecimal close, long volume, BigDecimal tradingValue) {}
+            BigDecimal close, long volume, BigDecimal tradingValue) {
+    }
 }

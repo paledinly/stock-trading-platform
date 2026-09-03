@@ -9,10 +9,26 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 @Component
-@ConditionalOnProperty(prefix="kis.master",name="sync-on-startup",havingValue="true")
+@ConditionalOnProperty(prefix = "kis.master", name = "sync-on-startup", havingValue = "true")
 public class StockMasterBootstrap implements ApplicationRunner {
-    private static final Logger log=LoggerFactory.getLogger(StockMasterBootstrap.class);
-    private final StockRepository repository; private final StockMasterSyncService service;
-    public StockMasterBootstrap(StockRepository repository,StockMasterSyncService service){this.repository=repository;this.service=service;}
-    @Override public void run(ApplicationArguments args){if(repository.count()>0)return;try{int count=service.synchronizeAll();log.info("Initialized {} stocks from KIS master files",count);}catch(RuntimeException exception){log.warn("Stock master initialization failed; POST /api/v1/stocks/master/sync to retry",exception);}}
+    private static final Logger log = LoggerFactory.getLogger(StockMasterBootstrap.class);
+    private final StockRepository repository;
+    private final StockMasterSyncService service;
+
+    public StockMasterBootstrap(StockRepository repository, StockMasterSyncService service) {
+        this.repository = repository;
+        this.service = service;
+    }
+
+    @Override
+    public void run(ApplicationArguments args) {
+        if (repository.count() > 0)
+            return;
+        try {
+            int count = service.synchronizeAll();
+            log.info("Initialized {} stocks from KIS master files", count);
+        } catch (RuntimeException exception) {
+            log.warn("Stock master initialization failed; POST /api/v1/stocks/master/sync to retry", exception);
+        }
+    }
 }

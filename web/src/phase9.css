@@ -1,0 +1,22 @@
+.backtestLaunch{position:fixed;z-index:25;right:24px;bottom:232px;padding:10px 16px;border:1px solid #683f4b;border-radius:8px;background:#2e1921;color:#ffb5c7;box-shadow:0 10px 28px #0008;cursor:pointer}
+.backtestPage{min-height:100vh;padding-bottom:60px;background:#090e17;color:#e9eef8}
+.backtestPage>header{position:relative;width:min(1240px,calc(100% - 40px));min-height:230px;margin:auto;display:flex;align-items:center;justify-content:space-between}
+.backtestPage>header>button{position:absolute;top:22px;border:0;background:transparent;color:#d4879b;cursor:pointer}
+.backtestPage header p{color:#e08099;font-size:11px;font-weight:700;letter-spacing:.14em}.backtestPage header h1{margin:7px 0;font-size:48px}
+.backtestPage header>div>span,.backtestPage header aside span,.backtestPage small{color:#8792a3}
+.backtestPage header aside{display:flex;flex-direction:column;min-width:190px;padding:18px;border:1px solid #49303b;border-radius:8px;background:#1d141a}.backtestPage header aside b{font-size:34px}
+.backtestPage main{width:min(1240px,calc(100% - 40px));margin:auto}
+.backtestPage form{display:grid;grid-template-columns:150px 1fr 1fr 1fr 120px;gap:10px;padding:16px;border:1px solid #3a2c37;border-radius:8px;background:#0f1521}
+.backtestPage form label{display:flex;flex-direction:column;gap:6px;color:#8792a3;font-size:11px}.backtestPage input,.backtestPage select{padding:10px;border:1px solid #463544;border-radius:6px;background:#151d2b;color:#e9eef8}
+.backtestPage form button{border:1px solid #7a4658;border-radius:6px;background:#572639;color:#ffd4de;padding:10px;cursor:pointer}
+.backtestSummary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0}.backtestSummary article,.summaryPanel,.virtualPanel{padding:18px;border:1px solid #3a2c37;border-radius:8px;background:#0e1521}
+.backtestSummary b{display:block;margin-top:5px;font-size:24px}.backtestGrid{display:grid;grid-template-columns:.95fr 1.05fr;gap:14px}.backtestGrid h2{margin:0 0 14px}
+.summaryPanel article,.virtualPanel article{margin-bottom:10px;padding:14px;border:1px solid #263344;border-radius:8px;background:#111a28}.summaryPanel article>span,.virtualPanel article>div{display:flex;justify-content:space-between;gap:12px}.virtualPanel article>div>span{display:flex;min-width:0;flex-direction:column;gap:3px}.summaryPanel b,.virtualPanel b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.summaryPanel dl,.virtualPanel dl{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0 0}.summaryPanel dl span,.virtualPanel dl span{padding:9px;border-radius:6px;background:#151f2f}
+.summaryPanel dt,.virtualPanel dt{color:#788697;font-size:10px}.summaryPanel dd,.virtualPanel dd{margin:4px 0 0;font-weight:700}.virtualPanel strong{white-space:nowrap}.gain{color:#ff7486}.loss{color:#61a7ff}
+.backtestEmpty{display:grid;place-items:center;min-height:230px;text-align:center;border:1px dashed #49303b;border-radius:8px;color:#8792a3}
+.workspaceNav{position:fixed;z-index:40;right:24px;bottom:24px;display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.workspaceNav .backtestLaunch,.workspaceNav .wideLaunch,.workspaceNav .analyticsLaunch,.workspaceNav .scannerLaunch{position:static;right:auto;bottom:auto;box-shadow:0 10px 28px #0008}
+.workspaceNav .phaseNav{position:static;right:auto;bottom:auto}
+.workspaceNav>button.active{outline:2px solid #dbe7ff;outline-offset:2px}
+@media(max-width:1050px){.backtestPage header aside{display:none}.backtestPage form,.backtestGrid{grid-template-columns:1fr}.backtestSummary{grid-template-columns:1fr 1fr}.backtestLaunch{right:12px;bottom:222px}}@media(max-width:680px){.backtestPage header h1{font-size:34px}.backtestSummary,.summaryPanel dl,.virtualPanel dl{grid-template-columns:1fr}}

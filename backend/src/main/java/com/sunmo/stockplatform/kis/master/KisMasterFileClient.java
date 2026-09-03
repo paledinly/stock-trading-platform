@@ -30,7 +30,8 @@ public class KisMasterFileClient {
         String expected = market == Market.KOSPI ? "kospi_code.mst" : "kosdaq_code.mst";
         try {
             byte[] zip = restClient.get().uri(uri).retrieve().body(byte[].class);
-            if (zip == null || zip.length == 0) throw failure("KIS master download returned empty data", null);
+            if (zip == null || zip.length == 0)
+                throw failure("KIS master download returned empty data", null);
             return extract(zip, expected);
         } catch (RestClientException exception) {
             throw failure("KIS master download failed for " + market, exception);
@@ -57,4 +58,3 @@ public class KisMasterFileClient {
         return new ApplicationException(ErrorCode.STOCK_MASTER_SYNC_FAILED, HttpStatus.BAD_GATEWAY, message, cause);
     }
 }
-
