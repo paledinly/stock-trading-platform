@@ -19,6 +19,15 @@ public final class BacktestDtos {
                         List<VirtualDetection> detections) {
         }
 
+        public record BacktestableStock(
+                        String stockCode,
+                        String stockName,
+                        String market,
+                        long candleCount,
+                        Instant firstCandleAt,
+                        Instant lastCandleAt) {
+        }
+
         public record SettingSummary(
                         Long settingId,
                         String settingName,

@@ -52,8 +52,13 @@ public class StockCandle {
 
     public StockCandle(Stock stock, Instant start, BigDecimal open, BigDecimal high, BigDecimal low, BigDecimal close,
             long volume, BigDecimal value, boolean done, int revision, CandleSource source) {
+        this(stock, "5M", start, open, high, low, close, volume, value, done, revision, source);
+    }
+
+    public StockCandle(Stock stock, String timeframe, Instant start, BigDecimal open, BigDecimal high, BigDecimal low,
+            BigDecimal close, long volume, BigDecimal value, boolean done, int revision, CandleSource source) {
         this.stock = stock;
-        this.timeframe = "5M";
+        this.timeframe = timeframe;
         this.startTime = start;
         this.source = source;
         this.createdAt = Instant.now();
@@ -87,6 +92,10 @@ public class StockCandle {
 
     public Instant getStartTime() {
         return startTime;
+    }
+
+    public String getTimeframe() {
+        return timeframe;
     }
 
     public BigDecimal getOpen() {

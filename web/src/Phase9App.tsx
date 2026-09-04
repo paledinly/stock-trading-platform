@@ -5,12 +5,14 @@ import { JournalPage } from './Phase4App'
 import { ScannerPage } from './Phase6App'
 import { AnalyticsPage } from './Phase7App'
 import { MarketWidePage } from './Phase8App'
+import { ClosingRecommendationPage } from './ClosingRecommendationApp'
 import './phase9.css'
 
 type Setting = { id: number; name: string }
 type Summary = { settingId: number; settingName: string; scannerType: string; detections: number; winRate5m: number | null; winRate30m: number | null; winRate60m: number | null; averageReturn5m: number | null; averageReturn30m: number | null; averageReturn60m: number | null; averageMaxReturn: number | null; averageMaxDrawdown: number | null }
 type VirtualDetection = { settingId: number; settingName: string; scannerType: string; detectedAt: string; detectedPrice: number; changeRate: number | null; volumeRatio: number | null; score: number | null; reason: string; performance: { return5m: number | null; return30m: number | null; return60m: number | null; maxReturn: number | null; maxDrawdown: number | null; status: string } }
 type Backtest = { stockCode: string; stockName: string; from: string; to: string; evaluatedCandles: number; virtualDetections: number; summaries: Summary[]; detections: VirtualDetection[] }
+type BacktestableStock = { stockCode: string; stockName: string; market: string; candleCount: number; firstCandleAt: string; lastCandleAt: string }
 
 async function get<T>(url: string): Promise<T> {
   const response = await fetch(url)
@@ -67,6 +69,7 @@ export function BacktestPage({ back }: { back: () => void }) {
   const [settingId, setSettingId] = useState('')
   const [params, setParams] = useState({ stockCode, from, to, settingId })
   const settings = useQuery({ queryKey: ['scanner-settings'], queryFn: () => get<Setting[]>('/api/v1/scanner-settings') })
+  const backtestStocks = useQuery({ queryKey: ['backtest-stocks'], queryFn: () => get<BacktestableStock[]>('/api/v1/backtests/stocks') })
   const backtest = useQuery({
     queryKey: ['backtest', params],
     queryFn: () => get<Backtest>(`/api/v1/backtests/run?stockCode=${params.stockCode}&from=${encodeURIComponent(new Date(params.from + 'T00:00:00+09:00').toISOString())}&to=${encodeURIComponent(new Date(params.to + 'T23:59:59+09:00').toISOString())}${params.settingId ? `&settingId=${params.settingId}` : ''}&limit=80`),
@@ -79,6 +82,12 @@ export function BacktestPage({ back }: { back: () => void }) {
   }
 
   const data = backtest.data
+  const stockKeyword = stockCode.trim().toLowerCase()
+  const selectableStocks = (backtestStocks.data ?? [])
+    .filter(item => !stockKeyword
+      || item.stockCode.includes(stockKeyword)
+      || item.stockName.toLowerCase().includes(stockKeyword))
+    .slice(0, 12)
   return (
     <div className="backtestPage">
       <header>
@@ -92,12 +101,41 @@ export function BacktestPage({ back }: { back: () => void }) {
       </header>
       <main>
         <form onSubmit={submit}>
-          <label>종목코드<input value={stockCode} onChange={event => setStockCode(event.target.value)} /></label>
+          <label>종목코드<input list="backtestable-stocks" value={stockCode} onChange={event => setStockCode(event.target.value)} />
+            <datalist id="backtestable-stocks">
+              {backtestStocks.data?.map(item => <option key={item.stockCode} value={item.stockCode}>{item.stockName}</option>)}
+            </datalist>
+          </label>
           <label>시작일<input type="date" value={from} onChange={event => setFrom(event.target.value)} /></label>
           <label>종료일<input type="date" value={to} onChange={event => setTo(event.target.value)} /></label>
           <label>탐지 설정<select value={settingId} onChange={event => setSettingId(event.target.value)}><option value="">전체 설정</option>{settings.data?.map(item => <option key={item.id} value={item.id}>{settingNameLabel(item.name)}</option>)}</select></label>
           <button>재생</button>
         </form>
+        <section className="backtestStockPicker">
+          <div>
+            <span>
+              <small>조회 가능한 종목</small>
+              <b>{backtestStocks.data?.length ?? 0}개</b>
+            </span>
+            <small>저장된 5분봉이 있는 종목만 표시됩니다.</small>
+          </div>
+          {backtestStocks.isLoading && <p>종목 목록을 불러오는 중...</p>}
+          {backtestStocks.error && <p>{backtestStocks.error.message}</p>}
+          {!backtestStocks.isLoading && selectableStocks.length === 0 && <p>입력한 조건과 맞는 저장 종목이 없습니다.</p>}
+          <div>
+            {selectableStocks.map(item => (
+              <button
+                type="button"
+                key={item.stockCode}
+                className={stockCode.trim() === item.stockCode ? 'active' : undefined}
+                onClick={() => setStockCode(item.stockCode)}
+              >
+                <b>{item.stockName}</b>
+                <small>{item.stockCode} · {item.market} · {item.candleCount.toLocaleString('ko-KR')}봉</small>
+              </button>
+            ))}
+          </div>
+        </section>
         <section className="menuGuide">
           <h2>사용 안내</h2>
           <p>종목코드와 기간을 입력하고 재생을 누르면 저장된 5분봉으로 탐지 조건을 다시 평가합니다. 설정별 전략 통계에서 승률과 평균 수익률을 보고, 가상 탐지 목록에서 개별 신호 결과를 확인합니다.</p>
@@ -128,15 +166,30 @@ export function BacktestPage({ back }: { back: () => void }) {
 }
 
 export function Phase9App() {
-  const [page, setPage] = useState<'dashboard' | 'journal' | 'scanner' | 'analytics' | 'wide' | 'backtest'>('dashboard')
+  const [page, setPage] = useState<'dashboard' | 'journal' | 'scanner' | 'analytics' | 'wide' | 'backtest' | 'closing'>('dashboard')
+  const [mode, setMode] = useState<'beginner' | 'advanced'>('beginner')
   const goDashboard = () => setPage('dashboard')
+  const advanced = mode === 'advanced'
+
+  function changeMode(value: 'beginner' | 'advanced') {
+    setMode(value)
+    if (value === 'beginner' && !['dashboard', 'journal', 'closing'].includes(page)) {
+      setPage('closing')
+    }
+  }
+
   return (
     <>
       <nav className="workspaceNav" aria-label="주요 메뉴">
-        <button className={`backtestLaunch ${page === 'backtest' ? 'active' : ''}`} onClick={() => setPage('backtest')}>백테스트</button>
-        <button className={`wideLaunch ${page === 'wide' ? 'active' : ''}`} onClick={() => setPage('wide')}>시장 전체</button>
-        <button className={`analyticsLaunch ${page === 'analytics' ? 'active' : ''}`} onClick={() => setPage('analytics')}>성과 분석</button>
-        <button className={`scannerLaunch ${page === 'scanner' ? 'active' : ''}`} onClick={() => setPage('scanner')}>실시간 레이더</button>
+        <span className="modeSwitch" aria-label="사용 모드">
+          <button className={mode === 'beginner' ? 'active' : ''} onClick={() => changeMode('beginner')}>초보자</button>
+          <button className={mode === 'advanced' ? 'active' : ''} onClick={() => changeMode('advanced')}>고급</button>
+        </span>
+        <button className={`closingLaunch ${page === 'closing' ? 'active' : ''}`} onClick={() => setPage('closing')}>마감 추천</button>
+        {advanced && <button className={`backtestLaunch ${page === 'backtest' ? 'active' : ''}`} onClick={() => setPage('backtest')}>백테스트</button>}
+        {advanced && <button className={`wideLaunch ${page === 'wide' ? 'active' : ''}`} onClick={() => setPage('wide')}>시장 전체</button>}
+        {advanced && <button className={`analyticsLaunch ${page === 'analytics' ? 'active' : ''}`} onClick={() => setPage('analytics')}>성과 분석</button>}
+        {advanced && <button className={`scannerLaunch ${page === 'scanner' ? 'active' : ''}`} onClick={() => setPage('scanner')}>실시간 레이더</button>}
         <span className="phaseNav">
           <button className={page === 'dashboard' ? 'active' : ''} onClick={() => setPage('dashboard')}>대시보드</button>
           <button className={page === 'journal' ? 'active' : ''} onClick={() => setPage('journal')}>투자기록</button>
@@ -148,6 +201,7 @@ export function Phase9App() {
       {page === 'analytics' && <AnalyticsPage back={goDashboard} />}
       {page === 'wide' && <MarketWidePage back={goDashboard} />}
       {page === 'backtest' && <BacktestPage back={goDashboard} />}
+      {page === 'closing' && <ClosingRecommendationPage back={goDashboard} advanced={advanced} />}
     </>
   )
 }

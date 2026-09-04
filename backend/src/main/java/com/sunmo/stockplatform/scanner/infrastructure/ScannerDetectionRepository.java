@@ -4,6 +4,7 @@ import com.sunmo.stockplatform.scanner.domain.*;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.*;
 
 public interface ScannerDetectionRepository extends JpaRepository<ScannerDetection, Long> {
@@ -19,4 +20,7 @@ public interface ScannerDetectionRepository extends JpaRepository<ScannerDetecti
     Optional<ScannerDetection> findById(Long id);
 
     List<ScannerDetection> findByDetectedAtBetweenOrderByDetectedAtAsc(Instant from, Instant to);
+
+    List<ScannerDetection> findBySessionDateAndDetectedAtGreaterThanEqualOrderByDetectedAtDesc(
+            LocalDate sessionDate, Instant from);
 }
