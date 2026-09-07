@@ -9,13 +9,17 @@ import java.util.function.BiConsumer;
 @Component
 public class RealtimeSubscriptionRegistry {
     public enum Source {
-        QUOTE, WATCHLIST, MANUAL
+        QUOTE, WATCHLIST, MANUAL, CORE, PRECISION
+    }
+
+    public record Acknowledgement(String stockCode, boolean subscribing, boolean success, String message) {
     }
 
     private final int limit;
     private final Map<String, Set<Source>> entries = new ConcurrentHashMap<>();
     private volatile BiConsumer<String, Boolean> listener = (code, subscribe) -> {
     };
+    private final List<java.util.function.Consumer<Acknowledgement>> acknowledgementListeners = new CopyOnWriteArrayList<>();
 
     public RealtimeSubscriptionRegistry(RealtimeMarketProperties properties) {
         this.limit = properties.subscriptionLimit();
@@ -68,5 +72,14 @@ public class RealtimeSubscriptionRegistry {
 
     public void onChanged(BiConsumer<String, Boolean> listener) {
         this.listener = listener;
+    }
+
+    public void onAcknowledged(java.util.function.Consumer<Acknowledgement> listener) {
+        acknowledgementListeners.add(listener);
+    }
+
+    public void acknowledge(String stockCode, boolean subscribing, boolean success, String message) {
+        Acknowledgement acknowledgement = new Acknowledgement(stockCode, subscribing, success, message);
+        acknowledgementListeners.forEach(listener -> listener.accept(acknowledgement));
     }
 }

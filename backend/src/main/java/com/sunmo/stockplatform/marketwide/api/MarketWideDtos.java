@@ -3,6 +3,7 @@ package com.sunmo.stockplatform.marketwide.api;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 public final class MarketWideDtos {
         private MarketWideDtos() {
@@ -14,9 +15,23 @@ public final class MarketWideDtos {
                         int requestedLimit,
                         int scannedCount,
                         int candidateCount,
+                        boolean fallback,
+                        List<RankingSourceResponse> rankingSources,
+                        PrecisionAllocationResponse precisionAllocation,
                         UniverseResponse universe,
                         RegimeResponse regime,
                         List<CandidateResponse> candidates) {
+        }
+
+        public record RankingSourceResponse(String type, boolean success, int candidateCount, String error) {
+        }
+
+        public record PrecisionAllocationResponse(String state, Instant evaluatedAt, int capacity, int activeCount,
+                        int remainingSlots, int reservedSlots, List<PrecisionAllocationItemResponse> allocations) {
+        }
+
+        public record PrecisionAllocationItemResponse(String stockCode, BigDecimal score, Instant addedAt,
+                        Instant lastSeenAt, boolean awaitingAcknowledgement) {
         }
 
         public record UniverseResponse(
@@ -45,7 +60,35 @@ public final class MarketWideDtos {
                         BigDecimal accumulatedTradingValue,
                         BigDecimal broadScore,
                         String reason,
+                        List<String> rankingSources,
+                        Map<String, Integer> rankingRanks,
+                        Long snapshotId,
+                        String dataQuality,
                         boolean precisionEligible,
                         Instant quotedAt) {
+        }
+
+        public record SnapshotResponse(
+                        Long id,
+                        java.time.LocalDate sessionDate,
+                        Instant capturedAt,
+                        String stockCode,
+                        String stockName,
+                        String market,
+                        BigDecimal currentPrice,
+                        BigDecimal changeRate,
+                        Long accumulatedVolume,
+                        BigDecimal accumulatedTradingValue,
+                        BigDecimal dayOpen,
+                        BigDecimal dayHigh,
+                        BigDecimal dayLow,
+                        BigDecimal tradeStrength,
+                        BigDecimal broadScore,
+                        String rankingSources,
+                        String dataQuality,
+                        String collectionStatus,
+                        String exclusionReason,
+                        Instant quotedAt,
+                        String sourceVersion) {
         }
 }

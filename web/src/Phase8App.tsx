@@ -23,6 +23,16 @@ type Scan = {
   requestedLimit: number;
   scannedCount: number;
   candidateCount: number;
+  fallback: boolean;
+  rankingSources: Array<{ type: string; success: boolean; candidateCount: number; error?: string }>;
+  precisionAllocation: {
+    state: string;
+    capacity: number;
+    activeCount: number;
+    remainingSlots: number;
+    reservedSlots: number;
+    allocations: Array<{ stockCode: string; score: number; awaitingAcknowledgement: boolean }>;
+  };
   universe: {
     activeStocks: number;
     tradableStocks: number;
@@ -38,6 +48,22 @@ type Scan = {
     averageTradingValue: number | null;
   };
   candidates: Candidate[];
+};
+type MarketWideStatus = {
+  running: boolean;
+  lastStartedAt: string | null;
+  lastCompletedAt: string | null;
+  lastScheduledBucket: string | null;
+  completedRuns: number;
+  failedRuns: number;
+  skippedRuns: number;
+  lastSkipReason: string | null;
+  lastError: string | null;
+  lastDurationMillis: number;
+  lastScannedCount: number;
+  lastCandidateCount: number;
+  lastFallback: boolean;
+  rankingSources: Array<{ type: string; success: boolean; candidateCount: number; error?: string }>;
 };
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
@@ -89,6 +115,11 @@ export function MarketWidePage({ back }: { back: () => void }) {
       api<Scan>(
         `/api/v1/market-wide/scan?limit=${params.limit}&candidates=${params.candidates}&includeEtf=${params.includeEtf}${params.market ? `&market=${params.market}` : ""}`,
       ),
+  });
+  const status = useQuery({
+    queryKey: ["market-wide-status"],
+    queryFn: () => api<MarketWideStatus>("/api/v1/market-wide/status"),
+    refetchInterval: 30000,
   });
   const subscribe = useMutation({
     mutationFn: (stockCode: string) =>
@@ -184,6 +215,10 @@ export function MarketWidePage({ back }: { back: () => void }) {
             <b>{data?.universe.realtimeSubscriptionRemaining ?? "--"}</b>
           </article>
           <article>
+            <small>자동 정밀 구독</small>
+            <b>{data ? `${data.precisionAllocation.activeCount}/${data.precisionAllocation.capacity}` : "--"}</b>
+          </article>
+          <article>
             <small>상승 비율</small>
             <b>{pct(data?.regime.advanceRate)}</b>
           </article>
@@ -192,6 +227,13 @@ export function MarketWidePage({ back }: { back: () => void }) {
             <b>{pct(data?.regime.averageChangeRate)}</b>
           </article>
         </section>
+        <section className="wideSummary">
+          <article><small>자동 스캔</small><b>{status.data?.running ? "실행 중" : "대기"}</b></article>
+          <article><small>완료/실패</small><b>{status.data ? `${status.data.completedRuns}/${status.data.failedRuns}` : "--"}</b></article>
+          <article><small>최근 후보</small><b>{status.data?.lastCandidateCount ?? "--"}</b></article>
+          <article><small>최근 소요</small><b>{status.data ? `${status.data.lastDurationMillis}ms` : "--"}</b></article>
+        </section>
+        {status.data?.lastError && <div className="wideEmpty">최근 자동 스캔 오류: {status.data.lastError}</div>}
         <section className="wideGrid">
           <div className="candidatePanel">
             <div className="wideTitle">
@@ -248,6 +290,13 @@ export function MarketWidePage({ back }: { back: () => void }) {
             ))}
           </div>
           <aside className="regimePanel">
+            <h2>정밀 구독</h2>
+            <p>{data?.precisionAllocation.state === "ACTIVE" ? "자동 할당" : data?.precisionAllocation.state === "FROZEN" ? "후보 고정" : "비활성"}</p>
+            <dl>
+              <span><dt>활성/한도</dt><dd>{data ? `${data.precisionAllocation.activeCount}/${data.precisionAllocation.capacity}` : "--"}</dd></span>
+              <span><dt>예약 슬롯</dt><dd>{data?.precisionAllocation.reservedSlots ?? "--"}</dd></span>
+              <span><dt>승인 대기</dt><dd>{data?.precisionAllocation.allocations.filter(item => item.awaitingAcknowledgement).length ?? "--"}</dd></span>
+            </dl>
             <h2>시장 상태</h2>
             <p>{regimeLabel(data?.regime.state)}</p>
             <dl>

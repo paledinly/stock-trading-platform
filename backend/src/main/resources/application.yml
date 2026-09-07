@@ -60,6 +60,10 @@ resilience4j:
         limit-for-period: ${KIS_MINUTE_RATE_LIMIT:5}
         limit-refresh-period: 1s
         timeout-duration: 2s
+      kisRanking:
+        limit-for-period: ${KIS_RANKING_RATE_LIMIT:5}
+        limit-refresh-period: 1s
+        timeout-duration: 2s
   circuitbreaker:
     instances:
       kisAuth:
@@ -77,8 +81,33 @@ resilience4j:
         minimum-number-of-calls: 5
         failure-rate-threshold: 50
         wait-duration-in-open-state: 30s
+      kisRanking:
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
 
 market:
+  wide:
+    schedule:
+      enabled: ${MARKET_WIDE_SCHEDULE_ENABLED:false}
+      poll-interval: ${MARKET_WIDE_POLL_INTERVAL:30s}
+      scan-limit: ${MARKET_WIDE_SCAN_LIMIT:120}
+      candidate-limit: ${MARKET_WIDE_CANDIDATE_LIMIT:30}
+      include-etf: ${MARKET_WIDE_INCLUDE_ETF:false}
+      open: ${MARKET_WIDE_OPEN:09:00}
+      close: ${MARKET_WIDE_CLOSE:15:20}
+      late-start: ${MARKET_WIDE_LATE_START:14:00}
+      normal-interval: ${MARKET_WIDE_NORMAL_INTERVAL:5m}
+      late-interval: ${MARKET_WIDE_LATE_INTERVAL:2m}
+      holidays: ${MARKET_WIDE_HOLIDAYS:}
+  precision:
+    enabled: ${MARKET_PRECISION_ENABLED:false}
+    max-subscriptions: ${MARKET_PRECISION_MAX:28}
+    reserve: ${MARKET_SUBSCRIPTION_RESERVE:3}
+    min-hold: ${MARKET_PRECISION_MIN_HOLD:15m}
+    replace-margin: ${MARKET_PRECISION_REPLACE_MARGIN:10}
+    freeze-at: ${MARKET_PRECISION_FREEZE_AT:14:50}
   performance:
     flush-interval: ${MARKET_PERFORMANCE_FLUSH_INTERVAL:1s}
   backfill:
@@ -92,3 +121,7 @@ market:
     quote-ttl: ${MARKET_QUOTE_TTL:16h}
     replay-size: ${MARKET_SSE_REPLAY_SIZE:1000}
     subscription-limit: ${KIS_WEBSOCKET_SUBSCRIPTION_LIMIT:41}
+
+watchlist:
+  initial:
+    enabled: ${WATCHLIST_INITIAL_ENABLED:true}

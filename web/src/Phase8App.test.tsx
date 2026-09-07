@@ -7,13 +7,33 @@ beforeEach(() => {
     Promise.resolve({
       ok: true,
       json: async () =>
-        url.includes("market-wide")
+        url.includes("market-wide/status")
+          ? {
+              running: false,
+              completedRuns: 2,
+              failedRuns: 0,
+              skippedRuns: 1,
+              lastDurationMillis: 1200,
+              lastCandidateCount: 12,
+              rankingSources: [],
+            }
+          : url.includes("market-wide")
           ? {
               scannedAt: "2026-09-03T02:00:00Z",
               market: "ALL",
               requestedLimit: 40,
               scannedCount: 0,
               candidateCount: 0,
+              fallback: false,
+              rankingSources: [],
+              precisionAllocation: {
+                state: "DISABLED",
+                capacity: 28,
+                activeCount: 0,
+                remainingSlots: 41,
+                reservedSlots: 3,
+                allocations: [],
+              },
               universe: {
                 activeStocks: 0,
                 tradableStocks: 0,

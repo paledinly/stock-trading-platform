@@ -221,6 +221,7 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
                 diagnostics.subscriptionAcknowledged(code, success, resultMessage);
             else
                 diagnostics.subscriptionRemoved(code, success, resultMessage);
+            subscriptions.acknowledge(code, subscribing, success, resultMessage);
             if (success)
                 log.info("KIS H0STCNT0 subscription accepted for {}: {}", code, resultMessage);
             else

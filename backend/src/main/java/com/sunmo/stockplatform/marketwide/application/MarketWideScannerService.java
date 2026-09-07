@@ -4,53 +4,89 @@ import com.sunmo.stockplatform.market.application.RealtimeSubscriptionRegistry;
 import com.sunmo.stockplatform.marketwide.api.MarketWideDtos.BroadScanResponse;
 import com.sunmo.stockplatform.marketwide.api.MarketWideDtos.CandidateResponse;
 import com.sunmo.stockplatform.marketwide.api.MarketWideDtos.RegimeResponse;
+import com.sunmo.stockplatform.marketwide.api.MarketWideDtos.RankingSourceResponse;
+import com.sunmo.stockplatform.marketwide.api.MarketWideDtos.PrecisionAllocationResponse;
+import com.sunmo.stockplatform.marketwide.api.MarketWideDtos.PrecisionAllocationItemResponse;
 import com.sunmo.stockplatform.marketwide.api.MarketWideDtos.UniverseResponse;
+import com.sunmo.stockplatform.marketwide.domain.BroadCandidate;
+import com.sunmo.stockplatform.marketwide.domain.MarketBroadSnapshot;
 import com.sunmo.stockplatform.quote.application.QuoteProvider;
 import com.sunmo.stockplatform.quote.domain.StockQuote;
 import com.sunmo.stockplatform.stock.domain.Market;
 import com.sunmo.stockplatform.stock.infrastructure.StockRepository;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.Comparator;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Objects;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class MarketWideScannerService {
     private final StockRepository stocks;
     private final QuoteProvider quotes;
     private final RealtimeSubscriptionRegistry subscriptions;
+    private final BroadCandidateCollector collector;
+    private final BroadSnapshotService broadSnapshots;
+    private final PrecisionSubscriptionAllocator precision;
 
     public MarketWideScannerService(StockRepository stocks, QuoteProvider quotes,
-            RealtimeSubscriptionRegistry subscriptions) {
+            RealtimeSubscriptionRegistry subscriptions, BroadCandidateCollector collector,
+            BroadSnapshotService broadSnapshots, PrecisionSubscriptionAllocator precision) {
         this.stocks = stocks;
         this.quotes = quotes;
         this.subscriptions = subscriptions;
+        this.collector = collector;
+        this.broadSnapshots = broadSnapshots;
+        this.precision = precision;
     }
 
     public BroadScanResponse scan(Market market, int limit, int candidates, boolean includeEtf) {
         int safeLimit = Math.min(Math.max(limit, 1), 120);
         int safeCandidates = Math.min(Math.max(candidates, 1), 30);
-        var universe = stocks.broadScanUniverse(market, includeEtf, PageRequest.of(0, safeLimit));
-        List<StockQuote> snapshots = universe.stream()
-                .map(this::quote)
-                .filter(Objects::nonNull)
+        BroadCandidateCollector.Result collected = collector.collect(market, safeLimit, includeEtf);
+        Instant scannedAt = Instant.now();
+        Map<String, BroadCandidate> byCode = collected.candidates().stream()
+                .limit(safeLimit)
+                .collect(Collectors.toMap(item -> item.stock().getStockCode(), item -> item,
+                        (left, right) -> left, LinkedHashMap::new));
+        List<QuoteAttempt> attempts = new ArrayList<>();
+        for (BroadCandidate broad : byCode.values())
+            attempts.add(quote(broad));
+        List<BroadSnapshotService.Capture> captures = attempts.stream()
+                .map(attempt -> new BroadSnapshotService.Capture(attempt.broad(), attempt.quote(),
+                        attempt.score(), attempt.error()))
                 .toList();
-        List<CandidateResponse> shortlisted = snapshots.stream()
-                .map(this::candidate)
+        Map<String, MarketBroadSnapshot> persisted = broadSnapshots.save(scannedAt, captures);
+        List<StockQuote> snapshots = attempts.stream().map(QuoteAttempt::quote).filter(java.util.Objects::nonNull)
+                .toList();
+        List<CandidateResponse> shortlisted = attempts.stream()
+                .filter(attempt -> attempt.quote() != null)
+                .map(attempt -> candidate(attempt, persisted.get(attempt.broad().stock().getStockCode())))
                 .sorted(Comparator.comparing(CandidateResponse::broadScore).reversed())
                 .limit(safeCandidates)
                 .toList();
+        PrecisionSubscriptionAllocator.Snapshot allocation = precision.reconcile(shortlisted.stream()
+                .map(candidate -> new PrecisionSubscriptionAllocator.Candidate(candidate.stockCode(),
+                        candidate.broadScore()))
+                .toList());
         return new BroadScanResponse(
-                Instant.now(),
+                scannedAt,
                 market == null ? "ALL" : market.name(),
                 safeLimit,
                 snapshots.size(),
                 shortlisted.size(),
+                collected.fallback(),
+                collected.sources().stream()
+                        .map(source -> new RankingSourceResponse(source.type().name(), source.success(),
+                                source.candidateCount(), source.error()))
+                        .toList(),
+                allocation(allocation),
                 new UniverseResponse(
                         stocks.countByActiveTrue(),
                         stocks.countByActiveTrueAndManagedFalseAndTradingHaltedFalse(),
@@ -61,19 +97,29 @@ public class MarketWideScannerService {
                 shortlisted);
     }
 
-    private StockQuote quote(com.sunmo.stockplatform.stock.domain.Stock stock) {
+    private PrecisionAllocationResponse allocation(PrecisionSubscriptionAllocator.Snapshot snapshot) {
+        return new PrecisionAllocationResponse(snapshot.state(), snapshot.evaluatedAt(), snapshot.capacity(),
+                snapshot.activeCount(), snapshot.remainingSlots(), snapshot.reservedSlots(),
+                snapshot.allocations().stream().map(item -> new PrecisionAllocationItemResponse(item.stockCode(),
+                        item.score(), item.addedAt(), item.lastSeenAt(), item.awaitingAcknowledgement())).toList());
+    }
+
+    private QuoteAttempt quote(BroadCandidate broad) {
         try {
-            return quotes.getQuote(stock);
-        } catch (RuntimeException ignored) {
-            return null;
+            StockQuote quote = quotes.getQuote(broad.stock());
+            return new QuoteAttempt(broad, quote, combinedScore(quote, broad), null);
+        } catch (RuntimeException error) {
+            return new QuoteAttempt(broad, null, rankingScore(broad), rootMessage(error));
         }
     }
 
-    private CandidateResponse candidate(StockQuote quote) {
-        BigDecimal score = score(quote);
-        String reason = quote.changeRate().compareTo(BigDecimal.ZERO) >= 0
-                ? "PRICE_STRENGTH"
-                : "LIQUIDITY_ONLY";
+    private CandidateResponse candidate(QuoteAttempt attempt, MarketBroadSnapshot snapshot) {
+        StockQuote quote = attempt.quote();
+        BroadCandidate broad = attempt.broad();
+        List<String> sources = broad.ranks().keySet().stream().map(Enum::name).sorted().toList();
+        String reason = sources.isEmpty() ? "FALLBACK_SAMPLE" : String.join("+", sources);
+        Map<String, Integer> ranks = broad.ranks().entrySet().stream()
+                .collect(Collectors.toMap(entry -> entry.getKey().name(), Map.Entry::getValue));
         return new CandidateResponse(
                 quote.stockCode(),
                 quote.stockName(),
@@ -82,10 +128,30 @@ public class MarketWideScannerService {
                 quote.changeRate(),
                 quote.accumulatedVolume(),
                 quote.accumulatedTradingValue(),
-                score,
+                attempt.score(),
                 reason,
+                sources,
+                ranks,
+                snapshot == null ? null : snapshot.getId(),
+                snapshot == null ? "INSUFFICIENT" : snapshot.getDataQuality().name(),
                 subscriptions.remaining() > 0 && !subscriptions.all().contains(quote.stockCode()),
                 quote.quotedAt());
+    }
+
+    private BigDecimal combinedScore(StockQuote quote, BroadCandidate broad) {
+        return score(quote).multiply(bd("0.65")).add(rankingScore(broad).multiply(bd("0.35")))
+                .setScale(3, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal rankingScore(BroadCandidate broad) {
+        return broad.rankingScore().divide(bd("17"), 6, RoundingMode.HALF_UP).min(bd("100"));
+    }
+
+    private String rootMessage(Throwable error) {
+        Throwable current = error;
+        while (current.getCause() != null)
+            current = current.getCause();
+        return current.getMessage() == null ? current.getClass().getSimpleName() : current.getMessage();
     }
 
     private BigDecimal score(StockQuote quote) {
@@ -136,5 +202,8 @@ public class MarketWideScannerService {
 
     private BigDecimal bd(String value) {
         return new BigDecimal(value);
+    }
+
+    private record QuoteAttempt(BroadCandidate broad, StockQuote quote, BigDecimal score, String error) {
     }
 }
