@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.time.LocalDate;
 
 public final class MarketWideDtos {
         private MarketWideDtos() {
@@ -91,4 +92,41 @@ public final class MarketWideDtos {
                         Instant quotedAt,
                         String sourceVersion) {
         }
+
+        public record CoverageResponse(
+                        LocalDate sessionDate,
+                        Instant calculatedAt,
+                        long activeUniverse,
+                        long tradableUniverse,
+                        int scheduledRuns,
+                        int completedRuns,
+                        int failedRuns,
+                        int rankingCapturedStocks,
+                        BigDecimal rankingCoverageRate,
+                        int broadSnapshotStocks,
+                        int broadCollectedStocks,
+                        int broadInsufficientStocks,
+                        BigDecimal broadCoverageRate,
+                        int precisionRequestedStocks,
+                        int precisionActivatedStocks,
+                        BigDecimal averagePrecisionMinutes,
+                        int precisionDetectionStocks,
+                        int broadRecommendations,
+                        int precisionRecommendations,
+                        Map<String, Integer> exclusionReasons,
+                        List<SourcePerformanceResponse> sourcePerformance,
+                        List<String> limitations) {}
+
+        public record SourcePerformanceResponse(
+                        String source,
+                        int recommendations,
+                        int completed,
+                        int dataMissing,
+                        BigDecimal closeWinRate,
+                        BigDecimal averageOpenReturn,
+                        BigDecimal averageCloseReturn,
+                        BigDecimal averageMaxReturn,
+                        BigDecimal averageMaxDrawdown,
+                        BigDecimal targetHitRate,
+                        BigDecimal stopHitRate) {}
 }

@@ -10,7 +10,12 @@ type Recommendation = {
   stockCode: string
   stockName: string
   market: string
-  scannerType: string
+  scannerType: string | null
+  candidateSource: 'PRECISION' | 'BROAD'
+  dataQuality: string
+  coverageMinutes: number
+  broadSnapshotId: number | null
+  missingFeatures: string
   detectedAt: string
   buyReferencePrice: number
   recommendationScore: number
@@ -29,6 +34,7 @@ type GenerateResponse = {
   recommendationDate: string
   generatedAt: string
   sourceDetections: number
+  sourceBroadSnapshots: number
   storedCandidates: number
   strategyVersion: string
   candidates: Recommendation[]
@@ -231,7 +237,8 @@ function num(value?: number | null) {
   return value == null ? '--' : value.toLocaleString('ko-KR', { maximumFractionDigits: 2 })
 }
 
-function scannerTypeLabel(value: string) {
+function scannerTypeLabel(value: string | null) {
+  if (!value) return 'Broad 후보'
   const labels: Record<string, string> = {
     VOLUME: '거래량 급증',
     PRICE_RISE: '5분 급등',
@@ -537,6 +544,7 @@ export function ClosingRecommendationPage({ back, advanced = false }: { back: ()
         {advanced && backtest && <BacktestResult data={backtest} />}
         <section className="closingSummary">
           <article><small>원본 탐지</small><b>{lastRun?.sourceDetections ?? '--'}</b></article>
+          <article><small>Broad 원본</small><b>{lastRun?.sourceBroadSnapshots ?? '--'}</b></article>
           <article><small>저장 후보</small><b>{lastRun?.storedCandidates ?? rows.length}</b></article>
           <article><small>성과 완료</small><b>{lastTrack?.completed ?? performanceRows.filter(row => row.status === 'COMPLETED').length}</b></article>
           <article><small>보유 연장</small><b>{lastDecisionRun?.extendHold ?? (decisions.data ?? []).filter(row => row.decision === 'EXTEND_HOLD').length}</b></article>
@@ -685,13 +693,14 @@ function RecommendationCard({ item, performance, decision, advanced = false }: {
 }) {
   const recommendationFactors = factorLabels(item.recommendationReason, 'recommendation')
   const riskFactors = factorLabels(item.riskReason, 'risk')
+  const missingFeatures = parseMissingFeatures(item.missingFeatures)
   return (
     <article className="recommendationCard">
       <div className="recommendationHead">
         <i>{item.rank}</i>
         <span>
           <b>{item.stockName}</b>
-          <small>{item.stockCode} · {item.market} · {scannerTypeLabel(item.scannerType)} · {new Date(item.detectedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</small>
+          <small>{item.stockCode} · {item.market} · {item.candidateSource === 'PRECISION' ? '정밀' : 'Broad'} · {scannerTypeLabel(item.scannerType)} · {new Date(item.detectedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</small>
         </span>
         <strong>{money(item.buyReferencePrice)}원</strong>
       </div>
@@ -703,6 +712,10 @@ function RecommendationCard({ item, performance, decision, advanced = false }: {
         <span><dt>거래량</dt><dd>{num(item.volumeRatio)}배</dd></span>
         <span><dt>거래대금</dt><dd>{money((item.dailyTradingValue ?? 0) / 1000000)}백만</dd></span>
       </dl>
+      <div className="decisionPanel pending">
+        데이터 품질 {item.dataQuality} · 관측 {item.coverageMinutes}분
+        {missingFeatures.length > 0 ? ` · 누락 ${missingFeatures.join(', ')}` : ''}
+      </div>
       {!advanced && <BeginnerRecommendationSummary item={item} decision={decision} />}
       {advanced && <div className="closingFactors">
         <FactorColumn title="추천 근거" rows={recommendationFactors} />
@@ -712,6 +725,15 @@ function RecommendationCard({ item, performance, decision, advanced = false }: {
       <DecisionPanel decision={decision} />
     </article>
   )
+}
+
+function parseMissingFeatures(value: string): string[] {
+  try {
+    const parsed = JSON.parse(value || '[]')
+    return Array.isArray(parsed) ? parsed.map(String) : []
+  } catch {
+    return []
+  }
 }
 
 function BeginnerRecommendationSummary({ item, decision }: { item: Recommendation; decision?: OvernightDecision }) {

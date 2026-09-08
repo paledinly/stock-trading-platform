@@ -49,4 +49,6 @@ public interface StockRepository extends JpaRepository<Stock, Long> {
   long countByActiveTrue();
 
   long countByActiveTrueAndManagedFalseAndTradingHaltedFalse();
+
+  long countByActiveTrueAndManagedFalseAndTradingHaltedFalseAndEtfFalseAndEtnFalse();
 }

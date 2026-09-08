@@ -280,6 +280,8 @@ MARKET_PRECISION_FREEZE_AT=14:50
 
 ## 단계 5 — Broad/Precision 통합 마감 추천
 
+상태: **구현 완료 (2026-09-08)**. Broad 추천의 실전 성과와 영속 구독 Coverage 검증은 단계 6에서 수행한다.
+
 ### 목적
 
 WebSocket에 선택되지 않은 종목도 Broad 데이터가 충분하면 제한적으로 추천 평가 대상에 포함한다.
@@ -330,6 +332,8 @@ DB 변경은 `V17__extend_closing_recommendation_sources.sql`로 분리한다.
 - Broad 결과를 Precision 결과처럼 과신하게 표시하지 않는다.
 
 ## 단계 6 — Coverage 및 성과 검증
+
+상태: **구현 완료 (2026-09-08)**. 통계적 판단은 실제 장중 데이터와 다음 거래일 성과가 축적된 후 수행한다.
 
 ### 목적
 

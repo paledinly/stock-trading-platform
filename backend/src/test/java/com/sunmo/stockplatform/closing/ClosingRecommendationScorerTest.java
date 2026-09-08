@@ -101,6 +101,17 @@ class ClosingRecommendationScorerTest {
         assertThat(weak.riskReason()).contains("intradayMa20Breakdown", "dailyTrendWeakness");
     }
 
+    @Test
+    void missingFeatureIsUnassessedInsteadOfBeingTreatedAsZero() {
+        var missing = detection("2026-09-04T06:15:00Z", "50", "20", "2.0", "5000000000", "1.0", "{}");
+
+        var result = scorer.score(missing);
+
+        assertThat(result.recommendationReason()).contains("\"vwapDistanceRate\":null",
+                "\"dayHighDistanceRate\":null", "\"dayHighProximity\":\"0.000\"");
+        assertThat(result.riskReason()).contains("\"weakTradeStrength\":\"0.000\"");
+    }
+
     private ScannerDetection detection(String detectedAt, String opportunity, String risk, String volumeRatio,
             String dailyValue, String changeRate, String featureSnapshot) {
         ScannerDetection detection = mock(ScannerDetection.class);

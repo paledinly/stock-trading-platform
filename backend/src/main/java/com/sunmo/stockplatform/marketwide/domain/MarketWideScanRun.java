@@ -68,5 +68,10 @@ public class MarketWideScanRun {
     @PrePersist void prePersist() { createdAt = Instant.now(); updatedAt = createdAt; }
     @PreUpdate void preUpdate() { updatedAt = Instant.now(); }
     public Status getStatus() { return status; }
+    public LocalDate getSessionDate() { return sessionDate; }
     public Instant getScheduledFor() { return scheduledFor; }
+    public int getScannedCount() { return scannedCount; }
+    public int getCandidateCount() { return candidateCount; }
+    public boolean isFallback() { return fallback; }
+    public String getErrorMessage() { return errorMessage; }
 }

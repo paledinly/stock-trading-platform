@@ -2,6 +2,7 @@ package com.sunmo.stockplatform.closing.domain;
 
 import com.sunmo.stockplatform.scanner.domain.ScannerDetection;
 import com.sunmo.stockplatform.scanner.domain.ScannerType;
+import com.sunmo.stockplatform.marketwide.domain.MarketBroadSnapshot;
 import com.sunmo.stockplatform.stock.domain.Stock;
 import jakarta.persistence.*;
 
@@ -14,7 +15,7 @@ import java.time.LocalDate;
         uniqueConstraints = @UniqueConstraint(name = "uk_closing_recommendation_date_stock",
                 columnNames = { "recommendation_date", "stock_id" }))
 public class ClosingRecommendation {
-    public static final String STRATEGY_VERSION = "closing-recommendation-v2-ma";
+    public static final String STRATEGY_VERSION = "closing-recommendation-v3-broad-precision";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -26,13 +27,33 @@ public class ClosingRecommendation {
     @Column(name = "generated_at", nullable = false)
     private Instant generatedAt;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "stock_id")
     private Stock stock;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "source_detection_id")
     private ScannerDetection sourceDetection;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "broad_snapshot_id")
+    private MarketBroadSnapshot broadSnapshot;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "candidate_source", nullable = false, length = 20)
+    private ClosingCandidateSource candidateSource;
+
+    @Column(name = "data_quality", nullable = false, length = 20)
+    private String dataQuality;
+
+    @Column(name = "coverage_minutes", nullable = false)
+    private int coverageMinutes;
+
+    @Column(name = "candidate_observed_at", nullable = false)
+    private Instant candidateObservedAt;
+
+    @Column(name = "missing_features", nullable = false, columnDefinition = "text")
+    private String missingFeatures;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "scanner_type", nullable = false, length = 30)
@@ -96,6 +117,11 @@ public class ClosingRecommendation {
         this.generatedAt = generatedAt;
         this.stock = sourceDetection.getStock();
         this.sourceDetection = sourceDetection;
+        this.candidateSource = ClosingCandidateSource.PRECISION;
+        this.dataQuality = "PRECISION_B";
+        this.coverageMinutes = 0;
+        this.candidateObservedAt = sourceDetection.getDetectedAt();
+        this.missingFeatures = "[]";
         this.scannerType = sourceDetection.getType();
         this.rank = rank;
         this.recommendationScore = recommendationScore;
@@ -109,6 +135,42 @@ public class ClosingRecommendation {
         this.riskReason = riskReason;
         this.featureSnapshot = sourceDetection.getFeatureSnapshot();
         this.detectionReason = sourceDetection.getDetectionReason();
+        this.strategyVersion = STRATEGY_VERSION;
+        this.status = ClosingRecommendationStatus.CANDIDATE;
+    }
+
+    public ClosingRecommendation(LocalDate recommendationDate, Instant generatedAt, ScannerDetection sourceDetection,
+            int rank, BigDecimal recommendationScore, String recommendationReason, String riskReason,
+            String dataQuality, int coverageMinutes, String missingFeatures) {
+        this(recommendationDate, generatedAt, sourceDetection, rank, recommendationScore, recommendationReason, riskReason);
+        this.dataQuality = dataQuality;
+        this.coverageMinutes = coverageMinutes;
+        this.missingFeatures = missingFeatures;
+    }
+
+    public ClosingRecommendation(LocalDate recommendationDate, Instant generatedAt, MarketBroadSnapshot snapshot,
+            int rank, BigDecimal recommendationScore, BigDecimal opportunityScore, BigDecimal riskScore,
+            String recommendationReason, String riskReason, String missingFeatures) {
+        this.recommendationDate = recommendationDate;
+        this.generatedAt = generatedAt;
+        this.stock = snapshot.getStock();
+        this.broadSnapshot = snapshot;
+        this.candidateSource = ClosingCandidateSource.BROAD;
+        this.dataQuality = snapshot.getDataQuality().name();
+        this.coverageMinutes = 0;
+        this.candidateObservedAt = snapshot.getCapturedAt();
+        this.missingFeatures = missingFeatures;
+        this.rank = rank;
+        this.recommendationScore = recommendationScore;
+        this.buyReferencePrice = snapshot.getCurrentPrice();
+        this.opportunityScore = opportunityScore;
+        this.riskScore = riskScore;
+        this.dailyTradingValue = snapshot.getAccumulatedTradingValue();
+        this.fiveMinuteChangeRate = snapshot.getChangeRate();
+        this.recommendationReason = recommendationReason;
+        this.riskReason = riskReason;
+        this.featureSnapshot = snapshot.getRankingSources();
+        this.detectionReason = "BROAD_RANKING_SNAPSHOT";
         this.strategyVersion = STRATEGY_VERSION;
         this.status = ClosingRecommendationStatus.CANDIDATE;
     }
@@ -143,6 +205,13 @@ public class ClosingRecommendation {
     public ScannerDetection getSourceDetection() {
         return sourceDetection;
     }
+
+    public MarketBroadSnapshot getBroadSnapshot() { return broadSnapshot; }
+    public ClosingCandidateSource getCandidateSource() { return candidateSource; }
+    public String getDataQuality() { return dataQuality; }
+    public int getCoverageMinutes() { return coverageMinutes; }
+    public Instant getCandidateObservedAt() { return candidateObservedAt; }
+    public String getMissingFeatures() { return missingFeatures; }
 
     public ScannerType getScannerType() {
         return scannerType;

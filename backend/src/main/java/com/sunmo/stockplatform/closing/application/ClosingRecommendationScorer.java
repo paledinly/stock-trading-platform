@@ -41,7 +41,8 @@ public class ClosingRecommendationScorer {
         opportunity.put("baseOpportunity", cap(value(detection.getOpportunityScore()).multiply(bd("0.45")), "35"));
         opportunity.put("closingRecency", closingRecency(detection.getDetectedAt()));
         opportunity.put("liquidity", cap(value(detection.getDailyValue()).divide(bd("100000000"), 6, RoundingMode.HALF_UP), "15"));
-        opportunity.put("vwapPosition", cap(positive(feature.vwapDistanceRate()).multiply(bd("5")), "15"));
+        opportunity.put("vwapPosition", feature.vwapDistanceRate() == null ? BigDecimal.ZERO
+                : cap(positive(feature.vwapDistanceRate()).multiply(bd("5")), "15"));
         opportunity.put("dayHighProximity", dayHighProximity(feature.dayHighDistanceRate()));
         opportunity.put("volumeExpansion", cap(positive(value(detection.getVolumeRatio()).subtract(BigDecimal.ONE)).multiply(bd("5")), "10"));
         opportunity.put("intradayBullishAlignment", intradayMa.ready() && intradayMa.bullishAlignment() ? bd("8") : BigDecimal.ZERO);
@@ -52,10 +53,13 @@ public class ClosingRecommendationScorer {
         opportunity.put("dailyCloseAboveMa20", dailyMa.ready() && dailyMa.closeAboveMa20() ? bd("4") : BigDecimal.ZERO);
 
         risk.put("baseRisk", cap(value(detection.getRiskScore()).multiply(bd("0.45")), "40"));
-        risk.put("vwapOverextension", cap(positive(feature.vwapDistanceRate().subtract(bd("5"))).multiply(bd("5")), "20"));
+        risk.put("vwapOverextension", feature.vwapDistanceRate() == null ? BigDecimal.ZERO
+                : cap(positive(feature.vwapDistanceRate().subtract(bd("5"))).multiply(bd("5")), "20"));
         risk.put("lateNegativeMomentum", detection.getChangeRate() != null && detection.getChangeRate().signum() < 0 ? bd("10") : BigDecimal.ZERO);
-        risk.put("farFromDayHigh", cap(positive(feature.dayHighDistanceRate().subtract(bd("3"))).multiply(bd("4")), "15"));
-        risk.put("weakTradeStrength", cap(positive(bd("100").subtract(feature.tradeStrength())).multiply(bd("0.15")), "15"));
+        risk.put("farFromDayHigh", feature.dayHighDistanceRate() == null ? BigDecimal.ZERO
+                : cap(positive(feature.dayHighDistanceRate().subtract(bd("3"))).multiply(bd("4")), "15"));
+        risk.put("weakTradeStrength", feature.tradeStrength() == null ? BigDecimal.ZERO
+                : cap(positive(bd("100").subtract(feature.tradeStrength())).multiply(bd("0.15")), "15"));
         risk.put("intradayMa20Breakdown", intradayMa.ready() && intradayMa.ma20Broken() ? bd("12") : BigDecimal.ZERO);
         risk.put("dailyTrendWeakness", dailyTrendWeakness(dailyMa));
         risk.put("dailyMaOverextension", dailyMa.ready() && dailyMa.overextendedFromMa20() ? bd("10") : BigDecimal.ZERO);
@@ -78,6 +82,8 @@ public class ClosingRecommendationScorer {
     }
 
     private BigDecimal dayHighProximity(BigDecimal dayHighDistanceRate) {
+        if (dayHighDistanceRate == null)
+            return BigDecimal.ZERO;
         return cap(bd("10").subtract(dayHighDistanceRate.multiply(bd("4"))), "10");
     }
 
@@ -141,7 +147,7 @@ public class ClosingRecommendationScorer {
     private BigDecimal decimal(JsonNode node, String field) {
         JsonNode value = node.path(field);
         if (value.isMissingNode() || value.isNull() || value.asText().isBlank())
-            return BigDecimal.ZERO;
+            return null;
         return new BigDecimal(value.asText());
     }
 
@@ -170,16 +176,18 @@ public class ClosingRecommendationScorer {
     private record FeatureValues(BigDecimal vwapDistanceRate, BigDecimal dayHighDistanceRate,
             BigDecimal tradeStrength, BigDecimal turnoverRatio) {
         private static FeatureValues empty() {
-            return new FeatureValues(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
+            return new FeatureValues(null, null, null, null);
         }
 
         private Map<String, String> toMap() {
             Map<String, String> values = new LinkedHashMap<>();
-            values.put("vwapDistanceRate", vwapDistanceRate.toPlainString());
-            values.put("dayHighDistanceRate", dayHighDistanceRate.toPlainString());
-            values.put("tradeStrength", tradeStrength.toPlainString());
-            values.put("turnoverRatio", turnoverRatio.toPlainString());
+            values.put("vwapDistanceRate", text(vwapDistanceRate));
+            values.put("dayHighDistanceRate", text(dayHighDistanceRate));
+            values.put("tradeStrength", text(tradeStrength));
+            values.put("turnoverRatio", text(turnoverRatio));
             return values;
         }
+
+        private String text(BigDecimal value) { return value == null ? null : value.toPlainString(); }
     }
 }

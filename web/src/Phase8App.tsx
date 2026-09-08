@@ -65,6 +65,41 @@ type MarketWideStatus = {
   lastFallback: boolean;
   rankingSources: Array<{ type: string; success: boolean; candidateCount: number; error?: string }>;
 };
+type SourcePerformance = {
+  source: "BROAD" | "PRECISION";
+  recommendations: number;
+  completed: number;
+  dataMissing: number;
+  closeWinRate: number | null;
+  averageOpenReturn: number | null;
+  averageCloseReturn: number | null;
+  averageMaxReturn: number | null;
+  averageMaxDrawdown: number | null;
+  targetHitRate: number | null;
+  stopHitRate: number | null;
+};
+type Coverage = {
+  sessionDate: string;
+  activeUniverse: number;
+  tradableUniverse: number;
+  scheduledRuns: number;
+  completedRuns: number;
+  failedRuns: number;
+  rankingCapturedStocks: number;
+  rankingCoverageRate: number | null;
+  broadCollectedStocks: number;
+  broadInsufficientStocks: number;
+  broadCoverageRate: number | null;
+  precisionRequestedStocks: number;
+  precisionActivatedStocks: number;
+  averagePrecisionMinutes: number | null;
+  precisionDetectionStocks: number;
+  broadRecommendations: number;
+  precisionRecommendations: number;
+  exclusionReasons: Record<string, number>;
+  sourcePerformance: SourcePerformance[];
+  limitations: string[];
+};
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
@@ -120,6 +155,11 @@ export function MarketWidePage({ back }: { back: () => void }) {
     queryKey: ["market-wide-status"],
     queryFn: () => api<MarketWideStatus>("/api/v1/market-wide/status"),
     refetchInterval: 30000,
+  });
+  const coverage = useQuery({
+    queryKey: ["market-wide-coverage"],
+    queryFn: () => api<Coverage>("/api/v1/market-wide/coverage"),
+    refetchInterval: 60000,
   });
   const subscribe = useMutation({
     mutationFn: (stockCode: string) =>
@@ -234,6 +274,36 @@ export function MarketWidePage({ back }: { back: () => void }) {
           <article><small>최근 소요</small><b>{status.data ? `${status.data.lastDurationMillis}ms` : "--"}</b></article>
         </section>
         {status.data?.lastError && <div className="wideEmpty">최근 자동 스캔 오류: {status.data.lastError}</div>}
+        <section className="wideSummary">
+          <article><small>순위 포착률</small><b>{pct(coverage.data?.rankingCoverageRate)}</b></article>
+          <article><small>Broad 확보율</small><b>{pct(coverage.data?.broadCoverageRate)}</b></article>
+          <article><small>Precision 승인</small><b>{coverage.data ? `${coverage.data.precisionActivatedStocks}/${coverage.data.precisionRequestedStocks}` : "--"}</b></article>
+          <article><small>평균 구독 체류</small><b>{coverage.data?.averagePrecisionMinutes == null ? "--" : `${coverage.data.averagePrecisionMinutes.toFixed(1)}분`}</b></article>
+          <article><small>탐지 종목</small><b>{coverage.data?.precisionDetectionStocks ?? "--"}</b></article>
+        </section>
+        {coverage.error && <div className="wideEmpty">Coverage를 불러오지 못했습니다: {coverage.error.message}</div>}
+        {coverage.data && <section className="wideGrid">
+          <div className="candidatePanel">
+            <div className="wideTitle"><span><small>성과 검증</small><h2>출처별 다음날 성과</h2></span></div>
+            {(coverage.data.sourcePerformance ?? []).map(item => <article key={item.source}>
+              <div><span><b>{item.source === "PRECISION" ? "정밀 추천" : "Broad 추천"}</b><small>{item.completed}건 완료 · {item.dataMissing}건 누락</small></span><strong>{pct(item.closeWinRate)}</strong></div>
+              <dl>
+                <span><dt>추천</dt><dd>{item.recommendations}</dd></span>
+                <span><dt>시가 평균</dt><dd>{pct(item.averageOpenReturn)}</dd></span>
+                <span><dt>종가 평균</dt><dd>{pct(item.averageCloseReturn)}</dd></span>
+                <span><dt>최고 평균</dt><dd>{pct(item.averageMaxReturn)}</dd></span>
+                <span><dt>최대 낙폭</dt><dd>{pct(item.averageMaxDrawdown)}</dd></span>
+                <span><dt>목표 도달</dt><dd>{pct(item.targetHitRate)}</dd></span>
+              </dl>
+            </article>)}
+          </div>
+          <aside className="regimePanel">
+            <h2>후보 처리 결과</h2>
+            <dl>{Object.entries(coverage.data.exclusionReasons ?? {}).map(([reason, count]) => <span key={reason}><dt>{reason}</dt><dd>{count}</dd></span>)}</dl>
+            <h2>통계 주의사항</h2>
+            {(coverage.data.limitations ?? []).map(item => <p key={item}>{item}</p>)}
+          </aside>
+        </section>}
         <section className="wideGrid">
           <div className="candidatePanel">
             <div className="wideTitle">

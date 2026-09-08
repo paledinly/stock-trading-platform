@@ -15,13 +15,15 @@ public class PrecisionSubscriptionAllocator {
     private static final ZoneId MARKET_ZONE = ZoneId.of("Asia/Seoul");
     private final RealtimeSubscriptionRegistry registry;
     private final PrecisionSubscriptionProperties properties;
+    private final PrecisionSubscriptionHistory history;
     private final Map<String, Allocation> allocations = new ConcurrentHashMap<>();
     private final Map<String, String> pendingReplacements = new ConcurrentHashMap<>();
 
     public PrecisionSubscriptionAllocator(RealtimeSubscriptionRegistry registry,
-            PrecisionSubscriptionProperties properties) {
+            PrecisionSubscriptionProperties properties, PrecisionSubscriptionHistory history) {
         this.registry = registry;
         this.properties = properties;
+        this.history = history;
     }
 
     @PostConstruct
@@ -85,6 +87,7 @@ public class PrecisionSubscriptionAllocator {
         boolean alreadySubscribed = registry.all().contains(candidate.stockCode());
         try {
             registry.add(candidate.stockCode(), RealtimeSubscriptionRegistry.Source.PRECISION);
+            recordHistory(() -> history.requested(candidate.stockCode(), now, alreadySubscribed));
             allocations.put(candidate.stockCode(), new Allocation(candidate.stockCode(), candidate.score(), now, now));
             if (replaceCode == null)
                 return;
@@ -120,10 +123,12 @@ public class PrecisionSubscriptionAllocator {
             return;
         String oldCode = pendingReplacements.remove(acknowledgement.stockCode());
         if (acknowledgement.success()) {
+            recordHistory(() -> history.activated(acknowledgement.stockCode(), Instant.now()));
             if (oldCode != null)
                 remove(oldCode);
             return;
         }
+        recordHistory(() -> history.rejected(acknowledgement.stockCode(), Instant.now(), acknowledgement.message()));
         registry.remove(acknowledgement.stockCode(), RealtimeSubscriptionRegistry.Source.PRECISION);
         allocations.remove(acknowledgement.stockCode());
     }
@@ -131,6 +136,11 @@ public class PrecisionSubscriptionAllocator {
     private void remove(String stockCode) {
         registry.remove(stockCode, RealtimeSubscriptionRegistry.Source.PRECISION);
         allocations.remove(stockCode);
+        recordHistory(() -> history.ended(stockCode, Instant.now(), "ALLOCATOR_REMOVED"));
+    }
+
+    private void recordHistory(Runnable action) {
+        try { action.run(); } catch (RuntimeException ignored) { /* metrics failure must not interrupt subscriptions */ }
     }
 
     private int capacity() {

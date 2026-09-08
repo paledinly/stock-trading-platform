@@ -66,7 +66,7 @@ class PrecisionSubscriptionAllocatorTest {
             String margin) {
         PrecisionSubscriptionAllocator allocator = new PrecisionSubscriptionAllocator(registry,
                 new PrecisionSubscriptionProperties(true, 2, 1, minHold, new BigDecimal(margin),
-                        LocalTime.of(14, 50)));
+                        LocalTime.of(14, 50)), org.mockito.Mockito.mock(PrecisionSubscriptionHistory.class));
         allocator.initialize();
         return allocator;
     }

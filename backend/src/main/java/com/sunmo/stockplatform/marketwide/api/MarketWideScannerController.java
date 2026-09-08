@@ -5,6 +5,7 @@ import com.sunmo.stockplatform.marketwide.application.BroadSnapshotQueryService;
 import com.sunmo.stockplatform.marketwide.application.PrecisionSubscriptionAllocator;
 import com.sunmo.stockplatform.marketwide.application.MarketWideScanCoordinator;
 import com.sunmo.stockplatform.marketwide.application.MarketWideDiagnostics;
+import com.sunmo.stockplatform.marketwide.application.MarketCoverageService;
 import com.sunmo.stockplatform.stock.domain.Market;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -26,13 +27,16 @@ public class MarketWideScannerController {
     private final BroadSnapshotQueryService snapshots;
     private final PrecisionSubscriptionAllocator precision;
     private final MarketWideDiagnostics diagnostics;
+    private final MarketCoverageService coverage;
 
     public MarketWideScannerController(MarketWideScanCoordinator scans, BroadSnapshotQueryService snapshots,
-            PrecisionSubscriptionAllocator precision, MarketWideDiagnostics diagnostics) {
+            PrecisionSubscriptionAllocator precision, MarketWideDiagnostics diagnostics,
+            MarketCoverageService coverage) {
         this.scans = scans;
         this.snapshots = snapshots;
         this.precision = precision;
         this.diagnostics = diagnostics;
+        this.coverage = coverage;
     }
 
     @GetMapping("/scan")
@@ -60,5 +64,10 @@ public class MarketWideScannerController {
     @GetMapping("/status")
     public MarketWideDiagnostics.Snapshot status() {
         return diagnostics.snapshot();
+    }
+
+    @GetMapping("/coverage")
+    public MarketWideDtos.CoverageResponse coverage(@RequestParam(required = false) LocalDate date) {
+        return coverage.coverage(date);
     }
 }

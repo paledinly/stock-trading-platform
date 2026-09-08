@@ -9,6 +9,7 @@ import org.springframework.data.domain.Pageable;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Optional;
+import java.util.List;
 
 public interface MarketBroadSnapshotRepository extends JpaRepository<MarketBroadSnapshot, Long> {
     Optional<MarketBroadSnapshot> findBySessionDateAndCapturedAtAndStockId(
@@ -23,4 +24,17 @@ public interface MarketBroadSnapshotRepository extends JpaRepository<MarketBroad
             """)
     java.util.List<MarketBroadSnapshot> findHistory(@Param("date") LocalDate date,
             @Param("stockCode") String stockCode, Pageable pageable);
+
+    @Query("""
+            select snapshot from MarketBroadSnapshot snapshot
+             join fetch snapshot.stock stock
+             where snapshot.sessionDate = :date
+               and snapshot.capturedAt >= :from
+               and snapshot.capturedAt <= :to
+             order by snapshot.capturedAt desc, snapshot.broadScore desc, snapshot.id desc
+            """)
+    List<MarketBroadSnapshot> findClosingCandidates(@Param("date") LocalDate date,
+            @Param("from") Instant from, @Param("to") Instant to);
+
+    List<MarketBroadSnapshot> findBySessionDateOrderByCapturedAtAsc(LocalDate date);
 }
