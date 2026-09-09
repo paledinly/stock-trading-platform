@@ -64,6 +64,7 @@ export function BacktestPage({ back }: { back: () => void }) {
   const today = new Date()
   const week = new Date(Date.now() - 7 * 86400000)
   const [stockCode, setStockCode] = useState('005930')
+  const [stockSearch, setStockSearch] = useState('')
   const [from, setFrom] = useState(dateValue(week))
   const [to, setTo] = useState(dateValue(today))
   const [settingId, setSettingId] = useState('')
@@ -82,7 +83,7 @@ export function BacktestPage({ back }: { back: () => void }) {
   }
 
   const data = backtest.data
-  const stockKeyword = stockCode.trim().toLowerCase()
+  const stockKeyword = stockSearch.trim().toLowerCase()
   const selectableStocks = (backtestStocks.data ?? [])
     .filter(item => !stockKeyword
       || item.stockCode.includes(stockKeyword)
@@ -117,8 +118,9 @@ export function BacktestPage({ back }: { back: () => void }) {
               <small>조회 가능한 종목</small>
               <b>{backtestStocks.data?.length ?? 0}개</b>
             </span>
-            <small>저장된 5분봉이 있는 종목만 표시됩니다.</small>
+            <label>종목 검색<input value={stockSearch} onChange={event => setStockSearch(event.target.value)} placeholder="종목명 또는 코드" /></label>
           </div>
+          <small>저장된 5분봉이 있는 종목만 표시됩니다. 검색어가 없으면 최근 데이터 기준 상위 12개를 보여줍니다.</small>
           {backtestStocks.isLoading && <p>종목 목록을 불러오는 중...</p>}
           {backtestStocks.error && <p>{backtestStocks.error.message}</p>}
           {!backtestStocks.isLoading && selectableStocks.length === 0 && <p>입력한 조건과 맞는 저장 종목이 없습니다.</p>}

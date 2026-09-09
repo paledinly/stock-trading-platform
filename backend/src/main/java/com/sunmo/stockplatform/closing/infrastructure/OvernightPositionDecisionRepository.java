@@ -8,6 +8,16 @@ import java.time.LocalDate;
 import java.util.List;
 
 public interface OvernightPositionDecisionRepository extends JpaRepository<OvernightPositionDecision, Long> {
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            delete from OvernightPositionDecision d
+             where d.recommendation.id in (
+                 select r.id from ClosingRecommendation r
+                  where r.recommendationDate = :date
+             )
+            """)
+    void deleteByRecommendationDate(@Param("date") LocalDate date);
+
     @Query("""
             select d from OvernightPositionDecision d
             join d.recommendation recommendation

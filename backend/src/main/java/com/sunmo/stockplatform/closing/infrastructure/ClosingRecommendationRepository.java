@@ -1,13 +1,16 @@
 package com.sunmo.stockplatform.closing.infrastructure;
 
 import com.sunmo.stockplatform.closing.domain.ClosingRecommendation;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.*;
+import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
 import java.util.List;
 
 public interface ClosingRecommendationRepository extends JpaRepository<ClosingRecommendation, Long> {
-    void deleteByRecommendationDate(LocalDate recommendationDate);
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("delete from ClosingRecommendation r where r.recommendationDate = :date")
+    void deleteByRecommendationDate(@Param("date") LocalDate recommendationDate);
 
     List<ClosingRecommendation> findByRecommendationDateOrderByRankAsc(LocalDate recommendationDate);
 }

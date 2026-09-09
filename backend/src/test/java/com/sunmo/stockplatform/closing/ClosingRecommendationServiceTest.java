@@ -5,6 +5,8 @@ import com.sunmo.stockplatform.closing.application.*;
 import com.sunmo.stockplatform.closing.application.ClosingRecommendationScorer.ScoreResult;
 import com.sunmo.stockplatform.closing.domain.ClosingRecommendation;
 import com.sunmo.stockplatform.closing.infrastructure.ClosingRecommendationRepository;
+import com.sunmo.stockplatform.closing.infrastructure.OvernightPerformanceRepository;
+import com.sunmo.stockplatform.closing.infrastructure.OvernightPositionDecisionRepository;
 import com.sunmo.stockplatform.marketwide.domain.*;
 import com.sunmo.stockplatform.marketwide.infrastructure.MarketBroadSnapshotRepository;
 import com.sunmo.stockplatform.scanner.domain.ScannerDetection;
@@ -70,6 +72,8 @@ class ClosingRecommendationServiceTest {
         final IntradayMovingAverageService intraday = mock(IntradayMovingAverageService.class);
         final DailyMovingAverageService daily = mock(DailyMovingAverageService.class);
         final MarketBroadSnapshotRepository snapshots = mock(MarketBroadSnapshotRepository.class);
+        final OvernightPerformanceRepository performances = mock(OvernightPerformanceRepository.class);
+        final OvernightPositionDecisionRepository decisions = mock(OvernightPositionDecisionRepository.class);
         final ObjectMapper mapper = new ObjectMapper().findAndRegisterModules();
         final ClosingRecommendationService service;
 
@@ -77,7 +81,7 @@ class ClosingRecommendationServiceTest {
             when(recommendations.saveAll(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
             when(precisionScorer.score(any(), any(), any())).thenReturn(new ScoreResult(bd("80"), "{}", "{}"));
             service = new ClosingRecommendationService(detections, recommendations, precisionScorer, intraday, daily,
-                    snapshots, new BroadClosingRecommendationScorer(mapper), mapper);
+                    snapshots, new BroadClosingRecommendationScorer(mapper), mapper, performances, decisions);
         }
 
         Stock stock(long id) {

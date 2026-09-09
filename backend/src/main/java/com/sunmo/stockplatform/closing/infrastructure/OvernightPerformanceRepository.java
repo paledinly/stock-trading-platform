@@ -10,6 +10,16 @@ import java.util.*;
 public interface OvernightPerformanceRepository extends JpaRepository<OvernightPerformance, Long> {
     Optional<OvernightPerformance> findByRecommendationId(Long recommendationId);
 
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            delete from OvernightPerformance p
+             where p.recommendation.id in (
+                 select r.id from ClosingRecommendation r
+                  where r.recommendationDate = :date
+             )
+            """)
+    void deleteByRecommendationDate(@Param("date") LocalDate date);
+
     @Query("""
             select p from OvernightPerformance p
               join fetch p.recommendation r

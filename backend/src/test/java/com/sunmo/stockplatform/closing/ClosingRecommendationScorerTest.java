@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sunmo.stockplatform.closing.application.ClosingRecommendationScorer;
 import com.sunmo.stockplatform.closing.application.DailyMovingAverageFeature;
 import com.sunmo.stockplatform.closing.application.IntradayMovingAverageFeature;
+import com.sunmo.stockplatform.closing.domain.ClosingRecommendation;
 import com.sunmo.stockplatform.scanner.domain.ScannerDetection;
 import com.sunmo.stockplatform.scanner.domain.ScannerType;
 import org.junit.jupiter.api.Test;
@@ -19,6 +20,11 @@ import static org.mockito.Mockito.when;
 class ClosingRecommendationScorerTest {
     private final ClosingRecommendationScorer scorer =
             new ClosingRecommendationScorer(new ObjectMapper().findAndRegisterModules());
+
+    @Test
+    void strategyVersionFitsDatabaseColumn() {
+        assertThat(ClosingRecommendation.STRATEGY_VERSION).hasSizeLessThanOrEqualTo(40);
+    }
 
     @Test
     void rewardsClosingStrengthAndLiquidity() {

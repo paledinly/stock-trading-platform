@@ -73,9 +73,9 @@ public class MarketCoverageService {
                 detectionStocks, broadRecommendations, precisionRecommendations, exclusion,
                 List.of(performance(ClosingCandidateSource.BROAD, recommendationRows, performanceRows),
                         performance(ClosingCandidateSource.PRECISION, recommendationRows, performanceRows)),
-                List.of("Universe counts use the current stock master, not a historical daily universe.",
-                        "Ranking coverage represents stocks persisted as Broad snapshots; ranking non-selected stocks are not observable.",
-                        "Performance statistics are descriptive and do not include fees, tax or slippage."));
+                List.of("전체 종목 수는 과거 특정일 기준이 아니라 현재 종목 마스터 기준으로 계산됩니다.",
+                        "랭킹 커버리지는 Broad 스냅샷으로 저장된 종목만 기준으로 하며, 랭킹에 들지 않아 저장되지 않은 종목은 집계할 수 없습니다.",
+                        "성과 통계는 참고용 설명 지표이며 수수료, 세금, 슬리피지는 반영하지 않습니다."));
     }
 
     private Map<String, Integer> exclusionReasons(Collection<MarketBroadSnapshot> values,

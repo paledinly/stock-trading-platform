@@ -3,6 +3,7 @@ package com.sunmo.stockplatform.closing.application;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sunmo.stockplatform.closing.application.ClosingRecommendationScorer.ScoreResult;
+import com.sunmo.stockplatform.closing.domain.ClosingRecommendation;
 import com.sunmo.stockplatform.marketwide.domain.MarketBroadSnapshot;
 import org.springframework.stereotype.Component;
 
@@ -39,7 +40,7 @@ public class BroadClosingRecommendationScorer {
     private String json(String kind, MarketBroadSnapshot snapshot, Map<String, BigDecimal> factors,
             List<String> missing) {
         Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("version", "closing-recommendation-v3-broad-precision");
+        payload.put("version", ClosingRecommendation.STRATEGY_VERSION);
         payload.put("kind", kind);
         payload.put("source", "broad_snapshot");
         payload.put("snapshotId", snapshot.getId());

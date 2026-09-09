@@ -7,6 +7,8 @@ import com.sunmo.stockplatform.closing.api.ClosingRecommendationDtos.Recommendat
 import com.sunmo.stockplatform.closing.application.ClosingRecommendationScorer.ScoreResult;
 import com.sunmo.stockplatform.closing.domain.ClosingRecommendation;
 import com.sunmo.stockplatform.closing.infrastructure.ClosingRecommendationRepository;
+import com.sunmo.stockplatform.closing.infrastructure.OvernightPerformanceRepository;
+import com.sunmo.stockplatform.closing.infrastructure.OvernightPositionDecisionRepository;
 import com.sunmo.stockplatform.marketwide.domain.BroadSnapshotQuality;
 import com.sunmo.stockplatform.marketwide.domain.BroadSnapshotStatus;
 import com.sunmo.stockplatform.marketwide.domain.MarketBroadSnapshot;
@@ -27,6 +29,8 @@ public class ClosingRecommendationService {
 
     private final ScannerDetectionRepository detections;
     private final ClosingRecommendationRepository recommendations;
+    private final OvernightPerformanceRepository performances;
+    private final OvernightPositionDecisionRepository decisions;
     private final ClosingRecommendationScorer scorer;
     private final IntradayMovingAverageService intradayMa;
     private final DailyMovingAverageService dailyMa;
@@ -38,9 +42,12 @@ public class ClosingRecommendationService {
             ClosingRecommendationRepository recommendations, ClosingRecommendationScorer scorer,
             IntradayMovingAverageService intradayMa, DailyMovingAverageService dailyMa,
             MarketBroadSnapshotRepository broadSnapshots, BroadClosingRecommendationScorer broadScorer,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper, OvernightPerformanceRepository performances,
+            OvernightPositionDecisionRepository decisions) {
         this.detections = detections;
         this.recommendations = recommendations;
+        this.performances = performances;
+        this.decisions = decisions;
         this.scorer = scorer;
         this.intradayMa = intradayMa;
         this.dailyMa = dailyMa;
@@ -85,6 +92,8 @@ public class ClosingRecommendationService {
                         .thenComparing(item -> item.candidate().observedAt(), Comparator.reverseOrder()))
                 .limit(safeLimit).toList();
 
+        decisions.deleteByRecommendationDate(targetDate);
+        performances.deleteByRecommendationDate(targetDate);
         recommendations.deleteByRecommendationDate(targetDate);
         List<ClosingRecommendation> ranked = new ArrayList<>();
         for (int index = 0; index < candidates.size(); index++) {

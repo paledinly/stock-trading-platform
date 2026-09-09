@@ -133,6 +133,16 @@ function reasonLabel(value: string) {
   return value;
 }
 
+function exclusionReasonLabel(value: string) {
+  if (value === "RECOMMENDED_BROAD") return "광역 후보로 추천됨";
+  if (value === "PROMOTED_TO_PRECISION") return "정밀 탐지로 승격됨";
+  if (value === "QUOTE_FAILED") return "시세 조회 실패";
+  if (value === "INSUFFICIENT_DATA") return "데이터 부족";
+  if (value === "NOT_TRADABLE") return "거래 부적합";
+  if (value === "SCORE_OR_LIMIT_FILTERED") return "점수 또는 추천 개수 조건 제외";
+  return value;
+}
+
 export function MarketWidePage({ back }: { back: () => void }) {
   const [market, setMarket] = useState<Market>("");
   const [limit, setLimit] = useState(40);
@@ -286,7 +296,7 @@ export function MarketWidePage({ back }: { back: () => void }) {
           <div className="candidatePanel">
             <div className="wideTitle"><span><small>성과 검증</small><h2>출처별 다음날 성과</h2></span></div>
             {(coverage.data.sourcePerformance ?? []).map(item => <article key={item.source}>
-              <div><span><b>{item.source === "PRECISION" ? "정밀 추천" : "Broad 추천"}</b><small>{item.completed}건 완료 · {item.dataMissing}건 누락</small></span><strong>{pct(item.closeWinRate)}</strong></div>
+              <div><span><b>{item.source === "PRECISION" ? "정밀 추천" : "광역 추천"}</b><small>{item.completed}건 완료 · {item.dataMissing}건 누락</small></span><strong>{pct(item.closeWinRate)}</strong></div>
               <dl>
                 <span><dt>추천</dt><dd>{item.recommendations}</dd></span>
                 <span><dt>시가 평균</dt><dd>{pct(item.averageOpenReturn)}</dd></span>
@@ -299,7 +309,7 @@ export function MarketWidePage({ back }: { back: () => void }) {
           </div>
           <aside className="regimePanel">
             <h2>후보 처리 결과</h2>
-            <dl>{Object.entries(coverage.data.exclusionReasons ?? {}).map(([reason, count]) => <span key={reason}><dt>{reason}</dt><dd>{count}</dd></span>)}</dl>
+            <dl>{Object.entries(coverage.data.exclusionReasons ?? {}).map(([reason, count]) => <span key={reason}><dt>{exclusionReasonLabel(reason)}</dt><dd>{count}</dd></span>)}</dl>
             <h2>통계 주의사항</h2>
             {(coverage.data.limitations ?? []).map(item => <p key={item}>{item}</p>)}
           </aside>
