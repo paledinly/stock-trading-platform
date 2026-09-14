@@ -25,14 +25,15 @@ public class QuoteService {
     private final QuoteProvider quoteProvider;
     private final QuoteStateStore quoteStateStore;
     private final RealtimeSubscriptionRegistry subscriptions;
-    private final Map<String, StockQuote> snapshots = new ConcurrentHashMap<>();
+    private final QuoteSnapshotCache snapshots;
 
     public QuoteService(StockService stockService, QuoteProvider quoteProvider, QuoteStateStore quoteStateStore,
-            RealtimeSubscriptionRegistry subscriptions) {
+            RealtimeSubscriptionRegistry subscriptions, QuoteSnapshotCache snapshots) {
         this.stockService = stockService;
         this.quoteProvider = quoteProvider;
         this.quoteStateStore = quoteStateStore;
         this.subscriptions = subscriptions;
+        this.snapshots = snapshots;
     }
 
     public StockQuote getQuote(String stockCode) {
@@ -43,7 +44,8 @@ public class QuoteService {
             log.warn("Quote for {} will use REST without realtime subscription: {}", stockCode, error.getMessage());
         }
         MarketTick tick = quoteStateStore.get(stockCode).orElse(null);
-        StockQuote baseline = snapshots.get(stockCode);
+        StockQuote baseline = snapshots.today(stockCode, Instant.now()).orElse(null);
+        boolean realBaseline = true;
         if (baseline == null || !isToday(baseline.quotedAt())) {
             try {
                 baseline = quoteProvider.getQuote(stock);
@@ -53,14 +55,15 @@ public class QuoteService {
                 log.warn("Using realtime-only quote for {} because baseline quote failed: {}",
                         stockCode, error.getMessage());
                 baseline = fromTick(stockCode, stock.getStockName(), stock.getMarket().name(), tick);
+                realBaseline = false;
             }
         }
         StockQuote result = tick == null ? baseline : merge(baseline, tick);
-        snapshots.put(stockCode, result);
+        if (realBaseline) snapshots.remember(result);
         return result;
     }
 
-    static StockQuote merge(StockQuote previous, MarketTick tick) {
+    public static StockQuote merge(StockQuote previous, MarketTick tick) {
         if (!tick.occurredAt().isAfter(previous.quotedAt()))
             return previous;
         BigDecimal current = tick.price();
@@ -69,9 +72,9 @@ public class QuoteService {
         BigDecimal changeRate = previousClose.signum() == 0 ? BigDecimal.ZERO
                 : change.divide(previousClose, 8, RoundingMode.HALF_UP)
                         .multiply(BigDecimal.valueOf(100)).setScale(6, RoundingMode.HALF_UP);
-        BigDecimal open = positiveOr(previous.openPrice(), current);
-        BigDecimal high = positiveOr(previous.highPrice(), current).max(current);
-        BigDecimal low = positiveOr(previous.lowPrice(), current).min(current);
+        BigDecimal open = positiveOr(tick.openPrice(), positiveOr(previous.openPrice(), current));
+        BigDecimal high = positiveOr(previous.highPrice(), current).max(positiveOr(tick.highPrice(), current)).max(current);
+        BigDecimal low = positiveOr(previous.lowPrice(), current).min(positiveOr(tick.lowPrice(), current)).min(current);
         long volume = Math.max(previous.accumulatedVolume(), tick.cumulativeVolume());
         BigDecimal tradingValue = max(previous.accumulatedTradingValue(), tick.cumulativeTradingValue());
         Instant quotedAt = tick.occurredAt().isAfter(previous.quotedAt()) ? tick.occurredAt() : previous.quotedAt();

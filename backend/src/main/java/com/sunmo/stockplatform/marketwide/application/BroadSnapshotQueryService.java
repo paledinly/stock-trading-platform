@@ -34,6 +34,6 @@ public class BroadSnapshotQueryService {
                 snapshot.getDayOpen(), snapshot.getDayHigh(), snapshot.getDayLow(), snapshot.getTradeStrength(),
                 snapshot.getBroadScore(), snapshot.getRankingSources(), snapshot.getDataQuality().name(),
                 snapshot.getCollectionStatus().name(), snapshot.getExclusionReason(), snapshot.getQuotedAt(),
-                snapshot.getSourceVersion());
+                snapshot.getSourceVersion(), snapshot.getQuoteSource());
     }
 }

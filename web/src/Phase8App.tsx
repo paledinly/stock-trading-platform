@@ -16,8 +16,10 @@ type Candidate = {
   reason: string;
   precisionEligible: boolean;
   quotedAt: string;
+  quoteSource?: string;
 };
 type Scan = {
+  collection?: CollectionSummary;
   scannedAt: string;
   market: string;
   requestedLimit: number;
@@ -50,6 +52,12 @@ type Scan = {
   candidates: Candidate[];
 };
 type MarketWideStatus = {
+  enrichment?: {
+    enabled: boolean; capacity: number; retainedJobs: number; states: Record<string, number>;
+    accepted: number; coalesced: number; succeeded: number; exhausted: number; expired: number;
+    rejected: number; lastProcessedAt: string | null; lastError: string | null;
+  };
+  collection?: CollectionSummary;
   running: boolean;
   lastStartedAt: string | null;
   lastCompletedAt: string | null;
@@ -63,7 +71,11 @@ type MarketWideStatus = {
   lastScannedCount: number;
   lastCandidateCount: number;
   lastFallback: boolean;
-  rankingSources: Array<{ type: string; success: boolean; candidateCount: number; error?: string }>;
+  rankingSources: Array<{ type: string; success: boolean; candidateCount: number; error?: string; attempts?: number; successes?: number }>;
+};
+type CollectionSummary = {
+  detailQuoteBudget: number; restLookups: number; restFailures: number; insufficientCount: number;
+  dataSources: Record<string, number>; maxDataAgeSeconds: number; kisRequests: Record<string, number>;
 };
 type SourcePerformance = {
   source: "BROAD" | "PRECISION";
@@ -155,6 +167,8 @@ export function MarketWidePage({ back }: { back: () => void }) {
     includeEtf,
   });
   const scan = useQuery({
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     queryKey: ["market-wide-scan", params],
     queryFn: () =>
       api<Scan>(
@@ -167,9 +181,11 @@ export function MarketWidePage({ back }: { back: () => void }) {
     refetchInterval: 30000,
   });
   const coverage = useQuery({
+    staleTime: 120000,
+    refetchOnWindowFocus: false,
     queryKey: ["market-wide-coverage"],
     queryFn: () => api<Coverage>("/api/v1/market-wide/coverage"),
-    refetchInterval: 60000,
+    refetchInterval: 120000,
   });
   const subscribe = useMutation({
     mutationFn: (stockCode: string) =>
@@ -284,6 +300,32 @@ export function MarketWidePage({ back }: { back: () => void }) {
           <article><small>최근 소요</small><b>{status.data ? `${status.data.lastDurationMillis}ms` : "--"}</b></article>
         </section>
         {status.data?.lastError && <div className="wideEmpty">최근 자동 스캔 오류: {status.data.lastError}</div>}
+        {status.data?.enrichment && <section className="menuGuide">
+          <h2>비동기 후보 보강</h2>
+          <p>{status.data.enrichment.enabled ? '활성' : '비활성'} · 보관 작업 {status.data.enrichment.retainedJobs}/{status.data.enrichment.capacity}건 · 상태 {Object.entries(status.data.enrichment.states).map(([state, count]) => `${state} ${count}건`).join(' · ') || '대기 작업 없음'}</p>
+          <p>접수 {status.data.enrichment.accepted} · 중복 병합 {status.data.enrichment.coalesced} · 성공 {status.data.enrichment.succeeded} · 재시도 소진 {status.data.enrichment.exhausted} · 만료 {status.data.enrichment.expired} · 접수 제외 {status.data.enrichment.rejected} (서버 시작 이후)</p>
+          {status.data.enrichment.lastError && <p>최근 보강 오류: {status.data.enrichment.lastError}</p>}
+          <p>장중에 1건씩 보강하며 마감 평가 동결 시각 이후에는 저장하지 않습니다. 성공 데이터는 새 시점의 스냅샷이며, 기존 추천은 자동 재생성하지 않습니다.</p>
+        </section>}
+        {(data?.collection ?? status.data?.collection) && <section className="menuGuide">
+          <h2>KIS 수집 품질</h2>
+          {(() => {
+            const collected = data?.collection ?? status.data?.collection;
+            if (!collected) return null;
+            return <>
+              <p>상세 REST 조회 {collected.restLookups}/{collected.detailQuoteBudget}종목 · REST 실패 {collected.restFailures}건 · 필수값 부족 {collected.insufficientCount}종목 · 확보 데이터 최대 경과 {collected.maxDataAgeSeconds}초</p>
+              <p>출처: {Object.entries(collected.dataSources).map(([source, count]) => `${source} ${count}건`).join(' · ')}</p>
+              <p>KIS 요청 {collected.kisRequests.requests ?? 0}회 · 유량 제한 {collected.kisRequests.rateLimitErrors ?? 0}회 · 재시도 {collected.kisRequests.rateLimitRetries ?? 0}회 (서버 시작 이후)</p>
+            </>;
+          })()}
+          {(data?.rankingSources ?? status.data?.rankingSources ?? []).map(source => <p key={source.type}>
+            {source.type}: {source.success ? `성공 ${source.candidateCount}종목` : `실패 ${source.error ?? ''}`}
+          </p>)}
+          {(status.data?.rankingSources ?? []).filter(source => source.attempts != null).map(source => <p key={`rate-${source.type}`}>
+            {source.type} 누적 성공 {source.successes}/{source.attempts}회 (서버 시작 이후)
+          </p>)}
+          <p>랭킹 시각은 응답 수신 시각입니다. 랭킹에 없는 값은 생성하지 않으며, 이 상태는 전체 시장을 대표하는 시장지표가 아닙니다.</p>
+        </section>}
         <section className="wideSummary">
           <article><small>순위 포착률</small><b>{pct(coverage.data?.rankingCoverageRate)}</b></article>
           <article><small>Broad 확보율</small><b>{pct(coverage.data?.broadCoverageRate)}</b></article>
@@ -336,6 +378,7 @@ export function MarketWidePage({ back }: { back: () => void }) {
                     <small>
                       {item.stockCode} · {item.market} ·{" "}
                       {reasonLabel(item.reason)}
+                      {item.quoteSource ? ` · ${item.quoteSource}` : ''}
                     </small>
                   </span>
                   <strong>{item.broadScore.toFixed(1)}</strong>

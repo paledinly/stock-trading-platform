@@ -6,12 +6,11 @@ import com.sunmo.stockplatform.analytics.api.PerformanceDtos.PerformanceResponse
 import com.sunmo.stockplatform.analytics.api.PerformanceDtos.SignalCombinationResponse;
 import com.sunmo.stockplatform.analytics.api.PerformanceDtos.TargetStopSummary;
 import com.sunmo.stockplatform.analytics.api.PerformanceDtos.TimeBucketResponse;
-import com.sunmo.stockplatform.analytics.domain.DetectionPerformance;
+import com.sunmo.stockplatform.analytics.infrastructure.AnalyticsRow;
 import com.sunmo.stockplatform.analytics.domain.PerformanceStatus;
 import com.sunmo.stockplatform.analytics.infrastructure.DetectionPerformanceRepository;
 import com.sunmo.stockplatform.common.error.ApplicationException;
 import com.sunmo.stockplatform.common.error.ErrorCode;
-import com.sunmo.stockplatform.scanner.domain.ScannerDetection;
 import com.sunmo.stockplatform.scanner.infrastructure.ScannerDetectionRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -35,11 +34,19 @@ public class ScannerAnalyticsService {
     private static final ZoneId MARKET_ZONE = ZoneId.of("Asia/Seoul");
     private final ScannerDetectionRepository detections;
     private final DetectionPerformanceRepository performances;
+    private final SummaryReadCache cache;
 
     public ScannerAnalyticsService(ScannerDetectionRepository detections,
             DetectionPerformanceRepository performances) {
+        this(detections, performances, new SummaryReadCache(java.time.Duration.ZERO));
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public ScannerAnalyticsService(ScannerDetectionRepository detections,
+            DetectionPerformanceRepository performances, SummaryReadCache cache) {
         this.detections = detections;
         this.performances = performances;
+        this.cache = cache;
     }
 
     public PerformanceResponse performance(long detectionId) {
@@ -55,17 +62,29 @@ public class ScannerAnalyticsService {
 
     public AnalyticsResponse analytics(Long settingId, Instant from, Instant to, BigDecimal targetRate,
             BigDecimal stopRate, int minimumSampleSize) {
-        var rows = detections.findByDetectedAtBetweenOrderByDetectedAtAsc(from, to).stream()
-                .filter(detection -> settingId == null || detection.getSetting().getId().equals(settingId))
-                .map(detection -> performances.findById(detection.getId()).orElse(null))
-                .filter(Objects::nonNull)
-                .toList();
+        if (from == null || to == null || from.isAfter(to)
+                || java.time.Duration.between(from, to).compareTo(java.time.Duration.ofDays(93)) > 0
+                || minimumSampleSize < 1 || minimumSampleSize > 10000
+                || targetRate == null || targetRate.signum() <= 0 || stopRate == null || stopRate.signum() >= 0)
+            throw new ApplicationException(ErrorCode.INVALID_REQUEST, HttpStatus.BAD_REQUEST,
+                    "Analytics requires an ordered range of at most 93 days, positive target, negative stop and valid sample size");
+        return cache.get(new AnalyticsKey(settingId, from, to, targetRate.stripTrailingZeros(),
+                stopRate.stripTrailingZeros(), minimumSampleSize),
+                () -> calculate(settingId, from, to, targetRate, stopRate, minimumSampleSize));
+    }
+
+    private record AnalyticsKey(Long settingId, Instant from, Instant to, BigDecimal targetRate,
+            BigDecimal stopRate, int minimumSampleSize) {}
+
+    private AnalyticsResponse calculate(Long settingId, Instant from, Instant to, BigDecimal targetRate,
+            BigDecimal stopRate, int minimumSampleSize) {
+        var rows = performances.findAnalyticsRows(settingId, from, to);
         long completed = rows.stream().filter(performance -> performance.getStatus() == PerformanceStatus.COMPLETED)
                 .count();
         long missing = rows.stream().filter(performance -> performance.getStatus() == PerformanceStatus.DATA_MISSING)
                 .count();
         String version = rows.stream()
-                .map(DetectionPerformance::getCalculationVersion)
+                .map(AnalyticsRow::getCalculationVersion)
                 .distinct()
                 .reduce((left, right) -> "mixed")
                 .orElse("performance-v2");
@@ -74,13 +93,13 @@ public class ScannerAnalyticsService {
                 rows.size(),
                 completed,
                 missing,
-                win(rows, DetectionPerformance::getReturn5m),
-                win(rows, DetectionPerformance::getReturnClose),
-                avg(rows, DetectionPerformance::getReturn5m),
-                avg(rows, DetectionPerformance::getReturn10m),
-                avg(rows, DetectionPerformance::getReturn30m),
-                avg(rows, DetectionPerformance::getReturn60m),
-                avg(rows, DetectionPerformance::getReturnClose),
+                win(rows, AnalyticsRow::getReturn5m),
+                win(rows, AnalyticsRow::getReturnClose),
+                avg(rows, AnalyticsRow::getReturn5m),
+                avg(rows, AnalyticsRow::getReturn10m),
+                avg(rows, AnalyticsRow::getReturn30m),
+                avg(rows, AnalyticsRow::getReturn60m),
+                avg(rows, AnalyticsRow::getReturnClose),
                 version,
                 targetRate,
                 stopRate,
@@ -91,11 +110,11 @@ public class ScannerAnalyticsService {
                 minimumSampleSize);
     }
 
-    private TargetStopSummary targetStop(List<DetectionPerformance> rows, BigDecimal targetRate, BigDecimal stopRate) {
+    private TargetStopSummary targetStop(List<AnalyticsRow> rows, BigDecimal targetRate, BigDecimal stopRate) {
         long targetFirst = 0;
         long stopFirst = 0;
         long neither = 0;
-        for (DetectionPerformance row : rows) {
+        for (AnalyticsRow row : rows) {
             boolean hitTarget = row.getMaxReturn() != null && row.getMaxReturn().compareTo(targetRate) >= 0;
             boolean hitStop = row.getMaxDrawdown() != null && row.getMaxDrawdown().compareTo(stopRate) <= 0;
             if (hitTarget && !hitStop)
@@ -112,13 +131,13 @@ public class ScannerAnalyticsService {
                 neither,
                 rate(targetFirst, rows.size()),
                 rate(stopFirst, rows.size()),
-                avg(rows, DetectionPerformance::getReturnClose));
+                avg(rows, AnalyticsRow::getReturnClose));
     }
 
-    private List<TimeBucketResponse> timeBuckets(List<DetectionPerformance> rows) {
-        Map<Integer, List<DetectionPerformance>> buckets = new LinkedHashMap<>();
-        for (DetectionPerformance row : rows) {
-            int hour = row.getDetection().getDetectedAt().atZone(MARKET_ZONE).getHour();
+    private List<TimeBucketResponse> timeBuckets(List<AnalyticsRow> rows) {
+        Map<Integer, List<AnalyticsRow>> buckets = new LinkedHashMap<>();
+        for (AnalyticsRow row : rows) {
+            int hour = row.getDetectedAt().atZone(MARKET_ZONE).getHour();
             buckets.computeIfAbsent(hour, ignored -> new ArrayList<>()).add(row);
         }
         return buckets.entrySet().stream()
@@ -126,17 +145,17 @@ public class ScannerAnalyticsService {
                 .map(entry -> new TimeBucketResponse(
                         String.format("%02d:00", entry.getKey()),
                         entry.getValue().size(),
-                        win(entry.getValue(), DetectionPerformance::getReturnClose),
-                        avg(entry.getValue(), DetectionPerformance::getReturnClose),
-                        avg(entry.getValue(), DetectionPerformance::getMaxReturn),
-                        avg(entry.getValue(), DetectionPerformance::getMaxDrawdown)))
+                        win(entry.getValue(), AnalyticsRow::getReturnClose),
+                        avg(entry.getValue(), AnalyticsRow::getReturnClose),
+                        avg(entry.getValue(), AnalyticsRow::getMaxReturn),
+                        avg(entry.getValue(), AnalyticsRow::getMaxDrawdown)))
                 .toList();
     }
 
-    private List<SignalCombinationResponse> signalCombinations(List<DetectionPerformance> rows, int minimumSampleSize) {
-        Map<String, List<DetectionPerformance>> buckets = new LinkedHashMap<>();
-        for (DetectionPerformance row : rows) {
-            ScannerDetection detection = row.getDetection();
+    private List<SignalCombinationResponse> signalCombinations(List<AnalyticsRow> rows, int minimumSampleSize) {
+        Map<String, List<AnalyticsRow>> buckets = new LinkedHashMap<>();
+        for (AnalyticsRow row : rows) {
+            AnalyticsRow detection = row;
             String key = detection.getType().name() + "|" + band(detection.getOpportunityScore()) + "|"
                     + band(detection.getRiskScore());
             buckets.computeIfAbsent(key, ignored -> new ArrayList<>()).add(row);
@@ -144,16 +163,16 @@ public class ScannerAnalyticsService {
         return buckets.entrySet().stream()
                 .map(entry -> {
                     String[] parts = entry.getKey().split("\\|");
-                    List<DetectionPerformance> values = entry.getValue();
+                    List<AnalyticsRow> values = entry.getValue();
                     return new SignalCombinationResponse(
                             parts[0],
                             parts[1],
                             parts[2],
                             values.size(),
-                            win(values, DetectionPerformance::getReturnClose),
-                            avg(values, DetectionPerformance::getReturnClose),
-                            avg(values, DetectionPerformance::getMaxReturn),
-                            avg(values, DetectionPerformance::getMaxDrawdown),
+                            win(values, AnalyticsRow::getReturnClose),
+                            avg(values, AnalyticsRow::getReturnClose),
+                            avg(values, AnalyticsRow::getMaxReturn),
+                            avg(values, AnalyticsRow::getMaxDrawdown),
                             confidence(values.size(), minimumSampleSize));
                 })
                 .sorted(Comparator.comparing(SignalCombinationResponse::confidence)
@@ -162,14 +181,14 @@ public class ScannerAnalyticsService {
                 .toList();
     }
 
-    private HistoricalEdgeResponse historicalEdge(List<DetectionPerformance> rows, int minimumSampleSize) {
+    private HistoricalEdgeResponse historicalEdge(List<AnalyticsRow> rows, int minimumSampleSize) {
         return new HistoricalEdgeResponse(
                 rows.size(),
-                win(rows, DetectionPerformance::getReturnClose),
-                avg(rows, DetectionPerformance::getReturnClose),
-                avg(rows, DetectionPerformance::getReturnClose),
-                avg(rows, DetectionPerformance::getMfe),
-                avg(rows, DetectionPerformance::getMae),
+                win(rows, AnalyticsRow::getReturnClose),
+                avg(rows, AnalyticsRow::getReturnClose),
+                avg(rows, AnalyticsRow::getReturnClose),
+                avg(rows, AnalyticsRow::getMfe),
+                avg(rows, AnalyticsRow::getMae),
                 confidence(rows.size(), minimumSampleSize),
                 rows.size() >= minimumSampleSize);
     }
@@ -192,7 +211,7 @@ public class ScannerAnalyticsService {
         return "LOW";
     }
 
-    private BigDecimal avg(List<DetectionPerformance> rows, Function<DetectionPerformance, BigDecimal> getter) {
+    private BigDecimal avg(List<AnalyticsRow> rows, Function<AnalyticsRow, BigDecimal> getter) {
         var values = rows.stream().map(getter).filter(Objects::nonNull).toList();
         if (values.isEmpty())
             return null;
@@ -200,7 +219,7 @@ public class ScannerAnalyticsService {
                 .divide(BigDecimal.valueOf(values.size()), 6, RoundingMode.HALF_UP);
     }
 
-    private BigDecimal win(List<DetectionPerformance> rows, Function<DetectionPerformance, BigDecimal> getter) {
+    private BigDecimal win(List<AnalyticsRow> rows, Function<AnalyticsRow, BigDecimal> getter) {
         var values = rows.stream().map(getter).filter(Objects::nonNull).toList();
         if (values.isEmpty())
             return null;

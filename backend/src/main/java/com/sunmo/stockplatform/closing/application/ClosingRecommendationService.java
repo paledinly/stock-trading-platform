@@ -4,11 +4,17 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sunmo.stockplatform.closing.api.ClosingRecommendationDtos.GenerateResponse;
 import com.sunmo.stockplatform.closing.api.ClosingRecommendationDtos.RecommendationResponse;
+import com.sunmo.stockplatform.closing.api.ClosingRecommendationDtos.CandidateEvaluationResponse;
+import com.sunmo.stockplatform.closing.domain.ClosingRecommendationRun;
+import com.sunmo.stockplatform.closing.infrastructure.ClosingRecommendationRunRepository;
 import com.sunmo.stockplatform.closing.application.ClosingRecommendationScorer.ScoreResult;
 import com.sunmo.stockplatform.closing.domain.ClosingRecommendation;
 import com.sunmo.stockplatform.closing.infrastructure.ClosingRecommendationRepository;
 import com.sunmo.stockplatform.closing.infrastructure.OvernightPerformanceRepository;
 import com.sunmo.stockplatform.closing.infrastructure.OvernightPositionDecisionRepository;
+import com.sunmo.stockplatform.closing.config.ClosingRecommendationProperties;
+import com.sunmo.stockplatform.candle.domain.StockCandle;
+import com.sunmo.stockplatform.candle.infrastructure.StockCandleRepository;
 import com.sunmo.stockplatform.marketwide.domain.BroadSnapshotQuality;
 import com.sunmo.stockplatform.marketwide.domain.BroadSnapshotStatus;
 import com.sunmo.stockplatform.marketwide.domain.MarketBroadSnapshot;
@@ -25,8 +31,6 @@ import java.util.*;
 @Service
 public class ClosingRecommendationService {
     private static final ZoneId MARKET_ZONE = ZoneId.of("Asia/Seoul");
-    private static final LocalTime DEFAULT_CUTOFF = LocalTime.of(14, 30);
-
     private final ScannerDetectionRepository detections;
     private final ClosingRecommendationRepository recommendations;
     private final OvernightPerformanceRepository performances;
@@ -37,13 +41,17 @@ public class ClosingRecommendationService {
     private final MarketBroadSnapshotRepository broadSnapshots;
     private final BroadClosingRecommendationScorer broadScorer;
     private final ObjectMapper objectMapper;
+    private final StockCandleRepository candles;
+    private final ClosingRecommendationProperties properties;
+    private final ClosingRecommendationRunRepository runs;
 
     public ClosingRecommendationService(ScannerDetectionRepository detections,
             ClosingRecommendationRepository recommendations, ClosingRecommendationScorer scorer,
             IntradayMovingAverageService intradayMa, DailyMovingAverageService dailyMa,
             MarketBroadSnapshotRepository broadSnapshots, BroadClosingRecommendationScorer broadScorer,
             ObjectMapper objectMapper, OvernightPerformanceRepository performances,
-            OvernightPositionDecisionRepository decisions) {
+            OvernightPositionDecisionRepository decisions, StockCandleRepository candles,
+            ClosingRecommendationProperties properties, ClosingRecommendationRunRepository runs) {
         this.detections = detections;
         this.recommendations = recommendations;
         this.performances = performances;
@@ -54,43 +62,46 @@ public class ClosingRecommendationService {
         this.broadSnapshots = broadSnapshots;
         this.broadScorer = broadScorer;
         this.objectMapper = objectMapper;
+        this.candles = candles;
+        this.properties = properties;
+        this.runs = runs;
     }
 
     @Transactional
     public GenerateResponse generate(LocalDate date, int limit, BigDecimal minOpportunity, BigDecimal maxRisk) {
         LocalDate targetDate = date == null ? LocalDate.now(MARKET_ZONE) : date;
         Instant generatedAt = Instant.now();
+        if (targetDate.isAfter(generatedAt.atZone(MARKET_ZONE).toLocalDate()))
+            throw new com.sunmo.stockplatform.common.error.ApplicationException(
+                    com.sunmo.stockplatform.common.error.ErrorCode.INVALID_REQUEST,
+                    org.springframework.http.HttpStatus.BAD_REQUEST, "Future recommendation date is not allowed");
         int safeLimit = Math.min(Math.max(limit, 1), 30);
-        Instant cutoff = targetDate.atTime(DEFAULT_CUTOFF).atZone(MARKET_ZONE).toInstant();
+        Instant cutoff = targetDate.atTime(properties.evaluationStart()).atZone(MARKET_ZONE).toInstant();
         Instant close = targetDate.atTime(15, 30).atZone(MARKET_ZONE).toInstant();
-        Instant evaluationEnd = targetDate.equals(LocalDate.now(MARKET_ZONE)) && generatedAt.isBefore(close)
-                ? generatedAt : close;
+        Instant freeze = targetDate.atTime(properties.featureFreezeAt()).atZone(MARKET_ZONE).toInstant();
+        Instant sessionEnd = freeze.isBefore(close) ? freeze : close;
+        Instant evaluationEnd = targetDate.equals(LocalDate.now(MARKET_ZONE)) && generatedAt.isBefore(sessionEnd)
+                ? generatedAt : sessionEnd;
         List<ScannerDetection> source = detections
                 .findBySessionDateAndDetectedAtGreaterThanEqualOrderByDetectedAtDesc(targetDate, cutoff);
 
         List<ScannerDetection> boundedDetections = source.stream()
                 .filter(detection -> !detection.getDetectedAt().isAfter(evaluationEnd)).toList();
-        Map<Long, Integer> coverage = coverageMinutes(boundedDetections);
-        List<ScoredCandidate> precisionCandidates = deduplicateByStock(boundedDetections).values().stream()
-                .filter(detection -> qualifies(detection, minOpportunity, maxRisk))
-                .map(detection -> precisionCandidate(detection, coverage.getOrDefault(detection.getStock().getId(), 0)))
-                .toList();
+        Map<ScannerDetection, CandleCoverage> coverage = candleCoverage(boundedDetections, cutoff, evaluationEnd);
+        List<ScoredCandidate> precisionCandidates = representativeCandidates(boundedDetections, coverage,
+                minOpportunity, maxRisk);
 
-        Set<Long> precisionStocks = precisionCandidates.stream().map(item -> item.candidate().stock().getId())
-                .collect(java.util.stream.Collectors.toSet());
         List<MarketBroadSnapshot> broadSource = broadSnapshots.findClosingCandidates(targetDate, cutoff, evaluationEnd);
-        List<ScoredCandidate> broadCandidates = latestBroadByStock(broadSource).values().stream()
-                .filter(snapshot -> !precisionStocks.contains(snapshot.getStock().getId()))
-                .filter(this::eligibleBroad)
-                .map(this::broadCandidate)
-                .filter(candidate -> candidate.candidate().opportunityScore().compareTo(threshold(minOpportunity)) >= 0)
-                .filter(candidate -> candidate.candidate().riskScore().compareTo(riskLimit(maxRisk)) <= 0)
-                .toList();
-
-        List<ScoredCandidate> candidates = java.util.stream.Stream.concat(precisionCandidates.stream(), broadCandidates.stream())
+        List<ScoredCandidate> selectable = new ArrayList<>();
+        for (ScoredCandidate candidate : precisionCandidates) {
+            CandidateDecision decision = precisionDecision(candidate, minOpportunity, maxRisk);
+            if (decision.disposition() == CandidateDisposition.SELECTED) selectable.add(candidate);
+        }
+        List<ScoredCandidate> rankedCandidates = selectable.stream()
                 .sorted(Comparator.comparing((ScoredCandidate item) -> item.score().score()).reversed()
                         .thenComparing(item -> item.candidate().observedAt(), Comparator.reverseOrder()))
-                .limit(safeLimit).toList();
+                .toList();
+        List<ScoredCandidate> candidates = rankedCandidates.stream().limit(safeLimit).toList();
 
         decisions.deleteByRecommendationDate(targetDate);
         performances.deleteByRecommendationDate(targetDate);
@@ -101,19 +112,105 @@ public class ClosingRecommendationService {
             ranked.add(entity(targetDate, generatedAt, candidate, index + 1));
         }
         List<ClosingRecommendation> saved = recommendations.saveAll(ranked);
-        return new GenerateResponse(
+        List<CandidateEvaluationResponse> evaluations = evaluations(boundedDetections, broadSource, coverage,
+                precisionCandidates, candidates, minOpportunity, maxRisk);
+        Map<String, Integer> decisionReasons = new LinkedHashMap<>();
+        evaluations.stream().filter(row -> !row.disposition().equals("SELECTED"))
+                .forEach(row -> decisionReasons.merge(row.decisionReason(), 1, Integer::sum));
+        GenerateResponse response = new GenerateResponse(
                 targetDate,
                 generatedAt,
                 boundedDetections.size(),
                 broadSource.size(),
                 saved.size(),
+                (int) evaluations.stream().filter(row -> row.disposition().equals("WATCH")).count(),
+                (int) evaluations.stream().filter(row -> row.disposition().equals("EXCLUDED")).count(),
+                Map.copyOf(decisionReasons),
                 ClosingRecommendation.STRATEGY_VERSION,
-                saved.stream().map(RecommendationResponse::from).toList());
+                saved.stream().map(RecommendationResponse::from).toList(), evaluationEnd,
+                Map.of("minimumCoverageMinutes", properties.minimumCoverageMinutes(),
+                        "minimumFinalCandles", properties.minimumFinalCandles(),
+                        "minimumFinalScore", properties.minimumFinalScore(),
+                        "minOpportunity", threshold(minOpportunity), "maxRisk", riskLimit(maxRisk),
+                        "limit", safeLimit, "evaluationStart", properties.evaluationStart().toString(),
+                        "featureFreezeAt", properties.featureFreezeAt().toString()),
+                Map.copyOf(decisionReasons), evaluations);
+        try {
+            runs.save(new ClosingRecommendationRun(targetDate, generatedAt, ClosingRecommendation.STRATEGY_VERSION,
+                    objectMapper.writeValueAsString(response)));
+        } catch (com.fasterxml.jackson.core.JsonProcessingException error) {
+            throw new IllegalStateException("Failed to preserve recommendation audit", error);
+        }
+        return response;
     }
 
-    private ScoredCandidate precisionCandidate(ScannerDetection detection, int coverageMinutes) {
+    private List<CandidateEvaluationResponse> evaluations(List<ScannerDetection> source,
+            List<MarketBroadSnapshot> broadSource, Map<ScannerDetection, CandleCoverage> coverage,
+            List<ScoredCandidate> scoredPrecision, List<ScoredCandidate> selected,
+            BigDecimal minOpportunity, BigDecimal maxRisk) {
+        List<CandidateEvaluationResponse> result = new ArrayList<>();
+        Set<Long> selectedIds = new HashSet<>();
+        selected.forEach(row -> selectedIds.add(row.candidate().stock().getId()));
+        for (ScoredCandidate candidate : scoredPrecision) {
+            ScannerDetection detection = ((ClosingCandidate.Precision) candidate.candidate()).detection();
+            Long id = detection.getStock().getId();
+            CandleCoverage observed = coverage.getOrDefault(detection, CandleCoverage.empty());
+            CandidateDecision decision;
+            if (!tradable(detection.getStock())) decision = new CandidateDecision(CandidateDisposition.EXCLUDED, "NOT_TRADABLE");
+            else if (!qualifies(detection, minOpportunity, maxRisk))
+                decision = new CandidateDecision(CandidateDisposition.EXCLUDED, "OPPORTUNITY_OR_RISK_FILTERED");
+            else if (selectedIds.contains(id)) decision = new CandidateDecision(CandidateDisposition.SELECTED, "QUALIFIED");
+            else {
+                decision = decision(candidate);
+                if (decision.disposition() == CandidateDisposition.SELECTED)
+                    decision = new CandidateDecision(CandidateDisposition.WATCH, "RANK_LIMIT_WATCH");
+            }
+            result.add(evaluation(candidate, observed.finalCandles(), decision, detection.getFeatureSnapshot()));
+        }
+        for (MarketBroadSnapshot snapshot : latestBroadByStock(broadSource).values()) {
+            ScoredCandidate candidate = broadCandidate(snapshot);
+            String reason = precisionStocksContain(scoredPrecision, snapshot.getStock().getId()) ? "PRECISION_DUPLICATE"
+                    : !eligibleBroad(snapshot) ? "INSUFFICIENT_BROAD_DATA"
+                    : candidate.candidate().opportunityScore().compareTo(threshold(minOpportunity)) < 0
+                        || candidate.candidate().riskScore().compareTo(riskLimit(maxRisk)) > 0
+                            ? "OPPORTUNITY_OR_RISK_FILTERED" : "BROAD_WATCH_ONLY";
+            result.add(evaluation(candidate, 0, new CandidateDecision(reason.equals("BROAD_WATCH_ONLY")
+                    ? CandidateDisposition.WATCH : CandidateDisposition.EXCLUDED, reason), null));
+        }
+        return List.copyOf(result);
+    }
+
+    private boolean precisionStocksContain(List<ScoredCandidate> rows, Long id) {
+        return rows.stream().anyMatch(row -> row.candidate().stock().getId().equals(id));
+    }
+
+    private CandidateEvaluationResponse evaluation(ScoredCandidate scored, int finalCandles,
+            CandidateDecision decision, String featureSnapshot) {
+        ClosingCandidate candidate = scored.candidate();
+        return new CandidateEvaluationResponse(candidate.stock().getStockCode(), candidate.stock().getStockName(),
+                candidate.source().name(), candidate instanceof ClosingCandidate.Precision precision
+                        ? precision.detection().getType().name() : null,
+                candidate.observedAt(), candidate.referencePrice(), scored.score().score(), candidate.opportunityScore(),
+                candidate.riskScore(), candidate.dataQuality(), finalCandles, candidate.coverageMinutes(),
+                candidate.missingFeatures(), decision.disposition().name(), decision.reason(),
+                scored.score().recommendationReason(), scored.score().riskReason(), featureSnapshot);
+    }
+
+    @Transactional(readOnly = true)
+    public GenerateResponse latestEvaluation(LocalDate date) {
+        LocalDate target = date == null ? LocalDate.now(MARKET_ZONE) : date;
+        return runs.findFirstByRecommendationDateOrderByGeneratedAtDescIdDesc(target).map(run -> {
+            try { return objectMapper.readValue(run.getResponseSnapshot(), GenerateResponse.class); }
+            catch (com.fasterxml.jackson.core.JsonProcessingException error) {
+                throw new IllegalStateException("Failed to read recommendation audit", error);
+            }
+        }).orElse(null);
+    }
+
+    private ScoredCandidate precisionCandidate(ScannerDetection detection, CandleCoverage coverage) {
         List<String> missing = precisionMissing(detection);
-        ClosingCandidate.Precision candidate = new ClosingCandidate.Precision(detection, coverageMinutes, missing);
+        if (coverage.finalCandles() < properties.minimumFinalCandles()) missing = append(missing, "finalCandles");
+        ClosingCandidate.Precision candidate = new ClosingCandidate.Precision(detection, coverage.minutes(), missing);
         return new ScoredCandidate(candidate,
                 scorer.score(detection, intradayMa.calculate(detection), dailyMa.calculate(detection)));
     }
@@ -144,18 +241,45 @@ public class ClosingRecommendationService {
         return latest;
     }
 
-    private Map<Long, Integer> coverageMinutes(List<ScannerDetection> source) {
-        Map<Long, Instant> earliest = new HashMap<>();
-        Map<Long, Instant> latest = new HashMap<>();
-        for (ScannerDetection detection : source) {
-            Long id = detection.getStock().getId();
-            earliest.merge(id, detection.getDetectedAt(), (a, b) -> a.isBefore(b) ? a : b);
-            latest.merge(id, detection.getDetectedAt(), (a, b) -> a.isAfter(b) ? a : b);
-        }
-        Map<Long, Integer> result = new HashMap<>();
-        earliest.forEach((id, start) -> result.put(id,
-                Math.max(0, Math.toIntExact(Duration.between(start, latest.get(id)).toMinutes()))));
+    private Map<ScannerDetection, CandleCoverage> candleCoverage(List<ScannerDetection> source, Instant from, Instant to) {
+        Map<ScannerDetection, CandleCoverage> result = new HashMap<>();
+        source.stream().map(detection -> detection.getStock().getId()).distinct().forEach(stockId -> {
+            List<StockCandle> rows = candles
+                    .findByStockIdAndTimeframeAndStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(
+                            stockId, "5M", from, to.plusSeconds(1)).stream()
+                    .filter(StockCandle::isFinalCandle)
+                    .filter(row -> !row.getStartTime().plus(Duration.ofMinutes(5)).isAfter(to))
+                    .toList();
+            source.stream().filter(detection -> detection.getStock().getId().equals(stockId)).forEach(detection -> {
+                Instant end = detection.getDetectedAt().truncatedTo(java.time.temporal.ChronoUnit.MINUTES);
+                end = end.minusSeconds(end.atZone(MARKET_ZONE).getMinute() % 5 * 60L);
+                Set<Instant> starts = new HashSet<>();
+                rows.stream().filter(row -> !row.getStartTime().plus(Duration.ofMinutes(5))
+                        .isAfter(detection.getDetectedAt())).forEach(row -> starts.add(row.getStartTime()));
+                int count = 0;
+                for (Instant expected = end.minus(Duration.ofMinutes(5)); starts.contains(expected);
+                        expected = expected.minus(Duration.ofMinutes(5))) count++;
+                result.put(detection, new CandleCoverage(count, count * 5));
+            });
+        });
         return result;
+    }
+
+    private CandidateDecision decision(ScoredCandidate candidate) {
+        ClosingCandidate.Precision precision = (ClosingCandidate.Precision) candidate.candidate();
+        if (!precision.missingFeatures().isEmpty())
+            return new CandidateDecision(CandidateDisposition.WATCH, "MISSING_REQUIRED_FEATURES");
+        if (precision.coverageMinutes() < properties.minimumCoverageMinutes())
+            return new CandidateDecision(CandidateDisposition.WATCH, "INSUFFICIENT_INTRADAY_COVERAGE");
+        if (candidate.score().score().compareTo(properties.minimumFinalScore()) < 0)
+            return new CandidateDecision(CandidateDisposition.EXCLUDED, "LOW_FINAL_SCORE");
+        return new CandidateDecision(CandidateDisposition.SELECTED, "");
+    }
+
+    private List<String> append(List<String> values, String value) {
+        List<String> result = new ArrayList<>(values);
+        result.add(value);
+        return List.copyOf(result);
     }
 
     private boolean eligibleBroad(MarketBroadSnapshot snapshot) {
@@ -167,6 +291,10 @@ public class ClosingRecommendationService {
 
     private List<String> broadMissing(MarketBroadSnapshot snapshot) {
         List<String> missing = new ArrayList<>();
+        if (snapshot.getCurrentPrice() == null) missing.add("currentPrice");
+        if (snapshot.getChangeRate() == null) missing.add("changeRate");
+        if (snapshot.getAccumulatedVolume() == null) missing.add("accumulatedVolume");
+        if (snapshot.getAccumulatedTradingValue() == null) missing.add("accumulatedTradingValue");
         if (snapshot.getTradeStrength() == null) missing.add("tradeStrength");
         missing.add("vwap");
         missing.add("volumeRatio");
@@ -201,12 +329,32 @@ public class ClosingRecommendationService {
                 .toList();
     }
 
-    private Map<Long, ScannerDetection> deduplicateByStock(List<ScannerDetection> source) {
-        Map<Long, ScannerDetection> latest = new LinkedHashMap<>();
+    private List<ScoredCandidate> representativeCandidates(List<ScannerDetection> source,
+            Map<ScannerDetection, CandleCoverage> coverage, BigDecimal minOpportunity, BigDecimal maxRisk) {
+        Comparator<ScoredCandidate> priority = Comparator
+                .comparingInt((ScoredCandidate row) -> switch (precisionDecision(row, minOpportunity, maxRisk).disposition()) {
+                    case SELECTED -> 2;
+                    case WATCH -> 1;
+                    case EXCLUDED -> 0;
+                }).thenComparing(row -> row.score().score())
+                .thenComparing(row -> row.candidate().observedAt())
+                .thenComparing(row -> Optional.ofNullable(((ClosingCandidate.Precision) row.candidate())
+                        .detection().getId()).orElse(0L));
+        Map<Long, ScoredCandidate> representatives = new LinkedHashMap<>();
         for (ScannerDetection detection : source) {
-            latest.putIfAbsent(detection.getStock().getId(), detection);
+            ScoredCandidate row = precisionCandidate(detection, coverage.getOrDefault(detection, CandleCoverage.empty()));
+            representatives.merge(detection.getStock().getId(), row,
+                    (old, next) -> priority.compare(old, next) >= 0 ? old : next);
         }
-        return latest;
+        return List.copyOf(representatives.values());
+    }
+
+    private CandidateDecision precisionDecision(ScoredCandidate row, BigDecimal minimum, BigDecimal maximum) {
+        ScannerDetection detection = ((ClosingCandidate.Precision) row.candidate()).detection();
+        if (!tradable(detection.getStock())) return new CandidateDecision(CandidateDisposition.EXCLUDED, "NOT_TRADABLE");
+        if (!qualifies(detection, minimum, maximum))
+            return new CandidateDecision(CandidateDisposition.EXCLUDED, "OPPORTUNITY_OR_RISK_FILTERED");
+        return decision(row);
     }
 
     private boolean qualifies(ScannerDetection detection, BigDecimal minOpportunity, BigDecimal maxRisk) {
@@ -234,4 +382,11 @@ public class ClosingRecommendationService {
 
     private record ScoredCandidate(ClosingCandidate candidate, ScoreResult score) {
     }
+
+    private record CandleCoverage(int finalCandles, int minutes) {
+        private static CandleCoverage empty() { return new CandleCoverage(0, 0); }
+    }
+
+    private enum CandidateDisposition { SELECTED, WATCH, EXCLUDED }
+    private record CandidateDecision(CandidateDisposition disposition, String reason) { }
 }

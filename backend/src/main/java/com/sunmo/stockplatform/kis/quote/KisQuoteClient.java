@@ -4,6 +4,8 @@ import com.sunmo.stockplatform.common.error.ApplicationException;
 import com.sunmo.stockplatform.common.error.ErrorCode;
 import com.sunmo.stockplatform.kis.auth.KisTokenManager;
 import com.sunmo.stockplatform.kis.config.KisProperties;
+import com.sunmo.stockplatform.kis.config.KisRequestExecutor;
+import com.sunmo.stockplatform.kis.config.KisResponseErrors;
 import com.sunmo.stockplatform.quote.application.QuoteProvider;
 import com.sunmo.stockplatform.quote.domain.StockQuote;
 import com.sunmo.stockplatform.stock.domain.Stock;
@@ -23,13 +25,15 @@ public class KisQuoteClient implements QuoteProvider {
     private final KisProperties properties;
     private final KisTokenManager tokenManager;
     private final KisQuoteMapper mapper;
+    private final KisRequestExecutor requests;
 
     public KisQuoteClient(RestClient kisRestClient, KisProperties properties, KisTokenManager tokenManager,
-            KisQuoteMapper mapper) {
+            KisQuoteMapper mapper, KisRequestExecutor requests) {
         this.restClient = kisRestClient;
         this.properties = properties;
         this.tokenManager = tokenManager;
         this.mapper = mapper;
+        this.requests = requests;
     }
 
     @Override
@@ -38,6 +42,7 @@ public class KisQuoteClient implements QuoteProvider {
     public StockQuote getQuote(Stock stock) {
         try {
             properties.requireCredentials();
+            return requests.execute(true, () -> {
             var response = restClient.get()
                     .uri(builder -> builder.path(ENDPOINT)
                             .queryParam("FID_COND_MRKT_DIV_CODE", "J")
@@ -53,10 +58,10 @@ public class KisQuoteClient implements QuoteProvider {
             if (response == null || !"0".equals(response.resultCode()) || response.output() == null) {
                 String code = response == null ? "EMPTY_RESPONSE" : response.messageCode();
                 String message = response == null ? "KIS returned an empty response" : response.message();
-                throw new ApplicationException(ErrorCode.KIS_API_ERROR, HttpStatus.BAD_GATEWAY,
-                        "KIS quote failed [%s]: %s".formatted(code, message));
+                KisResponseErrors.failure("KIS quote failed", code, message);
             }
             return mapper.map(stock, response.output());
+            });
         } catch (IllegalStateException exception) {
             throw new ApplicationException(ErrorCode.KIS_NOT_CONFIGURED, HttpStatus.SERVICE_UNAVAILABLE,
                     "KIS integration is not configured", exception);

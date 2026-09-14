@@ -29,7 +29,9 @@ class KisQuoteClientTest {
         var properties = properties();
         var tokenManager = mock(KisTokenManager.class);
         when(tokenManager.getAccessToken()).thenReturn("access-token");
-        var client = new KisQuoteClient(builder.build(), properties, tokenManager, new KisQuoteMapper());
+        var client = new KisQuoteClient(builder.build(), properties, tokenManager, new KisQuoteMapper(),
+                new com.sunmo.stockplatform.kis.config.KisRequestExecutor(
+                    new com.sunmo.stockplatform.kis.config.KisRequestProperties(Duration.ZERO, Duration.ZERO, Duration.ZERO, 1)));
         var stock = new Stock("005930", "KR7005930003", "삼성전자", Market.KOSPI, MarketType.STOCK,
                 false, false, Instant.now());
 

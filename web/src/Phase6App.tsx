@@ -156,7 +156,9 @@ export function ScannerPage({ back }: { back: () => void }) {
   const detections = useQuery({
     queryKey: ['detections', tab, includeHistory],
     queryFn: () => request<Detection[]>(`/api/v1/scanner-detections?type=${tab}&limit=100&todayOnly=${!includeHistory}`),
-    refetchInterval: 8000,
+    staleTime: 30000,
+    refetchOnWindowFocus: false,
+    refetchInterval: includeHistory ? false : 30000,
   })
   const selected = useQuery({
     queryKey: ['detection', selectedId],

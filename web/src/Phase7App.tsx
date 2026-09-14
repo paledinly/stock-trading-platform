@@ -145,6 +145,9 @@ export function AnalyticsPage({ back }: { back: () => void }) {
     queryFn: () => get<Setting[]>("/api/v1/scanner-settings"),
   });
   const analytics = useQuery({
+    staleTime: 60000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     queryKey: ["analytics", params],
     queryFn: () =>
       get<Analytics>(

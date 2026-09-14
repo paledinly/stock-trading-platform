@@ -51,11 +51,25 @@ class BroadSnapshotServiceTest {
         assertThat(collected.getDataQuality()).isEqualTo(BroadSnapshotQuality.BROAD_C);
         assertThat(collected.getCollectionStatus()).isEqualTo(BroadSnapshotStatus.COLLECTED);
         assertThat(collected.getCurrentPrice()).isEqualByComparingTo("70000");
-        assertThat(collected.getRankingSources()).contains("TURNOVER").contains("broad-ranking-v1");
+        assertThat(collected.getRankingSources()).contains("TURNOVER").contains(MarketBroadSnapshot.SOURCE_VERSION);
         assertThat(failed.getDataQuality()).isEqualTo(BroadSnapshotQuality.INSUFFICIENT);
         assertThat(failed.getCollectionStatus()).isEqualTo(BroadSnapshotStatus.QUOTE_FAILED);
         assertThat(failed.getCurrentPrice()).isNull();
         assertThat(failed.getExclusionReason()).isEqualTo("quote timeout");
+    }
+
+    @Test
+    void enrichmentAppendsAtActualTimeWithoutUpdatingOriginalBucket() {
+        var candidate = new BroadCandidate(stock("005930", "삼성전자"), BigDecimal.TEN, Map.of(), null);
+        Instant completed = Instant.parse("2026-09-14T05:31:21Z");
+        var data = new BroadQuoteData(BigDecimal.TEN, BigDecimal.ONE, 100L, BigDecimal.valueOf(1000),
+                null, null, null, null, completed.minusSeconds(1), "REST");
+        when(repository.save(any())).thenAnswer(call -> call.getArgument(0));
+        var saved = service.saveEnriched(completed, candidate, data);
+        assertThat(saved.getCapturedAt()).isEqualTo(completed);
+        assertThat(saved.getQuotedAt()).isEqualTo(data.observedAt());
+        assertThat(saved.getQuoteSource()).isEqualTo("ENRICHED_REST");
+        verify(repository, never()).findBySessionDateAndCapturedAtAndStockId(any(), any(), any());
     }
 
     private Stock stock(String code, String name) {

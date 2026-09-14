@@ -16,6 +16,15 @@ beforeEach(() => {
               lastDurationMillis: 1200,
               lastCandidateCount: 12,
               rankingSources: [],
+              enrichment: { enabled: true, capacity: 200, retainedJobs: 4, states: { QUEUED: 4 },
+                accepted: 5, coalesced: 2, succeeded: 1, exhausted: 0, expired: 0, rejected: 0,
+                lastProcessedAt: null, lastError: null },
+              collection: {
+                detailQuoteBudget: 30, restLookups: 7, restFailures: 1,
+                insufficientCount: 2, maxDataAgeSeconds: 12,
+                dataSources: { CACHE: 5 },
+                kisRequests: { requests: 20, rateLimitRetries: 1, rateLimitErrors: 1 },
+              },
             }
           : url.includes("market-wide")
           ? {
@@ -71,4 +80,8 @@ test("opens market-wide scanner", async () => {
   ).toBeInTheDocument();
   expect(screen.getByText("사용 안내")).toBeInTheDocument();
   expect(await screen.findByText("후보가 없습니다")).toBeInTheDocument();
+  expect(await screen.findByText(/상세 REST 조회 7\/30종목/)).toBeInTheDocument();
+  expect(screen.getByText(/CACHE 5건/)).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: '비동기 후보 보강' })).toBeInTheDocument();
+  expect(screen.getByText(/보관 작업 4\/200건/)).toBeInTheDocument();
 });

@@ -8,6 +8,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 public final class ClosingRecommendationDtos {
     private ClosingRecommendationDtos() {
@@ -19,9 +20,22 @@ public final class ClosingRecommendationDtos {
             int sourceDetections,
             int sourceBroadSnapshots,
             int storedCandidates,
+            int watchCandidates,
+            int excludedCandidates,
+            Map<String, Integer> exclusionReasons,
             String strategyVersion,
-            List<RecommendationResponse> candidates) {
+            List<RecommendationResponse> candidates,
+            Instant evaluationEnd,
+            Map<String, Object> criteria,
+            Map<String, Integer> decisionReasons,
+            List<CandidateEvaluationResponse> evaluations) {
     }
+
+    public record CandidateEvaluationResponse(String stockCode, String stockName, String candidateSource,
+            String scannerType, Instant observedAt, BigDecimal referencePrice, BigDecimal finalScore,
+            BigDecimal opportunityScore, BigDecimal riskScore, String dataQuality, int finalCandles,
+            int coverageMinutes, List<String> missingFeatures, String disposition, String decisionReason,
+            String recommendationReason, String riskReason, String featureSnapshot) { }
 
     public record RecommendationResponse(
             Long id,

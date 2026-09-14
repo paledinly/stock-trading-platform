@@ -3,6 +3,8 @@ package com.sunmo.stockplatform.kis.candle;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.sunmo.stockplatform.kis.auth.KisTokenManager;
 import com.sunmo.stockplatform.kis.config.KisProperties;
+import com.sunmo.stockplatform.kis.config.KisRequestExecutor;
+import com.sunmo.stockplatform.kis.config.KisResponseErrors;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.ratelimiter.annotation.RateLimiter;
 import org.springframework.stereotype.Component;
@@ -24,18 +26,22 @@ public class KisMinuteCandleClient {
     private final RestClient client;
     private final KisProperties properties;
     private final KisTokenManager tokens;
+    private final KisRequestExecutor requests;
 
-    public KisMinuteCandleClient(RestClient kisRestClient, KisProperties properties, KisTokenManager tokens) {
+    public KisMinuteCandleClient(RestClient kisRestClient, KisProperties properties, KisTokenManager tokens,
+            KisRequestExecutor requests) {
         this.client = kisRestClient;
         this.properties = properties;
         this.tokens = tokens;
+        this.requests = requests;
     }
 
     @RateLimiter(name = "kisMinuteCandle")
     @CircuitBreaker(name = "kisMinuteCandle")
     public List<MinuteCandle> fetch(String stockCode, LocalTime through) {
         properties.requireCredentials();
-        JsonNode body = client.get().uri(builder -> builder.path(ENDPOINT)
+        JsonNode body = requests.execute(false, () -> {
+        JsonNode response = client.get().uri(builder -> builder.path(ENDPOINT)
                 .queryParam("FID_COND_MRKT_DIV_CODE", "J")
                 .queryParam("FID_INPUT_ISCD", stockCode)
                 .queryParam("FID_INPUT_HOUR_1", through.format(TIME))
@@ -48,10 +54,13 @@ public class KisMinuteCandleClient {
                 .header("tr_id", TR_ID)
                 .header("custtype", "P")
                 .retrieve().body(JsonNode.class);
-        if (body == null || !"0".equals(body.path("rt_cd").asText())) {
-            throw new IllegalStateException("KIS minute candle request failed: "
-                    + (body == null ? "empty response" : body.path("msg1").asText()));
+        if (response == null || !"0".equals(response.path("rt_cd").asText())) {
+            KisResponseErrors.failure("KIS minute candle request failed",
+                    response == null ? "EMPTY_RESPONSE" : response.path("msg_cd").asText(),
+                    response == null ? "empty response" : response.path("msg1").asText());
         }
+        return response;
+        });
         List<MinuteCandle> result = new ArrayList<>();
         for (JsonNode row : body.path("output2")) {
             String rawDate = row.path("stck_bsop_date").asText(LocalDate.now(SEOUL).format(DATE));

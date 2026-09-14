@@ -27,8 +27,9 @@ public class IntradayMovingAverageService {
     public IntradayMovingAverageFeature calculate(Long stockId, java.time.Instant at) {
         List<StockCandle> series = candles
                 .findTop61ByStockIdAndTimeframeAndStartTimeLessThanEqualAndFinalCandleTrueOrderByStartTimeDesc(
-                        stockId, TIMEFRAME, at)
+                        stockId, TIMEFRAME, at.minus(java.time.Duration.ofMinutes(5)))
                 .stream()
+                .filter(row -> row.isFinalCandle() && !row.getStartTime().plus(java.time.Duration.ofMinutes(5)).isAfter(at))
                 .sorted(Comparator.comparing(StockCandle::getStartTime))
                 .toList();
         return calculate(series);

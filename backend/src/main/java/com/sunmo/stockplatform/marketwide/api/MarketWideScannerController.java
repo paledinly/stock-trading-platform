@@ -28,15 +28,17 @@ public class MarketWideScannerController {
     private final PrecisionSubscriptionAllocator precision;
     private final MarketWideDiagnostics diagnostics;
     private final MarketCoverageService coverage;
+    private final com.sunmo.stockplatform.marketwide.application.BroadEnrichmentQueue enrichment;
 
     public MarketWideScannerController(MarketWideScanCoordinator scans, BroadSnapshotQueryService snapshots,
             PrecisionSubscriptionAllocator precision, MarketWideDiagnostics diagnostics,
-            MarketCoverageService coverage) {
+            MarketCoverageService coverage, com.sunmo.stockplatform.marketwide.application.BroadEnrichmentQueue enrichment) {
         this.scans = scans;
         this.snapshots = snapshots;
         this.precision = precision;
         this.diagnostics = diagnostics;
         this.coverage = coverage;
+        this.enrichment = enrichment;
     }
 
     @GetMapping("/scan")
@@ -63,7 +65,7 @@ public class MarketWideScannerController {
 
     @GetMapping("/status")
     public MarketWideDiagnostics.Snapshot status() {
-        return diagnostics.snapshot();
+        return diagnostics.snapshot(enrichment.snapshot());
     }
 
     @GetMapping("/coverage")

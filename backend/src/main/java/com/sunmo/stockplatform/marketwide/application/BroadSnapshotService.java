@@ -3,6 +3,7 @@ package com.sunmo.stockplatform.marketwide.application;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sunmo.stockplatform.marketwide.domain.BroadCandidate;
+import com.sunmo.stockplatform.marketwide.domain.BroadQuoteData;
 import com.sunmo.stockplatform.marketwide.domain.MarketBroadSnapshot;
 import com.sunmo.stockplatform.marketwide.infrastructure.MarketBroadSnapshotRepository;
 import com.sunmo.stockplatform.quote.domain.StockQuote;
@@ -36,12 +37,26 @@ public class BroadSnapshotService {
             MarketBroadSnapshot snapshot = snapshots
                     .findBySessionDateAndCapturedAtAndStockId(sessionDate, bucket, candidate.stock().getId())
                     .orElseGet(() -> new MarketBroadSnapshot(sessionDate, bucket, candidate.stock()));
-            snapshot.update(capture.quote(), capture.broadScore(), rankingSources(candidate),
+            snapshot.updateData(capture.data(), capture.broadScore(), rankingSources(candidate),
                     candidate.tradeStrength(), capture.error());
             saved.add(snapshot);
         }
         return snapshots.saveAll(saved).stream().collect(Collectors.toMap(
                 snapshot -> snapshot.getStock().getStockCode(), snapshot -> snapshot));
+    }
+
+    @Transactional
+    public MarketBroadSnapshot saveEnriched(Instant completedAt, BroadCandidate candidate, BroadQuoteData data) {
+        if (data == null || !data.complete() || data.observedAt().isAfter(completedAt)
+                || !data.observedAt().atZone(MARKET_ZONE).toLocalDate().equals(completedAt.atZone(MARKET_ZONE).toLocalDate()))
+            throw new IllegalArgumentException("Invalid enrichment observation time");
+        // Separate observation: delayed price must not replace an earlier scan snapshot.
+        var snapshot = new MarketBroadSnapshot(completedAt.atZone(MARKET_ZONE).toLocalDate(), completedAt, candidate.stock());
+        var enriched = new BroadQuoteData(data.price(), data.changeRate(), data.volume(), data.tradingValue(),
+                data.open(), data.high(), data.low(), data.tradeStrength(), data.observedAt(), "ENRICHED_" + data.source());
+        snapshot.updateData(enriched, MarketWideScannerService.combinedScore(data, candidate), rankingSources(candidate),
+                candidate.tradeStrength(), null);
+        return snapshots.save(snapshot);
     }
 
     Instant bucket(Instant instant) {
@@ -56,6 +71,7 @@ public class BroadSnapshotService {
                 entry -> entry.getKey().name(), Map.Entry::getValue, (left, right) -> left, TreeMap::new));
         value.put("ranks", ranks);
         value.put("rankingScore", candidate.rankingScore().toPlainString());
+        value.put("observations", candidate.observations());
         try {
             return objectMapper.writeValueAsString(value);
         } catch (JsonProcessingException error) {
@@ -63,6 +79,10 @@ public class BroadSnapshotService {
         }
     }
 
-    public record Capture(BroadCandidate candidate, StockQuote quote, BigDecimal broadScore, String error) {
+    public record Capture(BroadCandidate candidate, StockQuote quote, BigDecimal broadScore, String error,
+            BroadQuoteData data) {
+        public Capture(BroadCandidate candidate, StockQuote quote, BigDecimal score, String error) {
+            this(candidate, quote, score, error, quote == null ? null : BroadQuoteData.fromQuote(quote, "REST"));
+        }
     }
 }

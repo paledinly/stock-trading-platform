@@ -23,6 +23,8 @@ public class MarketWideDiagnostics {
     private volatile int lastCandidateCount;
     private volatile boolean lastFallback;
     private volatile List<Source> rankingSources = List.of();
+    private volatile com.sunmo.stockplatform.marketwide.api.MarketWideDtos.CollectionSummary collection;
+    private final java.util.Map<String, long[]> sourceTotals = new java.util.HashMap<>();
 
     public void started(Instant at, Instant bucket) {
         running = true;
@@ -31,7 +33,7 @@ public class MarketWideDiagnostics {
         lastError = null;
     }
 
-    public void completed(Instant at, BroadScanResponse response) {
+    public synchronized void completed(Instant at, BroadScanResponse response) {
         running = false;
         lastCompletedAt = at;
         lastDurationMillis = duration(at);
@@ -39,8 +41,14 @@ public class MarketWideDiagnostics {
         lastCandidateCount = response.candidateCount();
         lastFallback = response.fallback();
         rankingSources = response.rankingSources().stream()
-                .map(source -> new Source(source.type(), source.success(), source.candidateCount(), source.error()))
+                .map(source -> {
+                    long[] counts = sourceTotals.computeIfAbsent(source.type(), ignored -> new long[2]);
+                    counts[0]++;
+                    if (source.success()) counts[1]++;
+                    return new Source(source.type(), source.success(), source.candidateCount(), source.error(), counts[0], counts[1]);
+                })
                 .toList();
+        collection = response.collection();
         completedRuns.incrementAndGet();
     }
 
@@ -60,18 +68,24 @@ public class MarketWideDiagnostics {
     }
 
     public Snapshot snapshot() {
+        return snapshot(null);
+    }
+
+    public Snapshot snapshot(BroadEnrichmentQueue.Snapshot enrichment) {
         return new Snapshot(running, lastStartedAt, lastCompletedAt, lastFailedAt, lastScheduledBucket,
                 completedRuns.get(), failedRuns.get(), skippedRuns.get(), lastSkipReason, lastError,
-                lastDurationMillis, lastScannedCount, lastCandidateCount, lastFallback, rankingSources);
+                lastDurationMillis, lastScannedCount, lastCandidateCount, lastFallback, rankingSources, collection, enrichment);
     }
 
     private long duration(Instant at) {
         return lastStartedAt == null ? 0 : Math.max(0, Duration.between(lastStartedAt, at).toMillis());
     }
 
-    public record Source(String type, boolean success, int candidateCount, String error) {}
+    public record Source(String type, boolean success, int candidateCount, String error, long attempts, long successes) {}
     public record Snapshot(boolean running, Instant lastStartedAt, Instant lastCompletedAt, Instant lastFailedAt,
             Instant lastScheduledBucket, long completedRuns, long failedRuns, long skippedRuns,
             String lastSkipReason, String lastError, long lastDurationMillis, int lastScannedCount,
-            int lastCandidateCount, boolean lastFallback, List<Source> rankingSources) {}
+            int lastCandidateCount, boolean lastFallback, List<Source> rankingSources,
+            com.sunmo.stockplatform.marketwide.api.MarketWideDtos.CollectionSummary collection,
+            BroadEnrichmentQueue.Snapshot enrichment) {}
 }

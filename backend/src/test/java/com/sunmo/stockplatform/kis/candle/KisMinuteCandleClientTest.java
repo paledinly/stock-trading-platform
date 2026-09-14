@@ -34,7 +34,9 @@ class KisMinuteCandleClientTest {
                         "stck_oprc":"70000","stck_hgpr":"70100","stck_lwpr":"69900","stck_prpr":"70050",
                         "cntg_vol":"123","acml_tr_pbmn":"8616150"}]}
                         """, MediaType.APPLICATION_JSON));
-        var result = new KisMinuteCandleClient(builder.build(), properties, tokens).fetch("005930",
+        var result = new KisMinuteCandleClient(builder.build(), properties, tokens,
+                new com.sunmo.stockplatform.kis.config.KisRequestExecutor(
+                    new com.sunmo.stockplatform.kis.config.KisRequestProperties(Duration.ZERO, Duration.ZERO, Duration.ZERO, 1))).fetch("005930",
                 LocalTime.of(9, 30));
         assertThat(result).hasSize(1);
         assertThat(result.getFirst().close()).isEqualByComparingTo("70050");

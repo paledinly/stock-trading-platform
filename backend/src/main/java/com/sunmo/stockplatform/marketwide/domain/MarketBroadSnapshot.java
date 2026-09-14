@@ -12,7 +12,7 @@ import java.time.LocalDate;
 @Table(name = "market_broad_snapshot", uniqueConstraints = @UniqueConstraint(
         name = "uk_market_broad_snapshot_bucket_stock", columnNames = { "session_date", "captured_at", "stock_id" }))
 public class MarketBroadSnapshot {
-    public static final String SOURCE_VERSION = "broad-ranking-v1";
+    public static final String SOURCE_VERSION = "broad-ranking-v2-preserved";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -56,6 +56,8 @@ public class MarketBroadSnapshot {
     private Instant quotedAt;
     @Column(name = "source_version", nullable = false, length = 40)
     private String sourceVersion;
+    @Column(name = "quote_source", nullable = false, length = 40)
+    private String quoteSource = "LEGACY_REST";
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
     @Column(name = "updated_at", nullable = false)
@@ -72,27 +74,34 @@ public class MarketBroadSnapshot {
     }
 
     public void update(StockQuote quote, BigDecimal score, String sources, BigDecimal strength, String error) {
+        updateData(quote == null ? null : BroadQuoteData.fromQuote(quote, "REST"), score, sources, strength, error);
+    }
+
+    public void updateData(BroadQuoteData data, BigDecimal score, String sources, BigDecimal strength, String error) {
+        sourceVersion = SOURCE_VERSION;
         broadScore = score == null ? BigDecimal.ZERO : score;
         rankingSources = sources;
         tradeStrength = strength;
         exclusionReason = error;
-        if (quote == null) {
+        quoteSource = data == null ? "NONE" : data.source();
+        if (data == null) {
             clearQuote();
             dataQuality = BroadSnapshotQuality.INSUFFICIENT;
             collectionStatus = BroadSnapshotStatus.QUOTE_FAILED;
             return;
         }
-        currentPrice = quote.currentPrice();
-        changeRate = quote.changeRate();
-        accumulatedVolume = quote.accumulatedVolume();
-        accumulatedTradingValue = quote.accumulatedTradingValue();
-        dayOpen = quote.openPrice();
-        dayHigh = quote.highPrice();
-        dayLow = quote.lowPrice();
-        quotedAt = quote.quotedAt();
-        dataQuality = BroadSnapshotQuality.BROAD_C;
-        collectionStatus = BroadSnapshotStatus.COLLECTED;
-        exclusionReason = null;
+        currentPrice = data.price();
+        changeRate = data.changeRate();
+        accumulatedVolume = data.volume();
+        accumulatedTradingValue = data.tradingValue();
+        dayOpen = data.open();
+        dayHigh = data.high();
+        dayLow = data.low();
+        if (data.tradeStrength() != null) tradeStrength = data.tradeStrength();
+        quotedAt = data.observedAt();
+        dataQuality = data.complete() ? BroadSnapshotQuality.BROAD_C : BroadSnapshotQuality.INSUFFICIENT;
+        collectionStatus = data.complete() ? BroadSnapshotStatus.COLLECTED : BroadSnapshotStatus.QUOTE_FAILED;
+        if (data.complete()) exclusionReason = null;
     }
 
     private void clearQuote() {
@@ -136,4 +145,5 @@ public class MarketBroadSnapshot {
     public String getExclusionReason() { return exclusionReason; }
     public Instant getQuotedAt() { return quotedAt; }
     public String getSourceVersion() { return sourceVersion; }
+    public String getQuoteSource() { return quoteSource; }
 }

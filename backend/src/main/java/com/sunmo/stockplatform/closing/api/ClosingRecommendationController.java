@@ -55,6 +55,13 @@ public class ClosingRecommendationController {
         return service.list(date);
     }
 
+    @GetMapping("/evaluation")
+    public org.springframework.http.ResponseEntity<GenerateResponse> evaluation(@RequestParam(required = false) LocalDate date) {
+        GenerateResponse response = service.latestEvaluation(date);
+        return response == null ? org.springframework.http.ResponseEntity.noContent().build()
+                : org.springframework.http.ResponseEntity.ok(response);
+    }
+
     @PostMapping("/performance/track")
     public TrackPerformanceResponse trackPerformance(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,

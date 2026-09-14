@@ -5,6 +5,8 @@ import com.sunmo.stockplatform.common.error.ApplicationException;
 import com.sunmo.stockplatform.common.error.ErrorCode;
 import com.sunmo.stockplatform.kis.auth.KisTokenManager;
 import com.sunmo.stockplatform.kis.config.KisProperties;
+import com.sunmo.stockplatform.kis.config.KisRequestExecutor;
+import com.sunmo.stockplatform.kis.config.KisResponseErrors;
 import com.sunmo.stockplatform.stock.domain.Market;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.ratelimiter.annotation.RateLimiter;
@@ -23,11 +25,14 @@ public class KisMarketRankingClient implements MarketRankingProvider {
     private final RestClient client;
     private final KisProperties properties;
     private final KisTokenManager tokens;
+    private final KisRequestExecutor requests;
 
-    public KisMarketRankingClient(RestClient kisRestClient, KisProperties properties, KisTokenManager tokens) {
+    public KisMarketRankingClient(RestClient kisRestClient, KisProperties properties, KisTokenManager tokens,
+            KisRequestExecutor requests) {
         this.client = kisRestClient;
         this.properties = properties;
         this.tokens = tokens;
+        this.requests = requests;
     }
 
     @Override
@@ -37,8 +42,9 @@ public class KisMarketRankingClient implements MarketRankingProvider {
         try {
             properties.requireCredentials();
             Endpoint endpoint = Endpoint.forType(type);
-            JsonNode response = client.get()
-                    .uri(builder -> endpoint.apply(builder.path(endpoint.path()), market).build())
+            JsonNode response = requests.execute(false, () -> {
+                JsonNode body = client.get()
+                    .uri(builder -> endpoint.apply(builder.path(endpoint.path()), market, limit).build())
                     .header("authorization", "Bearer " + tokens.getAccessToken())
                     .header("appkey", properties.appKey())
                     .header("appsecret", properties.appSecret())
@@ -46,7 +52,9 @@ public class KisMarketRankingClient implements MarketRankingProvider {
                     .header("custtype", "P")
                     .retrieve()
                     .body(JsonNode.class);
-            validate(response, type);
+                validate(body, type);
+                return body;
+            });
             List<KisRankingEntry> entries = new ArrayList<>();
             int rank = 1;
             for (JsonNode row : response.path("output")) {
@@ -55,7 +63,8 @@ public class KisMarketRankingClient implements MarketRankingProvider {
                     continue;
                 entries.add(new KisRankingEntry(code, text(row, "hts_kor_isnm", "stck_kor_isnm"), rank++,
                         decimal(row, "stck_prpr"), decimal(row, "prdy_ctrt"), number(row, "acml_vol"),
-                        decimal(row, "acml_tr_pbmn"), decimal(row, "tday_rltv", "cntg_strth")));
+                        decimal(row, "acml_tr_pbmn"), decimal(row, "tday_rltv", "cntg_strth"),
+                        decimal(row, "stck_oprc"), decimal(row, "stck_hgpr"), decimal(row, "stck_lwpr")));
                 if (entries.size() >= Math.max(1, limit))
                     break;
             }
@@ -73,8 +82,7 @@ public class KisMarketRankingClient implements MarketRankingProvider {
         if (response == null || !"0".equals(response.path("rt_cd").asText()) || !response.path("output").isArray()) {
             String code = response == null ? "EMPTY_RESPONSE" : response.path("msg_cd").asText("UNKNOWN");
             String message = response == null ? "KIS returned an empty response" : response.path("msg1").asText();
-            throw new ApplicationException(ErrorCode.KIS_API_ERROR, HttpStatus.BAD_GATEWAY,
-                    "KIS market ranking failed %s [%s]: %s".formatted(type, code, message));
+            KisResponseErrors.failure("KIS market ranking failed " + type, code, message);
         }
     }
 
@@ -98,9 +106,9 @@ public class KisMarketRankingClient implements MarketRankingProvider {
         }
     }
 
-    private long number(JsonNode node, String field) {
+    private Long number(JsonNode node, String field) {
         BigDecimal value = decimal(node, field);
-        return value == null ? 0 : value.longValue();
+        return value == null ? null : value.longValue();
     }
 
     private record Endpoint(String path, String trId, RankingType type) {
@@ -117,7 +125,7 @@ public class KisMarketRankingClient implements MarketRankingProvider {
             };
         }
 
-        private UriBuilder apply(UriBuilder builder, Market market) {
+        private UriBuilder apply(UriBuilder builder, Market market, int limit) {
             String marketCode = market == Market.KOSPI ? "0001" : market == Market.KOSDAQ ? "1001" : "0000";
             builder.queryParam("FID_COND_MRKT_DIV_CODE", "J")
                     .queryParam("FID_INPUT_ISCD", marketCode)
@@ -140,6 +148,12 @@ public class KisMarketRankingClient implements MarketRankingProvider {
                         .queryParam("FID_PRC_CLS_CODE", "0")
                         .queryParam("FID_APLY_RANG_PRC_1", "")
                         .queryParam("FID_APLY_RANG_PRC_2", "");
+            }
+            if (type == RankingType.PRICE_RISE) {
+                builder.queryParam("FID_INPUT_CNT_1", String.valueOf(Math.min(100, Math.max(1, limit))))
+                        .queryParam("FID_PRC_CLS_CODE", "0")
+                        .queryParam("FID_RSFL_RATE1", "")
+                        .queryParam("FID_RSFL_RATE2", "");
             }
             return builder;
         }

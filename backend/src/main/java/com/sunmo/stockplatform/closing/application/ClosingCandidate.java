@@ -28,7 +28,7 @@ public sealed interface ClosingCandidate permits ClosingCandidate.Precision, Clo
         public BigDecimal opportunityScore() { return detection.getOpportunityScore(); }
         public BigDecimal riskScore() { return detection.getRiskScore(); }
         public ClosingCandidateSource source() { return ClosingCandidateSource.PRECISION; }
-        public String dataQuality() { return coverageMinutes >= 30 && missingFeatures.isEmpty() ? "PRECISION_A" : "PRECISION_B"; }
+        public String dataQuality() { return missingFeatures.isEmpty() ? "PRECISION_A" : "PRECISION_B"; }
     }
 
     record Broad(MarketBroadSnapshot snapshot, BigDecimal riskScore, List<String> missingFeatures) implements ClosingCandidate {

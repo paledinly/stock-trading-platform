@@ -20,7 +20,8 @@ import static org.mockito.Mockito.*;
 class BroadCandidateCollectorTest {
     private final MarketRankingProvider rankings = mock(MarketRankingProvider.class);
     private final StockRepository stocks = mock(StockRepository.class);
-    private final BroadCandidateCollector collector = new BroadCandidateCollector(rankings, stocks);
+    private final BroadCandidateCollector collector = new BroadCandidateCollector(rankings, stocks,
+            new com.sunmo.stockplatform.market.config.BroadCollectionProperties(100, 30, null, null, true));
 
     @Test
     void mergesSourcesFiltersTradabilityAndContinuesAfterPartialFailure() {
@@ -43,6 +44,7 @@ class BroadCandidateCollectorTest {
         assertThat(result.candidates().getFirst().ranks())
                 .containsEntry(RankingType.TURNOVER, 2)
                 .containsEntry(RankingType.VOLUME, 5);
+        assertThat(result.candidates().getFirst().observations()).hasSize(2);
         assertThat(result.sources()).filteredOn(source -> !source.success())
                 .extracting(source -> source.type()).containsExactly(RankingType.TRADE_STRENGTH);
     }
@@ -62,6 +64,15 @@ class BroadCandidateCollectorTest {
 
     private KisRankingEntry entry(String code, int rank) {
         return new KisRankingEntry(code, code, rank, null, null, 0, null, null);
+    }
+
+    @Test
+    void excludesStructuredNamesBeforeDetailLookupEvenWhenMasterFlagsAreMissing() {
+        when(rankings.fetch(any(), any(), anyInt())).thenReturn(List.of(entry("005930", 1), entry("123456", 2)));
+        when(stocks.findByStockCodeIn(any())).thenReturn(List.of(stock("005930", "삼성전자", false, false),
+                stock("123456", "미래에셋 인버스 2X ETN", false, false)));
+        assertThat(collector.collect(null, 40, false).candidates()).hasSize(1);
+        assertThat(collector.collect(null, 40, true).candidates()).hasSize(2);
     }
 
     private Stock stock(String code, String name, boolean managed, boolean halted) {

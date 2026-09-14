@@ -26,7 +26,9 @@ class KisMarketRankingClientTest {
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         KisTokenManager tokens = mock(KisTokenManager.class);
         when(tokens.getAccessToken()).thenReturn("access-token");
-        KisMarketRankingClient client = new KisMarketRankingClient(builder.build(), properties(), tokens);
+        KisMarketRankingClient client = new KisMarketRankingClient(builder.build(), properties(), tokens,
+                new com.sunmo.stockplatform.kis.config.KisRequestExecutor(
+                    new com.sunmo.stockplatform.kis.config.KisRequestProperties(Duration.ZERO, Duration.ZERO, Duration.ZERO, 1)));
 
         server.expect(requestTo(startsWith(
                         "https://example.test/uapi/domestic-stock/v1/quotations/volume-rank?")))
@@ -57,5 +59,30 @@ class KisMarketRankingClientTest {
                 Duration.ofMinutes(5), Duration.ofSeconds(3), Duration.ofSeconds(5),
                 new KisProperties.Master(false, "0 0 0 * * *", URI.create("https://example.test/kospi"),
                         URI.create("https://example.test/kosdaq")));
+    }
+
+    @Test
+    void sendsRequiredFluctuationFieldsAndPreservesMissingValues() {
+        RestClient.Builder builder = RestClient.builder().baseUrl("https://example.test");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        KisTokenManager tokens = mock(KisTokenManager.class);
+        when(tokens.getAccessToken()).thenReturn("access-token");
+        var client = new KisMarketRankingClient(builder.build(), properties(), tokens,
+                new com.sunmo.stockplatform.kis.config.KisRequestExecutor(
+                    new com.sunmo.stockplatform.kis.config.KisRequestProperties(Duration.ZERO, Duration.ZERO, Duration.ZERO, 1)));
+        server.expect(requestTo(startsWith("https://example.test/uapi/domestic-stock/v1/ranking/fluctuation?")))
+                .andExpect(queryParam("FID_INPUT_CNT_1", "50"))
+                .andExpect(queryParam("FID_PRC_CLS_CODE", "0"))
+                .andExpect(queryParam("FID_RSFL_RATE1", ""))
+                .andExpect(queryParam("FID_RSFL_RATE2", ""))
+                .andExpect(header("tr_id", "FHPST01700000"))
+                .andRespond(withSuccess("""
+                    {"rt_cd":"0","output":[{"stck_shrn_iscd":"005930","stck_prpr":"70000","prdy_ctrt":"1.2","stck_hgpr":"71000"}]}
+                    """, MediaType.APPLICATION_JSON));
+        var result = client.fetch(RankingType.PRICE_RISE, null, 50);
+        assertThat(result.getFirst().accumulatedVolume()).isNull();
+        assertThat(result.getFirst().accumulatedTradingValue()).isNull();
+        assertThat(result.getFirst().highPrice()).isEqualByComparingTo("71000");
+        server.verify();
     }
 }

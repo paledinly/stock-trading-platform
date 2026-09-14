@@ -15,7 +15,7 @@ import java.time.LocalDate;
         uniqueConstraints = @UniqueConstraint(name = "uk_closing_recommendation_date_stock",
                 columnNames = { "recommendation_date", "stock_id" }))
 public class ClosingRecommendation {
-    public static final String STRATEGY_VERSION = "closing-recommend-v3-broad-precision";
+    public static final String STRATEGY_VERSION = "closing-recommend-v5-asof";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

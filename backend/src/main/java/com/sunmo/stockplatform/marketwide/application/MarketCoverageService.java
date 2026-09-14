@@ -27,23 +27,36 @@ public class MarketCoverageService {
     private final ClosingRecommendationRepository recommendations;
     private final OvernightPerformanceRepository performances;
     private final MarketWideScanRunRepository runs;
+    private final com.sunmo.stockplatform.analytics.application.SummaryReadCache cache;
 
     public MarketCoverageService(StockRepository stocks, MarketBroadSnapshotRepository snapshots,
             PrecisionSubscriptionSessionRepository subscriptions, ScannerDetectionRepository detections,
             ClosingRecommendationRepository recommendations, OvernightPerformanceRepository performances,
             MarketWideScanRunRepository runs) {
+        this(stocks, snapshots, subscriptions, detections, recommendations, performances, runs,
+                new com.sunmo.stockplatform.analytics.application.SummaryReadCache(Duration.ZERO));
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public MarketCoverageService(StockRepository stocks, MarketBroadSnapshotRepository snapshots,
+            PrecisionSubscriptionSessionRepository subscriptions, ScannerDetectionRepository detections,
+            ClosingRecommendationRepository recommendations, OvernightPerformanceRepository performances,
+            MarketWideScanRunRepository runs, com.sunmo.stockplatform.analytics.application.SummaryReadCache cache) {
         this.stocks = stocks; this.snapshots = snapshots; this.subscriptions = subscriptions;
         this.detections = detections; this.recommendations = recommendations; this.performances = performances;
         this.runs = runs;
+        this.cache = cache;
     }
 
     public CoverageResponse coverage(LocalDate date) {
         LocalDate target = date == null ? LocalDate.now(MARKET_ZONE) : date;
+        return cache.get(new CoverageKey(target), () -> calculateCoverage(target));
+    }
+    private record CoverageKey(LocalDate date) {}
+    private CoverageResponse calculateCoverage(LocalDate target) {
         long active = stocks.countByActiveTrue();
         long tradable = stocks.countByActiveTrueAndManagedFalseAndTradingHaltedFalseAndEtfFalseAndEtnFalse();
-        List<MarketBroadSnapshot> snapshotRows = snapshots.findBySessionDateOrderByCapturedAtAsc(target);
-        Map<Long, MarketBroadSnapshot> latestSnapshots = new LinkedHashMap<>();
-        snapshotRows.forEach(row -> latestSnapshots.put(row.getStock().getId(), row));
+        List<BroadCoverageRow> latestSnapshots = snapshots.findLatestCoverage(target);
         List<PrecisionSubscriptionSession> subscriptionRows = subscriptions.findBySessionDateOrderByRequestedAtAsc(target);
         Instant measurementEnd = measurementEnd(target);
         List<ClosingRecommendation> recommendationRows = recommendations.findByRecommendationDateOrderByRankAsc(target);
@@ -51,18 +64,17 @@ public class MarketCoverageService {
         List<MarketWideScanRun> runRows = runs.findBySessionDateOrderByScheduledForAsc(target);
         Instant from = target.atStartOfDay(MARKET_ZONE).toInstant();
         Instant to = target.plusDays(1).atStartOfDay(MARKET_ZONE).toInstant();
-        int detectionStocks = (int) detections.findByDetectedAtBetweenOrderByDetectedAtAsc(from, to).stream()
-                .map(row -> row.getStock().getId()).distinct().count();
+        int detectionStocks = Math.toIntExact(detections.countDistinctStocks(from, to));
 
         int captured = latestSnapshots.size();
-        int collected = (int) latestSnapshots.values().stream()
+        int collected = (int) latestSnapshots.stream()
                 .filter(row -> row.getCollectionStatus() == BroadSnapshotStatus.COLLECTED).count();
         int insufficient = captured - collected;
         Set<String> requestedCodes = subscriptionRows.stream().map(PrecisionSubscriptionSession::getStockCode)
                 .collect(Collectors.toSet());
         Set<String> activatedCodes = subscriptionRows.stream().filter(row -> row.getActivatedAt() != null)
                 .map(PrecisionSubscriptionSession::getStockCode).collect(Collectors.toSet());
-        Map<String, Integer> exclusion = exclusionReasons(latestSnapshots.values(), recommendationRows);
+        Map<String, Integer> exclusion = exclusionReasons(latestSnapshots, recommendationRows);
         int precisionRecommendations = countSource(recommendationRows, ClosingCandidateSource.PRECISION);
         int broadRecommendations = countSource(recommendationRows, ClosingCandidateSource.BROAD);
 
@@ -78,16 +90,16 @@ public class MarketCoverageService {
                         "성과 통계는 참고용 설명 지표이며 수수료, 세금, 슬리피지는 반영하지 않습니다."));
     }
 
-    private Map<String, Integer> exclusionReasons(Collection<MarketBroadSnapshot> values,
+    private Map<String, Integer> exclusionReasons(Collection<BroadCoverageRow> values,
             List<ClosingRecommendation> recommendations) {
         Set<Long> broad = recommendations.stream().filter(r -> r.getCandidateSource() == ClosingCandidateSource.BROAD)
                 .map(r -> r.getStock().getId()).collect(Collectors.toSet());
         Set<Long> precision = recommendations.stream().filter(r -> r.getCandidateSource() == ClosingCandidateSource.PRECISION)
                 .map(r -> r.getStock().getId()).collect(Collectors.toSet());
         Map<String, Integer> result = new TreeMap<>();
-        for (MarketBroadSnapshot row : values) {
-            String reason = broad.contains(row.getStock().getId()) ? "RECOMMENDED_BROAD"
-                    : precision.contains(row.getStock().getId()) ? "PROMOTED_TO_PRECISION"
+        for (BroadCoverageRow row : values) {
+            String reason = broad.contains(row.getStockId()) ? "RECOMMENDED_BROAD"
+                    : precision.contains(row.getStockId()) ? "PROMOTED_TO_PRECISION"
                     : row.getCollectionStatus() == BroadSnapshotStatus.QUOTE_FAILED ? "QUOTE_FAILED"
                     : row.getDataQuality() == BroadSnapshotQuality.INSUFFICIENT ? "INSUFFICIENT_DATA"
                     : !tradable(row) ? "NOT_TRADABLE" : "SCORE_OR_LIMIT_FILTERED";
@@ -96,9 +108,8 @@ public class MarketCoverageService {
         return Map.copyOf(result);
     }
 
-    private boolean tradable(MarketBroadSnapshot row) {
-        var stock = row.getStock();
-        return stock.isActive() && !stock.isManaged() && !stock.isTradingHalted() && !stock.isEtf() && !stock.isEtn();
+    private boolean tradable(BroadCoverageRow row) {
+        return row.getActive() && !row.getManaged() && !row.getTradingHalted() && !row.getEtf() && !row.getEtn();
     }
 
     private SourcePerformanceResponse performance(ClosingCandidateSource source,

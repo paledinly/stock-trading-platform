@@ -12,6 +12,18 @@ import java.util.Optional;
 import java.util.List;
 
 public interface MarketBroadSnapshotRepository extends JpaRepository<MarketBroadSnapshot, Long> {
+    @Query("""
+            select s.stock.id as stockId, s.dataQuality as dataQuality, s.collectionStatus as collectionStatus,
+                   st.active as active, st.managed as managed, st.tradingHalted as tradingHalted,
+                   st.etf as etf, st.etn as etn
+              from MarketBroadSnapshot s join s.stock st
+             where s.sessionDate = :date and not exists (
+                 select newer.id from MarketBroadSnapshot newer
+                  where newer.sessionDate = s.sessionDate and newer.stock.id = s.stock.id
+                    and (newer.capturedAt > s.capturedAt or (newer.capturedAt = s.capturedAt and newer.id > s.id)))
+            """)
+    List<BroadCoverageRow> findLatestCoverage(@Param("date") LocalDate date);
+
     Optional<MarketBroadSnapshot> findBySessionDateAndCapturedAtAndStockId(
             LocalDate sessionDate, Instant capturedAt, Long stockId);
 

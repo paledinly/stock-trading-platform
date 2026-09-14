@@ -38,6 +38,11 @@ kis:
   token-refresh-skew: 5m
   connect-timeout: 3s
   read-timeout: 5s
+  requests:
+    minimum-interval: ${KIS_REQUEST_MIN_INTERVAL:125ms}
+    quote-interval: ${KIS_QUOTE_MIN_INTERVAL:250ms}
+    rate-limit-backoff: ${KIS_RATE_LIMIT_BACKOFF:500ms}
+    max-retries: ${KIS_RATE_LIMIT_MAX_RETRIES:1}
   master:
     sync-enabled: ${KIS_MASTER_SYNC_ENABLED:false}
     sync-on-startup: ${KIS_MASTER_SYNC_ON_STARTUP:true}
@@ -53,9 +58,9 @@ resilience4j:
         limit-refresh-period: 1m
         timeout-duration: 0
       kisQuote:
-        limit-for-period: ${KIS_QUOTE_RATE_LIMIT:15}
+        limit-for-period: ${KIS_QUOTE_RATE_LIMIT:4}
         limit-refresh-period: 1s
-        timeout-duration: 0
+        timeout-duration: 2s
       kisMinuteCandle:
         limit-for-period: ${KIS_MINUTE_RATE_LIMIT:5}
         limit-refresh-period: 1s
@@ -72,23 +77,51 @@ resilience4j:
         failure-rate-threshold: 50
         wait-duration-in-open-state: 30s
       kisQuote:
+        ignore-exceptions:
+          - com.sunmo.stockplatform.kis.config.KisRateLimitException
+          - com.sunmo.stockplatform.kis.config.KisRequestRejectedException
+          - io.github.resilience4j.ratelimiter.RequestNotPermitted
         sliding-window-size: 20
         minimum-number-of-calls: 10
         failure-rate-threshold: 50
         wait-duration-in-open-state: 10s
       kisMinuteCandle:
+        ignore-exceptions:
+          - com.sunmo.stockplatform.kis.config.KisRateLimitException
+          - com.sunmo.stockplatform.kis.config.KisRequestRejectedException
+          - io.github.resilience4j.ratelimiter.RequestNotPermitted
         sliding-window-size: 10
         minimum-number-of-calls: 5
         failure-rate-threshold: 50
         wait-duration-in-open-state: 30s
       kisRanking:
+        ignore-exceptions:
+          - com.sunmo.stockplatform.kis.config.KisRateLimitException
+          - com.sunmo.stockplatform.kis.config.KisRequestRejectedException
+          - io.github.resilience4j.ratelimiter.RequestNotPermitted
         sliding-window-size: 10
         minimum-number-of-calls: 5
         failure-rate-threshold: 50
         wait-duration-in-open-state: 30s
 
+analytics:
+  summary-cache-ttl: ${ANALYTICS_SUMMARY_CACHE_TTL:60s}
+
 market:
   wide:
+    enrichment:
+      enabled: ${MARKET_WIDE_ENRICHMENT_ENABLED:true}
+      capacity: ${MARKET_WIDE_ENRICHMENT_CAPACITY:200}
+      max-attempts: ${MARKET_WIDE_ENRICHMENT_MAX_ATTEMPTS:3}
+      max-age: ${MARKET_WIDE_ENRICHMENT_MAX_AGE:3m}
+      retry-delay: ${MARKET_WIDE_ENRICHMENT_RETRY_DELAY:10s}
+      poll-interval: ${MARKET_WIDE_ENRICHMENT_POLL_INTERVAL:1s}
+    collection:
+      ranking-limit: ${MARKET_WIDE_RANKING_LIMIT:100}
+      detail-quote-budget: ${MARKET_WIDE_DETAIL_QUOTE_BUDGET:30}
+      cache-max-age: ${MARKET_WIDE_QUOTE_CACHE_MAX_AGE:60s}
+      tick-max-age: ${MARKET_WIDE_TICK_MAX_AGE:30s}
+      exclude-structured-names: ${MARKET_WIDE_EXCLUDE_STRUCTURED_NAMES:true}
     schedule:
       enabled: ${MARKET_WIDE_SCHEDULE_ENABLED:false}
       poll-interval: ${MARKET_WIDE_POLL_INTERVAL:30s}
@@ -125,3 +158,11 @@ market:
 watchlist:
   initial:
     enabled: ${WATCHLIST_INITIAL_ENABLED:true}
+
+closing:
+  recommendation:
+    minimum-coverage-minutes: ${CLOSING_MIN_COVERAGE_MINUTES:20}
+    minimum-final-candles: ${CLOSING_MIN_FINAL_CANDLES:4}
+    minimum-final-score: ${CLOSING_MIN_FINAL_SCORE:55}
+    evaluation-start: ${CLOSING_EVALUATION_START:14:30}
+    feature-freeze-at: ${CLOSING_FEATURE_FREEZE_AT:15:20}

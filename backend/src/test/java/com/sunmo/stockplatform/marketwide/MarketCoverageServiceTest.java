@@ -24,8 +24,8 @@ class MarketCoverageServiceTest {
         LocalDate date = LocalDate.of(2026, 9, 4);
         Stock stock1 = stock(1L, true);
         Stock stock2 = stock(2L, true);
-        MarketBroadSnapshot collected = snapshot(stock1, BroadSnapshotQuality.BROAD_C, BroadSnapshotStatus.COLLECTED);
-        MarketBroadSnapshot failed = snapshot(stock2, BroadSnapshotQuality.INSUFFICIENT, BroadSnapshotStatus.QUOTE_FAILED);
+        var collected = coverageRow(1L, BroadSnapshotQuality.BROAD_C, BroadSnapshotStatus.COLLECTED);
+        var failed = coverageRow(2L, BroadSnapshotQuality.INSUFFICIENT, BroadSnapshotStatus.QUOTE_FAILED);
         PrecisionSubscriptionSession session = new PrecisionSubscriptionSession("000001",
                 date.atTime(14, 30).atZone(ZoneId.of("Asia/Seoul")).toInstant(), true);
         session.end(date.atTime(15, 0).atZone(ZoneId.of("Asia/Seoul")).toInstant(), "REPLACED");
@@ -52,7 +52,7 @@ class MarketCoverageServiceTest {
         MarketWideScanRunRepository runs = mock(MarketWideScanRunRepository.class);
         when(stocks.countByActiveTrue()).thenReturn(100L);
         when(stocks.countByActiveTrueAndManagedFalseAndTradingHaltedFalseAndEtfFalseAndEtnFalse()).thenReturn(80L);
-        when(snapshots.findBySessionDateOrderByCapturedAtAsc(date)).thenReturn(List.of(collected, failed));
+        when(snapshots.findLatestCoverage(date)).thenReturn(List.of(collected, failed));
         when(sessions.findBySessionDateOrderByRequestedAtAsc(date)).thenReturn(List.of(session));
         when(recommendations.findByRecommendationDateOrderByRankAsc(date)).thenReturn(List.of(recommendation));
         when(performances.findByRecommendationDate(date)).thenReturn(List.of(performance));
@@ -73,6 +73,15 @@ class MarketCoverageServiceTest {
                 });
         assertThat(result.exclusionReasons()).containsEntry("PROMOTED_TO_PRECISION", 1)
                 .containsEntry("QUOTE_FAILED", 1);
+    }
+
+    private static BroadCoverageRow coverageRow(long id, BroadSnapshotQuality quality, BroadSnapshotStatus status) {
+        var row = mock(BroadCoverageRow.class);
+        when(row.getStockId()).thenReturn(id);
+        when(row.getDataQuality()).thenReturn(quality);
+        when(row.getCollectionStatus()).thenReturn(status);
+        when(row.getActive()).thenReturn(true);
+        return row;
     }
 
     private static Stock stock(long id, boolean active) {

@@ -17,6 +17,20 @@ class IntradayMovingAverageServiceTest {
     private final IntradayMovingAverageService service = new IntradayMovingAverageService(mock(StockCandleRepository.class));
 
     @Test
+    void excludesCandleThatWasNotClosedAtEvaluationTime() {
+        var repository = mock(StockCandleRepository.class);
+        Instant at = Instant.parse("2026-09-04T01:40:00Z");
+        var series = new ArrayList<>(candles(20, "100"));
+        series.add(candle(at, bd("10000")));
+        org.mockito.Mockito.when(repository
+                .findTop61ByStockIdAndTimeframeAndStartTimeLessThanEqualAndFinalCandleTrueOrderByStartTimeDesc(
+                        1L, "5M", at.minusSeconds(300))).thenReturn(series);
+        var feature = new IntradayMovingAverageService(repository).calculate(1L, at);
+        assertThat(feature.candleCount()).isEqualTo(20);
+        assertThat(feature.ma20()).isEqualByComparingTo("100");
+    }
+
+    @Test
     void calculatesIntradayMovingAverageTrendFeatures() {
         List<StockCandle> candles = new ArrayList<>();
         Instant start = Instant.parse("2026-09-04T00:00:00Z");

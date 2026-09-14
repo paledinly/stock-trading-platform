@@ -8,6 +8,9 @@ import java.time.LocalDate;
 import java.util.*;
 
 public interface ScannerDetectionRepository extends JpaRepository<ScannerDetection, Long> {
+    @org.springframework.data.jpa.repository.Query("select count(distinct d.stock.id) from ScannerDetection d where d.detectedAt >= :from and d.detectedAt < :to")
+    long countDistinctStocks(@org.springframework.data.repository.query.Param("from") Instant from,
+            @org.springframework.data.repository.query.Param("to") Instant to);
     List<ScannerDetection> findByTypeOrderByDetectedAtDesc(ScannerType type, Pageable pageable);
 
     List<ScannerDetection> findAllByOrderByDetectedAtDesc(Pageable pageable);

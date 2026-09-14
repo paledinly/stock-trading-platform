@@ -36,8 +36,24 @@ type GenerateResponse = {
   sourceDetections: number
   sourceBroadSnapshots: number
   storedCandidates: number
+  watchCandidates: number
+  excludedCandidates: number
+  exclusionReasons: Record<string, number>
   strategyVersion: string
   candidates: Recommendation[]
+  evaluationEnd: string
+  criteria: Record<string, string | number>
+  decisionReasons: Record<string, number>
+  evaluations: CandidateEvaluation[]
+}
+
+type CandidateEvaluation = {
+  stockCode: string; stockName: string; candidateSource: string; scannerType: string | null
+  observedAt: string; referencePrice: number | null; finalScore: number | null
+  opportunityScore: number | null; riskScore: number | null; dataQuality: string
+  finalCandles: number; coverageMinutes: number; missingFeatures: string[]
+  disposition: 'SELECTED' | 'WATCH' | 'EXCLUDED'; decisionReason: string
+  recommendationReason: string; riskReason: string; featureSnapshot: string | null
 }
 
 type OvernightPerformance = {
@@ -218,11 +234,17 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 function today() {
-  return new Date().toISOString().slice(0, 10)
+  return marketDate(new Date())
 }
 
 function daysAgo(days: number) {
-  return new Date(Date.now() - days * 86400000).toISOString().slice(0, 10)
+  return marketDate(new Date(Date.now() - days * 86400000))
+}
+
+function marketDate(date: Date) {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date)
+  const part = (type: string) => parts.find(row => row.type === type)!.value
+  return `${part('year')}-${part('month')}-${part('day')}`
 }
 
 function money(value?: number | null) {
@@ -437,7 +459,12 @@ export function ClosingRecommendationPage({ back, advanced = false }: { back: ()
   const [backtestFrom, setBacktestFrom] = useState(daysAgo(20))
   const [backtestTo, setBacktestTo] = useState(daysAgo(1))
   const [backtest, setBacktest] = useState<OvernightBacktest>()
-  const [lastRun, setLastRun] = useState<GenerateResponse>()
+  const [generatedRun, setLastRun] = useState<GenerateResponse>()
+  const evaluation = useQuery({
+    queryKey: ['closing-evaluation', date],
+    queryFn: () => api<GenerateResponse | null>(`/api/v1/closing-recommendations/evaluation?date=${date}`),
+  })
+  const lastRun = generatedRun?.recommendationDate === date ? generatedRun : evaluation.data ?? undefined
   const [lastTrack, setLastTrack] = useState<TrackPerformanceResponse>()
   const [lastDecisionRun, setLastDecisionRun] = useState<DecisionEvaluationResponse>()
   const recommendations = useQuery({
@@ -460,6 +487,7 @@ export function ClosingRecommendationPage({ back, advanced = false }: { back: ()
     onSuccess: result => {
       setLastRun(result)
       cache.invalidateQueries({ queryKey: ['closing-recommendations', date] })
+      cache.invalidateQueries({ queryKey: ['closing-evaluation', date] })
     },
   })
   const track = useMutation({
@@ -541,14 +569,19 @@ export function ClosingRecommendationPage({ back, advanced = false }: { back: ()
         {evaluateDecisions.error && <div className="closingEmpty">{evaluateDecisions.error.message}</div>}
         {runBacktest.error && <div className="closingEmpty">{runBacktest.error.message}</div>}
         {recommendations.error && <div className="closingEmpty">{recommendations.error.message}</div>}
+        {evaluation.error && <div className="closingEmpty">후보 평가 내역 조회 실패: {evaluation.error.message}</div>}
         {advanced && backtest && <BacktestResult data={backtest} />}
         <section className="closingSummary">
           <article><small>원본 탐지</small><b>{lastRun?.sourceDetections ?? '--'}</b></article>
           <article><small>Broad 원본</small><b>{lastRun?.sourceBroadSnapshots ?? '--'}</b></article>
           <article><small>저장 후보</small><b>{lastRun?.storedCandidates ?? rows.length}</b></article>
+          <article><small>관찰 후보</small><b>{lastRun?.watchCandidates ?? '--'}</b></article>
+          <article><small>제외 후보</small><b>{lastRun?.excludedCandidates ?? '--'}</b></article>
           <article><small>성과 완료</small><b>{lastTrack?.completed ?? performanceRows.filter(row => row.status === 'COMPLETED').length}</b></article>
           <article><small>보유 연장</small><b>{lastDecisionRun?.extendHold ?? (decisions.data ?? []).filter(row => row.decision === 'EXTEND_HOLD').length}</b></article>
         </section>
+        {lastRun && lastRun.storedCandidates === 0 && lastRun.watchCandidates + lastRun.excludedCandidates > 0 &&
+          <div className="closingEmpty"><b>조건을 충족한 최종 추천이 없습니다</b><p>{Object.entries(lastRun.exclusionReasons).map(([reason, count]) => `${closingExclusionLabel(reason)} ${count}건`).join(' · ')}</p></div>}
         <section className="closingGrid">
           <div className="closingList">
             <h2>추천 랭킹</h2>
@@ -557,9 +590,43 @@ export function ClosingRecommendationPage({ back, advanced = false }: { back: ()
             {rows.map(item => <RecommendationCard key={item.id} item={item} performance={performanceByRecommendation.get(item.id)} decision={(decisions.data ?? lastDecisionRun?.decisions ?? []).find(row => row.recommendationId === item.id)} advanced={advanced} />)}
           </div>
         </section>
+        {lastRun?.evaluations && <section className="menuGuide">
+          <h2>생성 당시 후보 평가</h2>
+          <p>{new Date(lastRun.generatedAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })} · {lastRun.strategyVersion} · 평가 종료 {new Date(lastRun.evaluationEnd).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul' })}</p>
+          <p>{Object.entries(lastRun.criteria).map(([key, value]) => `${key}: ${value}`).join(' · ')}</p>
+          <p>관찰·제외 후보는 최종 추천이 아니며 오버나잇 성과 추적 대상에 포함되지 않습니다. 관측 분수는 봉의 시간 범위이며 연속 수신 시간을 보장하지 않습니다.</p>
+          <p>Broad 점수·위험값은 제한된 지표로 계산한 참고값이며 Precision 점수와 같은 품질의 평가가 아닙니다.</p>
+          {(['SELECTED', 'WATCH', 'EXCLUDED'] as const).map(disposition => <div key={disposition}>
+            <h3>{{ SELECTED: '최종 추천', WATCH: '관찰 후보', EXCLUDED: '제외 후보' }[disposition]}</h3>
+            {lastRun.evaluations.filter(row => row.disposition === disposition).map(row => <details key={`${row.candidateSource}-${row.stockCode}`}>
+              <summary>{row.stockName} ({row.stockCode}) · {row.candidateSource} · 점수 {num(row.finalScore)} · {closingExclusionLabel(row.decisionReason)}</summary>
+              <p>탐지 {new Date(row.observedAt).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul' })} · {row.scannerType ?? 'Broad'} · 가격 {num(row.referencePrice)} · Opportunity {num(row.opportunityScore)} / Risk {num(row.riskScore)}</p>
+              <p>{row.dataQuality} · 확정 봉 {row.finalCandles}개 · 관측 범위 {row.coverageMinutes}분 · 부족 항목 {row.missingFeatures.join(', ') || '없음'}</p>
+              <h4>가점 근거</h4><ul>{factorLabels(row.recommendationReason, 'recommendation').map((factor, index) => <li key={index}>{factor.label}: {factor.value}</li>)}</ul>
+              <h4>감점 근거</h4><ul>{factorLabels(row.riskReason, 'risk').map((factor, index) => <li key={index}>{factor.label}: {factor.value}</li>)}</ul>
+              {row.featureSnapshot && <details><summary>탐지 당시 Feature 원본</summary><pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{row.featureSnapshot}</pre></details>}
+            </details>)}
+          </div>)}
+        </section>}
       </main>
     </div>
   )
+}
+
+function closingExclusionLabel(reason: string) {
+  const labels: Record<string, string> = {
+    MISSING_REQUIRED_FEATURES: '필수 지표 또는 확정 5분봉 부족',
+    INSUFFICIENT_INTRADAY_COVERAGE: '당일 관찰시간 부족',
+    LOW_FINAL_SCORE: '최종점수 미달',
+    BROAD_WATCH_ONLY: 'Broad 관찰 전용',
+    RANK_LIMIT_WATCH: '표시 순위 밖 관찰 후보',
+    QUALIFIED: '추천 조건 충족',
+    NOT_TRADABLE: '추천 대상 상품/거래 조건 제외',
+    OPPORTUNITY_OR_RISK_FILTERED: 'Opportunity 또는 Risk 기준 미달',
+    INSUFFICIENT_BROAD_DATA: 'Broad 데이터 품질 미달',
+    PRECISION_DUPLICATE: '동일 종목 Precision 평가 우선',
+  }
+  return labels[reason] ?? reason
 }
 
 function BacktestResult({ data }: { data: OvernightBacktest }) {

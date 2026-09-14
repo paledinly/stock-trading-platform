@@ -21,8 +21,13 @@ public final class MarketWideDtos {
                         PrecisionAllocationResponse precisionAllocation,
                         UniverseResponse universe,
                         RegimeResponse regime,
-                        List<CandidateResponse> candidates) {
+                        List<CandidateResponse> candidates,
+                        CollectionSummary collection) {
         }
+
+        public record CollectionSummary(int detailQuoteBudget, int restLookups, int restFailures,
+                        int insufficientCount, Map<String, Integer> dataSources, long maxDataAgeSeconds,
+                        Map<String, Long> kisRequests) { }
 
         public record RankingSourceResponse(String type, boolean success, int candidateCount, String error) {
         }
@@ -66,7 +71,8 @@ public final class MarketWideDtos {
                         Long snapshotId,
                         String dataQuality,
                         boolean precisionEligible,
-                        Instant quotedAt) {
+                        Instant quotedAt,
+                        String quoteSource) {
         }
 
         public record SnapshotResponse(
@@ -90,7 +96,8 @@ public final class MarketWideDtos {
                         String collectionStatus,
                         String exclusionReason,
                         Instant quotedAt,
-                        String sourceVersion) {
+                        String sourceVersion,
+                        String quoteSource) {
         }
 
         public record CoverageResponse(
