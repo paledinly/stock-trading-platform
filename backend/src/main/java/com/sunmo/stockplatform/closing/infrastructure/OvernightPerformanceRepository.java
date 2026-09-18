@@ -24,8 +24,10 @@ public interface OvernightPerformanceRepository extends JpaRepository<OvernightP
             select p from OvernightPerformance p
               join fetch p.recommendation r
               join fetch r.stock
-             where r.recommendationDate = :date
+             where r.run.id = (select max(a.id) from ClosingRecommendationRun a where a.recommendationDate = :date)
              order by r.rank asc
             """)
     List<OvernightPerformance> findByRecommendationDate(@Param("date") LocalDate date);
+
+    List<OvernightPerformance> findByRecommendationRunIdOrderByRecommendationRankAsc(Long runId);
 }

@@ -80,6 +80,28 @@ class ClosingRecommendationServiceTest {
         assertThat(response.candidates()).hasSize(1);
         assertThat(response.candidates().getFirst().dataQuality()).isEqualTo("PRECISION_A");
         assertThat(response.candidates().getFirst().coverageMinutes()).isEqualTo(20);
+        assertThat(response.evaluations().getFirst().dataReadiness()).containsEntry("orderEligible", false)
+                .containsEntry("marketRegime", "UNVERIFIED");
+    }
+
+    @Test
+    void limitedModeKeepsOnlyHighestRankedCandidateAndExplainsTheOther() {
+        Fixture fixture = new Fixture();
+        LocalDate date = LocalDate.now(SEOUL).minusDays(1);
+        Instant at = date.atTime(15, 0).atZone(SEOUL).toInstant();
+        ScannerDetection first = fixture.detection(fixture.stock(1L), at);
+        ScannerDetection second = fixture.detection(fixture.stock(2L), at);
+        when(fixture.detections.findBySessionDateAndDetectedAtGreaterThanEqualOrderByDetectedAtDesc(eq(date), any()))
+                .thenReturn(List.of(first, second));
+
+        var response = fixture.service.generate(date, 10, bd("35"), bd("65"));
+
+        assertThat(response.candidates()).hasSize(1);
+        assertThat(response.evaluations()).hasSize(2);
+        assertThat(response.evaluations()).extracting(row -> row.decisionReason())
+                .containsExactly("QUALIFIED", "LIMITED_MODE_WATCH");
+        assertThat(response.criteria()).containsEntry("limitedModeMaxCandidates", 1)
+                .containsEntry("marketSectorAccountChecks", "UNVERIFIED");
     }
 
     @Test
@@ -97,10 +119,48 @@ class ClosingRecommendationServiceTest {
 
         assertThat(response.candidates()).isEmpty();
         assertThat(response.watchCandidates()).isEqualTo(1);
-        assertThat(response.exclusionReasons()).containsEntry("MISSING_REQUIRED_FEATURES", 1);
+        assertThat(response.exclusionReasons()).containsEntry("CANDLE_GAP", 1);
     }
 
     private static BigDecimal bd(String value) { return new BigDecimal(value); }
+
+    @Test
+    void retriesReturnSameRunButNewRequestsPreserveSeparateRuns() {
+        Fixture fixture = new Fixture();
+        LocalDate date = LocalDate.now(SEOUL).minusDays(1);
+        var first = fixture.service.generate(date, 10, bd("35"), bd("65"), "retry-1");
+        var retry = fixture.service.generate(date, 10, bd("35"), bd("65"), "retry-1");
+        var second = fixture.service.generate(date, 10, bd("35"), bd("65"), "retry-2");
+        assertThat(retry.runId()).isEqualTo(first.runId());
+        assertThat(second.runId()).isNotEqualTo(first.runId());
+        assertThat(first.executionMode()).isEqualTo("REPLAY");
+        verify(fixture.runs, times(2)).save(any());
+        verify(fixture.recommendations, never()).deleteByRecommendationDate(any());
+        verifyNoInteractions(fixture.performances, fixture.decisions);
+    }
+
+    @Test
+    void rejectsReusedKeyWithDifferentThresholds() {
+        Fixture fixture = new Fixture();
+        LocalDate date = LocalDate.now(SEOUL).minusDays(1);
+        fixture.service.generate(date, 10, bd("35"), bd("65"), "retry-key");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                fixture.service.generate(date, 10, bd("40"), bd("65"), "retry-key"))
+                .isInstanceOf(com.sunmo.stockplatform.common.error.ApplicationException.class);
+        verify(fixture.runs, times(1)).save(any());
+    }
+
+    @Test
+    void explicitRunDoesNotReadCandidatesFromOtherRuns() {
+        Fixture fixture = new Fixture();
+        LocalDate date = LocalDate.now(SEOUL).minusDays(1);
+        var response = fixture.service.generate(date, 10, bd("35"), bd("65"), "selected-run");
+        assertThat(fixture.service.list(date, response.runId())).isEmpty();
+        verify(fixture.recommendations).findByRunIdOrderByRankAsc(response.runId());
+        verify(fixture.recommendations, never()).findByRecommendationDateOrderByRankAsc(any());
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> fixture.service.list(date.minusDays(1), response.runId()))
+                .isInstanceOf(com.sunmo.stockplatform.common.error.ApplicationException.class);
+    }
 
     @Test
     void gapsDoNotCountAsContinuousCoverage() {
@@ -133,7 +193,7 @@ class ClosingRecommendationServiceTest {
     }
 
     @Test
-    void eligibleOlderSignalIsNotHiddenByLatestFilteredSignal() {
+    void latestFilteredSignalPreventsAnOlderSignalFromBeingRecommended() {
         Fixture fixture = new Fixture();
         LocalDate date = LocalDate.now(SEOUL).minusDays(1);
         Stock stock = fixture.stock(1L);
@@ -143,8 +203,8 @@ class ClosingRecommendationServiceTest {
         when(fixture.detections.findBySessionDateAndDetectedAtGreaterThanEqualOrderByDetectedAtDesc(eq(date), any()))
                 .thenReturn(List.of(newer, older));
         var response = fixture.service.generate(date, 10, bd("35"), bd("65"));
-        assertThat(response.candidates()).hasSize(1);
-        assertThat(response.evaluations().getFirst().observedAt()).isEqualTo(older.getDetectedAt());
+        assertThat(response.candidates()).isEmpty();
+        assertThat(response.evaluations().getFirst().observedAt()).isEqualTo(newer.getDetectedAt());
     }
 
     @Test
@@ -172,7 +232,7 @@ class ClosingRecommendationServiceTest {
         assertThat(response.criteria()).containsEntry("minimumFinalScore", bd("55"));
         var capture = org.mockito.ArgumentCaptor.forClass(com.sunmo.stockplatform.closing.domain.ClosingRecommendationRun.class);
         verify(fixture.runs).save(capture.capture());
-        when(fixture.runs.findFirstByRecommendationDateOrderByGeneratedAtDescIdDesc(date))
+        when(fixture.runs.findFirstByRecommendationDateOrderByIdDesc(date))
                 .thenReturn(java.util.Optional.of(capture.getValue()));
         assertThat(fixture.service.latestEvaluation(date).evaluations()).isEqualTo(response.evaluations());
         verify(fixture.recommendations).saveAll(argThat(rows -> !rows.iterator().hasNext()));
@@ -193,24 +253,57 @@ class ClosingRecommendationServiceTest {
         final ClosingRecommendationService service;
 
         Fixture() {
+            var stored = new java.util.HashMap<String, com.sunmo.stockplatform.closing.domain.ClosingRecommendationRun>();
+            when(runs.save(any())).thenAnswer(invocation -> {
+                com.sunmo.stockplatform.closing.domain.ClosingRecommendationRun run = invocation.getArgument(0);
+                org.springframework.test.util.ReflectionTestUtils.setField(run, "id", (long) stored.size() + 1);
+                stored.put(run.getRequestKey(), run);
+                return run;
+            });
+            when(runs.findByRequestKey(anyString())).thenAnswer(invocation -> java.util.Optional.ofNullable(stored.get(invocation.getArgument(0))));
+            when(runs.findById(anyLong())).thenAnswer(invocation -> stored.values().stream()
+                    .filter(run -> run.getId().equals(invocation.getArgument(0))).findFirst());
             when(recommendations.saveAll(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
             when(precisionScorer.score(any(), any(), any())).thenReturn(new ScoreResult(bd("80"), "{}", "{}"));
+            DailyMovingAverageFeature readyDaily = mock(DailyMovingAverageFeature.class);
+            when(readyDaily.ready()).thenReturn(true);
+            when(readyDaily.candleCount()).thenReturn(21);
+            when(readyDaily.ma20()).thenReturn(bd("9000"));
+            when(readyDaily.closeAboveMa20()).thenReturn(true);
+            when(readyDaily.ma20Rising()).thenReturn(true);
+            when(daily.calculate(any(ScannerDetection.class))).thenReturn(readyDaily);
             when(candles.findByStockIdAndTimeframeAndStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(
-                    anyLong(), eq("5M"), any(), any())).thenAnswer(invocation -> finalCandles(
-                            ((Instant) invocation.getArgument(2)).plus(Duration.ofMinutes(10))));
-            service = new ClosingRecommendationService(detections, recommendations, precisionScorer, intraday, daily,
-                    snapshots, new BroadClosingRecommendationScorer(mapper), mapper, performances, decisions, candles,
-                    new ClosingRecommendationProperties(20, 4, bd("55"), LocalTime.of(14, 30), LocalTime.of(15, 20)),
-                    runs);
+                    anyLong(), eq("5M"), any(), any())).thenAnswer(invocation -> {
+                        List<StockCandle> values = new java.util.ArrayList<>(finalCandles(
+                                ((Instant) invocation.getArgument(2)).plus(Duration.ofMinutes(10))));
+                        values.add(finalCandle(((Instant) invocation.getArgument(3)).minus(Duration.ofMinutes(6))));
+                        return values;
+                    });
+            ClosingRecommendationProperties properties = new ClosingRecommendationProperties(20, 4, bd("55"),
+                    LocalTime.of(14, 30), LocalTime.of(15, 20));
+            service = new ClosingRecommendationService(detections, recommendations,
+                    snapshots, new BroadClosingRecommendationScorer(mapper), mapper,
+                    mock(org.springframework.jdbc.core.JdbcTemplate.class), new ClosingTradingCalendar(
+                        new com.sunmo.stockplatform.market.config.MarketWideScheduleProperties(false, 0, 0, false,
+                            null, null, null, null, null, List.of())),
+                    properties, runs, new ClosingPrecisionEvaluator(precisionScorer, intraday, daily, candles,
+                            properties, mapper, new ClosingTradingCalendar(
+                                    new com.sunmo.stockplatform.market.config.MarketWideScheduleProperties(false, 0, 0,
+                                            false, null, null, null, null, null, List.of()))));
         }
 
         List<StockCandle> finalCandles(Instant start) {
-            return java.util.stream.IntStream.range(0, 4).mapToObj(index -> {
-                StockCandle candle = mock(StockCandle.class);
-                when(candle.isFinalCandle()).thenReturn(true);
-                when(candle.getStartTime()).thenReturn(start.plus(Duration.ofMinutes(index * 5L)));
-                return candle;
-            }).toList();
+            return java.util.stream.IntStream.range(0, 4)
+                    .mapToObj(index -> finalCandle(start.plus(Duration.ofMinutes(index * 5L)))).toList();
+        }
+
+        StockCandle finalCandle(Instant start) {
+            StockCandle candle = mock(StockCandle.class);
+            when(candle.isFinalCandle()).thenReturn(true);
+            when(candle.getStartTime()).thenReturn(start);
+            when(candle.getClose()).thenReturn(bd("10000"));
+            when(candle.getTradingValue()).thenReturn(bd("100000000"));
+            return candle;
         }
 
         Stock stock(long id) {
@@ -231,6 +324,7 @@ class ClosingRecommendationServiceTest {
             when(detection.getOpportunityScore()).thenReturn(bd("75"));
             when(detection.getRiskScore()).thenReturn(bd("20"));
             when(detection.getVolumeRatio()).thenReturn(bd("2"));
+            when(detection.getDailyValue()).thenReturn(bd("2000000000"));
             when(detection.getType()).thenReturn(ScannerType.VWAP_BREAKOUT);
             when(detection.getFeatureSnapshot()).thenReturn("{\"vwapDistanceRate\":1,\"dayHighDistanceRate\":1,\"tradeStrength\":120}");
             return detection;

@@ -31,6 +31,7 @@ public class DailyMovingAverageService {
                 .findTop61ByStockIdAndTimeframeAndStartTimeLessThanEqualAndFinalCandleTrueOrderByStartTimeDesc(
                         detection.getStock().getId(), TIMEFRAME, previousSessionDate)
                 .stream()
+                .filter(row -> row.getUpdatedAt() == null || !row.getUpdatedAt().isAfter(detection.getDetectedAt()))
                 .sorted(Comparator.comparing(StockCandle::getStartTime))
                 .toList();
         return calculate(series);

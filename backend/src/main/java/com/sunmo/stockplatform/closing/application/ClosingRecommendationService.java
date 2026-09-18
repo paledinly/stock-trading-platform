@@ -1,6 +1,5 @@
 package com.sunmo.stockplatform.closing.application;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sunmo.stockplatform.closing.api.ClosingRecommendationDtos.GenerateResponse;
 import com.sunmo.stockplatform.closing.api.ClosingRecommendationDtos.RecommendationResponse;
@@ -10,11 +9,12 @@ import com.sunmo.stockplatform.closing.infrastructure.ClosingRecommendationRunRe
 import com.sunmo.stockplatform.closing.application.ClosingRecommendationScorer.ScoreResult;
 import com.sunmo.stockplatform.closing.domain.ClosingRecommendation;
 import com.sunmo.stockplatform.closing.infrastructure.ClosingRecommendationRepository;
-import com.sunmo.stockplatform.closing.infrastructure.OvernightPerformanceRepository;
-import com.sunmo.stockplatform.closing.infrastructure.OvernightPositionDecisionRepository;
+import com.sunmo.stockplatform.closing.api.ClosingRecommendationDtos.RunResponse;
+import com.sunmo.stockplatform.common.error.ApplicationException;
+import com.sunmo.stockplatform.common.error.ErrorCode;
+import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 import com.sunmo.stockplatform.closing.config.ClosingRecommendationProperties;
-import com.sunmo.stockplatform.candle.domain.StockCandle;
-import com.sunmo.stockplatform.candle.infrastructure.StockCandleRepository;
 import com.sunmo.stockplatform.marketwide.domain.BroadSnapshotQuality;
 import com.sunmo.stockplatform.marketwide.domain.BroadSnapshotStatus;
 import com.sunmo.stockplatform.marketwide.domain.MarketBroadSnapshot;
@@ -33,63 +33,103 @@ public class ClosingRecommendationService {
     private static final ZoneId MARKET_ZONE = ZoneId.of("Asia/Seoul");
     private final ScannerDetectionRepository detections;
     private final ClosingRecommendationRepository recommendations;
-    private final OvernightPerformanceRepository performances;
-    private final OvernightPositionDecisionRepository decisions;
-    private final ClosingRecommendationScorer scorer;
-    private final IntradayMovingAverageService intradayMa;
-    private final DailyMovingAverageService dailyMa;
+    private final JdbcTemplate jdbc;
+    private final ClosingTradingCalendar calendar;
     private final MarketBroadSnapshotRepository broadSnapshots;
     private final BroadClosingRecommendationScorer broadScorer;
     private final ObjectMapper objectMapper;
-    private final StockCandleRepository candles;
     private final ClosingRecommendationProperties properties;
     private final ClosingRecommendationRunRepository runs;
+    private final ClosingPrecisionEvaluator precisionEvaluator;
 
     public ClosingRecommendationService(ScannerDetectionRepository detections,
-            ClosingRecommendationRepository recommendations, ClosingRecommendationScorer scorer,
-            IntradayMovingAverageService intradayMa, DailyMovingAverageService dailyMa,
+            ClosingRecommendationRepository recommendations,
             MarketBroadSnapshotRepository broadSnapshots, BroadClosingRecommendationScorer broadScorer,
-            ObjectMapper objectMapper, OvernightPerformanceRepository performances,
-            OvernightPositionDecisionRepository decisions, StockCandleRepository candles,
-            ClosingRecommendationProperties properties, ClosingRecommendationRunRepository runs) {
+            ObjectMapper objectMapper, JdbcTemplate jdbc,
+            ClosingTradingCalendar calendar,
+            ClosingRecommendationProperties properties, ClosingRecommendationRunRepository runs,
+            ClosingPrecisionEvaluator precisionEvaluator) {
         this.detections = detections;
         this.recommendations = recommendations;
-        this.performances = performances;
-        this.decisions = decisions;
-        this.scorer = scorer;
-        this.intradayMa = intradayMa;
-        this.dailyMa = dailyMa;
+        this.jdbc = jdbc;
+        this.calendar = calendar;
         this.broadSnapshots = broadSnapshots;
         this.broadScorer = broadScorer;
         this.objectMapper = objectMapper;
-        this.candles = candles;
         this.properties = properties;
         this.runs = runs;
+        this.precisionEvaluator = precisionEvaluator;
     }
 
     @Transactional
     public GenerateResponse generate(LocalDate date, int limit, BigDecimal minOpportunity, BigDecimal maxRisk) {
-        LocalDate targetDate = date == null ? LocalDate.now(MARKET_ZONE) : date;
-        Instant generatedAt = Instant.now();
+        return generate(date, limit, minOpportunity, maxRisk, null);
+    }
+
+    @Transactional
+    public GenerateResponse generate(LocalDate date, int limit, BigDecimal minOpportunity, BigDecimal maxRisk,
+            String requestKey) {
+        LocalDate targetDate = date == null ? calendar.today() : date;
+        Instant generatedAt = calendar.now();
         if (targetDate.isAfter(generatedAt.atZone(MARKET_ZONE).toLocalDate()))
             throw new com.sunmo.stockplatform.common.error.ApplicationException(
                     com.sunmo.stockplatform.common.error.ErrorCode.INVALID_REQUEST,
                     org.springframework.http.HttpStatus.BAD_REQUEST, "Future recommendation date is not allowed");
         int safeLimit = Math.min(Math.max(limit, 1), 30);
+        Map<String, Object> criteria = new TreeMap<>();
+        criteria.put("minimumCoverageMinutes", properties.minimumCoverageMinutes());
+        criteria.put("minimumFinalCandles", properties.minimumFinalCandles());
+        criteria.put("minimumFinalScore", properties.minimumFinalScore());
+        criteria.put("minimumDailyCandles", 21);
+        criteria.put("maximumSignalAgeMinutes", 30);
+        criteria.put("minimumDailyTradingValue", ClosingPrecisionEvaluator.MIN_DAILY_VALUE);
+        criteria.put("minimumFiveMinuteTradingValue", ClosingPrecisionEvaluator.MIN_FIVE_MINUTE_VALUE);
+        criteria.put("maximumMa20DistancePercent", ClosingPrecisionEvaluator.MAX_MA20_DISTANCE_PERCENT);
+        criteria.put("limitedModeMaxCandidates", ClosingPrecisionEvaluator.LIMITED_MODE_MAX_CANDIDATES);
+        criteria.put("marketSectorAccountChecks", "UNVERIFIED");
+        criteria.put("minOpportunity", threshold(minOpportunity));
+        criteria.put("maxRisk", riskLimit(maxRisk));
+        criteria.put("limit", safeLimit);
+        criteria.put("evaluationStart", properties.evaluationStart().toString());
+        criteria.put("featureFreezeAt", properties.featureFreezeAt().toString());
+        String settings = serialize(criteria);
+        String hash = sha256(settings);
+        String key = requestKey == null ? UUID.randomUUID().toString() : requestKey;
+        if (!key.matches("[A-Za-z0-9_-]{1,100}")) throw invalid("Invalid Idempotency-Key");
+        // A transaction-scoped database lock also serializes retries across backend instances.
+        jdbc.queryForObject("select 1 from pg_advisory_xact_lock(hashtextextended(?, 0))", Integer.class, key);
+        Optional<ClosingRecommendationRun> previous = runs.findByRequestKey(key);
+        if (previous.isPresent()) {
+            ClosingRecommendationRun run = previous.get();
+            if (!targetDate.equals(run.getRecommendationDate()) || !hash.equals(run.getSettingsHash()))
+                throw new ApplicationException(ErrorCode.INVALID_REQUEST, HttpStatus.CONFLICT,
+                        "Idempotency-Key already used with different settings");
+            return readEvaluation(run);
+        }
         Instant cutoff = targetDate.atTime(properties.evaluationStart()).atZone(MARKET_ZONE).toInstant();
         Instant close = targetDate.atTime(15, 30).atZone(MARKET_ZONE).toInstant();
         Instant freeze = targetDate.atTime(properties.featureFreezeAt()).atZone(MARKET_ZONE).toInstant();
         Instant sessionEnd = freeze.isBefore(close) ? freeze : close;
-        Instant evaluationEnd = targetDate.equals(LocalDate.now(MARKET_ZONE)) && generatedAt.isBefore(sessionEnd)
+        Instant evaluationEnd = targetDate.equals(calendar.today()) && generatedAt.isBefore(sessionEnd)
                 ? generatedAt : sessionEnd;
+        String mode = calendar.isTradingDay(targetDate) && !generatedAt.isBefore(cutoff)
+                && !generatedAt.isAfter(sessionEnd) ? "FORWARD" : "REPLAY";
+        ClosingRecommendationRun run = runs.save(new ClosingRecommendationRun(targetDate, generatedAt,
+                ClosingRecommendation.STRATEGY_VERSION, mode, evaluationEnd, settings, hash, key));
         List<ScannerDetection> source = detections
                 .findBySessionDateAndDetectedAtGreaterThanEqualOrderByDetectedAtDesc(targetDate, cutoff);
 
         List<ScannerDetection> boundedDetections = source.stream()
                 .filter(detection -> !detection.getDetectedAt().isAfter(evaluationEnd)).toList();
-        Map<ScannerDetection, CandleCoverage> coverage = candleCoverage(boundedDetections, cutoff, evaluationEnd);
-        List<ScoredCandidate> precisionCandidates = representativeCandidates(boundedDetections, coverage,
-                minOpportunity, maxRisk);
+        List<ClosingPrecisionEvaluator.Assessment> assessed = precisionEvaluator.representatives(boundedDetections,
+                cutoff, evaluationEnd, threshold(minOpportunity), riskLimit(maxRisk));
+        Map<ScannerDetection, CandleCoverage> coverage = new HashMap<>();
+        List<ScoredCandidate> precisionCandidates = new ArrayList<>();
+        for (ClosingPrecisionEvaluator.Assessment row : assessed) {
+            coverage.put(row.detection(), new CandleCoverage(row.finalCandles(), row.coverageMinutes()));
+            precisionCandidates.add(new ScoredCandidate(new ClosingCandidate.Precision(row.detection(),
+                    row.coverageMinutes(), row.missingFeatures()), row.score(), row.reason(), row.dataReadiness()));
+        }
 
         List<MarketBroadSnapshot> broadSource = broadSnapshots.findClosingCandidates(targetDate, cutoff, evaluationEnd);
         List<ScoredCandidate> selectable = new ArrayList<>();
@@ -101,15 +141,15 @@ public class ClosingRecommendationService {
                 .sorted(Comparator.comparing((ScoredCandidate item) -> item.score().score()).reversed()
                         .thenComparing(item -> item.candidate().observedAt(), Comparator.reverseOrder()))
                 .toList();
-        List<ScoredCandidate> candidates = rankedCandidates.stream().limit(safeLimit).toList();
+        List<ScoredCandidate> candidates = rankedCandidates.stream()
+                .limit(Math.min(safeLimit, ClosingPrecisionEvaluator.LIMITED_MODE_MAX_CANDIDATES)).toList();
 
-        decisions.deleteByRecommendationDate(targetDate);
-        performances.deleteByRecommendationDate(targetDate);
-        recommendations.deleteByRecommendationDate(targetDate);
         List<ClosingRecommendation> ranked = new ArrayList<>();
         for (int index = 0; index < candidates.size(); index++) {
             ScoredCandidate candidate = candidates.get(index);
-            ranked.add(entity(targetDate, generatedAt, candidate, index + 1));
+            ClosingRecommendation row = entity(targetDate, generatedAt, candidate, index + 1);
+            row.assignRun(run);
+            ranked.add(row);
         }
         List<ClosingRecommendation> saved = recommendations.saveAll(ranked);
         List<CandidateEvaluationResponse> evaluations = evaluations(boundedDetections, broadSource, coverage,
@@ -128,20 +168,41 @@ public class ClosingRecommendationService {
                 Map.copyOf(decisionReasons),
                 ClosingRecommendation.STRATEGY_VERSION,
                 saved.stream().map(RecommendationResponse::from).toList(), evaluationEnd,
-                Map.of("minimumCoverageMinutes", properties.minimumCoverageMinutes(),
-                        "minimumFinalCandles", properties.minimumFinalCandles(),
-                        "minimumFinalScore", properties.minimumFinalScore(),
-                        "minOpportunity", threshold(minOpportunity), "maxRisk", riskLimit(maxRisk),
-                        "limit", safeLimit, "evaluationStart", properties.evaluationStart().toString(),
-                        "featureFreezeAt", properties.featureFreezeAt().toString()),
-                Map.copyOf(decisionReasons), evaluations);
-        try {
-            runs.save(new ClosingRecommendationRun(targetDate, generatedAt, ClosingRecommendation.STRATEGY_VERSION,
-                    objectMapper.writeValueAsString(response)));
-        } catch (com.fasterxml.jackson.core.JsonProcessingException error) {
+                criteria, Map.copyOf(decisionReasons), evaluations, run.getId(), mode, calendar.now());
+        run.recordDataVersion("snapshot-" + sha256(serialize(evaluations)).substring(0, 31));
+        run.complete(serialize(response), response.completedAt());
+        return response;
+    }
+
+    private String serialize(Object value) {
+        try { return objectMapper.writeValueAsString(value); }
+        catch (com.fasterxml.jackson.core.JsonProcessingException error) {
             throw new IllegalStateException("Failed to preserve recommendation audit", error);
         }
-        return response;
+    }
+
+    private String sha256(String value) {
+        try { return HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                .digest(value.getBytes(java.nio.charset.StandardCharsets.UTF_8))); }
+        catch (java.security.NoSuchAlgorithmException error) { throw new IllegalStateException(error); }
+    }
+
+    private ApplicationException invalid(String message) {
+        return new ApplicationException(ErrorCode.INVALID_REQUEST, HttpStatus.BAD_REQUEST, message);
+    }
+
+    @Transactional(readOnly = true)
+    public LocalDate runDate(LocalDate date, Long runId) {
+        if (runId == null) return date;
+        ClosingRecommendationRun run = runs.findById(runId).orElseThrow(() -> invalid("Unknown evaluation run"));
+        if (date != null && !date.equals(run.getRecommendationDate())) throw invalid("Run does not belong to date");
+        return run.getRecommendationDate();
+    }
+
+    @Transactional(readOnly = true)
+    public List<RunResponse> history(LocalDate date) {
+        return runs.findByRecommendationDateOrderByIdDesc(date == null ? calendar.today() : date)
+                .stream().map(RunResponse::from).toList();
     }
 
     private List<CandidateEvaluationResponse> evaluations(List<ScannerDetection> source,
@@ -156,14 +217,11 @@ public class ClosingRecommendationService {
             Long id = detection.getStock().getId();
             CandleCoverage observed = coverage.getOrDefault(detection, CandleCoverage.empty());
             CandidateDecision decision;
-            if (!tradable(detection.getStock())) decision = new CandidateDecision(CandidateDisposition.EXCLUDED, "NOT_TRADABLE");
-            else if (!qualifies(detection, minOpportunity, maxRisk))
-                decision = new CandidateDecision(CandidateDisposition.EXCLUDED, "OPPORTUNITY_OR_RISK_FILTERED");
-            else if (selectedIds.contains(id)) decision = new CandidateDecision(CandidateDisposition.SELECTED, "QUALIFIED");
+            if (selectedIds.contains(id)) decision = new CandidateDecision(CandidateDisposition.SELECTED, "QUALIFIED");
             else {
-                decision = decision(candidate);
+                decision = precisionDecision(candidate, minOpportunity, maxRisk);
                 if (decision.disposition() == CandidateDisposition.SELECTED)
-                    decision = new CandidateDecision(CandidateDisposition.WATCH, "RANK_LIMIT_WATCH");
+                    decision = new CandidateDecision(CandidateDisposition.WATCH, "LIMITED_MODE_WATCH");
             }
             result.add(evaluation(candidate, observed.finalCandles(), decision, detection.getFeatureSnapshot()));
         }
@@ -193,33 +251,35 @@ public class ClosingRecommendationService {
                 candidate.observedAt(), candidate.referencePrice(), scored.score().score(), candidate.opportunityScore(),
                 candidate.riskScore(), candidate.dataQuality(), finalCandles, candidate.coverageMinutes(),
                 candidate.missingFeatures(), decision.disposition().name(), decision.reason(),
-                scored.score().recommendationReason(), scored.score().riskReason(), featureSnapshot);
+                scored.score().recommendationReason(), scored.score().riskReason(), featureSnapshot,
+                scored.dataReadiness());
     }
 
     @Transactional(readOnly = true)
     public GenerateResponse latestEvaluation(LocalDate date) {
-        LocalDate target = date == null ? LocalDate.now(MARKET_ZONE) : date;
-        return runs.findFirstByRecommendationDateOrderByGeneratedAtDescIdDesc(target).map(run -> {
-            try { return objectMapper.readValue(run.getResponseSnapshot(), GenerateResponse.class); }
-            catch (com.fasterxml.jackson.core.JsonProcessingException error) {
-                throw new IllegalStateException("Failed to read recommendation audit", error);
-            }
-        }).orElse(null);
+        return evaluation(date, null);
     }
 
-    private ScoredCandidate precisionCandidate(ScannerDetection detection, CandleCoverage coverage) {
-        List<String> missing = precisionMissing(detection);
-        if (coverage.finalCandles() < properties.minimumFinalCandles()) missing = append(missing, "finalCandles");
-        ClosingCandidate.Precision candidate = new ClosingCandidate.Precision(detection, coverage.minutes(), missing);
-        return new ScoredCandidate(candidate,
-                scorer.score(detection, intradayMa.calculate(detection), dailyMa.calculate(detection)));
+    @Transactional(readOnly = true)
+    public GenerateResponse evaluation(LocalDate date, Long runId) {
+        runDate(date, runId);
+        return (runId == null ? runs.findFirstByRecommendationDateOrderByIdDesc(date == null ? calendar.today() : date)
+                : runs.findById(runId)).map(this::readEvaluation).orElse(null);
+    }
+
+    private GenerateResponse readEvaluation(ClosingRecommendationRun run) {
+        if ("{}".equals(run.getResponseSnapshot())) return null;
+        try { return objectMapper.readValue(run.getResponseSnapshot(), GenerateResponse.class).withRun(run); }
+        catch (com.fasterxml.jackson.core.JsonProcessingException error) {
+            throw new IllegalStateException("Failed to read recommendation audit", error);
+        }
     }
 
     private ScoredCandidate broadCandidate(MarketBroadSnapshot snapshot) {
         List<String> missing = broadMissing(snapshot);
         BigDecimal risk = bd("45").add(BigDecimal.valueOf(missing.size() * 5L)).min(bd("100"));
         ClosingCandidate.Broad candidate = new ClosingCandidate.Broad(snapshot, risk, missing);
-        return new ScoredCandidate(candidate, broadScorer.score(snapshot, missing));
+        return new ScoredCandidate(candidate, broadScorer.score(snapshot, missing), null, Map.of());
     }
 
     private ClosingRecommendation entity(LocalDate date, Instant generatedAt, ScoredCandidate scored, int rank) {
@@ -241,47 +301,6 @@ public class ClosingRecommendationService {
         return latest;
     }
 
-    private Map<ScannerDetection, CandleCoverage> candleCoverage(List<ScannerDetection> source, Instant from, Instant to) {
-        Map<ScannerDetection, CandleCoverage> result = new HashMap<>();
-        source.stream().map(detection -> detection.getStock().getId()).distinct().forEach(stockId -> {
-            List<StockCandle> rows = candles
-                    .findByStockIdAndTimeframeAndStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(
-                            stockId, "5M", from, to.plusSeconds(1)).stream()
-                    .filter(StockCandle::isFinalCandle)
-                    .filter(row -> !row.getStartTime().plus(Duration.ofMinutes(5)).isAfter(to))
-                    .toList();
-            source.stream().filter(detection -> detection.getStock().getId().equals(stockId)).forEach(detection -> {
-                Instant end = detection.getDetectedAt().truncatedTo(java.time.temporal.ChronoUnit.MINUTES);
-                end = end.minusSeconds(end.atZone(MARKET_ZONE).getMinute() % 5 * 60L);
-                Set<Instant> starts = new HashSet<>();
-                rows.stream().filter(row -> !row.getStartTime().plus(Duration.ofMinutes(5))
-                        .isAfter(detection.getDetectedAt())).forEach(row -> starts.add(row.getStartTime()));
-                int count = 0;
-                for (Instant expected = end.minus(Duration.ofMinutes(5)); starts.contains(expected);
-                        expected = expected.minus(Duration.ofMinutes(5))) count++;
-                result.put(detection, new CandleCoverage(count, count * 5));
-            });
-        });
-        return result;
-    }
-
-    private CandidateDecision decision(ScoredCandidate candidate) {
-        ClosingCandidate.Precision precision = (ClosingCandidate.Precision) candidate.candidate();
-        if (!precision.missingFeatures().isEmpty())
-            return new CandidateDecision(CandidateDisposition.WATCH, "MISSING_REQUIRED_FEATURES");
-        if (precision.coverageMinutes() < properties.minimumCoverageMinutes())
-            return new CandidateDecision(CandidateDisposition.WATCH, "INSUFFICIENT_INTRADAY_COVERAGE");
-        if (candidate.score().score().compareTo(properties.minimumFinalScore()) < 0)
-            return new CandidateDecision(CandidateDisposition.EXCLUDED, "LOW_FINAL_SCORE");
-        return new CandidateDecision(CandidateDisposition.SELECTED, "");
-    }
-
-    private List<String> append(List<String> values, String value) {
-        List<String> result = new ArrayList<>(values);
-        result.add(value);
-        return List.copyOf(result);
-    }
-
     private boolean eligibleBroad(MarketBroadSnapshot snapshot) {
         return snapshot.getDataQuality() == BroadSnapshotQuality.BROAD_C
                 && snapshot.getCollectionStatus() == BroadSnapshotStatus.COLLECTED
@@ -301,21 +320,6 @@ public class ClosingRecommendationService {
         return List.copyOf(missing);
     }
 
-    private List<String> precisionMissing(ScannerDetection detection) {
-        List<String> missing = new ArrayList<>();
-        if (detection.getOpportunityScore() == null) missing.add("opportunityScore");
-        if (detection.getRiskScore() == null) missing.add("riskScore");
-        if (detection.getVolumeRatio() == null) missing.add("volumeRatio");
-        try {
-            JsonNode node = objectMapper.readTree(detection.getFeatureSnapshot());
-            for (String field : List.of("vwapDistanceRate", "dayHighDistanceRate", "tradeStrength"))
-                if (!node.hasNonNull(field) || node.path(field).asText().isBlank()) missing.add(field);
-        } catch (Exception error) {
-            missing.add("featureSnapshot");
-        }
-        return List.copyOf(missing);
-    }
-
     private String json(List<String> values) {
         try { return objectMapper.writeValueAsString(values); }
         catch (Exception error) { throw new IllegalStateException("Failed to serialize missing features", error); }
@@ -323,46 +327,28 @@ public class ClosingRecommendationService {
 
     @Transactional(readOnly = true)
     public List<RecommendationResponse> list(LocalDate date) {
-        LocalDate targetDate = date == null ? LocalDate.now(MARKET_ZONE) : date;
-        return recommendations.findByRecommendationDateOrderByRankAsc(targetDate).stream()
+        return list(date, null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<RecommendationResponse> list(LocalDate date, Long runId) {
+        LocalDate checked = runDate(date, runId);
+        LocalDate targetDate = checked == null ? calendar.today() : checked;
+        return (runId == null ? recommendations.findByRecommendationDateOrderByRankAsc(targetDate)
+                : recommendations.findByRunIdOrderByRankAsc(runId)).stream()
                 .map(RecommendationResponse::from)
                 .toList();
     }
 
-    private List<ScoredCandidate> representativeCandidates(List<ScannerDetection> source,
-            Map<ScannerDetection, CandleCoverage> coverage, BigDecimal minOpportunity, BigDecimal maxRisk) {
-        Comparator<ScoredCandidate> priority = Comparator
-                .comparingInt((ScoredCandidate row) -> switch (precisionDecision(row, minOpportunity, maxRisk).disposition()) {
-                    case SELECTED -> 2;
-                    case WATCH -> 1;
-                    case EXCLUDED -> 0;
-                }).thenComparing(row -> row.score().score())
-                .thenComparing(row -> row.candidate().observedAt())
-                .thenComparing(row -> Optional.ofNullable(((ClosingCandidate.Precision) row.candidate())
-                        .detection().getId()).orElse(0L));
-        Map<Long, ScoredCandidate> representatives = new LinkedHashMap<>();
-        for (ScannerDetection detection : source) {
-            ScoredCandidate row = precisionCandidate(detection, coverage.getOrDefault(detection, CandleCoverage.empty()));
-            representatives.merge(detection.getStock().getId(), row,
-                    (old, next) -> priority.compare(old, next) >= 0 ? old : next);
-        }
-        return List.copyOf(representatives.values());
-    }
-
     private CandidateDecision precisionDecision(ScoredCandidate row, BigDecimal minimum, BigDecimal maximum) {
-        ScannerDetection detection = ((ClosingCandidate.Precision) row.candidate()).detection();
-        if (!tradable(detection.getStock())) return new CandidateDecision(CandidateDisposition.EXCLUDED, "NOT_TRADABLE");
-        if (!qualifies(detection, minimum, maximum))
-            return new CandidateDecision(CandidateDisposition.EXCLUDED, "OPPORTUNITY_OR_RISK_FILTERED");
-        return decision(row);
-    }
-
-    private boolean qualifies(ScannerDetection detection, BigDecimal minOpportunity, BigDecimal maxRisk) {
-        BigDecimal opportunity = value(detection.getOpportunityScore());
-        BigDecimal risk = value(detection.getRiskScore());
-        return opportunity.compareTo(minOpportunity == null ? BigDecimal.ZERO : minOpportunity) >= 0
-                && risk.compareTo(maxRisk == null ? bd("65") : maxRisk) <= 0
-                && tradable(detection.getStock());
+        if (row.reason() == null || row.reason().equals("QUALIFIED"))
+            return new CandidateDecision(CandidateDisposition.SELECTED, "QUALIFIED");
+        CandidateDisposition disposition = switch (row.reason()) {
+            case "NOT_TRADABLE", "OPPORTUNITY_OR_RISK_FILTERED", "LOW_FINAL_SCORE",
+                    "DAILY_TREND_WEAK", "INTRADAY_REVERSAL", "OVEREXTENDED", "LOW_LIQUIDITY" -> CandidateDisposition.EXCLUDED;
+            default -> CandidateDisposition.WATCH;
+        };
+        return new CandidateDecision(disposition, row.reason());
     }
 
     private boolean tradable(com.sunmo.stockplatform.stock.domain.Stock stock) {
@@ -372,15 +358,12 @@ public class ClosingRecommendationService {
     private BigDecimal threshold(BigDecimal value) { return value == null ? BigDecimal.ZERO : value; }
     private BigDecimal riskLimit(BigDecimal value) { return value == null ? bd("65") : value; }
 
-    private BigDecimal value(BigDecimal value) {
-        return value == null ? BigDecimal.ZERO : value;
-    }
-
     private BigDecimal bd(String value) {
         return new BigDecimal(value);
     }
 
-    private record ScoredCandidate(ClosingCandidate candidate, ScoreResult score) {
+    private record ScoredCandidate(ClosingCandidate candidate, ScoreResult score, String reason,
+            Map<String, Object> dataReadiness) {
     }
 
     private record CandleCoverage(int finalCandles, int minutes) {

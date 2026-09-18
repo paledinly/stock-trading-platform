@@ -27,3 +27,20 @@ test('restores excluded candidate evaluation without generating recommendations'
   expect(screen.getByText(/카카오 \(035720\).*50.8/)).toBeInTheDocument()
   expect(mockFetch.mock.calls.every(([url]) => !String(url).includes('/generate'))).toBe(true)
 })
+
+test('shows account performance as unavailable without a paper execution ledger', async () => {
+  globalThis.fetch = vi.fn().mockImplementation((url: string) => Promise.resolve({
+    ok: true,
+    json: async () => url.includes('/account-performance') ? {
+      status: 'NOT_READY', reason: 'PAPER_EXECUTION_LEDGER_MISSING',
+      cumulativeReturnRate: null, maxDrawdownRate: null, profitFactor: null,
+      sharpeRatio: null, sortinoRatio: null, benchmarkStatus: 'NO_ALIGNED_INDEX_DATA',
+      excessReturnRate: null, returnObservations: 0,
+    } : [],
+  })) as typeof fetch
+  render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+    <ClosingRecommendationPage back={() => {}} advanced />
+  </QueryClientProvider>)
+  expect(await screen.findByText(/미산출: 모의 체결/)).toBeInTheDocument()
+  expect(screen.queryByText(/계좌 MDD/)).not.toBeInTheDocument()
+})

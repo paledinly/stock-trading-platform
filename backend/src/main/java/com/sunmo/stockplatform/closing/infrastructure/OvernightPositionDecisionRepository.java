@@ -21,7 +21,8 @@ public interface OvernightPositionDecisionRepository extends JpaRepository<Overn
     @Query("""
             select d from OvernightPositionDecision d
             join d.recommendation recommendation
-            where recommendation.recommendationDate = :date
+            where recommendation.run.id =
+              (select max(a.id) from ClosingRecommendationRun a where a.recommendationDate = :date)
               and d.evaluatedAt = (
                   select max(latest.evaluatedAt) from OvernightPositionDecision latest
                   where latest.recommendation = recommendation
@@ -29,4 +30,12 @@ public interface OvernightPositionDecisionRepository extends JpaRepository<Overn
             order by recommendation.rank asc
             """)
     List<OvernightPositionDecision> findLatestByRecommendationDate(@Param("date") LocalDate date);
+
+    @Query("""
+            select d from OvernightPositionDecision d join d.recommendation r
+            where r.run.id = :runId and d.id =
+              (select max(latest.id) from OvernightPositionDecision latest where latest.recommendation = r)
+            order by r.rank asc
+            """)
+    List<OvernightPositionDecision> findLatestByRunId(@Param("runId") Long runId);
 }

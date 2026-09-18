@@ -12,6 +12,7 @@ import java.time.LocalDate;
                 columnNames = "closing_recommendation_id"))
 public class OvernightPerformance {
     public static final String VERSION = "overnight-performance-v1";
+    public static final String OBSERVATION_VERSION = "overnight-observation-v2";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -23,6 +24,25 @@ public class OvernightPerformance {
 
     @Column(name = "next_trading_date")
     private LocalDate nextTradingDate;
+
+    @Column(name = "expected_session_date")
+    private LocalDate expectedSessionDate;
+    @Column(name = "session_open")
+    private Instant sessionOpen;
+    @Column(name = "session_close")
+    private Instant sessionClose;
+    @Column(name = "observed_through")
+    private Instant observedThrough;
+    @Column(name = "missing_intervals", nullable = false, columnDefinition = "text")
+    private String missingIntervals = "[]";
+    @Column(name = "latest_price", precision = 20, scale = 4)
+    private BigDecimal latestPrice;
+    @Column(name = "latest_return_rate", precision = 12, scale = 6)
+    private BigDecimal latestReturnRate;
+    @Column(name = "target_rate", precision = 12, scale = 6)
+    private BigDecimal targetRate;
+    @Column(name = "stop_rate", precision = 12, scale = 6)
+    private BigDecimal stopRate;
 
     @Column(name = "evaluated_at", nullable = false)
     private Instant evaluatedAt;
@@ -179,4 +199,46 @@ public class OvernightPerformance {
     public String getCalculationVersion() {
         return calculationVersion;
     }
+
+    public void initializeObservation(LocalDate date, Instant open, Instant close, BigDecimal target, BigDecimal stop) {
+        expectedSessionDate = date;
+        nextTradingDate = date;
+        sessionOpen = open;
+        sessionClose = close;
+        targetRate = target;
+        stopRate = stop;
+        calculationVersion = OBSERVATION_VERSION;
+    }
+
+    public void observe(Instant at, Instant through, String missing, OvernightPerformanceStatus state,
+            BigDecimal open, BigDecimal high, BigDecimal low, BigDecimal latest,
+            BigDecimal openReturn, BigDecimal latestReturn, BigDecimal maximum, BigDecimal minimum,
+            boolean target, boolean stop) {
+        evaluatedAt = at;
+        observedThrough = through;
+        missingIntervals = missing;
+        status = state;
+        openPrice = open;
+        highPrice = high;
+        lowPrice = low;
+        latestPrice = latest;
+        latestReturnRate = latestReturn;
+        openReturnRate = openReturn;
+        maxReturnRate = maximum;
+        maxDrawdownRate = minimum;
+        targetHit = target;
+        stopHit = stop;
+        closePrice = state == OvernightPerformanceStatus.COMPLETED ? latest : null;
+        closeReturnRate = state == OvernightPerformanceStatus.COMPLETED ? latestReturn : null;
+    }
+
+    public LocalDate getExpectedSessionDate() { return expectedSessionDate; }
+    public Instant getSessionOpen() { return sessionOpen; }
+    public Instant getSessionClose() { return sessionClose; }
+    public Instant getObservedThrough() { return observedThrough; }
+    public String getMissingIntervals() { return missingIntervals; }
+    public BigDecimal getLatestPrice() { return latestPrice; }
+    public BigDecimal getLatestReturnRate() { return latestReturnRate; }
+    public BigDecimal getTargetRate() { return targetRate; }
+    public BigDecimal getStopRate() { return stopRate; }
 }

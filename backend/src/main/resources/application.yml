@@ -65,6 +65,10 @@ resilience4j:
         limit-for-period: ${KIS_MINUTE_RATE_LIMIT:5}
         limit-refresh-period: 1s
         timeout-duration: 2s
+      kisDailyCandle:
+        limit-for-period: ${KIS_DAILY_RATE_LIMIT:5}
+        limit-refresh-period: 1s
+        timeout-duration: 2s
       kisRanking:
         limit-for-period: ${KIS_RANKING_RATE_LIMIT:5}
         limit-refresh-period: 1s
@@ -86,6 +90,15 @@ resilience4j:
         failure-rate-threshold: 50
         wait-duration-in-open-state: 10s
       kisMinuteCandle:
+        ignore-exceptions:
+          - com.sunmo.stockplatform.kis.config.KisRateLimitException
+          - com.sunmo.stockplatform.kis.config.KisRequestRejectedException
+          - io.github.resilience4j.ratelimiter.RequestNotPermitted
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+      kisDailyCandle:
         ignore-exceptions:
           - com.sunmo.stockplatform.kis.config.KisRateLimitException
           - com.sunmo.stockplatform.kis.config.KisRequestRejectedException
@@ -160,6 +173,12 @@ watchlist:
     enabled: ${WATCHLIST_INITIAL_ENABLED:true}
 
 closing:
+  daily-backfill:
+    enabled: ${CLOSING_DAILY_BACKFILL_ENABLED:true}
+    max-stocks: ${CLOSING_DAILY_BACKFILL_MAX_STOCKS:40}
+    lookback-days: ${CLOSING_DAILY_BACKFILL_LOOKBACK_DAYS:120}
+    refresh-interval: ${CLOSING_DAILY_BACKFILL_REFRESH_INTERVAL:1h}
+    cron: ${CLOSING_DAILY_BACKFILL_CRON:0 10 8 * * MON-FRI}
   recommendation:
     minimum-coverage-minutes: ${CLOSING_MIN_COVERAGE_MINUTES:20}
     minimum-final-candles: ${CLOSING_MIN_FINAL_CANDLES:4}

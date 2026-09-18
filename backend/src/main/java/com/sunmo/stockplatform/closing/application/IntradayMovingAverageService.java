@@ -30,6 +30,7 @@ public class IntradayMovingAverageService {
                         stockId, TIMEFRAME, at.minus(java.time.Duration.ofMinutes(5)))
                 .stream()
                 .filter(row -> row.isFinalCandle() && !row.getStartTime().plus(java.time.Duration.ofMinutes(5)).isAfter(at))
+                .filter(row -> row.getUpdatedAt() == null || !row.getUpdatedAt().isAfter(at))
                 .sorted(Comparator.comparing(StockCandle::getStartTime))
                 .toList();
         return calculate(series);

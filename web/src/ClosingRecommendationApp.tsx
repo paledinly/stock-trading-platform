@@ -1,8 +1,10 @@
-import { FormEvent, useState } from 'react'
+import { FormEvent, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import './closingRecommendation.css'
 
 type Recommendation = {
+  runId?: number
+  executionMode?: string
   id: number
   recommendationDate: string
   generatedAt: string
@@ -31,6 +33,9 @@ type Recommendation = {
 }
 
 type GenerateResponse = {
+  runId: number
+  executionMode: string
+  completedAt: string
   recommendationDate: string
   generatedAt: string
   sourceDetections: number
@@ -54,9 +59,23 @@ type CandidateEvaluation = {
   finalCandles: number; coverageMinutes: number; missingFeatures: string[]
   disposition: 'SELECTED' | 'WATCH' | 'EXCLUDED'; decisionReason: string
   recommendationReason: string; riskReason: string; featureSnapshot: string | null
+  dataReadiness?: { receiptVerified?: boolean; receivedAt?: string; dailyCandles?: number
+    dailyAsOfDate?: string; lastFinalCandleAt?: string; evaluatedAsOf?: string
+    dailyTrend?: string; latestFiveMinute?: string; signalRetained?: string
+    overextension?: string; liquidity?: string; marketRegime?: string
+    sectorExposure?: string; accountExposure?: string; orderEligible?: boolean }
 }
 
 type OvernightPerformance = {
+  expectedSessionDate?: string | null
+  sessionOpen?: string | null
+  sessionClose?: string | null
+  observedThrough?: string | null
+  missingIntervals?: string
+  latestPrice?: number | null
+  latestReturnRate?: number | null
+  targetRate?: number | null
+  stopRate?: number | null
   id: number
   recommendationId: number
   recommendationDate: string
@@ -172,6 +191,19 @@ type OvernightBacktest = {
   rows: OvernightBacktestRow[]
 }
 
+type AccountPerformance = {
+  status: 'NOT_READY' | 'INCOMPLETE' | 'READY'
+  reason: string | null
+  cumulativeReturnRate: number | null
+  maxDrawdownRate: number | null
+  profitFactor: number | null
+  sharpeRatio: number | null
+  sortinoRatio: number | null
+  benchmarkStatus: string
+  excessReturnRate: number | null
+  returnObservations: number
+}
+
 type RecommendationAlgorithmSummary = {
   algorithm: string
   label: string
@@ -229,8 +261,29 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
     headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
     ...init,
   })
-  if (!response.ok) throw new Error('마감 추천 데이터를 처리하지 못했습니다.')
-  return response.status === 204 ? undefined as T : response.json()
+  if (!response.ok) throw new Error(response.status === 409
+    ? '기존 실행의 요청 또는 성과 기준과 다릅니다. 새 후보 평가를 생성해 주세요.'
+    : '마감 추천 데이터를 처리하지 못했습니다.')
+  return response.status === 204 ? null as T : response.json()
+}
+
+type EvaluationRun = {
+  id: number; recommendationDate: string; generatedAt: string; completedAt: string | null
+  evaluatedAsOf: string | null; executionMode: string; strategyVersion: string
+}
+
+type DailyPrepareResult = {
+  recommendationDate: string; latestRequiredDate: string; candidateStocks: number
+  attemptedStocks: number; savedCandles: number; readyStocks: number
+  failedStocks: number; skippedStocks: number
+}
+
+function executionLabel(mode?: string) {
+  return mode === 'FORWARD' ? '장중 평가' : mode === 'REPLAY' ? '과거 재생' : '기존 기록'
+}
+
+function hitLabel(target: boolean, stop: boolean) {
+  return target && stop ? '목표·손절 모두 도달 (순서 미확인)' : target ? '목표 도달' : stop ? '손절 도달' : '미도달'
 }
 
 function today() {
@@ -459,55 +512,70 @@ export function ClosingRecommendationPage({ back, advanced = false }: { back: ()
   const [backtestFrom, setBacktestFrom] = useState(daysAgo(20))
   const [backtestTo, setBacktestTo] = useState(daysAgo(1))
   const [backtest, setBacktest] = useState<OvernightBacktest>()
-  const [generatedRun, setLastRun] = useState<GenerateResponse>()
-  const evaluation = useQuery({
-    queryKey: ['closing-evaluation', date],
-    queryFn: () => api<GenerateResponse | null>(`/api/v1/closing-recommendations/evaluation?date=${date}`),
+  const [selection, setSelection] = useState<{ date: string; id: number }>()
+  const request = useRef<{ fingerprint: string; key: string } | null>(null)
+  const history = useQuery({
+    queryKey: ['closing-runs', date],
+    queryFn: () => api<EvaluationRun[]>(`/api/v1/closing-recommendations/runs?date=${date}`),
   })
-  const lastRun = generatedRun?.recommendationDate === date ? generatedRun : evaluation.data ?? undefined
-  const [lastTrack, setLastTrack] = useState<TrackPerformanceResponse>()
-  const [lastDecisionRun, setLastDecisionRun] = useState<DecisionEvaluationResponse>()
+  const runId = selection?.date === date ? selection.id : history.data?.[0]?.id
+  const selectedRun = history.data?.find(run => run.id === runId)
+  const runParam = runId == null ? '' : `&runId=${runId}`
+  const evaluation = useQuery({
+    queryKey: ['closing-evaluation', date, runId],
+    queryFn: () => api<GenerateResponse | null>(`/api/v1/closing-recommendations/evaluation?date=${date}${runParam}`),
+    enabled: history.isSuccess,
+  })
+  const lastRun = evaluation.data ?? undefined
   const recommendations = useQuery({
-    queryKey: ['closing-recommendations', date],
-    queryFn: () => api<Recommendation[]>(`/api/v1/closing-recommendations?date=${date}`),
+    queryKey: ['closing-recommendations', date, runId],
+    queryFn: () => api<Recommendation[]>(`/api/v1/closing-recommendations?date=${date}${runParam}`),
+    enabled: history.isSuccess,
   })
   const performances = useQuery({
-    queryKey: ['closing-recommendation-performance', date],
-    queryFn: () => api<OvernightPerformance[]>(`/api/v1/closing-recommendations/performance?date=${date}`),
+    queryKey: ['closing-recommendation-performance', date, runId],
+    queryFn: () => api<OvernightPerformance[]>(`/api/v1/closing-recommendations/performance?date=${date}${runParam}`),
+    enabled: history.isSuccess,
   })
   const decisions = useQuery({
-    queryKey: ['closing-recommendation-decisions', date],
-    queryFn: () => api<OvernightDecision[]>(`/api/v1/closing-recommendations/decisions?date=${date}`),
+    queryKey: ['closing-recommendation-decisions', date, runId],
+    queryFn: () => api<OvernightDecision[]>(`/api/v1/closing-recommendations/decisions?date=${date}${runParam}`),
+    enabled: history.isSuccess,
+  })
+  const accountPerformance = useQuery({
+    queryKey: ['closing-account-performance'],
+    queryFn: () => api<AccountPerformance>('/api/v1/closing-recommendations/account-performance'),
+    enabled: advanced,
   })
   const generate = useMutation({
-    mutationFn: () => api<GenerateResponse>(
-      `/api/v1/closing-recommendations/generate?date=${date}&limit=${limit}&minOpportunity=${minOpportunity}&maxRisk=${maxRisk}`,
-      { method: 'POST' },
+    mutationFn: (input: { date: string; limit: number; minOpportunity: number; maxRisk: number; key: string }) => api<GenerateResponse>(
+      `/api/v1/closing-recommendations/generate?date=${input.date}&limit=${input.limit}&minOpportunity=${input.minOpportunity}&maxRisk=${input.maxRisk}`,
+      { method: 'POST', headers: { 'Idempotency-Key': input.key } },
     ),
     onSuccess: result => {
-      setLastRun(result)
-      cache.invalidateQueries({ queryKey: ['closing-recommendations', date] })
-      cache.invalidateQueries({ queryKey: ['closing-evaluation', date] })
+      request.current = null
+      setSelection({ date: result.recommendationDate, id: result.runId })
+      cache.setQueryData(['closing-evaluation', result.recommendationDate, result.runId], result)
+      cache.invalidateQueries({ queryKey: ['closing-runs', result.recommendationDate] })
+      cache.invalidateQueries({ queryKey: ['closing-recommendations', result.recommendationDate] })
     },
   })
   const track = useMutation({
     mutationFn: () => api<TrackPerformanceResponse>(
-      `/api/v1/closing-recommendations/performance/track?date=${date}&targetRate=${targetRate}&stopRate=${stopRate}`,
+      `/api/v1/closing-recommendations/performance/track?date=${date}&targetRate=${targetRate}&stopRate=${stopRate}${runParam}`,
       { method: 'POST' },
     ),
-    onSuccess: result => {
-      setLastTrack(result)
-      cache.invalidateQueries({ queryKey: ['closing-recommendation-performance', date] })
+    onSuccess: () => {
+      cache.invalidateQueries({ queryKey: ['closing-recommendation-performance'] })
     },
   })
   const evaluateDecisions = useMutation({
     mutationFn: () => api<DecisionEvaluationResponse>(
-      `/api/v1/closing-recommendations/decisions/evaluate?date=${date}&targetRate=${targetRate}&stopRate=${stopRate}`,
+      `/api/v1/closing-recommendations/decisions/evaluate?date=${date}&targetRate=${targetRate}&stopRate=${stopRate}${runParam}`,
       { method: 'POST' },
     ),
-    onSuccess: result => {
-      setLastDecisionRun(result)
-      cache.invalidateQueries({ queryKey: ['closing-recommendation-decisions', date] })
+    onSuccess: () => {
+      cache.invalidateQueries({ queryKey: ['closing-recommendation-decisions'] })
     },
   })
   const runBacktest = useMutation({
@@ -516,14 +584,22 @@ export function ClosingRecommendationPage({ back, advanced = false }: { back: ()
     ),
     onSuccess: setBacktest,
   })
+  const prepareDaily = useMutation({
+    mutationFn: () => api<DailyPrepareResult>('/api/v1/closing-recommendations/daily-data/prepare',
+      { method: 'POST' }),
+  })
 
   function submit(event: FormEvent) {
     event.preventDefault()
-    generate.mutate()
+    const input = { date, limit, minOpportunity, maxRisk }
+    const fingerprint = JSON.stringify(input)
+    if (request.current?.fingerprint !== fingerprint)
+      request.current = { fingerprint, key: crypto.randomUUID() }
+    generate.mutate({ ...input, key: request.current.key })
   }
 
   const rows = recommendations.data ?? lastRun?.candidates ?? []
-  const performanceRows = performances.data ?? lastTrack?.performances ?? []
+  const performanceRows = performances.data ?? []
   const performanceByRecommendation = new Map(performanceRows.map(row => [row.recommendationId, row]))
   const top = rows[0]
   return (
@@ -543,12 +619,26 @@ export function ClosingRecommendationPage({ back, advanced = false }: { back: ()
       </header>
       <main>
         <form className={advanced ? 'advancedForm' : 'simpleForm'} onSubmit={submit}>
-          <label>추천일<input type="date" value={date} onChange={event => setDate(event.target.value)} /></label>
+          <label>추천일<input type="date" value={date} onChange={event => {
+            setDate(event.target.value); setSelection(undefined)
+            generate.reset(); track.reset(); evaluateDecisions.reset()
+          }} /></label>
           {advanced && <label>후보 수<input type="number" min="1" max="30" value={limit} onChange={event => setLimit(Number(event.target.value))} /></label>}
           {advanced && <label>최소 기회점수<input type="number" min="0" max="100" value={minOpportunity} onChange={event => setMinOpportunity(Number(event.target.value))} /></label>}
           {advanced && <label>최대 위험점수<input type="number" min="0" max="100" value={maxRisk} onChange={event => setMaxRisk(Number(event.target.value))} /></label>}
-          <button disabled={generate.isPending}>{generate.isPending ? '생성 중...' : '추천 생성'}</button>
+          <button disabled={generate.isPending}>{generate.isPending ? '평가 중...' : '후보 평가'}</button>
         </form>
+        <section className="evaluationHistory">
+          <label>평가 이력<select value={runId ?? ''} onChange={event => {
+            setSelection({ date, id: Number(event.target.value) }); track.reset(); evaluateDecisions.reset()
+          }} disabled={!history.data?.length}>
+            {!history.data?.length && <option value="">평가 이력 없음</option>}
+            {(history.data ?? []).map(run => <option key={run.id} value={run.id}>
+              #{run.id} · {new Date(run.generatedAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })} · {executionLabel(run.executionMode)}
+            </option>)}
+          </select></label>
+          {selectedRun && <span>{executionLabel(selectedRun.executionMode)} · {selectedRun.strategyVersion}</span>}
+        </section>
         <section className="performanceControls">
           <label>목표 수익률 %<input type="number" step="0.1" value={targetRate} onChange={event => setTargetRate(Number(event.target.value))} /></label>
           <label>손절 기준 %<input type="number" step="0.1" value={stopRate} onChange={event => setStopRate(Number(event.target.value))} /></label>
@@ -560,9 +650,16 @@ export function ClosingRecommendationPage({ back, advanced = false }: { back: ()
           <label>백테스트 종료일<input type="date" value={backtestTo} onChange={event => setBacktestTo(event.target.value)} /></label>
           <button onClick={() => runBacktest.mutate()} disabled={runBacktest.isPending}>{runBacktest.isPending ? '검증 중...' : '오버나잇 백테스트'}</button>
         </section>}
+        {advanced && <section className="performanceControls">
+          <button type="button" onClick={() => prepareDaily.mutate()} disabled={prepareDaily.isPending}>
+            {prepareDaily.isPending ? '일봉 수집 중...' : '일봉 데이터 준비'}
+          </button>
+          {prepareDaily.data && <span>{prepareDaily.data.recommendationDate} 기준 · {prepareDaily.data.readyStocks}종목 준비 · {prepareDaily.data.savedCandles}봉 저장 · 실패 {prepareDaily.data.failedStocks}종목</span>}
+          {prepareDaily.error && <span>일봉 수집 실패: {prepareDaily.error.message}</span>}
+        </section>}
         <section className="menuGuide">
           <h2>사용 안내</h2>
-          <p>{advanced ? '장마감 전 추천일과 점수 기준을 정한 뒤 추천 생성을 누릅니다. 다음 거래일 데이터가 쌓인 뒤 다음날 성과 추적을 누르면 시가, 최고가, 최저가, 종가 기준 수익률을 함께 확인할 수 있습니다.' : '장마감 전 추천 생성을 누르고 후보를 확인합니다. 다음 거래일에는 매도/보유 판단을 눌러 계속 보유할지, 익절할지, 손절 기준에 닿았는지 확인합니다.'}</p>
+          <p>성과는 신호 가격 대비 시장 관측값이며 실제 체결 손익이 아닙니다. 장중 관측과 최종 종가를 구분하며, 기존 계산 기록은 보존됩니다.</p>
         </section>
         {generate.error && <div className="closingEmpty">{generate.error.message}</div>}
         {track.error && <div className="closingEmpty">{track.error.message}</div>}
@@ -570,16 +667,28 @@ export function ClosingRecommendationPage({ back, advanced = false }: { back: ()
         {runBacktest.error && <div className="closingEmpty">{runBacktest.error.message}</div>}
         {recommendations.error && <div className="closingEmpty">{recommendations.error.message}</div>}
         {evaluation.error && <div className="closingEmpty">후보 평가 내역 조회 실패: {evaluation.error.message}</div>}
+        {history.error && <div className="closingEmpty">평가 이력 조회 실패: {history.error.message}</div>}
+        {performances.error && <div className="closingEmpty">성과 조회 실패: {performances.error.message}</div>}
         {advanced && backtest && <BacktestResult data={backtest} />}
+        {advanced && <section className="menuGuide">
+          <h2>모의 계좌 성과</h2>
+          {accountPerformance.isLoading && <p>계좌 자료 확인 중...</p>}
+          {accountPerformance.error && <p>계좌 상태 조회 실패: {accountPerformance.error.message}</p>}
+          {accountPerformance.data?.status !== 'READY' && !accountPerformance.isLoading && !accountPerformance.error &&
+            <p>미산출: 모의 체결·비용 원장과 일별 순자산이 아직 없습니다. KOSPI/KOSDAQ 비교용 동일 보유시간 지수 데이터도 없어 수익률·MDD·샤프·시장 초과수익을 표시하지 않습니다.</p>}
+          {accountPerformance.data?.status === 'READY' && <p>누적수익 {pct(accountPerformance.data.cumulativeReturnRate)} · 계좌 MDD {pct(accountPerformance.data.maxDrawdownRate)} · 손익비 {num(accountPerformance.data.profitFactor)} · 샤프 {num(accountPerformance.data.sharpeRatio)} · 소르티노 {num(accountPerformance.data.sortinoRatio)} · 시장 초과수익 {accountPerformance.data.excessReturnRate == null ? '미산출' : pct(accountPerformance.data.excessReturnRate)}</p>}
+        </section>}
         <section className="closingSummary">
           <article><small>원본 탐지</small><b>{lastRun?.sourceDetections ?? '--'}</b></article>
           <article><small>Broad 원본</small><b>{lastRun?.sourceBroadSnapshots ?? '--'}</b></article>
           <article><small>저장 후보</small><b>{lastRun?.storedCandidates ?? rows.length}</b></article>
           <article><small>관찰 후보</small><b>{lastRun?.watchCandidates ?? '--'}</b></article>
           <article><small>제외 후보</small><b>{lastRun?.excludedCandidates ?? '--'}</b></article>
-          <article><small>성과 완료</small><b>{lastTrack?.completed ?? performanceRows.filter(row => row.status === 'COMPLETED').length}</b></article>
-          <article><small>보유 연장</small><b>{lastDecisionRun?.extendHold ?? (decisions.data ?? []).filter(row => row.decision === 'EXTEND_HOLD').length}</b></article>
+          <article><small>최종 관측 완료</small><b>{performanceRows.filter(row => row.status === 'COMPLETED' && row.calculationVersion === 'overnight-observation-v2').length}</b></article>
+          <article><small>보유 연장</small><b>{(decisions.data ?? []).filter(row => row.decision === 'EXTEND_HOLD').length}</b></article>
         </section>
+        {lastRun?.criteria?.marketSectorAccountChecks === 'UNVERIFIED' &&
+          <div className="closingEmpty"><b>제한 모드: 주문 자격 미확인</b><p>시장 지표·업종 집중·계좌 노출 데이터가 없어 추천 목록에는 최대 1종목만 표시합니다. 추천 순위는 매수 가능 판정이나 수익 확률이 아닙니다.</p></div>}
         {lastRun && lastRun.storedCandidates === 0 && lastRun.watchCandidates + lastRun.excludedCandidates > 0 &&
           <div className="closingEmpty"><b>조건을 충족한 최종 추천이 없습니다</b><p>{Object.entries(lastRun.exclusionReasons).map(([reason, count]) => `${closingExclusionLabel(reason)} ${count}건`).join(' · ')}</p></div>}
         <section className="closingGrid">
@@ -587,7 +696,7 @@ export function ClosingRecommendationPage({ back, advanced = false }: { back: ()
             <h2>추천 랭킹</h2>
             {recommendations.isLoading && <div className="closingEmpty">불러오는 중...</div>}
             {!recommendations.isLoading && rows.length === 0 && <div className="closingEmpty"><b>추천 후보가 없습니다</b><p>장중 탐지가 쌓인 뒤 추천 생성을 실행하세요.</p></div>}
-            {rows.map(item => <RecommendationCard key={item.id} item={item} performance={performanceByRecommendation.get(item.id)} decision={(decisions.data ?? lastDecisionRun?.decisions ?? []).find(row => row.recommendationId === item.id)} advanced={advanced} />)}
+            {rows.map(item => <RecommendationCard key={item.id} item={item} performance={performanceByRecommendation.get(item.id)} decision={(decisions.data ?? []).find(row => row.recommendationId === item.id)} advanced={advanced} />)}
           </div>
         </section>
         {lastRun?.evaluations && <section className="menuGuide">
@@ -596,12 +705,15 @@ export function ClosingRecommendationPage({ back, advanced = false }: { back: ()
           <p>{Object.entries(lastRun.criteria).map(([key, value]) => `${key}: ${value}`).join(' · ')}</p>
           <p>관찰·제외 후보는 최종 추천이 아니며 오버나잇 성과 추적 대상에 포함되지 않습니다. 관측 분수는 봉의 시간 범위이며 연속 수신 시간을 보장하지 않습니다.</p>
           <p>Broad 점수·위험값은 제한된 지표로 계산한 참고값이며 Precision 점수와 같은 품질의 평가가 아닙니다.</p>
+          {selectedRun?.executionMode === 'REPLAY' && <p>과거 재생은 당시 수신 시각이 없는 탐지 기록을 포함할 수 있습니다. 수신 여부가 확인되지 않은 결과는 전진 검증 성과로 해석하지 마세요.</p>}
           {(['SELECTED', 'WATCH', 'EXCLUDED'] as const).map(disposition => <div key={disposition}>
             <h3>{{ SELECTED: '최종 추천', WATCH: '관찰 후보', EXCLUDED: '제외 후보' }[disposition]}</h3>
             {lastRun.evaluations.filter(row => row.disposition === disposition).map(row => <details key={`${row.candidateSource}-${row.stockCode}`}>
               <summary>{row.stockName} ({row.stockCode}) · {row.candidateSource} · 점수 {num(row.finalScore)} · {closingExclusionLabel(row.decisionReason)}</summary>
               <p>탐지 {new Date(row.observedAt).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul' })} · {row.scannerType ?? 'Broad'} · 가격 {num(row.referencePrice)} · Opportunity {num(row.opportunityScore)} / Risk {num(row.riskScore)}</p>
               <p>{row.dataQuality} · 확정 봉 {row.finalCandles}개 · 관측 범위 {row.coverageMinutes}분 · 부족 항목 {row.missingFeatures.join(', ') || '없음'}</p>
+              {row.dataReadiness && <p>일봉 {row.dataReadiness.dailyCandles ?? 0}개 · 마지막 일봉 {row.dataReadiness.dailyAsOfDate ?? '확인 불가'} · 마지막 확정 5분봉 {row.dataReadiness.lastFinalCandleAt ? new Date(row.dataReadiness.lastFinalCandleAt).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul' }) : '없음'} · 탐지 수신 {row.dataReadiness.receiptVerified ? '확인' : '확인 불가'}</p>}
+              {row.dataReadiness?.marketRegime === 'UNVERIFIED' && <p>일봉 추세 {checkLabel(row.dataReadiness.dailyTrend)} · 최신 분봉 {checkLabel(row.dataReadiness.latestFiveMinute)} · 신호 유지 {checkLabel(row.dataReadiness.signalRetained)} · 과열 {checkLabel(row.dataReadiness.overextension)} · 유동성 {checkLabel(row.dataReadiness.liquidity)} · 시장/업종/계좌 미검증 · 주문 자격 미확인</p>}
               <h4>가점 근거</h4><ul>{factorLabels(row.recommendationReason, 'recommendation').map((factor, index) => <li key={index}>{factor.label}: {factor.value}</li>)}</ul>
               <h4>감점 근거</h4><ul>{factorLabels(row.riskReason, 'risk').map((factor, index) => <li key={index}>{factor.label}: {factor.value}</li>)}</ul>
               {row.featureSnapshot && <details><summary>탐지 당시 Feature 원본</summary><pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{row.featureSnapshot}</pre></details>}
@@ -616,10 +728,22 @@ export function ClosingRecommendationPage({ back, advanced = false }: { back: ()
 function closingExclusionLabel(reason: string) {
   const labels: Record<string, string> = {
     MISSING_REQUIRED_FEATURES: '필수 지표 또는 확정 5분봉 부족',
+    DAILY_DATA_MISSING: '이동평균선 계산에 필요한 일봉 부족',
+    DAILY_DATA_STALE: '최근 일봉이 오래됨',
+    STALE_FEATURE: '최근 탐지 신호가 없음',
+    CANDLE_GAP: '연속 확정 5분봉 부족',
+    RECEIVED_AFTER_EVALUATION: '평가 시각 이후 수신 또는 정정된 봉',
+    CALENDAR_UNVERIFIED: '거래일 확인 불가',
     INSUFFICIENT_INTRADAY_COVERAGE: '당일 관찰시간 부족',
     LOW_FINAL_SCORE: '최종점수 미달',
     BROAD_WATCH_ONLY: 'Broad 관찰 전용',
     RANK_LIMIT_WATCH: '표시 순위 밖 관찰 후보',
+    LIMITED_MODE_WATCH: '제한 모드의 종목 수 상한',
+    DAILY_TREND_WEAK: '전일 일봉 추세 약화',
+    LATEST_CANDLE_STALE: '판단 시각의 확정 5분봉 지연',
+    INTRADAY_REVERSAL: '탐지 후 가격 흐름 약화',
+    OVEREXTENDED: '20일 이동평균선 대비 과열',
+    LOW_LIQUIDITY: '최소 거래대금 미달',
     QUALIFIED: '추천 조건 충족',
     NOT_TRADABLE: '추천 대상 상품/거래 조건 제외',
     OPPORTUNITY_OR_RISK_FILTERED: 'Opportunity 또는 Risk 기준 미달',
@@ -627,6 +751,10 @@ function closingExclusionLabel(reason: string) {
     PRECISION_DUPLICATE: '동일 종목 Precision 평가 우선',
   }
   return labels[reason] ?? reason
+}
+
+function checkLabel(status?: string) {
+  return status === 'PASS' ? '통과' : status === 'FAIL' ? '미통과' : '미검증'
 }
 
 function BacktestResult({ data }: { data: OvernightBacktest }) {
@@ -648,6 +776,7 @@ function BacktestResult({ data }: { data: OvernightBacktest }) {
         <article><small>최고 평균</small><b className={(data.averageMaxReturn ?? 0) >= 0 ? 'gain' : 'loss'}>{pct(data.averageMaxReturn)}</b></article>
       </div>
       <IntegrityPanel integrity={data.integrity} />
+      <p>기존 탐지 기록 중 수신 시각이 없는 데이터는 당시 이용 가능 여부를 검증할 수 없습니다. 이 결과는 탐색적 재생이며 전진 검증 성과가 아닙니다.</p>
       <AlgorithmSummaryPanel summaries={data.algorithmSummaries ?? []} />
       <StrategySummaryPanel summaries={data.strategySummaries ?? []} />
       <div className="backtestRows">
@@ -658,7 +787,7 @@ function BacktestResult({ data }: { data: OvernightBacktest }) {
             <span className={(row.openReturnRate ?? 0) >= 0 ? 'gain' : 'loss'}>시가 {pct(row.openReturnRate)}</span>
             <span className={(row.maxReturnRate ?? 0) >= 0 ? 'gain' : 'loss'}>최고 {pct(row.maxReturnRate)}</span>
             <span className={(row.maxDrawdownRate ?? 0) >= 0 ? 'gain' : 'loss'}>최저 {pct(row.maxDrawdownRate)}</span>
-            <span>{row.targetHit ? '목표 도달' : row.stopHit ? '손절 도달' : row.status === 'COMPLETED' ? '미도달' : '데이터 없음'}</span>
+            <span>{hitLabel(row.targetHit, row.stopHit)}</span>
           </article>
         ))}
       </div>
@@ -769,7 +898,7 @@ function RecommendationCard({ item, performance, decision, advanced = false }: {
           <b>{item.stockName}</b>
           <small>{item.stockCode} · {item.market} · {item.candidateSource === 'PRECISION' ? '정밀' : 'Broad'} · {scannerTypeLabel(item.scannerType)} · {new Date(item.detectedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</small>
         </span>
-        <strong>{money(item.buyReferencePrice)}원</strong>
+        <strong><small>신호 가격 </small>{money(item.buyReferencePrice)}원</strong>
       </div>
       <dl>
         <span><dt>추천점수</dt><dd>{num(item.recommendationScore)}</dd></span>
@@ -835,16 +964,31 @@ function DecisionPanel({ decision }: { decision?: OvernightDecision }) {
 
 function PerformancePanel({ performance }: { performance?: OvernightPerformance }) {
   if (!performance) return <div className="performancePanel pending">다음날 성과 추적 대기</div>
-  if (performance.status === 'DATA_MISSING') return <div className="performancePanel pending">다음 거래일 5분봉 데이터가 아직 없습니다</div>
+  const legacy = performance.calculationVersion !== 'overnight-observation-v2'
+  const missing = parseMissingFeatures(performance.missingIntervals ?? '[]')
+  const label = legacy ? '기존 계산 (완결성 미검증)' : ({
+    PENDING: '거래 시작 대기', IN_PROGRESS: '장중 관측', COMPLETED: '최종 관측 완료',
+    DATA_INCOMPLETE: '데이터 불완전', DATA_MISSING: '데이터 없음',
+  } as Record<string, string>)[performance.status] ?? '확인 대기'
   return (
-    <div className="performancePanel">
+    <>
+    <div className="performancePanel observationPanel">
+      <span><small>관측 상태</small><b>{label}</b></span>
       <span><small>다음 거래일</small><b>{performance.nextTradingDate ?? '--'}</b></span>
+      <span><small>관측 기준 시각</small><b>{performance.observedThrough
+        ? new Date(performance.observedThrough).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }) : '--'}</b></span>
       <span><small>시가</small><b className={(performance.openReturnRate ?? 0) >= 0 ? 'gain' : 'loss'}>{pct(performance.openReturnRate)}</b></span>
       <span><small>최고</small><b className={(performance.maxReturnRate ?? 0) >= 0 ? 'gain' : 'loss'}>{pct(performance.maxReturnRate)}</b></span>
       <span><small>최저</small><b className={(performance.maxDrawdownRate ?? 0) >= 0 ? 'gain' : 'loss'}>{pct(performance.maxDrawdownRate)}</b></span>
-      <span><small>종가</small><b className={(performance.closeReturnRate ?? 0) >= 0 ? 'gain' : 'loss'}>{pct(performance.closeReturnRate)}</b></span>
-      <span><small>도달</small><b>{performance.targetHit ? '목표' : performance.stopHit ? '손절' : '미도달'}</b></span>
+      {!legacy && <span><small>최근 관측 수익률</small><b>{pct(performance.latestReturnRate ?? null)}</b></span>}
+      <span><small>{legacy ? '기존 마지막 관측' : '최종 종가'}</small><b className={(performance.closeReturnRate ?? 0) >= 0 ? 'gain' : 'loss'}>{pct(performance.closeReturnRate)}</b></span>
+      <span><small>관측 구간 내 도달</small><b>{hitLabel(performance.targetHit, performance.stopHit)}</b></span>
+      {!legacy && <span><small>고정 관측 기준</small><b>목표 {pct(performance.targetRate ?? null)} / 손절 {pct(performance.stopRate ?? null)}</b></span>}
     </div>
+    {missing.length > 0 && <details className="observationGaps"><summary>누락·중복 구간 {missing.length}개</summary>
+      <ul>{missing.map(at => <li key={at}>{new Date(at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}</li>)}</ul>
+    </details>}
+    </>
   )
 }
 

@@ -1,4 +1,11 @@
 .closingLaunch{padding:10px 16px;border:1px solid #6c5534;border-radius:8px;background:#302414;color:#ffd58a;box-shadow:0 10px 28px #0008;cursor:pointer}
+.evaluationHistory{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin:14px 0}
+.evaluationHistory label{display:flex;flex:1 1 300px;min-width:0;flex-direction:column;gap:6px;font-size:12px;color:#a8b3c4}
+.evaluationHistory select{width:100%;min-width:0;padding:10px;border:1px solid #474033;border-radius:6px;background:#151d2b;color:#e9eef8}
+.evaluationHistory>span{font-size:12px;overflow-wrap:anywhere}
+.observationPanel{grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr));align-items:start}
+.observationPanel>span{min-width:0}.observationPanel b{white-space:normal;overflow-wrap:anywhere}
+.observationGaps{margin:10px 0;font-size:12px;color:#bdc8d8}.observationGaps ul{max-height:180px;overflow:auto}
 .closingPage{min-height:100vh;padding-bottom:60px;background:#090e17;color:#e9eef8}
 .closingPage>header{position:relative;width:min(1240px,calc(100% - 40px));min-height:230px;margin:auto;display:flex;align-items:center;justify-content:space-between}
 .closingPage>header>button{position:absolute;top:22px;border:0;background:transparent;color:#d2ad69;cursor:pointer}

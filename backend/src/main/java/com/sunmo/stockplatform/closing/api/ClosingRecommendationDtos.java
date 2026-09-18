@@ -28,14 +28,30 @@ public final class ClosingRecommendationDtos {
             Instant evaluationEnd,
             Map<String, Object> criteria,
             Map<String, Integer> decisionReasons,
-            List<CandidateEvaluationResponse> evaluations) {
+            List<CandidateEvaluationResponse> evaluations,
+            Long runId, String executionMode, Instant completedAt) {
+        public GenerateResponse withRun(com.sunmo.stockplatform.closing.domain.ClosingRecommendationRun run) {
+            return new GenerateResponse(recommendationDate, generatedAt, sourceDetections, sourceBroadSnapshots,
+                    storedCandidates, watchCandidates, excludedCandidates, exclusionReasons, strategyVersion,
+                    candidates, evaluationEnd, criteria, decisionReasons, evaluations,
+                    run.getId(), run.getExecutionMode(), run.getCompletedAt());
+        }
+    }
+
+    public record RunResponse(Long id, LocalDate recommendationDate, Instant generatedAt, Instant completedAt,
+            Instant evaluatedAsOf, String executionMode, String strategyVersion, String settingsHash, String dataVersion) {
+        public static RunResponse from(com.sunmo.stockplatform.closing.domain.ClosingRecommendationRun run) {
+            return new RunResponse(run.getId(), run.getRecommendationDate(), run.getGeneratedAt(), run.getCompletedAt(),
+                    run.getEvaluatedAsOf(), run.getExecutionMode(), run.getStrategyVersion(), run.getSettingsHash(), run.getDataVersion());
+        }
     }
 
     public record CandidateEvaluationResponse(String stockCode, String stockName, String candidateSource,
             String scannerType, Instant observedAt, BigDecimal referencePrice, BigDecimal finalScore,
             BigDecimal opportunityScore, BigDecimal riskScore, String dataQuality, int finalCandles,
             int coverageMinutes, List<String> missingFeatures, String disposition, String decisionReason,
-            String recommendationReason, String riskReason, String featureSnapshot) { }
+            String recommendationReason, String riskReason, String featureSnapshot,
+            Map<String, Object> dataReadiness) { }
 
     public record RecommendationResponse(
             Long id,
@@ -62,7 +78,7 @@ public final class ClosingRecommendationDtos {
             String recommendationReason,
             String riskReason,
             String strategyVersion,
-            String status) {
+            String status, Long runId, String executionMode) {
         public static RecommendationResponse from(ClosingRecommendation recommendation) {
             return new RecommendationResponse(
                     recommendation.getId(),
@@ -89,7 +105,9 @@ public final class ClosingRecommendationDtos {
                     recommendation.getRecommendationReason(),
                     recommendation.getRiskReason(),
                     recommendation.getStrategyVersion(),
-                    recommendation.getStatus().name());
+                    recommendation.getStatus().name(),
+                    recommendation.getRun() == null ? null : recommendation.getRun().getId(),
+                    recommendation.getRun() == null ? "LEGACY" : recommendation.getRun().getExecutionMode());
         }
     }
 
@@ -126,7 +144,10 @@ public final class ClosingRecommendationDtos {
             boolean targetHit,
             boolean stopHit,
             String status,
-            String calculationVersion) {
+            String calculationVersion,
+            LocalDate expectedSessionDate, Instant sessionOpen, Instant sessionClose, Instant observedThrough,
+            String missingIntervals, BigDecimal latestPrice, BigDecimal latestReturnRate,
+            BigDecimal targetRate, BigDecimal stopRate, Long runId) {
         public static OvernightPerformanceResponse from(OvernightPerformance performance) {
             ClosingRecommendation recommendation = performance.getRecommendation();
             return new OvernightPerformanceResponse(
@@ -150,7 +171,11 @@ public final class ClosingRecommendationDtos {
                     performance.isTargetHit(),
                     performance.isStopHit(),
                     performance.getStatus().name(),
-                    performance.getCalculationVersion());
+                    performance.getCalculationVersion(), performance.getExpectedSessionDate(),
+                    performance.getSessionOpen(), performance.getSessionClose(), performance.getObservedThrough(),
+                    performance.getMissingIntervals(), performance.getLatestPrice(), performance.getLatestReturnRate(),
+                    performance.getTargetRate(), performance.getStopRate(),
+                    recommendation.getRun() == null ? null : recommendation.getRun().getId());
         }
     }
 

@@ -5,6 +5,8 @@ import com.sunmo.stockplatform.candle.domain.StockCandle;
 import com.sunmo.stockplatform.candle.infrastructure.StockCandleRepository;
 import com.sunmo.stockplatform.closing.application.BacktestIntegrityService;
 import com.sunmo.stockplatform.closing.application.ClosingRecommendationScorer;
+import com.sunmo.stockplatform.closing.application.ClosingPrecisionEvaluator;
+import com.sunmo.stockplatform.closing.config.ClosingRecommendationProperties;
 import com.sunmo.stockplatform.closing.application.DailyMovingAverageFeature;
 import com.sunmo.stockplatform.closing.application.DailyMovingAverageService;
 import com.sunmo.stockplatform.closing.application.IntradayMovingAverageFeature;
@@ -33,9 +35,22 @@ class OvernightBacktestServiceTest {
     private final StockCandleRepository candles = mock(StockCandleRepository.class);
     private final IntradayMovingAverageService intradayMa = mock(IntradayMovingAverageService.class);
     private final DailyMovingAverageService dailyMa = mock(DailyMovingAverageService.class);
+    private final ClosingPrecisionEvaluator precisionEvaluator = mock(ClosingPrecisionEvaluator.class);
     private final OvernightBacktestService service = new OvernightBacktestService(detections, candles,
             new ClosingRecommendationScorer(new ObjectMapper().findAndRegisterModules()), new BacktestIntegrityService(),
-            intradayMa, dailyMa);
+            intradayMa, dailyMa, precisionEvaluator, new ClosingRecommendationProperties(20, 4, bd("55"),
+                    java.time.LocalTime.of(14, 30), java.time.LocalTime.of(15, 20)));
+
+    OvernightBacktestServiceTest() {
+        ClosingRecommendationScorer scorer = new ClosingRecommendationScorer(new ObjectMapper().findAndRegisterModules());
+        org.mockito.stubbing.Answer<List<ClosingPrecisionEvaluator.Assessment>> accepted = invocation -> {
+            List<ScannerDetection> source = invocation.getArgument(0);
+            return source.stream().map(row -> new ClosingPrecisionEvaluator.Assessment(row,
+                    scorer.score(row), 4, 20, List.of(), "QUALIFIED", java.util.Map.of("dailyCandles", 60))).toList();
+        };
+        when(precisionEvaluator.ranked(anyList(), any(), any(), any(), any(), anyInt())).thenAnswer(accepted);
+        when(precisionEvaluator.representatives(anyList(), any(), any(), any(), any())).thenAnswer(accepted);
+    }
 
     @Test
     void calculatesOvernightReturnsFromVirtualClosingRecommendations() {

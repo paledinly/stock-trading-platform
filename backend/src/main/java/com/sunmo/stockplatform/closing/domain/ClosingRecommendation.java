@@ -12,14 +12,21 @@ import java.time.LocalDate;
 
 @Entity
 @Table(name = "closing_recommendation",
-        uniqueConstraints = @UniqueConstraint(name = "uk_closing_recommendation_date_stock",
-                columnNames = { "recommendation_date", "stock_id" }))
+        uniqueConstraints = @UniqueConstraint(name = "uk_closing_recommendation_run_stock",
+                columnNames = { "run_id", "stock_id" }))
 public class ClosingRecommendation {
-    public static final String STRATEGY_VERSION = "closing-recommend-v5-asof";
+    public static final String STRATEGY_VERSION = "closing-recommend-v7-limited";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "run_id", nullable = false)
+    private ClosingRecommendationRun run;
+
+    public ClosingRecommendationRun getRun() { return run; }
+    public void assignRun(ClosingRecommendationRun run) { this.run = run; }
 
     @Column(name = "recommendation_date", nullable = false)
     private LocalDate recommendationDate;

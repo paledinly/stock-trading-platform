@@ -89,6 +89,18 @@ Web:
 http://localhost:5173
 ```
 
+## 마감추천 일봉 준비
+
+추천 평가에는 종목별로 전일까지 확정된 `1D` 일봉 21개 이상이 필요합니다. KIS를 활성화하면 관심종목과 최근 탐지 종목의 일봉을 매 거래일 오전 08:10(한국 시간)에 제한적으로 준비합니다. 고급 마감추천 화면의 **일봉 데이터 준비** 버튼으로 수동 실행할 수도 있습니다. 한 번에 최대 40종목을 조회하며, 같은 종목의 실패 재시도에는 기본 1시간 간격을 둡니다.
+
+```dotenv
+KIS_ENABLED=true
+CLOSING_DAILY_BACKFILL_ENABLED=true
+CLOSING_DAILY_BACKFILL_MAX_STOCKS=40
+```
+
+마감 후 준비한 일봉은 다음 거래일 추천에 사용됩니다. 이미 끝난 평가 시각의 추천 결과를 사후 데이터로 승격시키지 않습니다. 일봉이 준비되어도 다른 위험·기회·분봉 조건을 통과하지 못하면 추천 종목은 0개일 수 있습니다. KIS 원주가 일봉을 저장하므로 수정주가 기반 장기 분석과 혼용하지 마세요.
+
 ## Supabase DB 사용
 
 로컬 Docker PostgreSQL 대신 Supabase PostgreSQL을 사용할 수 있습니다. Redis는 로컬 Docker 또는 Upstash/VPS Redis를 계속 사용할 수 있습니다.

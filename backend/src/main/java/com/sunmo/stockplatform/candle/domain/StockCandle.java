@@ -130,6 +130,10 @@ public class StockCandle {
         return revision;
     }
 
+    public Instant getCreatedAt() { return createdAt; }
+
+    public Instant getUpdatedAt() { return updatedAt; }
+
     public CandleSource getSource() {
         return source;
     }

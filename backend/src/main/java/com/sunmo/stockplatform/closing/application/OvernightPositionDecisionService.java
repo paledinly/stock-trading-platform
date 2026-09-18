@@ -42,11 +42,18 @@ public class OvernightPositionDecisionService {
 
     @Transactional
     public DecisionEvaluationResponse evaluate(LocalDate date, BigDecimal targetRate, BigDecimal stopRate) {
+        return evaluate(date, targetRate, stopRate, null);
+    }
+
+    @Transactional
+    public DecisionEvaluationResponse evaluate(LocalDate date, BigDecimal targetRate, BigDecimal stopRate, Long runId) {
         LocalDate targetDate = date == null ? LocalDate.now(MARKET_ZONE).minusDays(1) : date;
         BigDecimal target = targetRate == null ? bd("3") : targetRate;
         BigDecimal stop = stopRate == null ? bd("-2") : stopRate;
         Instant evaluatedAt = Instant.now();
-        List<OvernightPositionDecision> saved = recommendations.findByRecommendationDateOrderByRankAsc(targetDate)
+        List<OvernightPositionDecision> saved = (runId == null
+                ? recommendations.findByRecommendationDateOrderByRankAsc(targetDate)
+                : recommendations.findByRunIdOrderByRankAsc(runId))
                 .stream()
                 .map(recommendation -> evaluate(recommendation, evaluatedAt, target, stop))
                 .map(decisions::save)
@@ -65,8 +72,14 @@ public class OvernightPositionDecisionService {
 
     @Transactional(readOnly = true)
     public List<OvernightPositionDecisionResponse> list(LocalDate date) {
+        return list(date, null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<OvernightPositionDecisionResponse> list(LocalDate date, Long runId) {
         LocalDate targetDate = date == null ? LocalDate.now(MARKET_ZONE).minusDays(1) : date;
-        return decisions.findLatestByRecommendationDate(targetDate).stream()
+        return (runId == null ? decisions.findLatestByRecommendationDate(targetDate)
+                : decisions.findLatestByRunId(runId)).stream()
                 .map(OvernightPositionDecisionResponse::from)
                 .toList();
     }

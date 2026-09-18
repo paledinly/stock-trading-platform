@@ -8,6 +8,7 @@ import com.sunmo.stockplatform.closing.api.ClosingRecommendationDtos.OvernightEx
 import com.sunmo.stockplatform.closing.api.ClosingRecommendationDtos.RecommendationAlgorithmSummary;
 import com.sunmo.stockplatform.closing.application.BacktestIntegrityService.BacktestEvaluation;
 import com.sunmo.stockplatform.closing.application.ClosingRecommendationScorer.ScoreResult;
+import com.sunmo.stockplatform.closing.config.ClosingRecommendationProperties;
 import com.sunmo.stockplatform.closing.domain.OvernightPerformance;
 import com.sunmo.stockplatform.scanner.domain.ScannerDetection;
 import com.sunmo.stockplatform.scanner.infrastructure.ScannerDetectionRepository;
@@ -34,16 +35,21 @@ public class OvernightBacktestService {
     private final BacktestIntegrityService integrity;
     private final IntradayMovingAverageService intradayMa;
     private final DailyMovingAverageService dailyMa;
+    private final ClosingPrecisionEvaluator precisionEvaluator;
+    private final ClosingRecommendationProperties properties;
 
     public OvernightBacktestService(ScannerDetectionRepository detections, StockCandleRepository candles,
             ClosingRecommendationScorer scorer, BacktestIntegrityService integrity,
-            IntradayMovingAverageService intradayMa, DailyMovingAverageService dailyMa) {
+            IntradayMovingAverageService intradayMa, DailyMovingAverageService dailyMa,
+            ClosingPrecisionEvaluator precisionEvaluator, ClosingRecommendationProperties properties) {
         this.detections = detections;
         this.candles = candles;
         this.scorer = scorer;
         this.integrity = integrity;
         this.intradayMa = intradayMa;
         this.dailyMa = dailyMa;
+        this.precisionEvaluator = precisionEvaluator;
+        this.properties = properties;
     }
 
     public OvernightBacktestResponse run(LocalDate from, LocalDate to, int limit, BigDecimal minOpportunity,
@@ -66,21 +72,19 @@ public class OvernightBacktestService {
         List<BacktestEvaluation> evaluations = new ArrayList<>();
         int tradingDays = 0;
         for (LocalDate date = start; !date.isAfter(end); date = date.plusDays(1)) {
-            Instant cutoffAt = date.atTime(CUTOFF).atZone(MARKET_ZONE).toInstant();
+            Instant cutoffAt = date.atTime(properties.evaluationStart()).atZone(MARKET_ZONE).toInstant();
+            Instant asOf = date.atTime(properties.featureFreezeAt()).atZone(MARKET_ZONE).toInstant();
             List<ScannerDetection> source = byDate.getOrDefault(date, List.of()).stream()
-                    .filter(detection -> !detection.getDetectedAt().isBefore(cutoffAt))
+                    .filter(detection -> !detection.getDetectedAt().isBefore(cutoffAt)
+                            && !detection.getDetectedAt().isAfter(asOf))
                     .sorted(Comparator.comparing(ScannerDetection::getDetectedAt).reversed())
                     .toList();
             if (source.isEmpty())
                 continue;
             tradingDays++;
-            List<ScoredDetection> candidates = deduplicateByStock(source).values().stream()
-                    .filter(detection -> qualifies(detection, minOpportunityValue, maxRiskValue))
-                    .map(detection -> new ScoredDetection(detection,
-                            scorer.score(detection, intradayMa.calculate(detection), dailyMa.calculate(detection))))
-                    .sorted(Comparator.comparing((ScoredDetection item) -> item.score().score()).reversed()
-                            .thenComparing(item -> item.detection().getDetectedAt(), Comparator.reverseOrder()))
-                    .limit(safeLimit)
+            List<ScoredDetection> candidates = precisionEvaluator.ranked(source, cutoffAt, asOf,
+                    minOpportunityValue, maxRiskValue, safeLimit).stream()
+                    .map(row -> new ScoredDetection(row.detection(), row.score()))
                     .toList();
             for (int index = 0; index < candidates.size(); index++) {
                 evaluations.add(evaluate(date, index + 1, candidates.get(index), target, stop));
@@ -143,16 +147,18 @@ public class OvernightBacktestService {
             Map<LocalDate, List<ScannerDetection>> byDate) {
         List<BacktestEvaluation> values = new ArrayList<>();
         for (LocalDate date = start; !date.isAfter(end); date = date.plusDays(1)) {
-            Instant cutoffAt = date.atTime(CUTOFF).atZone(MARKET_ZONE).toInstant();
-            List<ScoredDetection> candidates = deduplicateByStock(byDate.getOrDefault(date, List.of()).stream()
-                    .filter(detection -> !detection.getDetectedAt().isBefore(cutoffAt))
-                    .sorted(Comparator.comparing(ScannerDetection::getDetectedAt).reversed())
-                    .toList()).values().stream()
-                    .filter(detection -> qualifies(detection, profile.minOpportunity(), profile.maxRisk()))
-                    .map(detection -> new ScoredDetection(detection, scoreFor(profile, detection)))
+            Instant cutoffAt = date.atTime(properties.evaluationStart()).atZone(MARKET_ZONE).toInstant();
+            Instant asOf = date.atTime(properties.featureFreezeAt()).atZone(MARKET_ZONE).toInstant();
+            List<ScoredDetection> candidates = precisionEvaluator.representatives(
+                    byDate.getOrDefault(date, List.of()), cutoffAt, asOf,
+                    profile.minOpportunity(), profile.maxRisk()).stream()
+                    .filter(row -> row.reason().equals("QUALIFIED"))
+                    .filter(row -> !"CLOSING_MA_STRICT".equals(profile.code())
+                            || ((Number) row.dataReadiness().getOrDefault("dailyCandles", 0)).intValue() >= 60)
+                    .map(row -> new ScoredDetection(row.detection(), scoreFor(profile, row.detection())))
                     .sorted(Comparator.comparing((ScoredDetection item) -> item.score().score()).reversed()
                             .thenComparing(item -> item.detection().getDetectedAt(), Comparator.reverseOrder()))
-                    .limit(limit)
+                    .limit(Math.min(limit, ClosingPrecisionEvaluator.LIMITED_MODE_MAX_CANDIDATES))
                     .toList();
             for (int index = 0; index < candidates.size(); index++) {
                 values.add(evaluate(date, index + 1, candidates.get(index), targetRate, stopRate));

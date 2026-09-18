@@ -34,6 +34,9 @@ public class ScannerDetection {
     @Column(name = "detected_at", nullable = false)
     private Instant detectedAt;
 
+    @Column(name = "received_at")
+    private Instant receivedAt;
+
     @Column(name = "detected_price", nullable = false, precision = 20, scale = 4)
     private BigDecimal detectedPrice;
 
@@ -99,6 +102,7 @@ public class ScannerDetection {
         this.setting = setting;
         this.type = setting.getType();
         this.detectedAt = at;
+        this.receivedAt = Instant.now();
         this.detectedPrice = price;
         this.changeRate = change;
         this.volumeRatio = ratio;
@@ -151,6 +155,8 @@ public class ScannerDetection {
     public Instant getDetectedAt() {
         return detectedAt;
     }
+
+    public Instant getReceivedAt() { return receivedAt; }
 
     public LocalDate getSessionDate() {
         return sessionDate;

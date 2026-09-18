@@ -22,6 +22,8 @@ class IntradayMovingAverageServiceTest {
         Instant at = Instant.parse("2026-09-04T01:40:00Z");
         var series = new ArrayList<>(candles(20, "100"));
         series.add(candle(at, bd("10000")));
+        series.forEach(candle -> org.springframework.test.util.ReflectionTestUtils.setField(candle, "updatedAt",
+                candle.getStartTime().plusSeconds(300)));
         org.mockito.Mockito.when(repository
                 .findTop61ByStockIdAndTimeframeAndStartTimeLessThanEqualAndFinalCandleTrueOrderByStartTimeDesc(
                         1L, "5M", at.minusSeconds(300))).thenReturn(series);
