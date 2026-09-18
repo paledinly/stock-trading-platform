@@ -36,8 +36,8 @@ class DailyCandleBackfillServiceTest {
                 null, null, null, null, null, List.of()),
                 Clock.fixed(Instant.parse("2026-09-17T06:50:00Z"), ZoneOffset.UTC));
         var detections = mock(ScannerDetectionRepository.class);
-        when(detections.findByDetectedAtGreaterThanEqualOrderByDetectedAtDesc(any(), any()))
-                .thenReturn(List.of());
+        when(detections.findRecentStockCodesForSession(eq(LocalDate.of(2026, 9, 17)), any(), any()))
+                .thenReturn(List.of("005930", "005930"));
         var watchlist = mock(WatchlistItemRepository.class);
         var stocks = mock(StockRepository.class);
         var client = mock(KisDailyCandleClient.class);
@@ -61,6 +61,7 @@ class DailyCandleBackfillServiceTest {
         assertThat(result.savedCandles()).isEqualTo(61);
         assertThat(result.readyStocks()).isEqualTo(1);
         verify(client).fetch(eq("005930"), any(), eq(LocalDate.of(2026, 9, 17)));
+        verify(detections, never()).findByDetectedAtGreaterThanEqualOrderByDetectedAtDesc(any(), any());
     }
 
     @Test

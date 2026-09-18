@@ -20,6 +20,11 @@ public interface ScannerDetectionRepository extends JpaRepository<ScannerDetecti
 
     List<ScannerDetection> findByDetectedAtGreaterThanEqualOrderByDetectedAtDesc(Instant from, Pageable pageable);
 
+    @org.springframework.data.jpa.repository.Query("select d.stock.stockCode from ScannerDetection d where d.sessionDate = :date and d.detectedAt >= :from order by d.detectedAt desc")
+    List<String> findRecentStockCodesForSession(
+            @org.springframework.data.repository.query.Param("date") LocalDate date,
+            @org.springframework.data.repository.query.Param("from") Instant from, Pageable pageable);
+
     Optional<ScannerDetection> findById(Long id);
 
     List<ScannerDetection> findByDetectedAtBetweenOrderByDetectedAtAsc(Instant from, Instant to);

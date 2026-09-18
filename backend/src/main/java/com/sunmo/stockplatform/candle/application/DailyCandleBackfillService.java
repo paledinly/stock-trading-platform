@@ -110,9 +110,7 @@ public class DailyCandleBackfillService {
     private List<String> candidates(LocalDate latestRequired) {
         Instant start = latestRequired.atStartOfDay(ClosingTradingCalendar.ZONE).toInstant();
         Set<String> recent = new LinkedHashSet<>();
-        detections.findByDetectedAtGreaterThanEqualOrderByDetectedAtDesc(start, PageRequest.of(0, 500))
-                .stream().filter(row -> row.getSessionDate().equals(latestRequired))
-                .forEach(row -> recent.add(row.getStock().getStockCode()));
+        recent.addAll(detections.findRecentStockCodesForSession(latestRequired, start, PageRequest.of(0, 500)));
         LinkedHashSet<String> ordered = new LinkedHashSet<>();
         recent.stream().limit(Math.max(1, settings.maxStocks() / 2)).forEach(ordered::add);
         ordered.addAll(watchlist.findDistinctStockCodesByOwnerId(1L));
