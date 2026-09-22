@@ -29,7 +29,7 @@ class ClosingPrecisionEvaluatorTest {
     private final ClosingRecommendationScorer scorer = mock(ClosingRecommendationScorer.class);
     private final ClosingPrecisionEvaluator evaluator = new ClosingPrecisionEvaluator(scorer, intraday, daily,
             candles, new ClosingRecommendationProperties(20, 4, new BigDecimal("55"),
-                    LocalTime.of(14, 30), LocalTime.of(15, 20)), new ObjectMapper(), new ClosingTradingCalendar(
+                    LocalTime.of(14, 30), LocalTime.of(15, 0), LocalTime.of(15, 20), Duration.ofSeconds(10)), new ObjectMapper(), new ClosingTradingCalendar(
                             new com.sunmo.stockplatform.market.config.MarketWideScheduleProperties(false, 0, 0,
                                     false, null, null, null, null, null, List.of())));
 
@@ -40,7 +40,8 @@ class ClosingPrecisionEvaluatorTest {
         when(daily.calculate(signal)).thenReturn(ready);
         when(scorer.score(eq(signal), any(), any())).thenReturn(new ScoreResult(new BigDecimal("70"), "{}", "{}"));
         List<StockCandle> rows = java.util.stream.IntStream.range(0, 4)
-                .mapToObj(index -> candle(AS_OF.minus(Duration.ofMinutes(20 - index * 5L)), AS_OF.minusSeconds(1)))
+                .mapToObj(index -> candle(AS_OF.minus(Duration.ofMinutes(20 - index * 5L)),
+                        index == 3 ? AS_OF.plusSeconds(5) : AS_OF.minusSeconds(1)))
                 .toList();
         when(candles.findByStockIdAndTimeframeAndStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(
                 eq(1L), eq("5M"), eq(FROM), any())).thenReturn(rows);
@@ -50,12 +51,32 @@ class ClosingPrecisionEvaluatorTest {
         assertThat(evaluator.ranked(List.of(signal), FROM, AS_OF, BigDecimal.ZERO, new BigDecimal("100"), 10))
                 .extracting(ClosingPrecisionEvaluator.Assessment::detection).containsExactly(signal);
 
-        StockCandle revisedAfterCutoff = candle(AS_OF.minus(Duration.ofMinutes(5)), AS_OF.plusSeconds(1));
+        StockCandle revisedAfterCutoff = candle(AS_OF.minus(Duration.ofMinutes(5)), AS_OF.plusSeconds(11));
         when(candles.findByStockIdAndTimeframeAndStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(
                 eq(1L), eq("5M"), eq(FROM), any())).thenReturn(List.of(rows.get(0), rows.get(1), rows.get(2), revisedAfterCutoff));
         var excluded = evaluator.assess(signal, FROM, AS_OF, BigDecimal.ZERO, new BigDecimal("100"));
         assertThat(excluded.reason()).isEqualTo("RECEIVED_AFTER_EVALUATION");
         assertThat(evaluator.ranked(List.of(signal), FROM, AS_OF, BigDecimal.ZERO, new BigDecimal("100"), 10)).isEmpty();
+    }
+
+    @Test
+    void unrelatedLateBackfillDoesNotInvalidateRequiredCandles() {
+        ScannerDetection signal = signal(AS_OF);
+        DailyMovingAverageFeature ready = dailyReady();
+        when(daily.calculate(signal)).thenReturn(ready);
+        when(scorer.score(eq(signal), any(), any())).thenReturn(new ScoreResult(new BigDecimal("70"), "{}", "{}"));
+        List<StockCandle> required = java.util.stream.IntStream.range(0, 4)
+                .mapToObj(index -> candle(AS_OF.minus(Duration.ofMinutes(20 - index * 5L)), AS_OF.minusSeconds(1)))
+                .toList();
+        StockCandle unrelatedLateBackfill = candle(FROM, AS_OF.plusSeconds(11));
+        when(candles.findByStockIdAndTimeframeAndStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(
+                eq(1L), eq("5M"), eq(FROM), any())).thenReturn(List.of(unrelatedLateBackfill,
+                        required.get(0), required.get(1), required.get(2), required.get(3)));
+
+        var assessment = evaluator.assess(signal, FROM, AS_OF, BigDecimal.ZERO, new BigDecimal("100"));
+
+        assertThat(assessment.reason()).isEqualTo("QUALIFIED");
+        assertThat(assessment.missingFeatures()).doesNotContain("RECEIVED_AFTER_EVALUATION");
     }
 
     @Test

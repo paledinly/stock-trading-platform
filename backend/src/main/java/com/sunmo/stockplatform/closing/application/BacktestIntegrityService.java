@@ -17,6 +17,8 @@ public class BacktestIntegrityService {
     private static final LocalTime RECOMMENDATION_START = LocalTime.of(14, 30);
     private static final LocalTime MARKET_CLOSE = LocalTime.of(15, 30);
     private static final LocalTime MARKET_OPEN = LocalTime.of(9, 0);
+    private static final LocalTime DECISION_TIME = LocalTime.of(15, 0);
+    private static final LocalTime ENTRY_TIME = LocalTime.of(15, 5);
     private static final Duration CANDLE_INTERVAL = Duration.ofMinutes(5);
     private static final int MIN_SAMPLE_SIZE = 20;
 
@@ -31,9 +33,11 @@ public class BacktestIntegrityService {
             stocks.add(row.stockCode());
             byDate.merge(row.recommendationDate(), 1, Integer::sum);
             checkRecommendationTime(row, builder);
+            if (!checkEntry(row, builder))
+                continue;
             if (!"COMPLETED".equals(row.status())) {
                 builder.warning("DATA_COVERAGE", row, "다음 거래일 데이터 없음",
-                        "추천 이후 8일 이내의 확정 5분봉을 찾지 못했습니다.");
+                        "예정된 다음 거래일의 확정 5분봉을 찾지 못했습니다.");
                 continue;
             }
             checkNextTradingDate(row, builder);
@@ -42,6 +46,24 @@ public class BacktestIntegrityService {
         }
         checkBias(evaluations, stocks.size(), byDate, builder);
         return builder.build();
+    }
+
+    private boolean checkEntry(OvernightBacktestRow row, IntegrityBuilder builder) {
+        if (row.entryAt() == null || row.buyReferencePrice() == null) {
+            builder.warning("EXECUTION", row, "평가 이후 진입 데이터 없음",
+                    "15:05 확정 5분봉 시가가 없어 모의 진입을 만들지 않았습니다.");
+            return false;
+        }
+        LocalDate entryDate = row.entryAt().atZone(MARKET_ZONE).toLocalDate();
+        LocalTime entryTime = row.entryAt().atZone(MARKET_ZONE).toLocalTime();
+        if (!entryDate.equals(row.recommendationDate()) || entryTime.isBefore(ENTRY_TIME)
+                || !entryTime.isAfter(DECISION_TIME) || row.buyReferencePrice().signum() <= 0) {
+            builder.error("LOOKAHEAD", row, "진입 시점 오류",
+                    "진입 시각 " + row.entryAt() + " 또는 가격이 15:00 평가 완료 이후 조건을 충족하지 않습니다.");
+            return false;
+        }
+        builder.pass();
+        return true;
     }
 
     private void checkSampleSize(List<BacktestEvaluation> evaluations, IntegrityBuilder builder) {

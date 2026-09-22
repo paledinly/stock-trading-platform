@@ -3,6 +3,9 @@ package com.sunmo.stockplatform.market;
 import com.sunmo.stockplatform.market.application.RealtimeDiagnostics;
 import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
+import java.time.Instant;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 class RealtimeDiagnosticsTest {
@@ -27,5 +30,16 @@ class RealtimeDiagnosticsTest {
         assertThat(snapshot.subscriptionSuccesses()).isEqualTo(1);
         assertThat(snapshot.subscriptions().get("005930").state())
                 .isEqualTo(RealtimeDiagnostics.SubscriptionState.SUBSCRIBED);
+    }
+
+    @Test
+    void detectsAConnectedSocketThatStoppedReceivingMessages() {
+        RealtimeDiagnostics diagnostics = new RealtimeDiagnostics();
+        diagnostics.connected();
+
+        assertThat(diagnostics.isConnectionStale(Instant.now().plusSeconds(61), Duration.ofSeconds(60))).isTrue();
+
+        diagnostics.disconnected();
+        assertThat(diagnostics.isConnectionStale(Instant.now().plusSeconds(61), Duration.ofSeconds(60))).isFalse();
     }
 }

@@ -6,17 +6,20 @@ import com.sunmo.stockplatform.market.application.MarketDataService;
 import com.sunmo.stockplatform.market.application.RealtimeDiagnostics;
 import com.sunmo.stockplatform.market.application.RealtimeSubscriptionRegistry;
 import com.sunmo.stockplatform.market.config.RealtimeMarketProperties;
+import com.sunmo.stockplatform.marketwide.application.MarketSessionPolicy;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.net.http.HttpClient;
 import java.net.http.WebSocket;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Comparator;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executors;
@@ -39,6 +42,7 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
     private final RealtimeMarketProperties properties;
     private final RealtimeDiagnostics diagnostics;
     private final ObjectMapper objectMapper;
+    private final MarketSessionPolicy session;
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
         Thread thread = new Thread(r, "kis-ws-scheduler");
         thread.setDaemon(true);
@@ -56,7 +60,7 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
 
     public KisRealtimeClient(KisApprovalClient approval, KisRealtimeTickParser parser, MarketDataService market,
             RealtimeSubscriptionRegistry subscriptions, RealtimeMarketProperties properties,
-            RealtimeDiagnostics diagnostics, ObjectMapper objectMapper) {
+            RealtimeDiagnostics diagnostics, ObjectMapper objectMapper, MarketSessionPolicy session) {
         this.approval = approval;
         this.parser = parser;
         this.market = market;
@@ -64,6 +68,7 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
         this.properties = properties;
         this.diagnostics = diagnostics;
         this.objectMapper = objectMapper;
+        this.session = session;
     }
 
     @Override
@@ -118,6 +123,19 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
             reconnectScheduled.set(false);
             connect();
         }, RECONNECT_DELAY_SECONDS, TimeUnit.SECONDS);
+    }
+
+    @Scheduled(fixedDelayString = "${market.realtime.health-check-interval:30s}")
+    public void reconnectIfStale() {
+        Instant now = Instant.now();
+        if (stopping.get() || !session.evaluate(now).eligible()
+                || !diagnostics.isConnectionStale(now, properties.staleTimeout()))
+            return;
+        WebSocket current = socket;
+        socket = null;
+        if (current != null)
+            current.abort();
+        scheduleReconnect(new IllegalStateException("no KIS realtime message for " + properties.staleTimeout()));
     }
 
     private void send(String code, boolean subscribe) {
@@ -192,7 +210,7 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
             diagnostics.ticksReceived(ticks.size());
             ticks.forEach(market::onTick);
         } catch (RuntimeException error) {
-            diagnostics.parseFailed();
+            diagnostics.parseFailed(rootMessage(error));
             log.warn("Ignored invalid KIS realtime message: {}", rootMessage(error));
         }
     }
@@ -236,7 +254,7 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
     public CompletionStage<?> onClose(WebSocket webSocket, int status, String reason) {
         if (socket == webSocket)
             socket = null;
-        if (!stopping.get() && status != WebSocket.NORMAL_CLOSURE) {
+        if (!stopping.get()) {
             scheduleReconnect(new IllegalStateException("close " + status + ": " + reason));
         }
         return null;

@@ -9,7 +9,7 @@ import java.util.function.BiConsumer;
 @Component
 public class RealtimeSubscriptionRegistry {
     public enum Source {
-        QUOTE, WATCHLIST, MANUAL, CORE, PRECISION
+        QUOTE, WATCHLIST, MANUAL, CORE, PRECISION, OVERNIGHT
     }
 
     public record Acknowledgement(String stockCode, boolean subscribing, boolean success, String message) {

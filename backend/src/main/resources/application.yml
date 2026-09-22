@@ -167,12 +167,22 @@ market:
     quote-ttl: ${MARKET_QUOTE_TTL:16h}
     replay-size: ${MARKET_SSE_REPLAY_SIZE:1000}
     subscription-limit: ${KIS_WEBSOCKET_SUBSCRIPTION_LIMIT:41}
+    stale-timeout: ${MARKET_REALTIME_STALE_TIMEOUT:60s}
+    health-check-interval: ${MARKET_REALTIME_HEALTH_CHECK_INTERVAL:30s}
 
 watchlist:
   initial:
     enabled: ${WATCHLIST_INITIAL_ENABLED:true}
 
 closing:
+  automation:
+    enabled: ${CLOSING_AUTOMATION_ENABLED:false}
+    poll-interval: ${CLOSING_AUTOMATION_POLL_INTERVAL:30s}
+    limit: ${CLOSING_AUTOMATION_LIMIT:10}
+    minimum-opportunity: ${CLOSING_AUTOMATION_MIN_OPPORTUNITY:35}
+    maximum-risk: ${CLOSING_AUTOMATION_MAX_RISK:65}
+    target-rate: ${CLOSING_AUTOMATION_TARGET_RATE:3}
+    stop-rate: ${CLOSING_AUTOMATION_STOP_RATE:-2}
   daily-backfill:
     enabled: ${CLOSING_DAILY_BACKFILL_ENABLED:true}
     max-stocks: ${CLOSING_DAILY_BACKFILL_MAX_STOCKS:40}
@@ -184,4 +194,12 @@ closing:
     minimum-final-candles: ${CLOSING_MIN_FINAL_CANDLES:4}
     minimum-final-score: ${CLOSING_MIN_FINAL_SCORE:55}
     evaluation-start: ${CLOSING_EVALUATION_START:14:30}
-    feature-freeze-at: ${CLOSING_FEATURE_FREEZE_AT:15:20}
+    feature-freeze-at: ${CLOSING_FEATURE_FREEZE_AT:15:00}
+    entry-deadline: ${CLOSING_ENTRY_DEADLINE:15:20}
+    candle-finalization-grace: ${CLOSING_CANDLE_FINALIZATION_GRACE:10s}
+  execution-cost:
+    buy-fee-percent: ${CLOSING_BUY_FEE_PERCENT:0}
+    sell-fee-percent: ${CLOSING_SELL_FEE_PERCENT:0}
+    sell-tax-percent: ${CLOSING_SELL_TAX_PERCENT:0}
+    buy-slippage-percent: ${CLOSING_BUY_SLIPPAGE_PERCENT:0}
+    sell-slippage-percent: ${CLOSING_SELL_SLIPPAGE_PERCENT:0}

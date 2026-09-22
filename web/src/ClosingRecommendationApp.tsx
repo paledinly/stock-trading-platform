@@ -155,7 +155,9 @@ type OvernightBacktestRow = {
   market: string
   scannerType: string
   detectedAt: string
-  buyReferencePrice: number
+  signalPrice: number
+  entryAt: string | null
+  buyReferencePrice: number | null
   recommendationScore: number
   opportunityScore: number | null
   riskScore: number | null
@@ -231,10 +233,13 @@ type OvernightExitStrategySummary = {
   sampleSize: number
   winRate: number | null
   averageReturnRate: number | null
+  averageNetReturnRate: number | null
   averageMaxDrawdownRate: number | null
   targetHitRate: number | null
   stopHitRate: number | null
   ambiguousCount: number
+  costsApplied: boolean
+  executionModelVersion: string
 }
 
 type BacktestIntegrity = {
@@ -254,6 +259,69 @@ type BacktestIntegrityIssue = {
   stockName: string | null
   message: string
   detail: string
+}
+
+type StrategyAnalytics = {
+  from: string
+  to: string
+  generatedAt: string
+  sampleSize: number
+  population: string
+  targetRates: number[]
+  warnings: string[]
+  scoreBands: Array<{
+    band: string; sampleSize: number; targetHits: number; targetHitRate: number | null
+    confidenceLower95: number | null; confidenceUpper95: number | null
+    averageCloseReturn: number | null; averageMaxReturn: number | null; averageMaxDrawdown: number | null
+  }>
+  segments: Array<{
+    dimension: string; value: string; sampleSize: number
+    targetHitRate: number | null; averageCloseReturn: number | null
+  }>
+  lossPatterns: Array<{ code: string; count: number; rate: number | null }>
+  oosValidation: {
+    status: 'READY' | 'INSUFFICIENT_SAMPLE'
+    method: string
+    splitDate: string | null
+    development: PeriodMetrics
+    validation: PeriodMetrics
+    developmentScoreMedian: number | null
+    scoreComparison: OosComparison
+    features: Array<{ feature: string; developmentMedian: number; comparison: OosComparison }>
+  }
+  monitoring: {
+    status: 'OBSERVE' | 'DEGRADED' | 'INSUFFICIENT_SAMPLE'
+    baselineRecommendationDays: number; recentRecommendationDays: number
+    baselinePeriod: PeriodMetrics; recentPeriod: PeriodMetrics
+    baseline: MonitoringMetrics; recent: MonitoringMetrics
+    closeReturnDelta: number | null; targetHitRateDelta: number | null
+    failureTrends: Array<{ code: string; baselineRate: number | null; recentRate: number | null; rateDelta: number | null }>
+  }
+  contextCoverage: {
+    marketSegmentAvailable: boolean; marketRegimeAvailable: boolean
+    sectorHistoryAvailable: boolean; note: string
+  }
+  promotionGate: {
+    currentStrategy: string; recommendation: string
+    statisticalModelStatus: string; eventModelStatus: string
+    productionActivationAllowed: boolean
+    checks: Array<{ code: string; label: string; passed: boolean; requirement: string }>
+  }
+}
+
+type PeriodMetrics = {
+  from: string | null; to: string | null; sampleSize: number
+  targetHitRate: number | null; averageCloseReturn: number | null
+}
+
+type OosGroup = { sampleSize: number; targetHitRate: number | null; averageCloseReturn: number | null }
+type OosComparison = {
+  developmentLow: OosGroup; developmentHigh: OosGroup
+  validationLow: OosGroup; validationHigh: OosGroup
+}
+type MonitoringMetrics = {
+  sampleSize: number; targetHitRate: number | null; stopHitRate: number | null
+  averageCloseReturn: number | null; averageMaxDrawdown: number | null
 }
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
@@ -366,6 +434,17 @@ function confidenceLabel(value: RecommendationAlgorithmSummary['confidence']) {
     HIGH: '높음',
   }
   return labels[value]
+}
+
+function lossPatternLabel(value: string) {
+  const labels: Record<string, string> = {
+    GAP_DOWN: '익일 시가 하락',
+    CLOSE_LOSS: '익일 종가 손실',
+    STOP_HIT: '손절선 도달',
+    TARGET_AND_STOP: '목표·손절 동시 도달',
+    DRAWDOWN_3_PERCENT: '장중 -3% 이하 낙폭',
+  }
+  return labels[value] ?? value
 }
 
 function factorLabels(json: string, type: 'recommendation' | 'risk') {
@@ -547,6 +626,11 @@ export function ClosingRecommendationPage({ back, advanced = false }: { back: ()
     queryFn: () => api<AccountPerformance>('/api/v1/closing-recommendations/account-performance'),
     enabled: advanced,
   })
+  const strategyAnalytics = useQuery({
+    queryKey: ['closing-strategy-analytics'],
+    queryFn: () => api<StrategyAnalytics>('/api/v1/closing-recommendations/strategy-analytics'),
+    enabled: advanced,
+  })
   const generate = useMutation({
     mutationFn: (input: { date: string; limit: number; minOpportunity: number; maxRisk: number; key: string }) => api<GenerateResponse>(
       `/api/v1/closing-recommendations/generate?date=${input.date}&limit=${input.limit}&minOpportunity=${input.minOpportunity}&maxRisk=${input.maxRisk}`,
@@ -678,6 +762,8 @@ export function ClosingRecommendationPage({ back, advanced = false }: { back: ()
             <p>미산출: 모의 체결·비용 원장과 일별 순자산이 아직 없습니다. KOSPI/KOSDAQ 비교용 동일 보유시간 지수 데이터도 없어 수익률·MDD·샤프·시장 초과수익을 표시하지 않습니다.</p>}
           {accountPerformance.data?.status === 'READY' && <p>누적수익 {pct(accountPerformance.data.cumulativeReturnRate)} · 계좌 MDD {pct(accountPerformance.data.maxDrawdownRate)} · 손익비 {num(accountPerformance.data.profitFactor)} · 샤프 {num(accountPerformance.data.sharpeRatio)} · 소르티노 {num(accountPerformance.data.sortinoRatio)} · 시장 초과수익 {accountPerformance.data.excessReturnRate == null ? '미산출' : pct(accountPerformance.data.excessReturnRate)}</p>}
         </section>}
+        {advanced && <StrategyAnalyticsPanel data={strategyAnalytics.data} loading={strategyAnalytics.isLoading}
+          error={strategyAnalytics.error?.message} />}
         <section className="closingSummary">
           <article><small>원본 탐지</small><b>{lastRun?.sourceDetections ?? '--'}</b></article>
           <article><small>Broad 원본</small><b>{lastRun?.sourceBroadSnapshots ?? '--'}</b></article>
@@ -723,6 +809,144 @@ export function ClosingRecommendationPage({ back, advanced = false }: { back: ()
       </main>
     </div>
   )
+}
+
+function StrategyAnalyticsPanel({ data, loading, error }: {
+  data?: StrategyAnalytics; loading: boolean; error?: string
+}) {
+  if (loading) return <section className="menuGuide"><h2>공식 전진 전략 검증</h2><p>성과 표본을 집계하고 있습니다.</p></section>
+  if (error) return <section className="menuGuide"><h2>공식 전진 전략 검증</h2><p>전략 통계 조회 실패: {error}</p></section>
+  if (!data) return null
+  return (
+    <section className="algorithmPanel">
+      <div className="strategyTitle">
+        <span><small>{data.from} ~ {data.to}</small><b>공식 전진 전략 검증</b></span>
+        <small>완료된 공식 장중 관측 {data.sampleSize}건</small>
+      </div>
+      {(data.warnings ?? []).map(warning => <p key={warning}>{warning}</p>)}
+      <p>목표수익률 {(data.targetRates ?? []).map(value => `${value}%`).join(', ') || '표본 없음'} · 수동 재생과 미완료 관측은 제외됩니다.</p>
+      <h3>점수 구간 보정</h3>
+      <div className="algorithmRows">
+        {(data.scoreBands ?? []).map(item => <article key={item.band}>
+          <span><b>{item.band}점</b><small>{item.sampleSize}건 · 목표 {item.targetHits}건</small></span>
+          <span><small>목표 도달률</small><b>{pct(item.targetHitRate)}</b></span>
+          <span><small>95% 구간</small><b>{num(item.confidenceLower95)}~{num(item.confidenceUpper95)}%</b></span>
+          <span><small>종가 평균</small><b>{pct(item.averageCloseReturn)}</b></span>
+          <span><small>최고 평균</small><b>{pct(item.averageMaxReturn)}</b></span>
+          <span><small>최저 평균</small><b>{pct(item.averageMaxDrawdown)}</b></span>
+        </article>)}
+      </div>
+      <h3>관측 그룹</h3>
+      <div className="algorithmRows">
+        {(data.segments ?? []).map(item => <article key={`${item.dimension}-${item.value}`}>
+          <span><b>{item.value}</b><small>{item.dimension} · {item.sampleSize}건</small></span>
+          <span><small>목표 도달률</small><b>{pct(item.targetHitRate)}</b></span>
+          <span><small>종가 평균</small><b>{pct(item.averageCloseReturn)}</b></span>
+        </article>)}
+      </div>
+      <OosValidationPanel value={data.oosValidation} />
+      <PerformanceMonitoringPanel value={data.monitoring} context={data.contextCoverage} />
+      <StrategyPromotionPanel value={data.promotionGate} />
+      <h3>손실 관측 패턴</h3>
+      <div className="algorithmRows">
+        {(data.lossPatterns ?? []).map(item => <article key={item.code}>
+          <span><b>{lossPatternLabel(item.code)}</b><small>패턴은 서로 중복될 수 있습니다.</small></span>
+          <span><small>발생</small><b>{item.count}건</b></span>
+          <span><small>비율</small><b>{pct(item.rate)}</b></span>
+        </article>)}
+      </div>
+    </section>
+  )
+}
+
+function StrategyPromotionPanel({ value }: { value: StrategyAnalytics['promotionGate'] }) {
+  if (!value) return null
+  return <>
+    <h3>전략 승격 조건</h3>
+    <p>현재 기준선: 규칙 기반 전략 · 통계 모델 {value.statisticalModelStatus === 'BLOCKED' ? '실험 보류' : '실험 가능'} · 이벤트 모델 {value.eventModelStatus === 'BLOCKED' ? '실험 보류' : '실험 가능'}</p>
+    <div className="algorithmRows">
+      {(value.checks ?? []).map(check => <article key={check.code}>
+        <span><b>{check.label}</b><small>{check.requirement}</small></span>
+        <span><small>준비 상태</small><b className={check.passed ? 'gain' : 'loss'}>{check.passed ? '충족' : '미충족'}</b></span>
+      </article>)}
+    </div>
+    {!value.productionActivationAllowed && <p>모델 출력은 추천이나 실제 주문에 연결되지 않습니다.</p>}
+  </>
+}
+
+function PerformanceMonitoringPanel({ value, context }: {
+  value: StrategyAnalytics['monitoring']; context: StrategyAnalytics['contextCoverage']
+}) {
+  if (!value) return null
+  const status = value.status === 'DEGRADED' ? '최근 성과 악화 관찰'
+    : value.status === 'OBSERVE' ? '특이 악화 없음' : '비교 표본 부족'
+  return <>
+    <h3>최근 전략 상태</h3>
+    <p>{status} · 최근 {value.recentRecommendationDays}개 추천일과 이전 최대 {value.baselineRecommendationDays}개 추천일 비교</p>
+    {context && <p>{context.note}</p>}
+    <div className="algorithmRows">
+      <article>
+        <span><b>이전 구간</b><small>{value.baselinePeriod.from ?? '--'} ~ {value.baselinePeriod.to ?? '--'}</small></span>
+        <span><small>표본</small><b>{value.baseline.sampleSize}건</b></span>
+        <span><small>목표 도달</small><b>{pct(value.baseline.targetHitRate)}</b></span>
+        <span><small>종가 평균</small><b>{pct(value.baseline.averageCloseReturn)}</b></span>
+        <span><small>평균 낙폭</small><b>{pct(value.baseline.averageMaxDrawdown)}</b></span>
+      </article>
+      <article>
+        <span><b>최근 구간</b><small>{value.recentPeriod.from ?? '--'} ~ {value.recentPeriod.to ?? '--'}</small></span>
+        <span><small>표본</small><b>{value.recent.sampleSize}건</b></span>
+        <span><small>목표 도달</small><b>{pct(value.recent.targetHitRate)}</b></span>
+        <span><small>종가 평균</small><b>{pct(value.recent.averageCloseReturn)}</b></span>
+        <span><small>평균 낙폭</small><b>{pct(value.recent.averageMaxDrawdown)}</b></span>
+      </article>
+      {(value.failureTrends ?? []).map(item => <article key={item.code}>
+        <span><b>{lossPatternLabel(item.code)}</b><small>최근 실패 패턴 변화</small></span>
+        <span><small>이전</small><b>{pct(item.baselineRate)}</b></span>
+        <span><small>최근</small><b>{pct(item.recentRate)}</b></span>
+        <span><small>증감</small><b>{pct(item.rateDelta)}</b></span>
+      </article>)}
+    </div>
+  </>
+}
+
+function OosValidationPanel({ value }: { value: StrategyAnalytics['oosValidation'] }) {
+  if (!value) return null
+  const featureLabels: Record<string, string> = {
+    vwapDistanceRate: 'VWAP 이격률', dayHighDistanceRate: '당일 고가 거리',
+    tradeStrength: '체결강도', turnoverRatio: '회전율',
+  }
+  return <>
+    <h3>시간순 표본 외 검증</h3>
+    <p>{value.status === 'READY' ? '검증 표본 기준 충족' : '표본 부족'} · 분할일 {value.splitDate ?? '--'} · 같은 추천일은 한 구간에만 포함됩니다.</p>
+    <div className="algorithmRows">
+      <article>
+        <span><b>개발 구간</b><small>{value.development.from ?? '--'} ~ {value.development.to ?? '--'}</small></span>
+        <span><small>표본</small><b>{value.development.sampleSize}건</b></span>
+        <span><small>목표 도달률</small><b>{pct(value.development.targetHitRate)}</b></span>
+        <span><small>종가 평균</small><b>{pct(value.development.averageCloseReturn)}</b></span>
+      </article>
+      <article>
+        <span><b>검증 구간</b><small>{value.validation.from ?? '--'} ~ {value.validation.to ?? '--'}</small></span>
+        <span><small>표본</small><b>{value.validation.sampleSize}건</b></span>
+        <span><small>목표 도달률</small><b>{pct(value.validation.targetHitRate)}</b></span>
+        <span><small>종가 평균</small><b>{pct(value.validation.averageCloseReturn)}</b></span>
+      </article>
+      <OosComparisonRow label={`추천점수 상위 (개발 중앙값 ${num(value.developmentScoreMedian)})`} comparison={value.scoreComparison} />
+      {(value.features ?? []).map(item => <OosComparisonRow key={item.feature}
+        label={`${featureLabels[item.feature] ?? item.feature} 상위 (개발 중앙값 ${num(item.developmentMedian)})`}
+        comparison={item.comparison} />)}
+    </div>
+  </>
+}
+
+function OosComparisonRow({ label, comparison }: { label: string; comparison: OosComparison }) {
+  return <article>
+    <span><b>{label}</b><small>개발 구간에서 정한 기준을 검증 구간에 고정 적용</small></span>
+    <span><small>개발 상위</small><b>{comparison.developmentHigh.sampleSize}건 · {pct(comparison.developmentHigh.averageCloseReturn)}</b></span>
+    <span><small>검증 상위</small><b>{comparison.validationHigh.sampleSize}건 · {pct(comparison.validationHigh.averageCloseReturn)}</b></span>
+    <span><small>검증 하위</small><b>{comparison.validationLow.sampleSize}건 · {pct(comparison.validationLow.averageCloseReturn)}</b></span>
+    <span><small>검증 목표 도달</small><b>{pct(comparison.validationHigh.targetHitRate)}</b></span>
+  </article>
 }
 
 function closingExclusionLabel(reason: string) {
@@ -783,7 +1007,7 @@ function BacktestResult({ data }: { data: OvernightBacktest }) {
         {data.rows.length === 0 && <div className="closingEmpty">백테스트 결과가 없습니다</div>}
         {data.rows.slice(0, 20).map(row => (
           <article key={`${row.recommendationDate}-${row.rank}-${row.stockCode}`}>
-            <span><b>{row.recommendationDate} #{row.rank} {row.stockName}</b><small>{row.stockCode} · {scannerTypeLabel(row.scannerType)} · 점수 {num(row.recommendationScore)}</small></span>
+            <span><b>{row.recommendationDate} #{row.rank} {row.stockName}</b><small>{row.stockCode} · {scannerTypeLabel(row.scannerType)} · 신호 {money(row.signalPrice)}원 · {row.entryAt ? `진입 ${money(row.buyReferencePrice)}원` : '진입 데이터 없음'}</small></span>
             <span className={(row.openReturnRate ?? 0) >= 0 ? 'gain' : 'loss'}>시가 {pct(row.openReturnRate)}</span>
             <span className={(row.maxReturnRate ?? 0) >= 0 ? 'gain' : 'loss'}>최고 {pct(row.maxReturnRate)}</span>
             <span className={(row.maxDrawdownRate ?? 0) >= 0 ? 'gain' : 'loss'}>최저 {pct(row.maxDrawdownRate)}</span>
@@ -835,18 +1059,20 @@ function StrategySummaryPanel({ summaries }: { summaries: OvernightExitStrategyS
           <small>매도 전략 비교</small>
           <b>보유 연장 백테스트</b>
         </span>
-        <small>목표/손절 동시 도달은 보수적으로 손절 처리</small>
+        <small>목표/손절 동시 도달은 보수적으로 손절 처리 · 비용 미설정 시 순수익은 총수익과 동일</small>
       </div>
       <div className="strategyRows">
         {summaries.map(item => (
           <article key={item.strategy}>
             <span><b>{item.label}</b><small>{item.sampleSize}건 검증</small></span>
             <span><small>승률</small><b>{pct(item.winRate)}</b></span>
-            <span><small>평균 수익</small><b className={(item.averageReturnRate ?? 0) >= 0 ? 'gain' : 'loss'}>{pct(item.averageReturnRate)}</b></span>
+            <span><small>평균 총수익</small><b className={(item.averageReturnRate ?? 0) >= 0 ? 'gain' : 'loss'}>{pct(item.averageReturnRate)}</b></span>
+            <span><small>평균 순수익</small><b className={(item.averageNetReturnRate ?? 0) >= 0 ? 'gain' : 'loss'}>{pct(item.averageNetReturnRate)}</b></span>
             <span><small>평균 낙폭</small><b className={(item.averageMaxDrawdownRate ?? 0) >= 0 ? 'gain' : 'loss'}>{pct(item.averageMaxDrawdownRate)}</b></span>
             <span><small>목표 도달</small><b>{pct(item.targetHitRate)}</b></span>
             <span><small>손절 도달</small><b>{pct(item.stopHitRate)}</b></span>
             <span><small>동시 도달</small><b>{item.ambiguousCount}</b></span>
+            <span><small>거래비용</small><b>{item.costsApplied ? '적용' : '미설정'}</b></span>
           </article>
         ))}
       </div>

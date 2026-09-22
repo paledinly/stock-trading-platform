@@ -228,10 +228,13 @@ public final class ClosingRecommendationDtos {
             int sampleSize,
             BigDecimal winRate,
             BigDecimal averageReturnRate,
+            BigDecimal averageNetReturnRate,
             BigDecimal averageMaxDrawdownRate,
             BigDecimal targetHitRate,
             BigDecimal stopHitRate,
-            int ambiguousCount) {
+            int ambiguousCount,
+            boolean costsApplied,
+            String executionModelVersion) {
     }
 
     public record OvernightBacktestRow(
@@ -242,6 +245,8 @@ public final class ClosingRecommendationDtos {
             String market,
             String scannerType,
             Instant detectedAt,
+            BigDecimal signalPrice,
+            Instant entryAt,
             BigDecimal buyReferencePrice,
             BigDecimal recommendationScore,
             BigDecimal opportunityScore,

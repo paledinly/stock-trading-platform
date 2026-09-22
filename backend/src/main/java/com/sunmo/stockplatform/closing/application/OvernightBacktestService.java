@@ -8,6 +8,7 @@ import com.sunmo.stockplatform.closing.api.ClosingRecommendationDtos.OvernightEx
 import com.sunmo.stockplatform.closing.api.ClosingRecommendationDtos.RecommendationAlgorithmSummary;
 import com.sunmo.stockplatform.closing.application.BacktestIntegrityService.BacktestEvaluation;
 import com.sunmo.stockplatform.closing.application.ClosingRecommendationScorer.ScoreResult;
+import com.sunmo.stockplatform.closing.application.OvernightExecutionSimulator.ExecutionResult;
 import com.sunmo.stockplatform.closing.config.ClosingRecommendationProperties;
 import com.sunmo.stockplatform.closing.domain.OvernightPerformance;
 import com.sunmo.stockplatform.scanner.domain.ScannerDetection;
@@ -37,11 +38,14 @@ public class OvernightBacktestService {
     private final DailyMovingAverageService dailyMa;
     private final ClosingPrecisionEvaluator precisionEvaluator;
     private final ClosingRecommendationProperties properties;
+    private final ClosingTradingCalendar calendar;
+    private final OvernightExecutionSimulator execution;
 
     public OvernightBacktestService(ScannerDetectionRepository detections, StockCandleRepository candles,
             ClosingRecommendationScorer scorer, BacktestIntegrityService integrity,
             IntradayMovingAverageService intradayMa, DailyMovingAverageService dailyMa,
-            ClosingPrecisionEvaluator precisionEvaluator, ClosingRecommendationProperties properties) {
+            ClosingPrecisionEvaluator precisionEvaluator, ClosingRecommendationProperties properties,
+            ClosingTradingCalendar calendar, OvernightExecutionSimulator execution) {
         this.detections = detections;
         this.candles = candles;
         this.scorer = scorer;
@@ -50,6 +54,8 @@ public class OvernightBacktestService {
         this.dailyMa = dailyMa;
         this.precisionEvaluator = precisionEvaluator;
         this.properties = properties;
+        this.calendar = calendar;
+        this.execution = execution;
     }
 
     public OvernightBacktestResponse run(LocalDate from, LocalDate to, int limit, BigDecimal minOpportunity,
@@ -265,23 +271,34 @@ public class OvernightBacktestService {
     private BacktestEvaluation evaluate(LocalDate date, int rank, ScoredDetection scored, BigDecimal targetRate,
             BigDecimal stopRate) {
         ScannerDetection detection = scored.detection();
+        StockCandle entry = entryCandle(detection, date);
+        if (entry == null) {
+            OvernightBacktestRow row = new OvernightBacktestRow(date, rank, detection.getStock().getStockCode(),
+                    detection.getStock().getStockName(), detection.getStock().getMarket().name(), detection.getType().name(),
+                    detection.getDetectedAt(), detection.getDetectedPrice(), null, null, scored.score().score(),
+                    detection.getOpportunityScore(), detection.getRiskScore(), null, null, null, null, null,
+                    false, false, "ENTRY_DATA_MISSING");
+            return new BacktestEvaluation(row, List.of());
+        }
         List<StockCandle> nextSession = nextSessionCandles(detection, date);
         if (nextSession.isEmpty()) {
             OvernightBacktestRow row = new OvernightBacktestRow(date, rank, detection.getStock().getStockCode(),
                     detection.getStock().getStockName(), detection.getStock().getMarket().name(), detection.getType().name(),
-                    detection.getDetectedAt(), detection.getDetectedPrice(), scored.score().score(),
+                    detection.getDetectedAt(), detection.getDetectedPrice(), entry.getStartTime(), entry.getOpen(),
+                    scored.score().score(),
                     detection.getOpportunityScore(), detection.getRiskScore(), null, null, null, null, null, false, false,
-                    "DATA_MISSING");
+                    "NEXT_SESSION_DATA_MISSING");
             return new BacktestEvaluation(row, List.of());
         }
-        BigDecimal base = detection.getDetectedPrice();
+        BigDecimal base = entry.getOpen();
         BigDecimal high = nextSession.stream().map(StockCandle::getHigh).reduce(BigDecimal::max).orElse(null);
         BigDecimal low = nextSession.stream().map(StockCandle::getLow).reduce(BigDecimal::min).orElse(null);
         BigDecimal maxReturn = pct(high, base);
         BigDecimal maxDrawdown = pct(low, base);
         OvernightBacktestRow row = new OvernightBacktestRow(date, rank, detection.getStock().getStockCode(),
                 detection.getStock().getStockName(), detection.getStock().getMarket().name(), detection.getType().name(),
-                detection.getDetectedAt(), base, scored.score().score(), detection.getOpportunityScore(),
+                detection.getDetectedAt(), detection.getDetectedPrice(), entry.getStartTime(), base,
+                scored.score().score(), detection.getOpportunityScore(),
                 detection.getRiskScore(), nextSession.getFirst().getStartTime().atZone(MARKET_ZONE).toLocalDate(),
                 pct(nextSession.getFirst().getOpen(), base), pct(nextSession.getLast().getClose(), base), maxReturn,
                 maxDrawdown, maxReturn != null && maxReturn.compareTo(targetRate) >= 0,
@@ -289,9 +306,22 @@ public class OvernightBacktestService {
         return new BacktestEvaluation(row, nextSession);
     }
 
+    private StockCandle entryCandle(ScannerDetection detection, LocalDate recommendationDate) {
+        Instant expected = recommendationDate.atTime(properties.featureFreezeAt()).atZone(MARKET_ZONE).toInstant()
+                .plus(Duration.ofMinutes(5));
+        Instant deadline = recommendationDate.atTime(properties.entryDeadline()).atZone(MARKET_ZONE).toInstant();
+        return candles.findByStockIdAndTimeframeAndStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(
+                        detection.getStock().getId(), TIMEFRAME, expected, deadline)
+                .stream().filter(StockCandle::isFinalCandle)
+                .filter(candle -> candle.getStartTime().equals(expected))
+                .filter(candle -> candle.getOpen() != null && candle.getOpen().signum() > 0)
+                .findFirst().orElse(null);
+    }
+
     private List<StockCandle> nextSessionCandles(ScannerDetection detection, LocalDate recommendationDate) {
-        Instant from = recommendationDate.plusDays(1).atStartOfDay(MARKET_ZONE).toInstant();
-        Instant to = recommendationDate.plusDays(8).atStartOfDay(MARKET_ZONE).toInstant();
+        LocalDate nextDate = calendar.nextTradingDay(recommendationDate);
+        Instant from = calendar.open(nextDate);
+        Instant to = calendar.close(nextDate).plusSeconds(1);
         List<StockCandle> values = candles
                 .findByStockIdAndTimeframeAndStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(
                         detection.getStock().getId(), TIMEFRAME, from, to)
@@ -300,7 +330,6 @@ public class OvernightBacktestService {
                 .toList();
         if (values.isEmpty())
             return List.of();
-        LocalDate nextDate = values.getFirst().getStartTime().atZone(MARKET_ZONE).toLocalDate();
         return values.stream()
                 .filter(candle -> candle.getStartTime().atZone(MARKET_ZONE).toLocalDate().equals(nextDate))
                 .toList();
@@ -329,7 +358,8 @@ public class OvernightBacktestService {
                 .filter(result -> result.returnRate() != null)
                 .toList();
         if (values.isEmpty()) {
-            return new OvernightExitStrategySummary(strategy, label, 0, null, null, null, null, null, 0);
+            return new OvernightExitStrategySummary(strategy, label, 0, null, null, null, null, null, null, 0,
+                    false, OvernightExecutionSimulator.VERSION);
         }
         long wins = values.stream().filter(result -> result.returnRate().signum() > 0).count();
         long targetHits = values.stream().filter(StrategyResult::targetHit).count();
@@ -342,49 +372,40 @@ public class OvernightBacktestService {
                 ratio(wins, values.size()),
                 values.stream().map(StrategyResult::returnRate).reduce(BigDecimal.ZERO, BigDecimal::add)
                         .divide(BigDecimal.valueOf(values.size()), 6, RoundingMode.HALF_UP),
+                values.stream().map(StrategyResult::netReturnRate).reduce(BigDecimal.ZERO, BigDecimal::add)
+                        .divide(BigDecimal.valueOf(values.size()), 6, RoundingMode.HALF_UP),
                 avg(evaluations.stream()
                         .map(BacktestEvaluation::row)
                         .filter(row -> "COMPLETED".equals(row.status()))
                         .toList(), OvernightBacktestRow::maxDrawdownRate),
                 ratio(targetHits, values.size()),
                 ratio(stopHits, values.size()),
-                ambiguous);
+                ambiguous,
+                values.stream().anyMatch(StrategyResult::costsApplied),
+                OvernightExecutionSimulator.VERSION);
     }
 
     private StrategyResult nextOpen(BacktestEvaluation evaluation) {
         if (!completed(evaluation))
             return null;
-        return new StrategyResult(pct(evaluation.candles().getFirst().getOpen(), evaluation.row().buyReferencePrice()),
-                evaluation.row().targetHit(), evaluation.row().stopHit(), false);
+        StockCandle first = evaluation.candles().getFirst();
+        return result(execution.exit(evaluation.row().buyReferencePrice(), first.getStartTime(), first.getOpen(),
+                "NEXT_OPEN", evaluation.row().targetHit(), evaluation.row().stopHit(), false));
     }
 
     private StrategyResult nextClose(BacktestEvaluation evaluation) {
         if (!completed(evaluation))
             return null;
-        return new StrategyResult(pct(evaluation.candles().getLast().getClose(), evaluation.row().buyReferencePrice()),
-                evaluation.row().targetHit(), evaluation.row().stopHit(), false);
+        StockCandle last = evaluation.candles().getLast();
+        return result(execution.exit(evaluation.row().buyReferencePrice(), last.getStartTime(), last.getClose(),
+                "NEXT_CLOSE", evaluation.row().targetHit(), evaluation.row().stopHit(), false));
     }
 
     private StrategyResult targetOrStop(BacktestEvaluation evaluation, BigDecimal targetRate, BigDecimal stopRate) {
         if (!completed(evaluation))
             return null;
-        BigDecimal base = evaluation.row().buyReferencePrice();
-        BigDecimal targetPrice = threshold(base, targetRate);
-        BigDecimal stopPrice = threshold(base, stopRate);
-        for (StockCandle candle : evaluation.candles()) {
-            boolean targetHit = candle.getHigh().compareTo(targetPrice) >= 0;
-            boolean stopHit = candle.getLow().compareTo(stopPrice) <= 0;
-            if (targetHit && stopHit) {
-                return new StrategyResult(stopRate.setScale(6, RoundingMode.HALF_UP), true, true, true);
-            }
-            if (targetHit) {
-                return new StrategyResult(targetRate.setScale(6, RoundingMode.HALF_UP), true, false, false);
-            }
-            if (stopHit) {
-                return new StrategyResult(stopRate.setScale(6, RoundingMode.HALF_UP), false, true, false);
-            }
-        }
-        return nextClose(evaluation);
+        return result(execution.targetOrStop(evaluation.row().buyReferencePrice(), evaluation.candles(),
+                targetRate, stopRate));
     }
 
     private StrategyResult vwapTrailing(BacktestEvaluation evaluation, BigDecimal targetRate, BigDecimal stopRate) {
@@ -403,10 +424,12 @@ public class OvernightBacktestService {
             boolean targetHit = candle.getHigh().compareTo(targetPrice) >= 0;
             boolean stopHit = candle.getLow().compareTo(stopPrice) <= 0;
             if (!targetReached && targetHit && stopHit) {
-                return new StrategyResult(stopRate.setScale(6, RoundingMode.HALF_UP), true, true, true);
+                return result(execution.exit(base, candle.getStartTime(), stopPrice,
+                        "AMBIGUOUS_STOP", true, true, true));
             }
             if (!targetReached && stopHit) {
-                return new StrategyResult(stopRate.setScale(6, RoundingMode.HALF_UP), false, true, false);
+                return result(execution.exit(base, candle.getStartTime(), stopPrice,
+                        "STOP", false, true, false));
             }
             if (targetHit) {
                 targetReached = true;
@@ -414,11 +437,13 @@ public class OvernightBacktestService {
             BigDecimal vwap = cumulativeVolume == 0 ? null
                     : cumulativeValue.divide(BigDecimal.valueOf(cumulativeVolume), 6, RoundingMode.HALF_UP);
             if (targetReached && vwap != null && candle.getClose().compareTo(vwap) < 0) {
-                return new StrategyResult(pct(candle.getClose(), base), true, false, ambiguous);
+                return result(execution.exit(base, candle.getStartTime(), candle.getClose(),
+                        "VWAP_TRAILING", true, false, ambiguous));
             }
         }
-        BigDecimal exitReturn = pct(evaluation.candles().getLast().getClose(), base);
-        return new StrategyResult(exitReturn, targetReached, false, ambiguous);
+        StockCandle last = evaluation.candles().getLast();
+        return result(execution.exit(base, last.getStartTime(), last.getClose(),
+                "TIME_EXIT", targetReached, false, ambiguous));
     }
 
     private StrategyResult ma20Trailing(BacktestEvaluation evaluation, BigDecimal targetRate, BigDecimal stopRate) {
@@ -434,19 +459,24 @@ public class OvernightBacktestService {
             boolean targetHit = candle.getHigh().compareTo(targetPrice) >= 0;
             boolean stopHit = candle.getLow().compareTo(stopPrice) <= 0;
             if (!targetReached && targetHit && stopHit) {
-                return new StrategyResult(stopRate.setScale(6, RoundingMode.HALF_UP), true, true, true);
+                return result(execution.exit(base, candle.getStartTime(), stopPrice,
+                        "AMBIGUOUS_STOP", true, true, true));
             }
             if (!targetReached && stopHit) {
-                return new StrategyResult(stopRate.setScale(6, RoundingMode.HALF_UP), false, true, false);
+                return result(execution.exit(base, candle.getStartTime(), stopPrice,
+                        "STOP", false, true, false));
             }
             if (targetHit) {
                 targetReached = true;
             }
             if (targetReached && closes.size() >= 20 && candle.getClose().compareTo(ma(closes, 20)) < 0) {
-                return new StrategyResult(pct(candle.getClose(), base), true, false, false);
+                return result(execution.exit(base, candle.getStartTime(), candle.getClose(),
+                        "MA20_TRAILING", true, false, false));
             }
         }
-        return new StrategyResult(pct(evaluation.candles().getLast().getClose(), base), targetReached, false, false);
+        StockCandle last = evaluation.candles().getLast();
+        return result(execution.exit(base, last.getStartTime(), last.getClose(),
+                "TIME_EXIT", targetReached, false, false));
     }
 
     private StrategyResult extendWhileHealthy(BacktestEvaluation evaluation, BigDecimal targetRate, BigDecimal stopRate) {
@@ -468,10 +498,12 @@ public class OvernightBacktestService {
             boolean targetHit = candle.getHigh().compareTo(targetPrice) >= 0;
             boolean stopHit = candle.getLow().compareTo(stopPrice) <= 0;
             if (!targetReached && targetHit && stopHit) {
-                return new StrategyResult(stopRate.setScale(6, RoundingMode.HALF_UP), true, true, true);
+                return result(execution.exit(base, candle.getStartTime(), stopPrice,
+                        "AMBIGUOUS_STOP", true, true, true));
             }
             if (!targetReached && stopHit) {
-                return new StrategyResult(stopRate.setScale(6, RoundingMode.HALF_UP), false, true, false);
+                return result(execution.exit(base, candle.getStartTime(), stopPrice,
+                        "STOP", false, true, false));
             }
             if (targetHit) {
                 targetReached = true;
@@ -484,14 +516,22 @@ public class OvernightBacktestService {
             boolean ma20Broken = closes.size() >= 20 && candle.getClose().compareTo(ma(closes, 20)) < 0;
             boolean highPulledBack = pct(candle.getClose(), sessionHigh).compareTo(bd("-1.5")) <= 0;
             if (vwapBroken || ma20Broken || highPulledBack) {
-                return new StrategyResult(pct(candle.getClose(), base), true, false, false);
+                return result(execution.exit(base, candle.getStartTime(), candle.getClose(),
+                        "HEALTH_BREAK", true, false, false));
             }
         }
-        return new StrategyResult(pct(evaluation.candles().getLast().getClose(), base), targetReached, false, false);
+        StockCandle last = evaluation.candles().getLast();
+        return result(execution.exit(base, last.getStartTime(), last.getClose(),
+                "TIME_EXIT", targetReached, false, false));
     }
 
     private boolean completed(BacktestEvaluation evaluation) {
         return "COMPLETED".equals(evaluation.row().status()) && !evaluation.candles().isEmpty();
+    }
+
+    private StrategyResult result(ExecutionResult value) {
+        return value == null ? null : new StrategyResult(value.grossReturnRate(), value.netReturnRate(),
+                value.targetHit(), value.stopHit(), value.ambiguous(), value.costsApplied());
     }
 
     private BigDecimal threshold(BigDecimal base, BigDecimal rate) {
@@ -594,7 +634,8 @@ public class OvernightBacktestService {
     private record ScoredDetection(ScannerDetection detection, ScoreResult score) {
     }
 
-    private record StrategyResult(BigDecimal returnRate, boolean targetHit, boolean stopHit, boolean ambiguous) {
+    private record StrategyResult(BigDecimal returnRate, BigDecimal netReturnRate,
+            boolean targetHit, boolean stopHit, boolean ambiguous, boolean costsApplied) {
     }
 
     private record AlgorithmProfile(String code, String label, BigDecimal minOpportunity, BigDecimal maxRisk) {

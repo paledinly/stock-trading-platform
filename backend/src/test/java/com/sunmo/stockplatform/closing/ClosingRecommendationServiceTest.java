@@ -197,8 +197,8 @@ class ClosingRecommendationServiceTest {
         Fixture fixture = new Fixture();
         LocalDate date = LocalDate.now(SEOUL).minusDays(1);
         Stock stock = fixture.stock(1L);
-        var older = fixture.detection(stock, date.atTime(15, 0).atZone(SEOUL).toInstant());
-        var newer = fixture.detection(stock, date.atTime(15, 10).atZone(SEOUL).toInstant());
+        var older = fixture.detection(stock, date.atTime(14, 50).atZone(SEOUL).toInstant());
+        var newer = fixture.detection(stock, date.atTime(14, 59).atZone(SEOUL).toInstant());
         when(newer.getRiskScore()).thenReturn(bd("90"));
         when(fixture.detections.findBySessionDateAndDetectedAtGreaterThanEqualOrderByDetectedAtDesc(eq(date), any()))
                 .thenReturn(List.of(newer, older));
@@ -238,6 +238,47 @@ class ClosingRecommendationServiceTest {
         verify(fixture.recommendations).saveAll(argThat(rows -> !rows.iterator().hasNext()));
     }
 
+    @Test
+    void rejectsForwardEvaluationBeforeTheFixedDecisionTime() {
+        LocalDate date = LocalDate.of(2026, 9, 22);
+        Fixture fixture = new Fixture(Clock.fixed(date.atTime(14, 59).atZone(SEOUL).toInstant(), ZoneOffset.UTC),
+                mock(com.sunmo.stockplatform.market.application.RealtimeDiagnostics.class));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> fixture.service.generate(date, 10, bd("35"), bd("65")))
+                .isInstanceOf(com.sunmo.stockplatform.common.error.ApplicationException.class)
+                .hasMessageContaining("15:00");
+        verifyNoInteractions(fixture.runs);
+    }
+
+    @Test
+    void freezesForwardEvaluationAt1500AndRequiresAFreshTick() {
+        LocalDate date = LocalDate.of(2026, 9, 22);
+        Instant decisionAt = date.atTime(15, 0).atZone(SEOUL).toInstant();
+        var realtime = mock(com.sunmo.stockplatform.market.application.RealtimeDiagnostics.class);
+        when(realtime.lastTickAt()).thenReturn(decisionAt);
+        Fixture fixture = new Fixture(Clock.fixed(date.atTime(15, 5).atZone(SEOUL).toInstant(), ZoneOffset.UTC), realtime);
+
+        var response = fixture.service.generate(date, 10, bd("35"), bd("65"));
+
+        assertThat(response.executionMode()).isEqualTo("FORWARD");
+        assertThat(response.evaluationEnd()).isEqualTo(decisionAt);
+        assertThat(response.criteria()).containsEntry("entryDeadline", "15:20")
+                .containsEntry("entryModel", "NEXT_FINAL_5M_OPEN");
+    }
+
+    @Test
+    void rejectsForwardEvaluationWhenRealtimeTicksWereStaleAt1500() {
+        LocalDate date = LocalDate.of(2026, 9, 22);
+        var realtime = mock(com.sunmo.stockplatform.market.application.RealtimeDiagnostics.class);
+        when(realtime.lastTickAt()).thenReturn(date.atTime(14, 0).atZone(SEOUL).toInstant());
+        Fixture fixture = new Fixture(Clock.fixed(date.atTime(15, 5).atZone(SEOUL).toInstant(), ZoneOffset.UTC), realtime);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> fixture.service.generate(date, 10, bd("35"), bd("65")))
+                .isInstanceOf(com.sunmo.stockplatform.common.error.ApplicationException.class)
+                .hasMessageContaining("실시간 시세");
+        verifyNoInteractions(fixture.runs);
+    }
+
     private static final class Fixture {
         final ScannerDetectionRepository detections = mock(ScannerDetectionRepository.class);
         final ClosingRecommendationRepository recommendations = mock(ClosingRecommendationRepository.class);
@@ -253,6 +294,10 @@ class ClosingRecommendationServiceTest {
         final ClosingRecommendationService service;
 
         Fixture() {
+            this(Clock.systemUTC(), mock(com.sunmo.stockplatform.market.application.RealtimeDiagnostics.class));
+        }
+
+        Fixture(Clock clock, com.sunmo.stockplatform.market.application.RealtimeDiagnostics realtime) {
             var stored = new java.util.HashMap<String, com.sunmo.stockplatform.closing.domain.ClosingRecommendationRun>();
             when(runs.save(any())).thenAnswer(invocation -> {
                 com.sunmo.stockplatform.closing.domain.ClosingRecommendationRun run = invocation.getArgument(0);
@@ -280,16 +325,18 @@ class ClosingRecommendationServiceTest {
                         return values;
                     });
             ClosingRecommendationProperties properties = new ClosingRecommendationProperties(20, 4, bd("55"),
-                    LocalTime.of(14, 30), LocalTime.of(15, 20));
+                    LocalTime.of(14, 30), LocalTime.of(15, 0), LocalTime.of(15, 20), Duration.ofSeconds(10));
+            ClosingTradingCalendar calendar = new ClosingTradingCalendar(
+                    new com.sunmo.stockplatform.market.config.MarketWideScheduleProperties(false, 0, 0, false,
+                            null, null, null, null, null, List.of()), clock);
             service = new ClosingRecommendationService(detections, recommendations,
                     snapshots, new BroadClosingRecommendationScorer(mapper), mapper,
-                    mock(org.springframework.jdbc.core.JdbcTemplate.class), new ClosingTradingCalendar(
-                        new com.sunmo.stockplatform.market.config.MarketWideScheduleProperties(false, 0, 0, false,
-                            null, null, null, null, null, List.of())),
+                    mock(org.springframework.jdbc.core.JdbcTemplate.class), calendar,
                     properties, runs, new ClosingPrecisionEvaluator(precisionScorer, intraday, daily, candles,
-                            properties, mapper, new ClosingTradingCalendar(
-                                    new com.sunmo.stockplatform.market.config.MarketWideScheduleProperties(false, 0, 0,
-                                            false, null, null, null, null, null, List.of()))));
+                            properties, mapper, calendar), realtime,
+                    new com.sunmo.stockplatform.market.config.RealtimeMarketProperties(false,
+                            java.net.URI.create("ws://localhost"), Duration.ZERO, Duration.ofHours(1), 10, 41,
+                            Duration.ofMinutes(1)));
         }
 
         List<StockCandle> finalCandles(Instant start) {

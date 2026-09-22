@@ -30,4 +30,19 @@ public interface OvernightPerformanceRepository extends JpaRepository<OvernightP
     List<OvernightPerformance> findByRecommendationDate(@Param("date") LocalDate date);
 
     List<OvernightPerformance> findByRecommendationRunIdOrderByRecommendationRankAsc(Long runId);
+
+    @Query("""
+            select p from OvernightPerformance p
+              join fetch p.recommendation r
+              join fetch r.run run
+              join fetch r.stock
+             where p.status = com.sunmo.stockplatform.closing.domain.OvernightPerformanceStatus.COMPLETED
+               and p.calculationVersion = :version
+               and r.recommendationDate between :from and :to
+               and run.executionMode = 'FORWARD'
+               and run.requestKey like 'official-%'
+             order by r.recommendationDate asc, r.rank asc
+            """)
+    List<OvernightPerformance> findOfficialCompletedBetween(@Param("from") LocalDate from,
+            @Param("to") LocalDate to, @Param("version") String version);
 }

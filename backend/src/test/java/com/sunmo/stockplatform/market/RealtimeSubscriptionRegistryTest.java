@@ -11,7 +11,7 @@ import static org.assertj.core.api.Assertions.*;
 
 class RealtimeSubscriptionRegistryTest {
     @Test void sharesOneSlotAcrossSourcesAndEnforcesLimit(){
-        var properties=new RealtimeMarketProperties(true,URI.create("ws://localhost"),Duration.ZERO,Duration.ofHours(1),10,1);
+        var properties=new RealtimeMarketProperties(true,URI.create("ws://localhost"),Duration.ZERO,Duration.ofHours(1),10,1,Duration.ofMinutes(1));
         var registry=new RealtimeSubscriptionRegistry(properties);
         registry.add("005930",RealtimeSubscriptionRegistry.Source.WATCHLIST);
         registry.add("005930",RealtimeSubscriptionRegistry.Source.QUOTE);

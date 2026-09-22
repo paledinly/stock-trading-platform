@@ -12,6 +12,7 @@ import com.sunmo.stockplatform.closing.application.OvernightBacktestService;
 import com.sunmo.stockplatform.closing.application.OvernightPerformanceService;
 import com.sunmo.stockplatform.closing.application.OvernightPositionDecisionService;
 import com.sunmo.stockplatform.closing.application.AccountPerformanceCalculator;
+import com.sunmo.stockplatform.closing.application.ClosingStrategyAnalyticsService;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.PositiveOrZero;
@@ -32,15 +33,18 @@ public class ClosingRecommendationController {
     private final OvernightBacktestService backtestService;
     private final OvernightPositionDecisionService decisionService;
     private final AccountPerformanceCalculator accountPerformance;
+    private final ClosingStrategyAnalyticsService strategyAnalytics;
 
     public ClosingRecommendationController(ClosingRecommendationService service,
             OvernightPerformanceService performanceService, OvernightBacktestService backtestService,
-            OvernightPositionDecisionService decisionService, AccountPerformanceCalculator accountPerformance) {
+            OvernightPositionDecisionService decisionService, AccountPerformanceCalculator accountPerformance,
+            ClosingStrategyAnalyticsService strategyAnalytics) {
         this.service = service;
         this.performanceService = performanceService;
         this.backtestService = backtestService;
         this.decisionService = decisionService;
         this.accountPerformance = accountPerformance;
+        this.strategyAnalytics = strategyAnalytics;
     }
 
     @PostMapping("/generate")
@@ -120,5 +124,12 @@ public class ClosingRecommendationController {
     @GetMapping("/account-performance")
     public AccountPerformanceCalculator.Report accountPerformance() {
         return accountPerformance.unavailable();
+    }
+
+    @GetMapping("/strategy-analytics")
+    public ClosingStrategyAnalyticsService.StrategyAnalyticsReport strategyAnalytics(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return strategyAnalytics.analyze(from, to);
     }
 }

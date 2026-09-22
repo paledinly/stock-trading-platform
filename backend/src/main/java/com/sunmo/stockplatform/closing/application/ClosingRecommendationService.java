@@ -15,6 +15,8 @@ import com.sunmo.stockplatform.common.error.ErrorCode;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import com.sunmo.stockplatform.closing.config.ClosingRecommendationProperties;
+import com.sunmo.stockplatform.market.application.RealtimeDiagnostics;
+import com.sunmo.stockplatform.market.config.RealtimeMarketProperties;
 import com.sunmo.stockplatform.marketwide.domain.BroadSnapshotQuality;
 import com.sunmo.stockplatform.marketwide.domain.BroadSnapshotStatus;
 import com.sunmo.stockplatform.marketwide.domain.MarketBroadSnapshot;
@@ -41,6 +43,8 @@ public class ClosingRecommendationService {
     private final ClosingRecommendationProperties properties;
     private final ClosingRecommendationRunRepository runs;
     private final ClosingPrecisionEvaluator precisionEvaluator;
+    private final RealtimeDiagnostics realtime;
+    private final RealtimeMarketProperties realtimeProperties;
 
     public ClosingRecommendationService(ScannerDetectionRepository detections,
             ClosingRecommendationRepository recommendations,
@@ -48,7 +52,8 @@ public class ClosingRecommendationService {
             ObjectMapper objectMapper, JdbcTemplate jdbc,
             ClosingTradingCalendar calendar,
             ClosingRecommendationProperties properties, ClosingRecommendationRunRepository runs,
-            ClosingPrecisionEvaluator precisionEvaluator) {
+            ClosingPrecisionEvaluator precisionEvaluator, RealtimeDiagnostics realtime,
+            RealtimeMarketProperties realtimeProperties) {
         this.detections = detections;
         this.recommendations = recommendations;
         this.jdbc = jdbc;
@@ -59,6 +64,8 @@ public class ClosingRecommendationService {
         this.properties = properties;
         this.runs = runs;
         this.precisionEvaluator = precisionEvaluator;
+        this.realtime = realtime;
+        this.realtimeProperties = realtimeProperties;
     }
 
     @Transactional
@@ -75,6 +82,19 @@ public class ClosingRecommendationService {
             throw new com.sunmo.stockplatform.common.error.ApplicationException(
                     com.sunmo.stockplatform.common.error.ErrorCode.INVALID_REQUEST,
                     org.springframework.http.HttpStatus.BAD_REQUEST, "Future recommendation date is not allowed");
+        Instant decisionAt = targetDate.atTime(properties.featureFreezeAt()).atZone(MARKET_ZONE).toInstant();
+        Instant entryDeadline = targetDate.atTime(properties.entryDeadline()).atZone(MARKET_ZONE).toInstant();
+        boolean today = targetDate.equals(calendar.today());
+        if (today && generatedAt.isBefore(decisionAt))
+            throw invalid("15:00 판단 시각 이전에는 후보 평가를 실행할 수 없습니다");
+        String mode = today && calendar.isTradingDay(targetDate) && !generatedAt.isAfter(entryDeadline)
+                ? "FORWARD" : "REPLAY";
+        if ("FORWARD".equals(mode)) {
+            Instant lastTickAt = realtime.lastTickAt();
+            if (lastTickAt == null || lastTickAt.isBefore(decisionAt.minus(realtimeProperties.staleTimeout())))
+                throw new ApplicationException(ErrorCode.MARKET_DATA_STALE, HttpStatus.SERVICE_UNAVAILABLE,
+                        "15:00 기준 실시간 시세가 최신 상태가 아닙니다. 소켓 수신 상태를 확인하세요");
+        }
         int safeLimit = Math.min(Math.max(limit, 1), 30);
         Map<String, Object> criteria = new TreeMap<>();
         criteria.put("minimumCoverageMinutes", properties.minimumCoverageMinutes());
@@ -92,6 +112,9 @@ public class ClosingRecommendationService {
         criteria.put("limit", safeLimit);
         criteria.put("evaluationStart", properties.evaluationStart().toString());
         criteria.put("featureFreezeAt", properties.featureFreezeAt().toString());
+        criteria.put("entryDeadline", properties.entryDeadline().toString());
+        criteria.put("candleFinalizationGraceSeconds", properties.candleFinalizationGrace().toSeconds());
+        criteria.put("entryModel", "NEXT_FINAL_5M_OPEN");
         String settings = serialize(criteria);
         String hash = sha256(settings);
         String key = requestKey == null ? UUID.randomUUID().toString() : requestKey;
@@ -107,22 +130,15 @@ public class ClosingRecommendationService {
             return readEvaluation(run);
         }
         Instant cutoff = targetDate.atTime(properties.evaluationStart()).atZone(MARKET_ZONE).toInstant();
-        Instant close = targetDate.atTime(15, 30).atZone(MARKET_ZONE).toInstant();
-        Instant freeze = targetDate.atTime(properties.featureFreezeAt()).atZone(MARKET_ZONE).toInstant();
-        Instant sessionEnd = freeze.isBefore(close) ? freeze : close;
-        Instant evaluationEnd = targetDate.equals(calendar.today()) && generatedAt.isBefore(sessionEnd)
-                ? generatedAt : sessionEnd;
-        String mode = calendar.isTradingDay(targetDate) && !generatedAt.isBefore(cutoff)
-                && !generatedAt.isAfter(sessionEnd) ? "FORWARD" : "REPLAY";
         ClosingRecommendationRun run = runs.save(new ClosingRecommendationRun(targetDate, generatedAt,
-                ClosingRecommendation.STRATEGY_VERSION, mode, evaluationEnd, settings, hash, key));
+                ClosingRecommendation.STRATEGY_VERSION, mode, decisionAt, settings, hash, key));
         List<ScannerDetection> source = detections
                 .findBySessionDateAndDetectedAtGreaterThanEqualOrderByDetectedAtDesc(targetDate, cutoff);
 
         List<ScannerDetection> boundedDetections = source.stream()
-                .filter(detection -> !detection.getDetectedAt().isAfter(evaluationEnd)).toList();
+                .filter(detection -> !detection.getDetectedAt().isAfter(decisionAt)).toList();
         List<ClosingPrecisionEvaluator.Assessment> assessed = precisionEvaluator.representatives(boundedDetections,
-                cutoff, evaluationEnd, threshold(minOpportunity), riskLimit(maxRisk));
+                cutoff, decisionAt, threshold(minOpportunity), riskLimit(maxRisk));
         Map<ScannerDetection, CandleCoverage> coverage = new HashMap<>();
         List<ScoredCandidate> precisionCandidates = new ArrayList<>();
         for (ClosingPrecisionEvaluator.Assessment row : assessed) {
@@ -131,7 +147,7 @@ public class ClosingRecommendationService {
                     row.coverageMinutes(), row.missingFeatures()), row.score(), row.reason(), row.dataReadiness()));
         }
 
-        List<MarketBroadSnapshot> broadSource = broadSnapshots.findClosingCandidates(targetDate, cutoff, evaluationEnd);
+        List<MarketBroadSnapshot> broadSource = broadSnapshots.findClosingCandidates(targetDate, cutoff, decisionAt);
         List<ScoredCandidate> selectable = new ArrayList<>();
         for (ScoredCandidate candidate : precisionCandidates) {
             CandidateDecision decision = precisionDecision(candidate, minOpportunity, maxRisk);
@@ -167,7 +183,7 @@ public class ClosingRecommendationService {
                 (int) evaluations.stream().filter(row -> row.disposition().equals("EXCLUDED")).count(),
                 Map.copyOf(decisionReasons),
                 ClosingRecommendation.STRATEGY_VERSION,
-                saved.stream().map(RecommendationResponse::from).toList(), evaluationEnd,
+                saved.stream().map(RecommendationResponse::from).toList(), decisionAt,
                 criteria, Map.copyOf(decisionReasons), evaluations, run.getId(), mode, calendar.now());
         run.recordDataVersion("snapshot-" + sha256(serialize(evaluations)).substring(0, 31));
         run.complete(serialize(response), response.completedAt());

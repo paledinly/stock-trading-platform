@@ -6,6 +6,7 @@ import com.sunmo.stockplatform.candle.infrastructure.StockCandleRepository;
 import com.sunmo.stockplatform.closing.application.BacktestIntegrityService;
 import com.sunmo.stockplatform.closing.application.ClosingRecommendationScorer;
 import com.sunmo.stockplatform.closing.application.ClosingPrecisionEvaluator;
+import com.sunmo.stockplatform.closing.application.ClosingTradingCalendar;
 import com.sunmo.stockplatform.closing.config.ClosingRecommendationProperties;
 import com.sunmo.stockplatform.closing.application.DailyMovingAverageFeature;
 import com.sunmo.stockplatform.closing.application.DailyMovingAverageService;
@@ -22,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -39,7 +41,11 @@ class OvernightBacktestServiceTest {
     private final OvernightBacktestService service = new OvernightBacktestService(detections, candles,
             new ClosingRecommendationScorer(new ObjectMapper().findAndRegisterModules()), new BacktestIntegrityService(),
             intradayMa, dailyMa, precisionEvaluator, new ClosingRecommendationProperties(20, 4, bd("55"),
-                    java.time.LocalTime.of(14, 30), java.time.LocalTime.of(15, 20)));
+                    java.time.LocalTime.of(14, 30), java.time.LocalTime.of(15, 0),
+                    java.time.LocalTime.of(15, 20), java.time.Duration.ofSeconds(10)), calendar(),
+            new com.sunmo.stockplatform.closing.application.OvernightExecutionSimulator(
+                    new com.sunmo.stockplatform.closing.config.TradingCostProperties(
+                            BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO)));
 
     OvernightBacktestServiceTest() {
         ClosingRecommendationScorer scorer = new ClosingRecommendationScorer(new ObjectMapper().findAndRegisterModules());
@@ -58,11 +64,9 @@ class OvernightBacktestServiceTest {
         when(detections.findByDetectedAtBetweenOrderByDetectedAtAsc(any(), any())).thenReturn(List.of(detection));
         when(intradayMa.calculate(detection)).thenReturn(IntradayMovingAverageFeature.empty(0));
         when(dailyMa.calculate(detection)).thenReturn(DailyMovingAverageFeature.empty(0));
-        when(candles.findByStockIdAndTimeframeAndStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(
-                eq(1L), eq("5M"), any(), any()))
-                .thenReturn(List.of(
-                        candle("2026-09-05T00:00:00Z", "103", "104", "102", "103"),
-                        candle("2026-09-05T00:05:00Z", "103", "106", "98", "104")));
+        stubCandles(List.of(candle("2026-09-04T06:05:00Z", "100", "101", "99", "100")), List.of(
+                candle("2026-09-07T00:00:00Z", "103", "104", "102", "103"),
+                candle("2026-09-07T00:05:00Z", "103", "106", "98", "104")));
 
         var result = service.run(LocalDate.of(2026, 9, 4), LocalDate.of(2026, 9, 4),
                 10, bd("35"), bd("65"), bd("3"), bd("-2"));
@@ -94,6 +98,7 @@ class OvernightBacktestServiceTest {
                 .first()
                 .satisfies(summary -> {
                     assertThat(summary.averageReturnRate()).isEqualByComparingTo("3.000000");
+                    assertThat(summary.averageNetReturnRate()).isEqualByComparingTo("3.000000");
                     assertThat(summary.ambiguousCount()).isZero();
                 });
     }
@@ -104,9 +109,8 @@ class OvernightBacktestServiceTest {
         when(detections.findByDetectedAtBetweenOrderByDetectedAtAsc(any(), any())).thenReturn(List.of(detection));
         when(intradayMa.calculate(detection)).thenReturn(IntradayMovingAverageFeature.empty(0));
         when(dailyMa.calculate(detection)).thenReturn(DailyMovingAverageFeature.empty(0));
-        when(candles.findByStockIdAndTimeframeAndStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(
-                eq(1L), eq("5M"), any(), any()))
-                .thenReturn(List.of(candle("2026-09-05T00:00:00Z", "100", "104", "98", "101")));
+        stubCandles(List.of(candle("2026-09-04T06:05:00Z", "100", "101", "99", "100")),
+                List.of(candle("2026-09-07T00:00:00Z", "100", "104", "98", "101")));
 
         var result = service.run(LocalDate.of(2026, 9, 4), LocalDate.of(2026, 9, 4),
                 10, bd("35"), bd("65"), bd("3"), bd("-2"));
@@ -126,14 +130,16 @@ class OvernightBacktestServiceTest {
         when(detections.findByDetectedAtBetweenOrderByDetectedAtAsc(any(), any())).thenReturn(List.of(detection));
         when(intradayMa.calculate(detection)).thenReturn(IntradayMovingAverageFeature.empty(0));
         when(dailyMa.calculate(detection)).thenReturn(DailyMovingAverageFeature.empty(0));
-        when(candles.findByStockIdAndTimeframeAndStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(
-                eq(1L), eq("5M"), any(), any())).thenReturn(List.of());
+        stubCandles(List.of(candle("2026-09-04T06:05:00Z", "101", "102", "100", "101")), List.of());
 
         var result = service.run(LocalDate.of(2026, 9, 4), LocalDate.of(2026, 9, 4),
                 10, bd("35"), bd("65"), bd("3"), bd("-2"));
 
         assertThat(result.completed()).isZero();
         assertThat(result.dataMissing()).isEqualTo(1);
+        assertThat(result.rows().getFirst().signalPrice()).isEqualByComparingTo("100");
+        assertThat(result.rows().getFirst().buyReferencePrice()).isEqualByComparingTo("101");
+        assertThat(result.rows().getFirst().entryAt()).isEqualTo(Instant.parse("2026-09-04T06:05:00Z"));
         assertThat(result.strategySummaries()).allSatisfy(summary -> assertThat(summary.sampleSize()).isZero());
         assertThat(result.algorithmSummaries()).allSatisfy(summary -> {
             assertThat(summary.completed()).isZero();
@@ -142,6 +148,22 @@ class OvernightBacktestServiceTest {
         assertThat(result.integrity().status()).isEqualTo("WARNING");
         assertThat(result.integrity().issues()).extracting("category", "message")
                 .contains(tuple("DATA_COVERAGE", "다음 거래일 데이터 없음"));
+    }
+
+    @Test
+    void doesNotInventAnEntryWhenThePostEvaluationCandleIsMissing() {
+        ScannerDetection detection = detection();
+        when(detections.findByDetectedAtBetweenOrderByDetectedAtAsc(any(), any())).thenReturn(List.of(detection));
+        when(intradayMa.calculate(detection)).thenReturn(IntradayMovingAverageFeature.empty(0));
+        when(dailyMa.calculate(detection)).thenReturn(DailyMovingAverageFeature.empty(0));
+        stubCandles(List.of(), List.of(candle("2026-09-07T00:00:00Z", "103", "104", "102", "103")));
+
+        var result = service.run(LocalDate.of(2026, 9, 4), LocalDate.of(2026, 9, 4),
+                10, bd("35"), bd("65"), bd("3"), bd("-2"));
+
+        assertThat(result.rows().getFirst().status()).isEqualTo("ENTRY_DATA_MISSING");
+        assertThat(result.rows().getFirst().buyReferencePrice()).isNull();
+        assertThat(result.integrity().issues()).extracting("message").contains("평가 이후 진입 데이터 없음");
     }
 
     private ScannerDetection detection() {
@@ -156,7 +178,7 @@ class OvernightBacktestServiceTest {
         when(detection.getStock()).thenReturn(stock);
         when(detection.getType()).thenReturn(ScannerType.VWAP_BREAKOUT);
         when(detection.getSessionDate()).thenReturn(LocalDate.of(2026, 9, 4));
-        when(detection.getDetectedAt()).thenReturn(Instant.parse("2026-09-04T06:05:00Z"));
+        when(detection.getDetectedAt()).thenReturn(Instant.parse("2026-09-04T05:55:00Z"));
         when(detection.getDetectedPrice()).thenReturn(bd("100"));
         when(detection.getOpportunityScore()).thenReturn(bd("70"));
         when(detection.getRiskScore()).thenReturn(bd("20"));
@@ -172,6 +194,20 @@ class OvernightBacktestServiceTest {
     private StockCandle candle(String at, String open, String high, String low, String close) {
         return new StockCandle(null, Instant.parse(at), bd(open), bd(high), bd(low), bd(close),
                 100, bd("100000"), true, 0);
+    }
+
+    private void stubCandles(List<StockCandle> entry, List<StockCandle> nextSession) {
+        when(candles.findByStockIdAndTimeframeAndStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(
+                eq(1L), eq("5M"), any(), any())).thenAnswer(invocation -> {
+                    Instant from = invocation.getArgument(2);
+                    LocalDate date = from.atZone(ZoneId.of("Asia/Seoul")).toLocalDate();
+                    return date.equals(LocalDate.of(2026, 9, 4)) ? entry : nextSession;
+                });
+    }
+
+    private ClosingTradingCalendar calendar() {
+        return new ClosingTradingCalendar(new com.sunmo.stockplatform.market.config.MarketWideScheduleProperties(
+                false, 0, 0, false, null, null, null, null, null, List.of()));
     }
 
     private BigDecimal bd(String value) {

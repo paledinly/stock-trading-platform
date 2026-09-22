@@ -22,7 +22,8 @@ class BroadEnrichmentQueueTest {
                 new BroadEnrichmentProperties(enabled, capacity, 2, Duration.ofMinutes(3), Duration.ofSeconds(10)),
                 new MarketSessionPolicy(new MarketWideScheduleProperties(false, 120, 30, false,
                         null, null, null, null, null, List.of())),
-                new ClosingRecommendationProperties(20, 4, new BigDecimal("55"), LocalTime.of(14, 30), LocalTime.of(15, 20)), clock);
+                new ClosingRecommendationProperties(20, 4, new BigDecimal("55"), LocalTime.of(14, 30),
+                        LocalTime.of(15, 0), LocalTime.of(15, 20), Duration.ofSeconds(10)), clock);
     }
     private BroadSnapshotService.Capture capture(String code) {
         Stock stock = mock(Stock.class);
@@ -84,7 +85,7 @@ class BroadEnrichmentQueueTest {
 
     @Test
     void crossingFreezeDuringRequestDoesNotSaveLatePrice() {
-        clock.now = Instant.parse("2026-09-14T06:19:59Z");
+        clock.now = Instant.parse("2026-09-14T05:59:59Z");
         var queue = queue(true, 10);
         queue.enqueue(List.of(capture("005930")));
         when(quotes.resolve(any(), eq(true))).thenAnswer(call -> {

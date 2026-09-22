@@ -2,6 +2,7 @@ package com.sunmo.stockplatform.market.application;
 
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -121,9 +122,18 @@ public class RealtimeDiagnostics {
         lastTickAt = Instant.now();
     }
 
-    public void parseFailed() {
+    public void parseFailed(String reason) {
         parseErrors.incrementAndGet();
-        error("KIS realtime parse failed");
+        error("KIS realtime parse failed: " + reason);
+    }
+
+    public boolean isConnectionStale(Instant now, Duration timeout) {
+        Instant latest = lastMessageAt == null ? connectedAt : lastMessageAt;
+        return connected && latest != null && latest.plus(timeout).isBefore(now);
+    }
+
+    public Instant lastTickAt() {
+        return lastTickAt;
     }
 
     public void subscriptionRemoved(String stockCode, boolean success, String message) {

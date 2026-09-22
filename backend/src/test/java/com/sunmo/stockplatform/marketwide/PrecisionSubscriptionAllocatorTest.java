@@ -73,7 +73,7 @@ class PrecisionSubscriptionAllocatorTest {
 
     private RealtimeSubscriptionRegistry registry(int limit) {
         return new RealtimeSubscriptionRegistry(new RealtimeMarketProperties(true, URI.create("ws://localhost"),
-                Duration.ZERO, Duration.ofHours(1), 10, limit));
+                Duration.ZERO, Duration.ofHours(1), 10, limit, Duration.ofMinutes(1)));
     }
 
     private PrecisionSubscriptionAllocator.Candidate candidate(String code, String score) {

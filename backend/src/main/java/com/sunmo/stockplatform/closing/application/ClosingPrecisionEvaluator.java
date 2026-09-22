@@ -91,14 +91,16 @@ public class ClosingPrecisionEvaluator {
         List<StockCandle> session = candles
                 .findByStockIdAndTimeframeAndStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(
                         detection.getStock().getId(), "5M", from, asOf.plusSeconds(1));
+        Instant availableBy = asOf.plus(properties.candleFinalizationGrace());
         Set<Instant> starts = new HashSet<>();
-        boolean lateRevision = false;
+        Set<Instant> unavailableAtEvaluation = new HashSet<>();
         StockCandle latest = null;
         for (StockCandle candle : session) {
             if (!candle.isFinalCandle() || candle.getStartTime().plus(Duration.ofMinutes(5)).isAfter(asOf))
                 continue;
-            if (candle.getUpdatedAt() != null && candle.getUpdatedAt().isAfter(asOf)) {
-                lateRevision = true;
+            if ((candle.getCreatedAt() != null && candle.getCreatedAt().isAfter(availableBy))
+                    || (candle.getUpdatedAt() != null && candle.getUpdatedAt().isAfter(availableBy))) {
+                unavailableAtEvaluation.add(candle.getStartTime());
                 continue;
             }
             if (latest == null || candle.getStartTime().isAfter(latest.getStartTime())) latest = candle;
@@ -108,8 +110,14 @@ public class ClosingPrecisionEvaluator {
         Instant bucket = detection.getDetectedAt().truncatedTo(java.time.temporal.ChronoUnit.MINUTES);
         bucket = bucket.minusSeconds(bucket.atZone(java.time.ZoneId.of("Asia/Seoul")).getMinute() % 5 * 60L);
         int finalCandles = 0;
-        for (Instant expected = bucket.minus(Duration.ofMinutes(5)); starts.contains(expected);
-                expected = expected.minus(Duration.ofMinutes(5))) finalCandles++;
+        Instant firstMissing = bucket.minus(Duration.ofMinutes(5));
+        while (starts.contains(firstMissing)) {
+            finalCandles++;
+            firstMissing = firstMissing.minus(Duration.ofMinutes(5));
+        }
+        Instant latestStart = latest == null ? null : latest.getStartTime();
+        boolean lateRevision = unavailableAtEvaluation.contains(firstMissing)
+                || (latestStart != null && unavailableAtEvaluation.stream().anyMatch(start -> start.isAfter(latestStart)));
         if (lateRevision) missing.add("RECEIVED_AFTER_EVALUATION");
         if (finalCandles < properties.minimumFinalCandles()) missing.add("CANDLE_GAP");
 
@@ -138,6 +146,7 @@ public class ClosingPrecisionEvaluator {
         readiness.put("detectedAt", detection.getDetectedAt().toString());
         readiness.put("receivedAt", detection.getReceivedAt() == null ? null : detection.getReceivedAt().toString());
         readiness.put("evaluatedAsOf", asOf.toString());
+        readiness.put("candleAvailableBy", availableBy.toString());
         readiness.put("receiptVerified", detection.getReceivedAt() != null);
         readiness.put("lastFinalCandleAt", latest == null ? null : latest.getStartTime().toString());
         readiness.put("finalCandles", finalCandles);
