@@ -279,8 +279,12 @@ public class ClosingRecommendationService {
     @Transactional(readOnly = true)
     public GenerateResponse evaluation(LocalDate date, Long runId) {
         runDate(date, runId);
-        return (runId == null ? runs.findFirstByRecommendationDateOrderByIdDesc(date == null ? calendar.today() : date)
-                : runs.findById(runId)).map(this::readEvaluation).orElse(null);
+        LocalDate targetDate = date == null ? calendar.today() : date;
+        Optional<ClosingRecommendationRun> selected = runId == null
+                ? runs.findFirstByRecommendationDateAndExecutionModeOrderByIdDesc(targetDate, "FORWARD")
+                        .or(() -> runs.findFirstByRecommendationDateOrderByIdDesc(targetDate))
+                : runs.findById(runId);
+        return selected.map(this::readEvaluation).orElse(null);
     }
 
     private GenerateResponse readEvaluation(ClosingRecommendationRun run) {

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ClosingRecommendationPage } from './ClosingRecommendationApp'
 
@@ -43,4 +43,20 @@ test('shows account performance as unavailable without a paper execution ledger'
   </QueryClientProvider>)
   expect(await screen.findByText(/미산출: 모의 체결/)).toBeInTheDocument()
   expect(screen.queryByText(/계좌 MDD/)).not.toBeInTheDocument()
+})
+
+test('prefers the official forward run over a newer replay', async () => {
+  globalThis.fetch = vi.fn().mockImplementation((url: string) => Promise.resolve({
+    ok: true,
+    json: async () => url.includes('/runs?') ? [
+      { id: 28, recommendationDate: new Date().toISOString().slice(0, 10), generatedAt: '2026-09-23T06:36:00Z', executionMode: 'REPLAY', strategyVersion: 'v8' },
+      { id: 27, recommendationDate: new Date().toISOString().slice(0, 10), generatedAt: '2026-09-23T06:00:00Z', executionMode: 'FORWARD', strategyVersion: 'v8' },
+    ] : [],
+  })) as typeof fetch
+
+  render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+    <ClosingRecommendationPage back={() => {}} />
+  </QueryClientProvider>)
+
+  await waitFor(() => expect(screen.getByLabelText('평가 이력')).toHaveValue('27'))
 })

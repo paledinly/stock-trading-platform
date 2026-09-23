@@ -12,14 +12,26 @@ public interface ClosingRecommendationRepository extends JpaRepository<ClosingRe
     @Query("delete from ClosingRecommendation r where r.recommendationDate = :date")
     void deleteByRecommendationDate(@Param("date") LocalDate recommendationDate);
 
-    @Query("""
-            select r from ClosingRecommendation r where r.run.id =
-              (select max(a.id) from ClosingRecommendationRun a where a.recommendationDate = :date)
-            order by r.rank asc
-            """)
+    @Query(value = """
+            select r.* from closing_recommendation r
+             where r.run_id = coalesce(
+                 (select max(a.id) from closing_recommendation_run a
+                   where a.recommendation_date = :date and a.execution_mode = 'FORWARD'),
+                 (select max(a.id) from closing_recommendation_run a
+                   where a.recommendation_date = :date))
+             order by r.rank_no asc
+            """, nativeQuery = true)
     List<ClosingRecommendation> findByRecommendationDateOrderByRankAsc(@Param("date") LocalDate recommendationDate);
 
     List<ClosingRecommendation> findByRunIdOrderByRankAsc(Long runId);
+
+    @Query("""
+            select stock.stockCode from ClosingRecommendation recommendation
+              join recommendation.stock stock
+             where recommendation.run.id = :runId
+             order by recommendation.rank asc
+            """)
+    List<String> findStockCodesByRunId(@Param("runId") Long runId);
 
     @Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @Query("select r from ClosingRecommendation r where r.id = :id")

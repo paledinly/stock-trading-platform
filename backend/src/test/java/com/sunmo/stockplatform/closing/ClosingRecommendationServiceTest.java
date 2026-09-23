@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sunmo.stockplatform.closing.application.*;
 import com.sunmo.stockplatform.closing.application.ClosingRecommendationScorer.ScoreResult;
 import com.sunmo.stockplatform.closing.domain.ClosingRecommendation;
+import com.sunmo.stockplatform.closing.domain.ClosingRecommendationRun;
 import com.sunmo.stockplatform.closing.config.ClosingRecommendationProperties;
 import com.sunmo.stockplatform.candle.domain.StockCandle;
 import com.sunmo.stockplatform.candle.infrastructure.StockCandleRepository;
@@ -236,6 +237,30 @@ class ClosingRecommendationServiceTest {
                 .thenReturn(java.util.Optional.of(capture.getValue()));
         assertThat(fixture.service.latestEvaluation(date).evaluations()).isEqualTo(response.evaluations());
         verify(fixture.recommendations).saveAll(argThat(rows -> !rows.iterator().hasNext()));
+    }
+
+    @Test
+    void defaultEvaluationPrefersOfficialForwardRunOverNewerReplay() throws Exception {
+        Fixture fixture = new Fixture();
+        LocalDate date = LocalDate.now(SEOUL).minusDays(1);
+        var response = fixture.service.generate(date, 10, bd("35"), bd("65"));
+        Instant now = Instant.now();
+        ClosingRecommendationRun forward = new ClosingRecommendationRun(date, now, "test", "FORWARD", now,
+                "{}", "forward", "forward-key");
+        org.springframework.test.util.ReflectionTestUtils.setField(forward, "id", 27L);
+        forward.complete(fixture.mapper.writeValueAsString(response), now);
+        ClosingRecommendationRun replay = new ClosingRecommendationRun(date, now.plusSeconds(1), "test", "REPLAY",
+                now, "{}", "replay", "replay-key");
+        org.springframework.test.util.ReflectionTestUtils.setField(replay, "id", 28L);
+        replay.complete(fixture.mapper.writeValueAsString(response), now.plusSeconds(1));
+        when(fixture.runs.findFirstByRecommendationDateAndExecutionModeOrderByIdDesc(date, "FORWARD"))
+                .thenReturn(java.util.Optional.of(forward));
+        when(fixture.runs.findFirstByRecommendationDateOrderByIdDesc(date))
+                .thenReturn(java.util.Optional.of(replay));
+
+        assertThat(fixture.service.latestEvaluation(date).runId()).isEqualTo(27L);
+        assertThat(fixture.service.latestEvaluation(date).executionMode()).isEqualTo("FORWARD");
+        verify(fixture.runs, never()).findFirstByRecommendationDateOrderByIdDesc(date);
     }
 
     @Test

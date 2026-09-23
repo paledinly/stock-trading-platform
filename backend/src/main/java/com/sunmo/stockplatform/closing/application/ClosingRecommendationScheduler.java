@@ -130,9 +130,7 @@ public class ClosingRecommendationScheduler {
         ClosingRecommendationRun run = runs.findByRequestKey(officialKey(date)).orElse(null);
         if (run == null)
             return;
-        repository.findByRunIdOrderByRankAsc(run.getId()).stream()
-                .map(row -> row.getStock().getStockCode())
-                .forEach(target::add);
+        target.addAll(repository.findStockCodesByRunId(run.getId()));
     }
 
     private String officialKey(LocalDate date) {

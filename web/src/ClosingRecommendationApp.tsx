@@ -597,7 +597,8 @@ export function ClosingRecommendationPage({ back, advanced = false }: { back: ()
     queryKey: ['closing-runs', date],
     queryFn: () => api<EvaluationRun[]>(`/api/v1/closing-recommendations/runs?date=${date}`),
   })
-  const runId = selection?.date === date ? selection.id : history.data?.[0]?.id
+  const defaultRun = history.data?.find(run => run.executionMode === 'FORWARD') ?? history.data?.[0]
+  const runId = selection?.date === date ? selection.id : defaultRun?.id
   const selectedRun = history.data?.find(run => run.id === runId)
   const runParam = runId == null ? '' : `&runId=${runId}`
   const evaluation = useQuery({
@@ -638,7 +639,8 @@ export function ClosingRecommendationPage({ back, advanced = false }: { back: ()
     ),
     onSuccess: result => {
       request.current = null
-      setSelection({ date: result.recommendationDate, id: result.runId })
+      if (result.executionMode === 'FORWARD' || !history.data?.some(run => run.executionMode === 'FORWARD'))
+        setSelection({ date: result.recommendationDate, id: result.runId })
       cache.setQueryData(['closing-evaluation', result.recommendationDate, result.runId], result)
       cache.invalidateQueries({ queryKey: ['closing-runs', result.recommendationDate] })
       cache.invalidateQueries({ queryKey: ['closing-recommendations', result.recommendationDate] })

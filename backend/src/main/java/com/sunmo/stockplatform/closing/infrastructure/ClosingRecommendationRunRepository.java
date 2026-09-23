@@ -8,6 +8,8 @@ import java.util.List;
 
 public interface ClosingRecommendationRunRepository extends JpaRepository<ClosingRecommendationRun, Long> {
     Optional<ClosingRecommendationRun> findFirstByRecommendationDateOrderByIdDesc(LocalDate date);
+    Optional<ClosingRecommendationRun> findFirstByRecommendationDateAndExecutionModeOrderByIdDesc(
+            LocalDate date, String executionMode);
     Optional<ClosingRecommendationRun> findByRequestKey(String key);
     List<ClosingRecommendationRun> findByRecommendationDateOrderByIdDesc(LocalDate date);
 }

@@ -2,12 +2,10 @@ package com.sunmo.stockplatform.closing;
 
 import com.sunmo.stockplatform.closing.application.*;
 import com.sunmo.stockplatform.closing.config.*;
-import com.sunmo.stockplatform.closing.domain.ClosingRecommendation;
 import com.sunmo.stockplatform.closing.domain.ClosingRecommendationRun;
 import com.sunmo.stockplatform.closing.infrastructure.ClosingRecommendationRepository;
 import com.sunmo.stockplatform.closing.infrastructure.ClosingRecommendationRunRepository;
 import com.sunmo.stockplatform.market.application.RealtimeSubscriptionRegistry;
-import com.sunmo.stockplatform.stock.domain.Stock;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -38,10 +36,8 @@ class ClosingRecommendationSchedulerTest {
         when(runs.findByRequestKey(key(MONDAY))).thenReturn(Optional.of(previousRun));
         when(runs.findByRequestKey(key(TUESDAY)))
                 .thenReturn(Optional.empty(), Optional.empty(), Optional.of(currentRun));
-        ClosingRecommendation previous = row("005930");
-        ClosingRecommendation current = row("000660");
-        when(repository.findByRunIdOrderByRankAsc(1L)).thenReturn(List.of(previous));
-        when(repository.findByRunIdOrderByRankAsc(2L)).thenReturn(List.of(current));
+        when(repository.findStockCodesByRunId(1L)).thenReturn(List.of("005930"));
+        when(repository.findStockCodesByRunId(2L)).thenReturn(List.of("000660"));
 
         scheduler.poll();
         scheduler.poll();
@@ -59,8 +55,7 @@ class ClosingRecommendationSchedulerTest {
         when(calendar.previousTradingDay(TUESDAY)).thenReturn(MONDAY);
         ClosingRecommendationRun previousRun = run(1L);
         when(runs.findByRequestKey(key(MONDAY))).thenReturn(Optional.of(previousRun));
-        ClosingRecommendation previous = row("005930");
-        when(repository.findByRunIdOrderByRankAsc(1L)).thenReturn(List.of(previous));
+        when(repository.findStockCodesByRunId(1L)).thenReturn(List.of("005930"));
 
         scheduler.poll();
 
@@ -75,8 +70,7 @@ class ClosingRecommendationSchedulerTest {
         when(calendar.previousTradingDay(saturday)).thenReturn(LocalDate.of(2026, 9, 25));
         ClosingRecommendationRun previousRun = run(1L);
         when(runs.findByRequestKey(key(LocalDate.of(2026, 9, 25)))).thenReturn(Optional.of(previousRun));
-        ClosingRecommendation previous = row("005930");
-        when(repository.findByRunIdOrderByRankAsc(1L)).thenReturn(List.of(previous));
+        when(repository.findStockCodesByRunId(1L)).thenReturn(List.of("005930"));
 
         scheduler.poll();
 
@@ -92,14 +86,6 @@ class ClosingRecommendationSchedulerTest {
                 new ClosingRecommendationProperties(20, 4, bd("55"), LocalTime.of(14, 30),
                         LocalTime.of(15, 0), LocalTime.of(15, 20), Duration.ofSeconds(10)),
                 new ClosingAutomationProperties(true, 10, bd("35"), bd("65"), bd("3"), bd("-2")));
-    }
-
-    private ClosingRecommendation row(String code) {
-        ClosingRecommendation recommendation = mock(ClosingRecommendation.class);
-        Stock stock = mock(Stock.class);
-        when(stock.getStockCode()).thenReturn(code);
-        when(recommendation.getStock()).thenReturn(stock);
-        return recommendation;
     }
 
     private ClosingRecommendationRun run(Long id) {
