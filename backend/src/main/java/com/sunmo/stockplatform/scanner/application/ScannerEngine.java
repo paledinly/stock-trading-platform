@@ -73,7 +73,7 @@ public class ScannerEngine {
                 stock.getId(), "5M", current.startTime());
         var metrics = evaluator.calculate(current, previous);
         BigDecimal daily = quotes.get(current.stockCode()).map(t -> t.cumulativeTradingValue()).orElse(null);
-        Optional<MarketFeatureSnapshot> feature = features.latest(current.stockCode());
+        Optional<MarketFeatureSnapshot> feature = features.at(current.stockCode(), current.startTime());
         for (ScannerSetting setting : settings.findByOwnerIdAndActiveTrue(OWNER)) {
             String state = setting.getId() + ":" + current.stockCode();
             ScannerEvaluator.Decision decision = (!stock.isEtf() && !stock.isEtn() || setting.isIncludeEtf())
@@ -95,7 +95,7 @@ public class ScannerEngine {
                 continue;
             }
             String settingSnapshot = snapshot(setting);
-            var detectedAt = java.time.Instant.now();
+            var detectedAt = current.startTime().plus(Duration.ofMinutes(5));
             ScannerDetection detection = new ScannerDetection(eventId, stock, setting, detectedAt, current.close(),
                     metrics.changeRate(), metrics.volumeRatio(), current.volume(), current.tradingValue(), daily,
                     decision.score(), settingSnapshot, "candle:" + current.startTime());

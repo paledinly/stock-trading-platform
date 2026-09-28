@@ -1,0 +1,20 @@
+{
+  "status": "NOT_READY",
+  "reason": "PAPER_EXECUTION_LEDGER_MISSING",
+  "observedTradingDays": 0,
+  "returnObservations": 0,
+  "initialEquity": null,
+  "endingEquity": null,
+  "cumulativeReturnRate": null,
+  "maxDrawdownRate": null,
+  "profitFactor": null,
+  "sharpeRatio": null,
+  "sortinoRatio": null,
+  "riskMetricStatus": "INSUFFICIENT_SAMPLE",
+  "benchmarkStatus": "NO_ALIGNED_INDEX_DATA",
+  "excessReturnRate": null,
+  "annualRiskFreeRate": 0,
+  "annualMinimumReturnRate": 0,
+  "annualTradingDays": 252,
+  "dailyPoints": []
+}

@@ -1,0 +1,167 @@
+{
+  "from": "2024-09-28",
+  "to": "2026-09-28",
+  "generatedAt": "2026-09-28T05:14:50.212995800Z",
+  "sampleSize": 0,
+  "population": "OFFICIAL_FORWARD_SIGNAL_PRICE_OBSERVATION_ONLY",
+  "targetRates": [],
+  "warnings": [
+    "신호가격 기준 시장 관측이며 실제 또는 모의 체결 순수익이 아닙니다.",
+    "공식 전진 표본이 30건 미만이므로 결과는 탐색적으로만 해석하세요.",
+    "서로 다른 공식 추천일이 2일 미만이라 시간순 OOS 검증을 계산할 수 없습니다.",
+    "최근 성과 악화 비교에 필요한 추천일이 부족합니다."
+  ],
+  "scoreBands": [],
+  "segments": [],
+  "lossPatterns": [
+    {
+      "code": "GAP_DOWN",
+      "count": 0,
+      "rate": null
+    },
+    {
+      "code": "CLOSE_LOSS",
+      "count": 0,
+      "rate": null
+    },
+    {
+      "code": "STOP_HIT",
+      "count": 0,
+      "rate": null
+    },
+    {
+      "code": "TARGET_AND_STOP",
+      "count": 0,
+      "rate": null
+    },
+    {
+      "code": "DRAWDOWN_3_PERCENT",
+      "count": 0,
+      "rate": null
+    }
+  ],
+  "oosValidation": {
+    "status": "INSUFFICIENT_SAMPLE",
+    "method": "TIME_ORDERED_70_30_BY_RECOMMENDATION_DATE",
+    "splitDate": null,
+    "development": {
+      "from": null,
+      "to": null,
+      "sampleSize": 0,
+      "targetHitRate": null,
+      "averageCloseReturn": null
+    },
+    "validation": {
+      "from": null,
+      "to": null,
+      "sampleSize": 0,
+      "targetHitRate": null,
+      "averageCloseReturn": null
+    },
+    "developmentScoreMedian": null,
+    "scoreComparison": {
+      "developmentLow": {
+        "sampleSize": 0,
+        "targetHitRate": null,
+        "averageCloseReturn": null
+      },
+      "developmentHigh": {
+        "sampleSize": 0,
+        "targetHitRate": null,
+        "averageCloseReturn": null
+      },
+      "validationLow": {
+        "sampleSize": 0,
+        "targetHitRate": null,
+        "averageCloseReturn": null
+      },
+      "validationHigh": {
+        "sampleSize": 0,
+        "targetHitRate": null,
+        "averageCloseReturn": null
+      }
+    },
+    "features": []
+  },
+  "monitoring": {
+    "status": "INSUFFICIENT_SAMPLE",
+    "baselineRecommendationDays": 20,
+    "recentRecommendationDays": 7,
+    "baselinePeriod": {
+      "from": null,
+      "to": null,
+      "sampleSize": 0,
+      "targetHitRate": null,
+      "averageCloseReturn": null
+    },
+    "recentPeriod": {
+      "from": null,
+      "to": null,
+      "sampleSize": 0,
+      "targetHitRate": null,
+      "averageCloseReturn": null
+    },
+    "baseline": {
+      "sampleSize": 0,
+      "targetHitRate": null,
+      "stopHitRate": null,
+      "averageCloseReturn": null,
+      "averageMaxDrawdown": null
+    },
+    "recent": {
+      "sampleSize": 0,
+      "targetHitRate": null,
+      "stopHitRate": null,
+      "averageCloseReturn": null,
+      "averageMaxDrawdown": null
+    },
+    "closeReturnDelta": null,
+    "targetHitRateDelta": null,
+    "failureTrends": []
+  },
+  "contextCoverage": {
+    "marketSegmentAvailable": true,
+    "marketRegimeAvailable": false,
+    "sectorHistoryAvailable": false,
+    "note": "시장 구분 성과는 제공하지만 시점별 지수 Regime과 업종 이력 데이터는 아직 없습니다."
+  },
+  "promotionGate": {
+    "currentStrategy": "RULE_BASED_V8_BASELINE",
+    "recommendation": "KEEP_BASELINE",
+    "statisticalModelStatus": "BLOCKED",
+    "eventModelStatus": "BLOCKED",
+    "productionActivationAllowed": false,
+    "checks": [
+      {
+        "code": "OFFICIAL_OOS",
+        "label": "공식 시간순 표본 외 검증",
+        "passed": false,
+        "requirement": "개발·검증 구간의 최소 표본과 시점 분리가 필요합니다."
+      },
+      {
+        "code": "RECENT_STABILITY",
+        "label": "최근 전략 안정성",
+        "passed": false,
+        "requirement": "최근 성과 감시가 준비되고 악화 상태가 아니어야 합니다."
+      },
+      {
+        "code": "NET_EXECUTION_OUTCOMES",
+        "label": "비용 반영 공식 모의체결 성과",
+        "passed": false,
+        "requirement": "현재 공식 성과는 신호가격 관측이며 모의 주문·체결 순수익 원장이 없습니다."
+      },
+      {
+        "code": "MARKET_CONTEXT",
+        "label": "시점별 시장·업종 맥락",
+        "passed": false,
+        "requirement": "지수 원시값과 유효기간이 있는 업종 이력이 필요합니다."
+      },
+      {
+        "code": "TIMESTAMPED_EVENTS",
+        "label": "공개·수신 시각이 보존된 뉴스·공시",
+        "passed": false,
+        "requirement": "검증 가능한 이벤트 데이터 원천과 정정 이력이 없습니다."
+      }
+    ]
+  }
+}

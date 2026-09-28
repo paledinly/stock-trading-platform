@@ -16,8 +16,9 @@ import java.util.concurrent.atomic.AtomicLong;
 @Component
 public class KisRealtimeTickParser {
     static final int FIELDS_PER_TRADE = 46;
-    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("HHmmss");
+    private static final DateTimeFormatter DATE = DateTimeFormatter.BASIC_ISO_DATE;
+    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
     private final AtomicLong sequence = new AtomicLong();
 
     public MarketTick parse(String payload) {
@@ -41,25 +42,45 @@ public class KisRealtimeTickParser {
     }
 
     private MarketTick parse(String[] fields, int offset) {
-        LocalDate date = LocalDate.now(SEOUL);
-        LocalTime time = LocalTime.parse(fields[offset + 1], TIME);
-        Instant occurredAt = date.atTime(time).atZone(SEOUL).toInstant();
-        return new MarketTick(fields[offset], date, occurredAt, decimal(fields[offset + 2]),
-                number(fields[offset + 12]), number(fields[offset + 13]), decimal(fields[offset + 14]),
-                sequence.incrementAndGet(), decimal(fields[offset + 7]), decimal(fields[offset + 8]),
-                decimal(fields[offset + 9]), decimal(fields[offset + 18]), nullableNumber(fields[offset + 19]),
-                nullableNumber(fields[offset + 20]), decimal(fields[offset + 22]),
-                "Y".equalsIgnoreCase(fields[offset + 35].trim()),
-                decimal(fields[offset + 45]), decimal(fields[offset + 40]));
+        int record = offset / FIELDS_PER_TRADE;
+        try {
+            LocalDate date = LocalDate.parse(required(fields, offset + 33, "businessDate"), DATE);
+            LocalTime time = LocalTime.parse(required(fields, offset + 1, "tradeTime"), TIME);
+            Instant occurredAt = date.atTime(time).atZone(SEOUL).toInstant();
+            return new MarketTick(required(fields, offset, "stockCode"), date, occurredAt,
+                    requiredDecimal(fields, offset + 2, "price"),
+                    requiredLong(fields, offset + 12, "tradeVolume"),
+                    requiredLong(fields, offset + 13, "cumulativeVolume"),
+                    requiredDecimal(fields, offset + 14, "cumulativeTradingValue"), sequence.incrementAndGet(),
+                    requiredDecimal(fields, offset + 7, "openPrice"),
+                    requiredDecimal(fields, offset + 8, "highPrice"),
+                    requiredDecimal(fields, offset + 9, "lowPrice"),
+                    nullableDecimal(fields[offset + 18]), nullableNumber(fields[offset + 19]),
+                    nullableNumber(fields[offset + 20]), nullableDecimal(fields[offset + 22]),
+                    "Y".equalsIgnoreCase(fields[offset + 35].trim()),
+                    nullableDecimal(fields[offset + 45]), nullableDecimal(fields[offset + 40]));
+        } catch (RuntimeException error) {
+            throw new IllegalArgumentException("Invalid H0STCNT0 record " + record + ": " + error.getMessage(), error);
+        }
     }
 
-    private BigDecimal decimal(String value) {
+    private String required(String[] fields, int index, String name) {
+        String normalized = fields[index] == null ? "" : fields[index].trim();
+        if (normalized.isEmpty()) throw new IllegalArgumentException(name + " is blank");
+        return normalized;
+    }
+
+    private BigDecimal requiredDecimal(String[] fields, int index, String name) {
+        return new BigDecimal(required(fields, index, name));
+    }
+
+    private long requiredLong(String[] fields, int index, String name) {
+        return Long.parseLong(required(fields, index, name));
+    }
+
+    private BigDecimal nullableDecimal(String value) {
         String normalized = value == null ? "" : value.trim();
-        return normalized.isEmpty() ? BigDecimal.ZERO : new BigDecimal(normalized);
-    }
-
-    private long number(String value) {
-        return Long.parseLong(value.trim());
+        return normalized.isEmpty() ? null : new BigDecimal(normalized);
     }
 
     private Long nullableNumber(String value) {

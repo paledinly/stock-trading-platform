@@ -23,6 +23,10 @@ public class DailyMovingAverageService {
     }
 
     public DailyMovingAverageFeature calculate(ScannerDetection detection) {
+        return calculate(detection, detection.getDetectedAt());
+    }
+
+    public DailyMovingAverageFeature calculate(ScannerDetection detection, Instant availableBy) {
         Instant previousSessionDate = detection.getDetectedAt().atZone(MARKET_ZONE).toLocalDate()
                 .minusDays(1)
                 .atStartOfDay(MARKET_ZONE)
@@ -31,7 +35,8 @@ public class DailyMovingAverageService {
                 .findTop61ByStockIdAndTimeframeAndStartTimeLessThanEqualAndFinalCandleTrueOrderByStartTimeDesc(
                         detection.getStock().getId(), TIMEFRAME, previousSessionDate)
                 .stream()
-                .filter(row -> row.getUpdatedAt() == null || !row.getUpdatedAt().isAfter(detection.getDetectedAt()))
+                .filter(row -> row.getCreatedAt() != null && row.getUpdatedAt() != null)
+                .filter(row -> !row.getCreatedAt().isAfter(availableBy) && !row.getUpdatedAt().isAfter(availableBy))
                 .sorted(Comparator.comparing(StockCandle::getStartTime))
                 .toList();
         return calculate(series);

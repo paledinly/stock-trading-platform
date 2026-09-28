@@ -56,6 +56,8 @@ class OvernightBacktestServiceTest {
         };
         when(precisionEvaluator.ranked(anyList(), any(), any(), any(), any(), anyInt())).thenAnswer(accepted);
         when(precisionEvaluator.representatives(anyList(), any(), any(), any(), any())).thenAnswer(accepted);
+        when(precisionEvaluator.representativesWithoutMovingAverage(anyList(), any(), any(), any(), any()))
+                .thenAnswer(accepted);
     }
 
     @Test
@@ -90,7 +92,7 @@ class OvernightBacktestServiceTest {
         assertThat(result.algorithmSummaries()).extracting("algorithm", "sampleSize", "completed", "confidence")
                 .contains(
                         tuple("SCANNER_BASELINE", 1, 1, "LOW"),
-                        tuple("CLOSING_NO_MA", 1, 1, "LOW"),
+                        tuple("CLOSING_NO_MA_THRESHOLD_55", 1, 1, "LOW"),
                         tuple("CLOSING_MA", 1, 1, "LOW"),
                         tuple("CLOSING_MA_STRICT", 1, 1, "LOW"));
         assertThat(result.algorithmSummaries()).filteredOn("recommendedDefault", true).hasSize(1);
@@ -98,7 +100,7 @@ class OvernightBacktestServiceTest {
                 .first()
                 .satisfies(summary -> {
                     assertThat(summary.averageReturnRate()).isEqualByComparingTo("3.000000");
-                    assertThat(summary.averageNetReturnRate()).isEqualByComparingTo("3.000000");
+                    assertThat(summary.averageNetReturnRate()).isNull();
                     assertThat(summary.ambiguousCount()).isZero();
                 });
     }

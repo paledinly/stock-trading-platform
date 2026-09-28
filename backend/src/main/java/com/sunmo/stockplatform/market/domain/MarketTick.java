@@ -18,8 +18,11 @@ public record MarketTick(String stockCode, LocalDate businessDate, Instant occur
     }
 
     public MarketTick {
-        if (stockCode == null || stockCode.isBlank() || price == null || price.signum() <= 0 || tradeVolume < 0
-                || cumulativeVolume < 0)
+        if (stockCode == null || stockCode.isBlank() || businessDate == null || occurredAt == null
+                || price == null || price.signum() <= 0 || tradeVolume < 0 || cumulativeVolume < 0)
             throw new IllegalArgumentException("Invalid market tick");
+        LocalDate eventDate = occurredAt.atZone(java.time.ZoneId.of("Asia/Seoul")).toLocalDate();
+        if (!businessDate.equals(eventDate))
+            throw new IllegalArgumentException("Market tick business date does not match occurredAt");
     }
 }

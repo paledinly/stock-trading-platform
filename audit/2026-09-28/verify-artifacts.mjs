@@ -1,0 +1,3 @@
+import fs from 'node:fs';
+const p='audit/2026-09-28/QUANT_STRATEGY_AUDIT.md'; const t=fs.readFileSync(p,'utf8'); const links=[...t.matchAll(/\]\((D:\/[^)]+)\)/g)].map(x=>x[1]); const broken=links.filter(x=>!fs.existsSync(x.replace(/:\d+$/,''))); console.log(JSON.stringify({reportLines:t.split('\n').length,sections:[...t.matchAll(/^## \d+\./gm)].length,localLinks:links.length,broken}));
+const a=JSON.parse(fs.readFileSync('audit/2026-09-28/official_20260923.json','utf8').replace(/^\uFEFF/,'')); console.log(JSON.stringify(a.candidates.map(x=>({stockCode:x.stockCode,stockName:x.stockName,score:x.recommendationScore}))));

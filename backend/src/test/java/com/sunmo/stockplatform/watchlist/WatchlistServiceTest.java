@@ -2,8 +2,11 @@ package com.sunmo.stockplatform.watchlist;
 
 import com.sunmo.stockplatform.common.error.ApplicationException;
 import com.sunmo.stockplatform.stock.infrastructure.StockRepository;
+import com.sunmo.stockplatform.stock.domain.Market;
+import com.sunmo.stockplatform.stock.domain.Stock;
 import com.sunmo.stockplatform.watchlist.application.WatchlistService;
 import com.sunmo.stockplatform.watchlist.domain.WatchlistGroup;
+import com.sunmo.stockplatform.watchlist.domain.WatchlistItem;
 import com.sunmo.stockplatform.watchlist.infrastructure.WatchlistGroupRepository;
 import com.sunmo.stockplatform.watchlist.infrastructure.WatchlistItemRepository;
 import org.junit.jupiter.api.Test;
@@ -37,5 +40,23 @@ class WatchlistServiceTest {
                 .isInstanceOf(ApplicationException.class)
                 .hasMessageContaining("refresh and retry");
         verify(groups, never()).save(any());
+    }
+
+    @Test
+    void savesItemWhenRealtimeSubscriptionLimitIsReached() {
+        WatchlistGroup group = new WatchlistGroup(1L, "관심", 0);
+        Stock stock = mock(Stock.class);
+        when(stock.getId()).thenReturn(1L);
+        when(stock.getStockCode()).thenReturn("005930");
+        when(stock.getStockName()).thenReturn("삼성전자");
+        when(stock.getMarket()).thenReturn(Market.KOSPI);
+        when(groups.findByIdAndOwnerId(7L, 1L)).thenReturn(Optional.of(group));
+        when(stocks.findByStockCodeAndActiveTrue("005930")).thenReturn(Optional.of(stock));
+        when(items.save(any(WatchlistItem.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        doThrow(new IllegalStateException("KIS realtime subscription limit reached: 41"))
+                .when(subscriptions).add("005930", com.sunmo.stockplatform.market.application.RealtimeSubscriptionRegistry.Source.WATCHLIST);
+
+        assertThat(service.addItem(7L, "005930", null).stockCode()).isEqualTo("005930");
+        verify(items).save(any(WatchlistItem.class));
     }
 }

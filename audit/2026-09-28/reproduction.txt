@@ -1,0 +1,2 @@
+CONFIRMED 15:30 KST rejected: Tick outside regular KRX session
+CONFIRMED same bucket re-emitted after flush: original volume=600, replacement volume=50, revisions=0/0

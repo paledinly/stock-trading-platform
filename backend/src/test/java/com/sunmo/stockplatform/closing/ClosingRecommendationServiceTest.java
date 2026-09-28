@@ -335,13 +335,14 @@ class ClosingRecommendationServiceTest {
                     .filter(run -> run.getId().equals(invocation.getArgument(0))).findFirst());
             when(recommendations.saveAll(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
             when(precisionScorer.score(any(), any(), any())).thenReturn(new ScoreResult(bd("80"), "{}", "{}"));
+            when(precisionScorer.score(any(ScannerDetection.class))).thenReturn(new ScoreResult(bd("80"), "{}", "{}"));
             DailyMovingAverageFeature readyDaily = mock(DailyMovingAverageFeature.class);
             when(readyDaily.ready()).thenReturn(true);
             when(readyDaily.candleCount()).thenReturn(21);
             when(readyDaily.ma20()).thenReturn(bd("9000"));
             when(readyDaily.closeAboveMa20()).thenReturn(true);
             when(readyDaily.ma20Rising()).thenReturn(true);
-            when(daily.calculate(any(ScannerDetection.class))).thenReturn(readyDaily);
+            when(daily.calculate(any(ScannerDetection.class), any(Instant.class))).thenReturn(readyDaily);
             when(candles.findByStockIdAndTimeframeAndStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(
                     anyLong(), eq("5M"), any(), any())).thenAnswer(invocation -> {
                         List<StockCandle> values = new java.util.ArrayList<>(finalCandles(
@@ -373,6 +374,8 @@ class ClosingRecommendationServiceTest {
             StockCandle candle = mock(StockCandle.class);
             when(candle.isFinalCandle()).thenReturn(true);
             when(candle.getStartTime()).thenReturn(start);
+            when(candle.getCreatedAt()).thenReturn(start.plus(Duration.ofMinutes(5)));
+            when(candle.getUpdatedAt()).thenReturn(start.plus(Duration.ofMinutes(5)));
             when(candle.getClose()).thenReturn(bd("10000"));
             when(candle.getTradingValue()).thenReturn(bd("100000000"));
             return candle;
@@ -392,13 +395,14 @@ class ClosingRecommendationServiceTest {
             ScannerDetection detection = mock(ScannerDetection.class);
             when(detection.getStock()).thenReturn(stock);
             when(detection.getDetectedAt()).thenReturn(at);
+            when(detection.getReceivedAt()).thenReturn(at);
             when(detection.getDetectedPrice()).thenReturn(bd("10000"));
             when(detection.getOpportunityScore()).thenReturn(bd("75"));
             when(detection.getRiskScore()).thenReturn(bd("20"));
             when(detection.getVolumeRatio()).thenReturn(bd("2"));
             when(detection.getDailyValue()).thenReturn(bd("2000000000"));
             when(detection.getType()).thenReturn(ScannerType.VWAP_BREAKOUT);
-            when(detection.getFeatureSnapshot()).thenReturn("{\"vwapDistanceRate\":1,\"dayHighDistanceRate\":1,\"tradeStrength\":120}");
+            when(detection.getFeatureSnapshot()).thenReturn("{\"vwapDistanceRate\":1,\"dayHighDistanceRate\":1,\"tradeStrength\":120,\"tradingHalted\":false}");
             return detection;
         }
 

@@ -1,0 +1,301 @@
+{
+  "realtime": {
+    "connected": true,
+    "connectedAt": "2026-09-28T00:35:02.486430800Z",
+    "disconnectedAt": "2026-09-28T00:34:57.400675800Z",
+    "lastMessageAt": "2026-09-28T00:53:21.458194700Z",
+    "lastPingAt": "2026-09-27T23:59:52.407567200Z",
+    "lastTickAt": "2026-09-28T00:53:21.458194700Z",
+    "receivedFrames": 127249,
+    "receivedTicks": 71275,
+    "parseErrors": 55801,
+    "subscriptionRequests": 164,
+    "subscriptionSuccesses": 161,
+    "subscriptionFailures": 0,
+    "lastCandleAt": "2026-09-28T00:45:00Z",
+    "lastScannerEvaluationAt": "2026-09-28T00:53:21.461361900Z",
+    "detections": 432,
+    "pendingPerformances": 432,
+    "lastPerformanceFlushAt": "2026-09-28T00:53:21.338246Z",
+    "lastPerformanceFlushSize": 2,
+    "lastFeatureAt": "2026-09-28T00:53:21.458194700Z",
+    "featureSnapshots": 71275,
+    "featureTrackedStocks": 41,
+    "candleGaps": {},
+    "backfills": {},
+    "recentErrors": [
+      "2026-09-28T00:53:21.458194700Z KIS realtime parse failed: Invalid value for SecondOfMinute (valid values 0 - 59): 60",
+      "2026-09-28T00:53:21.455194Z KIS realtime parse failed: Invalid value for MinuteOfHour (valid values 0 - 59): 70",
+      "2026-09-28T00:53:21.418146400Z KIS realtime parse failed: Invalid value for MinuteOfHour (valid values 0 - 59): 64",
+      "2026-09-28T00:53:21.417144100Z KIS realtime parse failed: For input string: \"92.25\"",
+      "2026-09-28T00:53:21.266714900Z KIS realtime parse failed: For input string: \"65.50\"",
+      "2026-09-28T00:53:21.265709800Z KIS realtime parse failed: Invalid value for MinuteOfHour (valid values 0 - 59): 70",
+      "2026-09-28T00:53:21.114372700Z KIS realtime parse failed: Invalid value for MinuteOfHour (valid values 0 - 59): 83",
+      "2026-09-28T00:53:21.114372700Z KIS realtime parse failed: For input string: \"65.50\"",
+      "2026-09-28T00:53:21.114372700Z KIS realtime parse failed: Invalid value for SecondOfMinute (valid values 0 - 59): 60",
+      "2026-09-28T00:53:20.813319100Z KIS realtime parse failed: Invalid value for MinuteOfHour (valid values 0 - 59): 70",
+      "2026-09-28T00:53:20.738542600Z KIS realtime parse failed: Invalid value for MinuteOfHour (valid values 0 - 59): 82",
+      "2026-09-28T00:53:20.738542600Z KIS realtime parse failed: For input string: \"65.50\"",
+      "2026-09-28T00:53:20.738542600Z KIS realtime parse failed: Invalid value for SecondOfMinute (valid values 0 - 59): 60",
+      "2026-09-28T00:53:20.473306200Z KIS realtime parse failed: For input string: \"65.50\"",
+      "2026-09-28T00:53:20.216979200Z KIS realtime parse failed: For input string: \"102.19\"",
+      "2026-09-28T00:53:20.216979200Z KIS realtime parse failed: For input string: \"144.58\"",
+      "2026-09-28T00:53:20.138799200Z KIS realtime parse failed: For input string: \"65.50\"",
+      "2026-09-28T00:53:20.138799200Z KIS realtime parse failed: Invalid value for SecondOfMinute (valid values 0 - 59): 60",
+      "2026-09-28T00:53:20.008087200Z KIS realtime parse failed: For input string: \"108.30\"",
+      "2026-09-28T00:53:19.970712400Z KIS realtime parse failed: For input string: \"65.51\""
+    ],
+    "subscriptions": {
+      "051910": {
+        "stockCode": "051910",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-09-28T00:35:14.492781Z"
+      },
+      "277810": {
+        "stockCode": "277810",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-09-28T00:35:21.544691Z"
+      },
+      "329180": {
+        "stockCode": "329180",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-09-28T00:35:22.091134Z"
+      },
+      "105560": {
+        "stockCode": "105560",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-09-28T00:35:18.499352400Z"
+      },
+      "012330": {
+        "stockCode": "012330",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-09-28T00:35:07.991613800Z"
+      },
+      "009150": {
+        "stockCode": "009150",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-09-28T00:35:06.498036100Z"
+      },
+      "034020": {
+        "stockCode": "034020",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-09-28T00:35:11.011446800Z"
+      },
+      "373220": {
+        "stockCode": "373220",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-09-28T00:35:22.627322900Z"
+      },
+      "015760": {
+        "stockCode": "015760",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-09-28T00:35:08.995605700Z"
+      },
+      "055550": {
+        "stockCode": "055550",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-09-28T00:35:15.629249300Z"
+      },
+      "196170": {
+        "stockCode": "196170",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-09-28T00:35:19.614951400Z"
+      },
+      "068270": {
+        "stockCode": "068270",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-09-28T00:35:17.130256500Z"
+      },
+      "039030": {
+        "stockCode": "039030",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-09-28T00:35:12.527842800Z"
+      },
+      "058470": {
+        "stockCode": "058470",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-09-28T00:35:16.178635500Z"
+      },
+      "005930": {
+        "stockCode": "005930",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-09-28T00:35:05.563395800Z"
+      },
+      "207940": {
+        "stockCode": "207940",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-09-28T00:35:20.276045500Z"
+      },
+      "000270": {
+        "stockCode": "000270",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-09-28T00:35:02.999577Z"
+      },
+      "028260": {
+        "stockCode": "028260",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-09-28T00:35:09.993325300Z"
+      },
+      "247540": {
+        "stockCode": "247540",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-09-28T00:35:20.745356Z"
+      },
+      "042660": {
+        "stockCode": "042660",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-09-28T00:35:12.997640500Z"
+      },
+      "086790": {
+        "stockCode": "086790",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-09-28T00:35:18.026617200Z"
+      },
+      "003670": {
+        "stockCode": "003670",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-09-28T00:35:04.005523100Z"
+      },
+      "009540": {
+        "stockCode": "009540",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-09-28T00:35:06.993653900Z"
+      },
+      "012450": {
+        "stockCode": "012450",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-09-28T00:35:08.494246500Z"
+      },
+      "005490": {
+        "stockCode": "005490",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-09-28T00:35:04.995019800Z"
+      },
+      "086520": {
+        "stockCode": "086520",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-09-28T00:35:17.609002600Z"
+      },
+      "066570": {
+        "stockCode": "066570",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-09-28T00:35:16.540552900Z"
+      },
+      "006400": {
+        "stockCode": "006400",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-09-28T00:35:05.995461200Z"
+      },
+      "000100": {
+        "stockCode": "000100",
+        "state": "REQUESTED",
+        "message": "waiting for KIS response",
+        "updatedAt": "2026-09-28T00:35:02.487430300Z"
+      },
+      "005380": {
+        "stockCode": "005380",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-09-28T00:35:04.493540900Z"
+      },
+      "010140": {
+        "stockCode": "010140",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-09-28T00:35:07.525316100Z"
+      },
+      "035720": {
+        "stockCode": "035720",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-09-28T00:35:12.047146600Z"
+      },
+      "052690": {
+        "stockCode": "052690",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-09-28T00:35:14.990853700Z"
+      },
+      "000660": {
+        "stockCode": "000660",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-09-28T00:35:03.503869100Z"
+      },
+      "017670": {
+        "stockCode": "017670",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-09-28T00:35:09.552747Z"
+      },
+      "267260": {
+        "stockCode": "267260",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-09-28T00:35:21.093979500Z"
+      },
+      "178320": {
+        "stockCode": "178320",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-09-28T00:35:19.085944500Z"
+      },
+      "035420": {
+        "stockCode": "035420",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-09-28T00:35:11.616353700Z"
+      },
+      "028300": {
+        "stockCode": "028300",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-09-28T00:35:10.503501100Z"
+      },
+      "047040": {
+        "stockCode": "047040",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-09-28T00:35:13.992305700Z"
+      },
+      "042700": {
+        "stockCode": "042700",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-09-28T00:35:13.599835700Z"
+      }
+    }
+  },
+  "redisStatus": "UP",
+  "subscriptionCount": 41,
+  "subscriptionLimit": 41,
+  "subscriptionRemaining": 0
+}

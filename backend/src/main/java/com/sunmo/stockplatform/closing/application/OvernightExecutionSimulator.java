@@ -54,6 +54,13 @@ public class OvernightExecutionSimulator {
                 targetHit, stopHit, ambiguous, reason, costs.applied(), VERSION);
     }
 
+    public String costAssumption() {
+        return "{\"buyFeePercent\":\"" + costs.buyFeePercent() + "\",\"sellFeePercent\":\""
+                + costs.sellFeePercent() + "\",\"sellTaxPercent\":\"" + costs.sellTaxPercent()
+                + "\",\"buySlippagePercent\":\"" + costs.buySlippagePercent()
+                + "\",\"sellSlippagePercent\":\"" + costs.sellSlippagePercent() + "\"}";
+    }
+
     private BigDecimal threshold(BigDecimal base, BigDecimal rate) {
         return base.multiply(BigDecimal.ONE.add(percent(rate)));
     }

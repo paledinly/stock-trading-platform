@@ -27,5 +27,5 @@ public record MarketFeatureSnapshot(
         boolean tradingHalted,
         BigDecimal viStandardPrice,
         String featureVersion) {
-    public static final String VERSION = "market-feature-v1";
+    public static final String VERSION = "market-feature-v2";
 }

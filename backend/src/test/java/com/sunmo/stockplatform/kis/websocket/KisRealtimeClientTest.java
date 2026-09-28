@@ -13,6 +13,9 @@ import java.net.URI;
 import java.net.http.WebSocket;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.math.BigDecimal;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
@@ -45,6 +48,29 @@ class KisRealtimeClientTest {
         client.onClose(mock(WebSocket.class), WebSocket.NORMAL_CLOSURE, "remote close");
 
         assertThat(diagnostics.snapshot().connected()).isFalse();
+        client.shutdown();
+    }
+
+    @Test
+    void processingFailureIsNotCountedAsAParseFailure() {
+        RealtimeDiagnostics diagnostics = new RealtimeDiagnostics();
+        KisRealtimeTickParser parser = mock(KisRealtimeTickParser.class);
+        MarketDataService market = mock(MarketDataService.class);
+        var tick = new com.sunmo.stockplatform.market.domain.MarketTick("005930", LocalDate.of(2026, 9, 23),
+                Instant.parse("2026-09-23T06:00:00Z"), new BigDecimal("100"), 1, 1,
+                new BigDecimal("100"), 1);
+        when(parser.parseMany("payload", 1)).thenReturn(List.of(tick));
+        doThrow(new IllegalStateException("storage unavailable")).when(market).onTick(tick);
+        KisRealtimeClient client = new KisRealtimeClient(mock(KisApprovalClient.class), parser, market,
+                mock(RealtimeSubscriptionRegistry.class),
+                new RealtimeMarketProperties(true, URI.create("ws://localhost"), Duration.ZERO,
+                        Duration.ofHours(1), 10, 41, Duration.ofSeconds(60)),
+                diagnostics, new ObjectMapper(), mock(MarketSessionPolicy.class));
+
+        ReflectionTestUtils.invokeMethod(client, "handle", mock(WebSocket.class), "0|H0STCNT0|1|payload");
+
+        assertThat(diagnostics.snapshot().parseErrors()).isZero();
+        assertThat(diagnostics.snapshot().processingErrors()).isEqualTo(1);
         client.shutdown();
     }
 

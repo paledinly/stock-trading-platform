@@ -208,7 +208,14 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
             int count = Integer.parseInt(parts[2]);
             var ticks = parser.parseMany(parts[3], count);
             diagnostics.ticksReceived(ticks.size());
-            ticks.forEach(market::onTick);
+            for (var tick : ticks) {
+                try {
+                    market.onTick(tick);
+                } catch (RuntimeException error) {
+                    diagnostics.processingFailed(tick.stockCode(), rootMessage(error));
+                    log.warn("KIS realtime tick processing failed for {}: {}", tick.stockCode(), rootMessage(error));
+                }
+            }
         } catch (RuntimeException error) {
             diagnostics.parseFailed(rootMessage(error));
             log.warn("Ignored invalid KIS realtime message: {}", rootMessage(error));

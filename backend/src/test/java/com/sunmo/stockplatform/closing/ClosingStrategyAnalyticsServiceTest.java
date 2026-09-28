@@ -37,14 +37,14 @@ class ClosingStrategyAnalyticsServiceTest {
         var report = service.analyze(from, to);
 
         assertThat(report.sampleSize()).isEqualTo(3);
-        assertThat(report.population()).isEqualTo("OFFICIAL_FORWARD_SIGNAL_PRICE_OBSERVATION_ONLY");
+        assertThat(report.population()).isEqualTo("OFFICIAL_FORWARD_POINT_IN_TIME");
         assertThat(report.scoreBands()).extracting("band").containsExactly("50-59", "60-69");
         assertThat(report.scoreBands().get(1).targetHitRate()).isEqualByComparingTo("50");
         assertThat(report.scoreBands().get(1).confidenceLower95()).isNotNull();
         assertThat(report.lossPatterns()).filteredOn(item -> item.code().equals("STOP_HIT"))
                 .singleElement().extracting("count").isEqualTo(2);
         assertThat(report.warnings()).contains("공식 전진 표본이 30건 미만이므로 결과는 탐색적으로만 해석하세요.");
-        assertThat(report.warnings()).contains("신호가격 기준 시장 관측이며 실제 또는 모의 체결 순수익이 아닙니다.");
+        assertThat(report.warnings()).contains("검증된 비용 설정이 적용된 공식 가상체결 순수익 표본이 없습니다.");
         assertThat(report.oosValidation().status()).isEqualTo("INSUFFICIENT_SAMPLE");
         assertThat(report.oosValidation().splitDate()).isEqualTo(LocalDate.of(2026, 9, 15));
         assertThat(report.oosValidation().development().sampleSize()).isEqualTo(2);

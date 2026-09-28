@@ -1,0 +1,18 @@
+QUERY: select source,count(*) n,count(*) filter(where (start_time at time zone 'Asia/Seoul')::time=time '15:30') closing_bucket from stock_candle where timeframe='5M' group by 1
+source	n	closing_bucket
+BACKFILL	3828	0
+REALTIME	34694	0
+QUERY: select count(distinct stock_id) detection_stocks from scanner_detection
+detection_stocks
+46
+QUERY: select count(*) n,count(*) filter(where feature_snapshot::jsonb->>'tradingHalted'='true') halt_feature from closing_recommendation
+n	halt_feature
+49	0
+QUERY: select version,description,success from flyway_schema_history order by installed_rank desc limit 3
+version	description	success
+23	record detection receipt time	t
+22	preserve closing runs and observation quality	t
+21	add broad quote source	t
+QUERY: select count(*) n, count(*) filter(where (r.candidate_observed_at at time zone 'Asia/Seoul')::time>time '15:00') after_cutoff,count(*) filter(where r.generated_at>(r.recommendation_date+time '15:20') at time zone 'Asia/Seoul') generated_after_deadline from closing_recommendation r join overnight_performance p on p.closing_recommendation_id=r.id where p.status='COMPLETED'
+n	after_cutoff	generated_after_deadline
+38	16	38

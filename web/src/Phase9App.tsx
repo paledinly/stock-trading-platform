@@ -41,8 +41,8 @@ function scannerTypeLabel(value: string) {
     TURNOVER_BREAKOUT: '회전율 돌파',
     HIGH_BREAKOUT: '고가 돌파',
     VWAP_BREAKOUT: '평균가 돌파',
-    VWAP_RECLAIM: '평균가 회복',
-    PULLBACK_REBREAK: '눌림 후 재돌파',
+    VWAP_RECLAIM: 'VWAP 상단·상승 동시 충족',
+    PULLBACK_REBREAK: '동일 봉 VWAP 접촉·고점 상회',
   }
   return labels[value] ?? value
 }

@@ -34,7 +34,7 @@ public class OpportunityRiskScorer {
         risk.put("farFromDayHigh",
                 cap(mult(positive(sub(value(feature == null ? null : feature.dayHighDistanceRate()), bd("2"))), "5"),
                         "15"));
-        risk.put("sellPressure", sellPressure(feature));
+        risk.put("lastTickSellImbalance", sellPressure(feature));
 
         return new OpportunityRiskScore(total(opportunity), total(risk), Map.copyOf(opportunity), Map.copyOf(risk),
                 OpportunityRiskScore.VERSION);

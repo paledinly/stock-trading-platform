@@ -37,7 +37,7 @@ class ClosingPrecisionEvaluatorTest {
     void sameAssessmentControlsRankingAndExcludesLateCandleRevision() {
         ScannerDetection signal = signal(AS_OF);
         DailyMovingAverageFeature ready = dailyReady();
-        when(daily.calculate(signal)).thenReturn(ready);
+        when(daily.calculate(signal, AS_OF.plusSeconds(10))).thenReturn(ready);
         when(scorer.score(eq(signal), any(), any())).thenReturn(new ScoreResult(new BigDecimal("70"), "{}", "{}"));
         List<StockCandle> rows = java.util.stream.IntStream.range(0, 4)
                 .mapToObj(index -> candle(AS_OF.minus(Duration.ofMinutes(20 - index * 5L)),
@@ -63,7 +63,7 @@ class ClosingPrecisionEvaluatorTest {
     void unrelatedLateBackfillDoesNotInvalidateRequiredCandles() {
         ScannerDetection signal = signal(AS_OF);
         DailyMovingAverageFeature ready = dailyReady();
-        when(daily.calculate(signal)).thenReturn(ready);
+        when(daily.calculate(signal, AS_OF.plusSeconds(10))).thenReturn(ready);
         when(scorer.score(eq(signal), any(), any())).thenReturn(new ScoreResult(new BigDecimal("70"), "{}", "{}"));
         List<StockCandle> required = java.util.stream.IntStream.range(0, 4)
                 .mapToObj(index -> candle(AS_OF.minus(Duration.ofMinutes(20 - index * 5L)), AS_OF.minusSeconds(1)))
@@ -83,7 +83,7 @@ class ClosingPrecisionEvaluatorTest {
     void missingDailyHistoryAndLatestRejectedSignalCannotReuseOlderSignal() {
         ScannerDetection old = signal(AS_OF.minus(Duration.ofMinutes(10)));
         ScannerDetection latest = signal(AS_OF);
-        when(daily.calculate(latest)).thenReturn(DailyMovingAverageFeature.empty(0));
+        when(daily.calculate(latest, AS_OF.plusSeconds(10))).thenReturn(DailyMovingAverageFeature.empty(0));
         when(scorer.score(eq(latest), any(), any())).thenReturn(new ScoreResult(new BigDecimal("80"), "{}", "{}"));
 
         var representatives = evaluator.representatives(List.of(old, latest), FROM, AS_OF,
@@ -99,7 +99,7 @@ class ClosingPrecisionEvaluatorTest {
     void weakDailyTrendAndStaleLatestCandleAreNotQualified() {
         ScannerDetection signal = signal(AS_OF.minus(Duration.ofMinutes(15)));
         DailyMovingAverageFeature ready = dailyReady();
-        when(daily.calculate(signal)).thenReturn(ready);
+        when(daily.calculate(signal, AS_OF.plusSeconds(10))).thenReturn(ready);
         when(scorer.score(eq(signal), any(), any())).thenReturn(new ScoreResult(new BigDecimal("80"), "{}", "{}"));
         List<StockCandle> oldCandles = java.util.stream.IntStream.range(0, 4)
                 .mapToObj(index -> candle(signal.getDetectedAt().minus(Duration.ofMinutes(20 - index * 5L)),
@@ -112,7 +112,7 @@ class ClosingPrecisionEvaluatorTest {
 
         DailyMovingAverageFeature weak = dailyReady();
         when(weak.ma20Rising()).thenReturn(false);
-        when(daily.calculate(signal)).thenReturn(weak);
+        when(daily.calculate(signal, AS_OF.plusSeconds(10))).thenReturn(weak);
         assertThat(evaluator.assess(signal, FROM, AS_OF, BigDecimal.ZERO, new BigDecimal("100")).reason())
                 .isEqualTo("DAILY_TREND_WEAK");
     }
@@ -121,7 +121,7 @@ class ClosingPrecisionEvaluatorTest {
     void liquidityAndOverextensionCannotBeHiddenByHighScore() {
         ScannerDetection signal = signal(AS_OF);
         DailyMovingAverageFeature ready = dailyReady();
-        when(daily.calculate(signal)).thenReturn(ready);
+        when(daily.calculate(signal, AS_OF.plusSeconds(10))).thenReturn(ready);
         when(scorer.score(eq(signal), any(), any())).thenReturn(new ScoreResult(new BigDecimal("95"), "{}", "{}"));
         List<StockCandle> rows = java.util.stream.IntStream.range(0, 4)
                 .mapToObj(index -> candle(AS_OF.minus(Duration.ofMinutes(20 - index * 5L)), AS_OF))
@@ -137,6 +137,23 @@ class ClosingPrecisionEvaluatorTest {
                 .isEqualTo("OVEREXTENDED");
     }
 
+    @Test
+    void missingReceiptOrCandleTimestampIsNotTreatedAsPointInTimeVerified() {
+        ScannerDetection signal = signal(AS_OF);
+        when(signal.getReceivedAt()).thenReturn(null);
+        DailyMovingAverageFeature ready = dailyReady();
+        when(daily.calculate(signal, AS_OF.plusSeconds(10))).thenReturn(ready);
+        when(scorer.score(eq(signal), any(), any())).thenReturn(new ScoreResult(new BigDecimal("70"), "{}", "{}"));
+        StockCandle timestampMissing = candle(AS_OF.minus(Duration.ofMinutes(5)), null);
+        when(candles.findByStockIdAndTimeframeAndStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(
+                eq(1L), eq("5M"), eq(FROM), any())).thenReturn(List.of(timestampMissing));
+
+        var assessment = evaluator.assess(signal, FROM, AS_OF, BigDecimal.ZERO, new BigDecimal("100"));
+
+        assertThat(assessment.missingFeatures()).contains("RECEIVED_AT_MISSING", "CANDLE_TIMESTAMP_MISSING");
+        assertThat(assessment.reason()).isEqualTo("RECEIVED_AT_MISSING");
+    }
+
     private ScannerDetection signal(Instant at) {
         Stock stock = mock(Stock.class);
         when(stock.getId()).thenReturn(1L);
@@ -150,7 +167,7 @@ class ClosingPrecisionEvaluatorTest {
         when(detection.getVolumeRatio()).thenReturn(BigDecimal.ONE);
         when(detection.getDetectedPrice()).thenReturn(new BigDecimal("10000"));
         when(detection.getDailyValue()).thenReturn(new BigDecimal("2000000000"));
-        when(detection.getFeatureSnapshot()).thenReturn("{\"vwapDistanceRate\":1,\"dayHighDistanceRate\":1,\"tradeStrength\":100}");
+        when(detection.getFeatureSnapshot()).thenReturn("{\"vwapDistanceRate\":1,\"dayHighDistanceRate\":1,\"tradeStrength\":100,\"tradingHalted\":false}");
         return detection;
     }
 
@@ -167,6 +184,7 @@ class ClosingPrecisionEvaluatorTest {
     private StockCandle candle(Instant start, Instant received) {
         StockCandle candle = mock(StockCandle.class);
         when(candle.getStartTime()).thenReturn(start);
+        when(candle.getCreatedAt()).thenReturn(received);
         when(candle.getUpdatedAt()).thenReturn(received);
         when(candle.isFinalCandle()).thenReturn(true);
         when(candle.getClose()).thenReturn(new BigDecimal("10000"));

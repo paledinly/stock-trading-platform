@@ -1,4 +1,55 @@
 # Architecture
 
-The initial deployment is a domain-oriented Spring Boot modular monolith. React and Flutter call only the backend; KIS credentials remain server-side. PostgreSQL is the system of record and Redis stores ephemeral realtime state.
+## 목적
+
+이 플랫폼은 KIS 국내주식 데이터를 수집하고 5분봉과 Feature를 만든 뒤, 실시간 탐지, 시장 후보, 15시 마감 추천, 익일 성과를 연결하는 연구용 시스템이다. 주문 실행은 범위 밖이다.
+
+## 구성요소
+
+- **Backend**: Java 21과 Spring Boot. 수집, 집계, 평가, 저장, 스케줄과 REST/SSE API를 담당한다.
+- **Web**: React, TypeScript, Vite. 대시보드, 레이더, 시장 스캔, 마감 추천, 성과, 백테스트 화면을 제공한다.
+- **Mobile**: Flutter 보조 클라이언트로 Web보다 기능 범위가 작다.
+- **PostgreSQL**: 종목, 봉, 탐지, 추천, 성과, 거래 기록의 시스템 오브 레코드다.
+- **Redis와 메모리**: 실시간 상태와 캐시용이며 영구 이력의 근거가 아니다.
+- **KIS**: REST 현재가/분봉/일봉/랭킹과 WebSocket 체결 데이터 공급자다.
+
+## 데이터 흐름
+
+1. KIS 체결을 파싱해 원천 거래일·발생시각과 수신시각을 분리한다.
+2. 종목별 체결을 정규장 5분 bucket으로 집계하고 확정봉을 저장한다.
+3. 누적 시세, 확정봉, 일봉으로 시장 Feature를 계산한다.
+4. 관심종목/정밀 구독은 실시간 탐지를, 시장 전체 스캔은 Broad 후보를 만든다.
+5. 마감 추천은 15:00 기준시각과 입력 마감 정책을 만족한 후보를 평가한다.
+6. 추천 이후 가상 진입과 다음 거래일 관측을 별도로 저장해 비용 포함 성과를 계산한다.
+
+## 시간 경계
+
+- 거래 시간대: Asia/Seoul
+- 정규장: 09:00–15:30
+- 정상 5분봉: 09:00부터 15:25 시작까지 78개
+- Feature 기준: 15:00까지 종료된 정보
+- 입력 유예 기본값: 15:00:10까지 실제 수신·확정된 자료
+- 진입 마감 기본값: 15:20
+
+가격 발생시각, 서버 수신시각, 봉 확정시각, 평가 완료시각, 가상 체결시각은 서로 다른 의미다.
+
+## 모듈 경계
+
+Backend의 주요 영역은 stock, watchlist, kis, market, candle, scanner, closing, trade다. market은 수집과 Feature, scanner는 탐지, closing은 15시 평가와 익일 성과를 소유한다.
+
+## 신뢰성 원칙
+
+- 확정봉은 늦은 부분 틱으로 덮어쓰지 않는다.
+- 결측 또는 파싱 실패를 정상값 0으로 조용히 변환하지 않는다.
+- 과거 재생은 당시 사용 가능했던 시각 정보가 확인되는 데이터만 공식 비교에 사용한다.
+- 거래 불가·핵심 결측은 높은 점수로 상쇄하지 않는다.
+- 전략 점수와 확률, 코드 수정과 수익성 검증을 구분한다.
+
+## 관련 문서
+
+- [시장 데이터](MARKET_DATA.md)
+- [데이터베이스](DATABASE.md)
+- [API](API.md)
+- [거래 전략](TRADING_STRATEGY.md)
+- [백테스트](BACKTESTING.md)
 

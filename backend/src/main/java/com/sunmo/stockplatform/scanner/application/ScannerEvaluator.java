@@ -26,20 +26,35 @@ public class ScannerEvaluator {
     }
 
     public Metrics calculate(CandleSnapshot current, List<StockCandle> previous) {
+        if (!current.finalCandle())
+            return new Metrics(false, null, null, null, "CURRENT_WINDOW_INCOMPLETE");
         if (previous.size() < 6)
             return new Metrics(false, null, null, null, "INSUFFICIENT_HISTORY");
-        BigDecimal sum = previous.stream().map(c -> BigDecimal.valueOf(c.getVolume())).reduce(ZERO, BigDecimal::add);
+        List<StockCandle> ordered = previous.stream().sorted(java.util.Comparator.comparing(StockCandle::getStartTime))
+                .toList();
+        java.time.ZoneId marketZone = java.time.ZoneId.of("Asia/Seoul");
+        if (ordered.stream().anyMatch(row -> !row.isFinalCandle()
+                || !row.getStartTime().atZone(marketZone).toLocalDate()
+                        .equals(current.startTime().atZone(marketZone).toLocalDate())))
+            return new Metrics(false, null, null, null, "INVALID_BASELINE");
+        for (int index = 1; index < ordered.size(); index++) {
+            if (!ordered.get(index).getStartTime().equals(ordered.get(index - 1).getStartTime().plusSeconds(300)))
+                return new Metrics(false, null, null, null, "NON_CONTIGUOUS_BASELINE");
+        }
+        if (!ordered.getLast().getStartTime().plusSeconds(300).equals(current.startTime()))
+            return new Metrics(false, null, null, null, "NON_CONTIGUOUS_BASELINE");
+        BigDecimal sum = ordered.stream().map(c -> BigDecimal.valueOf(c.getVolume())).reduce(ZERO, BigDecimal::add);
         BigDecimal average = sum.divide(BigDecimal.valueOf(6), 6, RoundingMode.HALF_UP);
         if (average.signum() == 0)
             return new Metrics(false, null, null, null, "UNDEFINED_BASELINE");
         BigDecimal ratio = BigDecimal.valueOf(current.volume()).divide(average, 6, RoundingMode.HALF_UP);
-        BigDecimal base = previous.getFirst().getClose();
+        BigDecimal base = ordered.getFirst().getClose();
         if (base.signum() <= 0)
             return new Metrics(false, null, ratio, null, "INVALID_BASELINE");
         BigDecimal change = current.close().subtract(base).divide(base, 8, RoundingMode.HALF_UP)
                 .multiply(BigDecimal.valueOf(100)).setScale(6, RoundingMode.HALF_UP);
-        BigDecimal previousHigh = previous.stream().map(StockCandle::getHigh).reduce(BigDecimal::max).orElse(null);
-        BigDecimal previousLow = previous.stream().map(StockCandle::getLow).reduce(BigDecimal::min).orElse(null);
+        BigDecimal previousHigh = ordered.stream().map(StockCandle::getHigh).reduce(BigDecimal::max).orElse(null);
+        BigDecimal previousLow = ordered.stream().map(StockCandle::getLow).reduce(BigDecimal::min).orElse(null);
         return new Metrics(true, change, ratio, change.add(ratio).setScale(6, RoundingMode.HALF_UP),
                 "READY", previousHigh, previousLow);
     }
@@ -59,8 +74,7 @@ public class ScannerEvaluator {
             case MOMENTUM -> atLeast(metrics.volumeRatio(), setting.getMinVolumeRatio())
                     && atLeast(metrics.changeRate(), setting.getMinChangeRate());
             case VOLUME_BREAKOUT ->
-                atLeast(featureValue(feature == null ? null : feature.volumeRatio(), metrics.volumeRatio()),
-                        setting.getMinVolumeRatio());
+                atLeast(metrics.volumeRatio(), setting.getMinVolumeRatio());
             case TURNOVER_BREAKOUT -> feature != null && atLeast(feature.turnoverRatio(), setting.getMinVolumeRatio());
             case HIGH_BREAKOUT -> metrics.previousHigh() != null && current.high().compareTo(metrics.previousHigh()) > 0
                     && atLeast(metrics.changeRate(), setting.getMinChangeRate());
@@ -104,7 +118,7 @@ public class ScannerEvaluator {
 
     private String reason(ScannerSetting setting, Metrics metrics, MarketFeatureSnapshot feature, String state) {
         return "{"
-                + "\"version\":\"scanner-reason-v1\","
+                + "\"version\":\"scanner-reason-v2\","
                 + "\"type\":\"" + setting.getType() + "\","
                 + "\"state\":\"" + state + "\","
                 + "\"changeRate\":\"" + value(metrics.changeRate()) + "\","
@@ -112,7 +126,9 @@ public class ScannerEvaluator {
                 + "\"previousHigh\":\"" + value(metrics.previousHigh()) + "\","
                 + "\"vwap\":\"" + value(feature == null ? null : feature.vwap()) + "\","
                 + "\"vwapDistanceRate\":\"" + value(feature == null ? null : feature.vwapDistanceRate()) + "\","
-                + "\"turnoverRatio\":\"" + value(feature == null ? null : feature.turnoverRatio()) + "\","
+                + "\"fiveMinuteTradingValueRatio\":\"" + value(feature == null ? null : feature.turnoverRatio()) + "\","
+                + "\"orderFlowWindow\":\"LAST_TICK_DELTA\","
+                + "\"triggerSemantics\":\"" + triggerSemantics(setting.getType()) + "\","
                 + "\"tradeStrength\":\"" + value(feature == null ? null : feature.tradeStrength()) + "\","
                 + "\"dayHighDistanceRate\":\"" + value(feature == null ? null : feature.dayHighDistanceRate()) + "\","
                 + "\"featureVersion\":\"" + (feature == null ? "" : feature.featureVersion()) + "\""
@@ -145,5 +161,13 @@ public class ScannerEvaluator {
 
     private String value(BigDecimal value) {
         return value == null ? "" : value.toPlainString();
+    }
+
+    private String triggerSemantics(ScannerType type) {
+        return switch (type) {
+            case VWAP_RECLAIM -> "ABOVE_VWAP_WITH_POSITIVE_WINDOW_CHANGE";
+            case PULLBACK_REBREAK -> "SAME_CANDLE_VWAP_TOUCH_AND_PREVIOUS_HIGH_BREAK";
+            default -> type.name();
+        };
     }
 }

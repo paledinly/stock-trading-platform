@@ -1,0 +1,108 @@
+QUERY: select r.id,r.recommendation_date,s.stock_code,r.rank_no,r.recommendation_score,r.buy_reference_price,r.generated_at,r.candidate_observed_at,r.strategy_version,a.execution_mode,p.status,p.calculation_version,p.next_trading_date,p.expected_session_date,p.open_return_rate,p.close_return_rate,p.max_return_rate,p.max_drawdown_rate,p.target_hit,p.stop_hit,p.target_rate,p.stop_rate from closing_recommendation r join stock s on s.id=r.stock_id join closing_recommendation_run a on a.id=r.run_id left join overnight_performance p on p.closing_recommendation_id=r.id order by r.recommendation_date,r.rank_no
+id	recommendation_date	stock_code	rank_no	recommendation_score	buy_reference_price	generated_at	candidate_observed_at	strategy_version	execution_mode	status	calculation_version	next_trading_date	expected_session_date	open_return_rate	close_return_rate	max_return_rate	max_drawdown_rate	target_hit	stop_hit	target_rate	stop_rate
+1	2026-09-04	058470	1	56.002	66800.0000	2026-09-04 07:55:02.054605+00	2026-09-04 06:14:18.139441+00	closing-recommendation-v2-ma	LEGACY	COMPLETED	overnight-performance-v1	2026-09-07	NULL	2.245509	2.544910	3.443114	1.347305	t	f	NULL	NULL
+2	2026-09-04	035720	2	52.721	36150.0000	2026-09-04 07:55:02.054605+00	2026-09-04 06:12:57.049071+00	closing-recommendation-v2-ma	LEGACY	COMPLETED	overnight-performance-v1	2026-09-07	NULL	-0.138313	1.244813	1.521438	-0.829876	f	f	NULL	NULL
+3	2026-09-04	010140	3	52.377	21400.0000	2026-09-04 07:55:02.054605+00	2026-09-04 06:09:53.512247+00	closing-recommendation-v2-ma	LEGACY	COMPLETED	overnight-performance-v1	2026-09-07	NULL	-0.934579	0.000000	0.233645	-1.869159	f	f	NULL	NULL
+57	2026-09-08	058470	1	27.696	70800.0000	2026-09-11 00:13:31.854909+00	2026-09-08 05:49:35.272766+00	closing-recommend-v3-broad-precision	LEGACY	COMPLETED	overnight-performance-v1	2026-09-09	NULL	0.988701	-0.847458	1.271186	-2.118644	f	t	NULL	NULL
+37	2026-09-09	006400	1	81.126	574000.0000	2026-09-09 06:45:05.834376+00	2026-09-09 06:17:55.8697+00	closing-recommend-v3-broad-precision	LEGACY	COMPLETED	overnight-performance-v1	2026-09-10	NULL	-2.613240	-2.264808	0.000000	-3.484321	f	t	NULL	NULL
+38	2026-09-09	247540	2	80.231	115100.0000	2026-09-09 06:45:05.834376+00	2026-09-09 06:17:07.753962+00	closing-recommend-v3-broad-precision	LEGACY	COMPLETED	overnight-performance-v1	2026-09-10	NULL	-2.693310	-2.693310	-0.347524	-4.344049	f	t	NULL	NULL
+39	2026-09-09	051910	3	76.922	286500.0000	2026-09-09 06:45:05.834376+00	2026-09-09 06:00:32.305573+00	closing-recommend-v3-broad-precision	LEGACY	COMPLETED	overnight-performance-v1	2026-09-10	NULL	-1.745201	-1.919721	4.013962	-3.490401	t	t	NULL	NULL
+40	2026-09-09	373220	4	73.763	369500.0000	2026-09-09 06:45:05.834376+00	2026-09-09 05:48:01.914757+00	closing-recommend-v3-broad-precision	LEGACY	COMPLETED	overnight-performance-v1	2026-09-10	NULL	-1.623816	-2.976996	1.217862	-3.112314	f	t	NULL	NULL
+41	2026-09-09	003670	5	73.526	191800.0000	2026-09-09 06:45:05.834376+00	2026-09-09 05:54:47.007254+00	closing-recommend-v3-broad-precision	LEGACY	COMPLETED	overnight-performance-v1	2026-09-10	NULL	-1.929093	-1.564129	2.867570	-2.554745	f	t	NULL	NULL
+42	2026-09-09	178320	6	71.280	36400.0000	2026-09-09 06:45:05.834376+00	2026-09-09 06:19:57.758033+00	closing-recommend-v3-broad-precision	LEGACY	COMPLETED	overnight-performance-v1	2026-09-10	NULL	-1.236264	0.549451	1.098901	-2.472527	f	t	NULL	NULL
+43	2026-09-09	000100	7	65.039	80200.0000	2026-09-09 06:45:05.834376+00	2026-09-09 06:19:00.057402+00	closing-recommend-v3-broad-precision	LEGACY	COMPLETED	overnight-performance-v1	2026-09-10	NULL	-1.371571	-0.997506	-0.872818	-2.618454	f	t	NULL	NULL
+44	2026-09-09	086520	8	60.701	86450.0000	2026-09-09 06:45:05.834376+00	2026-09-09 05:48:01.207658+00	closing-recommend-v3-broad-precision	LEGACY	COMPLETED	overnight-performance-v1	2026-09-10	NULL	-2.024291	-2.486987	-0.751880	-3.643725	f	t	NULL	NULL
+45	2026-09-09	000270	9	57.911	127300.0000	2026-09-09 06:45:05.834376+00	2026-09-09 06:04:38.472105+00	closing-recommend-v3-broad-precision	LEGACY	COMPLETED	overnight-performance-v1	2026-09-10	NULL	-1.178319	-0.706991	0.078555	-1.492537	f	f	NULL	NULL
+46	2026-09-09	196170	10	56.257	279500.0000	2026-09-09 06:45:05.834376+00	2026-09-09 06:14:57.842237+00	closing-recommend-v3-broad-precision	LEGACY	COMPLETED	overnight-performance-v1	2026-09-10	NULL	-1.788909	-1.610018	-0.894454	-3.577818	f	t	NULL	NULL
+58	2026-09-10	247540	1	87.218	115300.0000	2026-09-11 03:13:11.243419+00	2026-09-10 06:15:01.173161+00	closing-recommend-v4-conservative	LEGACY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL
+59	2026-09-10	000100	2	84.165	80200.0000	2026-09-11 03:13:11.243419+00	2026-09-10 06:19:05.918598+00	closing-recommend-v4-conservative	LEGACY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL
+60	2026-09-10	196170	3	83.428	279000.0000	2026-09-11 03:13:11.243419+00	2026-09-10 06:18:32.669037+00	closing-recommend-v4-conservative	LEGACY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL
+61	2026-09-10	086790	4	83.244	135400.0000	2026-09-11 03:13:11.243419+00	2026-09-10 06:14:55.803144+00	closing-recommend-v4-conservative	LEGACY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL
+62	2026-09-10	028260	5	81.873	380500.0000	2026-09-11 03:13:11.243419+00	2026-09-10 06:19:57.392128+00	closing-recommend-v4-conservative	LEGACY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL
+63	2026-09-10	035420	6	81.331	209500.0000	2026-09-11 03:13:11.243419+00	2026-09-10 06:19:44.435521+00	closing-recommend-v4-conservative	LEGACY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL
+64	2026-09-10	086520	7	74.633	86300.0000	2026-09-11 03:13:11.243419+00	2026-09-10 06:18:34.426142+00	closing-recommend-v4-conservative	LEGACY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL
+65	2026-09-10	012450	8	74.489	1070000.0000	2026-09-11 03:13:11.243419+00	2026-09-10 06:18:45.819994+00	closing-recommend-v4-conservative	LEGACY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL
+66	2026-09-10	267260	9	71.459	752000.0000	2026-09-11 03:13:11.243419+00	2026-09-10 06:18:00.171235+00	closing-recommend-v4-conservative	LEGACY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL
+67	2026-09-10	047040	10	67.904	19670.0000	2026-09-11 03:13:11.243419+00	2026-09-10 06:16:11.175942+00	closing-recommend-v4-conservative	LEGACY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL
+78	2026-09-11	009540	1	78.120	366000.0000	2026-09-11 14:02:46.124632+00	2026-09-11 05:53:18.32397+00	closing-recommend-v4-conservative	LEGACY	COMPLETED	overnight-performance-v1	2026-09-14	NULL	-1.775956	-1.366120	-1.229508	-2.185792	f	t	NULL	NULL
+79	2026-09-11	000660	2	78.049	1821000.0000	2026-09-11 14:02:46.124632+00	2026-09-11 05:55:03.24693+00	closing-recommend-v4-conservative	LEGACY	COMPLETED	overnight-performance-v1	2026-09-14	NULL	-5.436573	-5.546403	-5.271829	-6.919275	f	t	NULL	NULL
+80	2026-09-11	047040	3	74.245	19980.0000	2026-09-11 14:02:46.124632+00	2026-09-11 05:54:01.049138+00	closing-recommend-v4-conservative	LEGACY	COMPLETED	overnight-performance-v1	2026-09-14	NULL	-3.753754	-5.355355	-3.203203	-6.006006	f	t	NULL	NULL
+81	2026-09-11	005380	4	68.627	383000.0000	2026-09-11 14:02:46.124632+00	2026-09-11 05:56:32.654612+00	closing-recommend-v4-conservative	LEGACY	COMPLETED	overnight-performance-v1	2026-09-14	NULL	-4.177546	-3.655352	-3.263708	-4.438642	f	t	NULL	NULL
+82	2026-09-11	105560	5	65.888	178300.0000	2026-09-11 14:02:46.124632+00	2026-09-11 05:56:05.994576+00	closing-recommend-v4-conservative	LEGACY	COMPLETED	overnight-performance-v1	2026-09-14	NULL	-0.392597	-0.504767	0.953449	-1.346046	f	f	NULL	NULL
+83	2026-09-11	267260	6	64.550	753000.0000	2026-09-11 14:02:46.124632+00	2026-09-11 05:55:45.834519+00	closing-recommend-v4-conservative	LEGACY	COMPLETED	overnight-performance-v1	2026-09-14	NULL	-3.187251	-1.992032	-1.992032	-3.851262	f	t	NULL	NULL
+84	2026-09-11	373220	7	64.221	361000.0000	2026-09-11 14:02:46.124632+00	2026-09-11 05:53:59.983905+00	closing-recommend-v4-conservative	LEGACY	COMPLETED	overnight-performance-v1	2026-09-14	NULL	-2.354571	-1.800554	-1.662050	-2.908587	f	t	NULL	NULL
+85	2026-09-11	329180	8	62.045	480000.0000	2026-09-11 14:02:46.124632+00	2026-09-11 05:54:00.649362+00	closing-recommend-v4-conservative	LEGACY	COMPLETED	overnight-performance-v1	2026-09-14	NULL	-0.833333	-0.729167	0.000000	-1.666667	f	f	NULL	NULL
+86	2026-09-11	012330	9	61.781	415500.0000	2026-09-11 14:02:46.124632+00	2026-09-11 05:54:17.363564+00	closing-recommend-v4-conservative	LEGACY	COMPLETED	overnight-performance-v1	2026-09-14	NULL	-4.332130	-3.971119	-3.730445	-4.933815	f	t	NULL	NULL
+87	2026-09-11	015760	10	59.425	33300.0000	2026-09-11 14:02:46.124632+00	2026-09-11 05:54:16.934551+00	closing-recommend-v4-conservative	LEGACY	COMPLETED	overnight-performance-v1	2026-09-14	NULL	-3.303303	-4.054054	-2.852853	-4.504505	f	t	NULL	NULL
+98	2026-09-15	052690	1	85.965	146900.0000	2026-09-15 06:27:22.9014+00	2026-09-15 06:04:01.615885+00	closing-recommend-v5-asof	LEGACY	COMPLETED	overnight-performance-v1	2026-09-16	NULL	-0.884956	-4.424779	0.476515	-4.833220	f	t	NULL	NULL
+99	2026-09-15	047040	2	82.793	19240.0000	2026-09-15 06:27:22.9014+00	2026-09-15 06:03:39.706069+00	closing-recommend-v5-asof	LEGACY	COMPLETED	overnight-performance-v1	2026-09-16	NULL	-0.363825	-1.403326	0.519751	-1.611227	f	f	NULL	NULL
+100	2026-09-15	086520	3	78.188	85000.0000	2026-09-15 06:27:22.9014+00	2026-09-15 05:55:00.77441+00	closing-recommend-v5-asof	LEGACY	COMPLETED	overnight-performance-v1	2026-09-16	NULL	-2.000000	-1.529412	-0.235294	-2.470588	f	t	NULL	NULL
+101	2026-09-15	028300	4	76.158	32400.0000	2026-09-15 06:27:22.9014+00	2026-09-15 06:17:59.401118+00	closing-recommend-v5-asof	LEGACY	COMPLETED	overnight-performance-v1	2026-09-16	NULL	0.308642	-1.851852	0.771605	-2.160494	f	t	NULL	NULL
+102	2026-09-15	005490	5	74.400	334500.0000	2026-09-15 06:27:22.9014+00	2026-09-15 05:54:26.835952+00	closing-recommend-v5-asof	LEGACY	COMPLETED	overnight-performance-v1	2026-09-16	NULL	-2.092676	-1.420030	-0.448430	-2.092676	f	t	NULL	NULL
+103	2026-09-15	247540	6	70.928	107300.0000	2026-09-15 06:27:22.9014+00	2026-09-15 05:54:15.018491+00	closing-recommend-v5-asof	LEGACY	COMPLETED	overnight-performance-v1	2026-09-16	NULL	-2.423113	-0.745573	-0.279590	-2.609506	f	t	NULL	NULL
+104	2026-09-15	178320	7	66.382	35600.0000	2026-09-15 06:27:22.9014+00	2026-09-15 06:19:22.203218+00	closing-recommend-v5-asof	LEGACY	COMPLETED	overnight-performance-v1	2026-09-16	NULL	-0.702247	1.544944	1.544944	-1.264045	f	f	NULL	NULL
+105	2026-09-15	051910	8	65.147	274500.0000	2026-09-15 06:27:22.9014+00	2026-09-15 05:56:14.827514+00	closing-recommend-v5-asof	LEGACY	COMPLETED	overnight-performance-v1	2026-09-16	NULL	-2.367942	0.000000	0.546448	-2.550091	f	t	NULL	NULL
+106	2026-09-15	006400	9	64.144	554000.0000	2026-09-15 06:27:22.9014+00	2026-09-15 05:53:16.420449+00	closing-recommend-v5-asof	LEGACY	COMPLETED	overnight-performance-v1	2026-09-16	NULL	-2.707581	-1.444043	-0.902527	-3.790614	f	t	NULL	NULL
+112	2026-09-16	039030	1	90.232	468500.0000	2026-09-16 09:18:09.781692+00	2026-09-16 05:59:46.358728+00	closing-recommend-v5-asof	LEGACY	COMPLETED	overnight-performance-v1	2026-09-17	NULL	0.640342	0.213447	1.387407	-2.988260	f	t	NULL	NULL
+113	2026-09-16	042700	2	88.649	225500.0000	2026-09-16 09:18:09.781692+00	2026-09-16 05:59:34.838136+00	closing-recommend-v5-asof	LEGACY	COMPLETED	overnight-performance-v1	2026-09-17	NULL	0.443459	0.443459	1.108647	-1.330377	f	f	NULL	NULL
+114	2026-09-16	000660	3	87.052	1751000.0000	2026-09-16 09:18:09.781692+00	2026-09-16 06:09:51.659232+00	closing-recommend-v5-asof	LEGACY	COMPLETED	overnight-performance-v1	2026-09-17	NULL	1.370645	0.742433	1.827527	-0.913764	f	f	NULL	NULL
+115	2026-09-16	058470	4	83.927	65950.0000	2026-09-16 09:18:09.781692+00	2026-09-16 06:09:29.454774+00	closing-recommend-v5-asof	LEGACY	COMPLETED	overnight-performance-v1	2026-09-17	NULL	0.833965	1.895375	2.350265	-0.379075	f	f	NULL	NULL
+116	2026-09-16	009150	5	70.709	1378000.0000	2026-09-16 09:18:09.781692+00	2026-09-16 05:52:29.900294+00	closing-recommend-v5-asof	LEGACY	COMPLETED	overnight-performance-v1	2026-09-17	NULL	1.378810	-1.959361	2.249637	-2.685051	f	t	NULL	NULL
+117	2026-09-23	042700	1	86.544	243000.0000	2026-09-23 06:00:23.163875+00	2026-09-23 05:52:24.200536+00	closing-recommend-v8-1500	FORWARD	DATA_INCOMPLETE	overnight-observation-v2	2026-09-24	2026-09-24	NULL	NULL	NULL	NULL	f	f	3.000000	-2.000000
+QUERY: select r.id,r.recommendation_reason,r.risk_reason,r.feature_snapshot,p.expected_session_date,p.session_open,p.session_close,p.observed_through,p.evaluated_at,jsonb_array_length(p.missing_intervals::jsonb) missing_count from closing_recommendation r left join overnight_performance p on p.closing_recommendation_id=r.id where r.strategy_version='closing-recommend-v8-1500'
+id	recommendation_reason	risk_reason	feature_snapshot	expected_session_date	session_open	session_close	observed_through	evaluated_at	missing_count
+117	{"version":"closing-recommend-v8-1500","kind":"recommendation","source":"scanner_detection","scannerType":"VOLUME","detectedAt":"2026-09-23T05:52:24.200536Z","factors":{"baseOpportunity":"21.930","closingRecency":"5.500","liquidity":"15.000","vwapPosition":"4.602","dayHighProximity":"9.179","volumeExpansion":"5.333","intradayBullishAlignment":"8.000","intradayGoldenCross":"0.000","intradayMa20Support":"0.000","dailyTrendAlignment":"8.000","dailyMa20Rising":"5.000","dailyCloseAboveMa20":"4.000"},"feature":{"vwapDistanceRate":"0.920486","dayHighDistanceRate":"0.205339","tradeStrength":"155.7","turnoverRatio":"1.32891"},"intradayMa":{"ready":true,"candleCount":61,"lastClose":"242500.0000","ma5":"242200.000000","ma20":"241837.500000","ma60":"240254.166667","ma5DistanceRate":"0.123865","ma20DistanceRate":"0.273944","ma60DistanceRate":"0.934774","bullishAlignment":true,"goldenCross":false,"ma20Support":false,"ma20Broken":false},"dailyMa":{"ready":true,"candleCount":61,"asOfDate":"2026-09-22","lastClose":"238500.0000","ma5":"232200.000000","ma20":"228925.000000","ma60":"220245.000000","ma5DistanceRate":"2.713178","ma20DistanceRate":"4.182593","ma60DistanceRate":"8.288497","ma20SlopeRate":"0.460779","closeAboveMa20":true,"ma5AboveMa20":true,"ma20Rising":true,"bullishAlignment":true,"overextendedFromMa20":false}}	{"version":"closing-recommend-v8-1500","kind":"risk","source":"scanner_detection","scannerType":"VOLUME","detectedAt":"2026-09-23T05:52:24.200536Z","factors":{"baseRisk":"0.000","vwapOverextension":"0.000","lateNegativeMomentum":"0.000","farFromDayHigh":"0.000","weakTradeStrength":"0.000","intradayMa20Breakdown":"0.000","dailyTrendWeakness":"0.000","dailyMaOverextension":"0.000"},"feature":{"vwapDistanceRate":"0.920486","dayHighDistanceRate":"0.205339","tradeStrength":"155.7","turnoverRatio":"1.32891"},"intradayMa":{"ready":true,"candleCount":61,"lastClose":"242500.0000","ma5":"242200.000000","ma20":"241837.500000","ma60":"240254.166667","ma5DistanceRate":"0.123865","ma20DistanceRate":"0.273944","ma60DistanceRate":"0.934774","bullishAlignment":true,"goldenCross":false,"ma20Support":false,"ma20Broken":false},"dailyMa":{"ready":true,"candleCount":61,"asOfDate":"2026-09-22","lastClose":"238500.0000","ma5":"232200.000000","ma20":"228925.000000","ma60":"220245.000000","ma5DistanceRate":"2.713178","ma20DistanceRate":"4.182593","ma60DistanceRate":"8.288497","ma20SlopeRate":"0.460779","closeAboveMa20":true,"ma5AboveMa20":true,"ma20Rising":true,"bullishAlignment":true,"overextendedFromMa20":false}}	{"stockCode":"042700","businessDate":"2026-09-23","occurredAt":"2026-09-23T05:52:17Z","price":243000,"cumulativeVolume":286399,"cumulativeTradingValue":68960188250,"openPrice":243500,"highPrice":243500,"lowPrice":237000,"vwap":240783.620927,"vwapDistanceRate":0.920486,"vwapSlopeRate":0.001690,"volumeRatio":1.325162,"turnoverRatio":1.328910,"tradeStrength":155.70,"buyVolumeDelta":525,"sellVolumeDelta":0,"buyRatio":0.61,"dayHighDistanceRate":0.205339,"tradingHalted":false,"viStandardPrice":243500,"featureVersion":"market-feature-v1"}	2026-09-24	2026-09-24 00:00:00+00	2026-09-24 06:30:00+00	NULL	2026-09-28 00:24:05.782962+00	79
+QUERY: select id,recommendation_date,execution_mode,generated_at,completed_at,response_snapshot::jsonb->'storedCandidates' selected,response_snapshot::jsonb->'exclusionReasons' excluded from closing_recommendation_run where request_key like 'official-%'
+id	recommendation_date	execution_mode	generated_at	completed_at	selected	excluded
+16	2026-09-22	FORWARD	2026-09-22 06:02:53.014778+00	2026-09-22 06:02:54.99548+00	0	{"BROAD_WATCH_ONLY": 18, "PRECISION_DUPLICATE": 1, "INSUFFICIENT_BROAD_DATA": 44, "RECEIVED_AFTER_EVALUATION": 2, "OPPORTUNITY_OR_RISK_FILTERED": 53}
+27	2026-09-23	FORWARD	2026-09-23 06:00:23.163875+00	2026-09-23 06:00:27.077965+00	1	{"CANDLE_GAP": 1, "BROAD_WATCH_ONLY": 19, "PRECISION_DUPLICATE": 1, "INSUFFICIENT_BROAD_DATA": 48, "RECEIVED_AFTER_EVALUATION": 2, "OPPORTUNITY_OR_RISK_FILTERED": 67}
+QUERY: select count(*) total,count(*) filter(where received_at is null) receipt_null,count(*) filter(where feature_snapshot::jsonb->>'occurredAt' is not null and (feature_snapshot::jsonb->>'occurredAt')::timestamptz>detected_at) feature_after_detection,count(*) filter(where (detected_at at time zone 'Asia/Seoul')::time<=time '15:00' and (feature_snapshot::jsonb->>'occurredAt')::timestamptz>(market_session_date+time '15:00') at time zone 'Asia/Seoul') after_cutoff from scanner_detection
+total	receipt_null	feature_after_detection	after_cutoff
+18174	14056	5485	0
+QUERY: select r.id,count(c.id) candles,min(c.start_time) first_candle,max(c.start_time) last_candle from closing_recommendation r join overnight_performance p on p.closing_recommendation_id=r.id left join stock_candle c on c.stock_id=r.stock_id and c.timeframe='5M' and c.is_final and (c.start_time at time zone 'Asia/Seoul')::date=p.next_trading_date where p.status='COMPLETED' group by r.id order by r.id
+id	candles	first_candle	last_candle
+1	66	2026-09-07 00:00:00+00	2026-09-07 05:25:00+00
+2	66	2026-09-07 00:00:00+00	2026-09-07 05:25:00+00
+3	66	2026-09-07 00:00:00+00	2026-09-07 05:25:00+00
+37	66	2026-09-10 00:00:00+00	2026-09-10 06:15:00+00
+38	66	2026-09-10 00:00:00+00	2026-09-10 06:15:00+00
+39	66	2026-09-10 00:00:00+00	2026-09-10 06:15:00+00
+40	66	2026-09-10 00:00:00+00	2026-09-10 06:15:00+00
+41	66	2026-09-10 00:00:00+00	2026-09-10 06:15:00+00
+42	76	2026-09-10 00:00:00+00	2026-09-10 06:15:00+00
+43	66	2026-09-10 00:00:00+00	2026-09-10 06:15:00+00
+44	66	2026-09-10 00:00:00+00	2026-09-10 06:15:00+00
+45	66	2026-09-10 00:00:00+00	2026-09-10 06:15:00+00
+46	66	2026-09-10 00:00:00+00	2026-09-10 06:15:00+00
+57	76	2026-09-09 00:00:00+00	2026-09-09 06:15:00+00
+78	74	2026-09-14 00:10:00+00	2026-09-14 06:15:00+00
+79	76	2026-09-14 00:00:00+00	2026-09-14 06:15:00+00
+80	74	2026-09-14 00:10:00+00	2026-09-14 06:15:00+00
+81	74	2026-09-14 00:10:00+00	2026-09-14 06:15:00+00
+82	74	2026-09-14 00:10:00+00	2026-09-14 06:15:00+00
+83	74	2026-09-14 00:10:00+00	2026-09-14 06:15:00+00
+84	74	2026-09-14 00:10:00+00	2026-09-14 06:15:00+00
+85	74	2026-09-14 00:10:00+00	2026-09-14 06:15:00+00
+86	74	2026-09-14 00:10:00+00	2026-09-14 06:15:00+00
+87	74	2026-09-14 00:10:00+00	2026-09-14 06:15:00+00
+98	76	2026-09-16 00:00:00+00	2026-09-16 06:15:00+00
+99	76	2026-09-16 00:00:00+00	2026-09-16 06:15:00+00
+100	76	2026-09-16 00:00:00+00	2026-09-16 06:15:00+00
+101	76	2026-09-16 00:00:00+00	2026-09-16 06:15:00+00
+102	76	2026-09-16 00:00:00+00	2026-09-16 06:15:00+00
+103	76	2026-09-16 00:00:00+00	2026-09-16 06:15:00+00
+104	76	2026-09-16 00:00:00+00	2026-09-16 06:15:00+00
+105	76	2026-09-16 00:00:00+00	2026-09-16 06:15:00+00
+106	76	2026-09-16 00:00:00+00	2026-09-16 06:15:00+00
+112	76	2026-09-17 00:00:00+00	2026-09-17 06:15:00+00
+113	76	2026-09-17 00:00:00+00	2026-09-17 06:15:00+00
+114	78	2026-09-17 00:00:00+00	2026-09-17 06:25:00+00
+115	76	2026-09-17 00:00:00+00	2026-09-17 06:15:00+00
+116	76	2026-09-17 00:00:00+00	2026-09-17 06:15:00+00
+QUERY: select count(*) rows,count(*) filter(where (candidate_observed_at at time zone 'Asia/Seoul')::time>time '15:00') after_1500,count(*) filter(where (generated_at at time zone 'Asia/Seoul')::date>recommendation_date) generated_later from closing_recommendation where strategy_version<>'closing-recommend-v8-1500'
+rows	after_1500	generated_later
+48	26	11
+QUERY: select (start_time at time zone 'Asia/Seoul')::date d,timeframe,count(*) n from stock_candle where start_time>='2026-09-23' group by 1,2 order by 1,2
+d	timeframe	n
+2026-09-23	5M	3260
+2026-09-28	5M	328

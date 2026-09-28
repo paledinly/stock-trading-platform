@@ -6,7 +6,7 @@ import './phase6.css'
 type ScannerType = 'VOLUME' | 'PRICE_RISE' | 'MOMENTUM' | 'VOLUME_BREAKOUT' | 'TURNOVER_BREAKOUT' | 'HIGH_BREAKOUT' | 'VWAP_BREAKOUT' | 'VWAP_RECLAIM' | 'PULLBACK_REBREAK'
 type Detection = { id: number; eventId: string; scannerType: ScannerType; stockCode: string; stockName: string; market: string; detectedAt: string; detectedPrice: number; fiveMinuteChangeRate: number; volumeRatio: number; currentFiveMinuteVolume: number; currentFiveMinuteTradingValue: number; dailyTradingValue: number; momentumScore: number; opportunityScore?: number; riskScore?: number; scoreVersion?: string; scoreBreakdown?: string; settingName: string; settingSnapshot: string; featureVersion?: string; featureSnapshot?: string; detectionReason?: string }
 type Setting = { id: number; name: string; type: ScannerType; minChangeRate: number; minVolumeRatio: number; minFiveMinuteTradingValue: number; minDailyTradingValue: number; minPrice: number; includeEtf: boolean; cooldownSeconds: number; active: boolean; version: number }
-type Status = { realtime?: { connected: boolean; lastTickAt?: string; lastDetectionAt?: string; receivedTicks?: number; parseErrors?: number; featureSnapshots?: number; featureTrackedStocks?: number }; redisStatus?: string; subscriptionCount?: number; subscriptionLimit?: number; subscriptionRemaining?: number }
+type Status = { realtime?: { connected: boolean; lastTickAt?: string; lastDetectionAt?: string; receivedTicks?: number; parseErrors?: number; processingErrors?: number; featureSnapshots?: number; featureTrackedStocks?: number }; redisStatus?: string; subscriptionCount?: number; subscriptionLimit?: number; subscriptionRemaining?: number }
 type Candle = { startTime: string; open: number; high: number; low: number; close: number; volume: number; tradingValue: number; finalCandle: boolean; revision: number }
 type Trade = { id: number; stockCode: string; tradeType: 'BUY' | 'SELL'; tradedAt: string; price: number }
 type Performance = { status: string; return5m?: number; return10m?: number; return30m?: number; return60m?: number; returnClose?: number; maxReturn?: number; maxDrawdown?: number }
@@ -21,8 +21,8 @@ const tabs = [
   ['TURNOVER_BREAKOUT', '회전율 돌파'],
   ['HIGH_BREAKOUT', '고가 돌파'],
   ['VWAP_BREAKOUT', '평균가 돌파'],
-  ['VWAP_RECLAIM', '평균가 회복'],
-  ['PULLBACK_REBREAK', '눌림 후 재돌파'],
+  ['VWAP_RECLAIM', 'VWAP 상단·상승 동시 충족'],
+  ['PULLBACK_REBREAK', '동일 봉 VWAP 접촉·고점 상회'],
 ] as const
 
 const emptySetting: Setting = {
@@ -270,6 +270,7 @@ function StatusCard({ status }: { status?: Status }) {
       <span>구독 {status?.subscriptionCount ?? 0}/{status?.subscriptionLimit ?? 0}</span>
       <span>실시간 캐시 {status?.redisStatus ?? '--'}</span>
       <span>수신 체결 {(realtime?.receivedTicks ?? 0).toLocaleString('ko-KR')}</span>
+      <span>파싱 오류 {(realtime?.parseErrors ?? 0).toLocaleString('ko-KR')} · 처리 오류 {(realtime?.processingErrors ?? 0).toLocaleString('ko-KR')}</span>
     </aside>
   )
 }

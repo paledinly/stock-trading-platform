@@ -83,10 +83,11 @@ public class ClosingRecommendationService {
                     com.sunmo.stockplatform.common.error.ErrorCode.INVALID_REQUEST,
                     org.springframework.http.HttpStatus.BAD_REQUEST, "Future recommendation date is not allowed");
         Instant decisionAt = targetDate.atTime(properties.featureFreezeAt()).atZone(MARKET_ZONE).toInstant();
+        Instant inputReceiptDeadline = decisionAt.plus(properties.candleFinalizationGrace());
         Instant entryDeadline = targetDate.atTime(properties.entryDeadline()).atZone(MARKET_ZONE).toInstant();
         boolean today = targetDate.equals(calendar.today());
-        if (today && generatedAt.isBefore(decisionAt))
-            throw invalid("15:00 판단 시각 이전에는 후보 평가를 실행할 수 없습니다");
+        if (today && generatedAt.isBefore(inputReceiptDeadline))
+            throw invalid("15:00 기준 입력 수신 유예가 끝나기 전에는 후보 평가를 실행할 수 없습니다");
         String mode = today && calendar.isTradingDay(targetDate) && !generatedAt.isAfter(entryDeadline)
                 ? "FORWARD" : "REPLAY";
         if ("FORWARD".equals(mode)) {
@@ -112,9 +113,12 @@ public class ClosingRecommendationService {
         criteria.put("limit", safeLimit);
         criteria.put("evaluationStart", properties.evaluationStart().toString());
         criteria.put("featureFreezeAt", properties.featureFreezeAt().toString());
+        criteria.put("featureCutoffInstant", decisionAt.toString());
+        criteria.put("inputReceiptDeadlineInstant", inputReceiptDeadline.toString());
         criteria.put("entryDeadline", properties.entryDeadline().toString());
         criteria.put("candleFinalizationGraceSeconds", properties.candleFinalizationGrace().toSeconds());
         criteria.put("entryModel", "NEXT_FINAL_5M_OPEN");
+        criteria.put("calendarSource", "WEEKEND_CONFIGURED_AND_VERIFIED_SPECIAL_CLOSURES");
         String settings = serialize(criteria);
         String hash = sha256(settings);
         String key = requestKey == null ? UUID.randomUUID().toString() : requestKey;

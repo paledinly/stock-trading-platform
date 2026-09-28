@@ -1,0 +1,11 @@
+ALTER TABLE overnight_performance ADD COLUMN virtual_entry_at timestamp with time zone;
+ALTER TABLE overnight_performance ADD COLUMN virtual_entry_price numeric(20,4);
+ALTER TABLE overnight_performance ADD COLUMN execution_exit_at timestamp with time zone;
+ALTER TABLE overnight_performance ADD COLUMN execution_exit_price numeric(20,4);
+ALTER TABLE overnight_performance ADD COLUMN gross_return_rate numeric(12,6);
+ALTER TABLE overnight_performance ADD COLUMN net_return_rate numeric(12,6);
+ALTER TABLE overnight_performance ADD COLUMN execution_exit_reason varchar(40);
+ALTER TABLE overnight_performance ADD COLUMN execution_ambiguous boolean NOT NULL DEFAULT false;
+ALTER TABLE overnight_performance ADD COLUMN execution_model_version varchar(40);
+ALTER TABLE overnight_performance ADD COLUMN cost_assumption text NOT NULL DEFAULT '{}';
+ALTER TABLE overnight_performance ADD COLUMN cost_status varchar(40) NOT NULL DEFAULT 'NOT_EVALUATED';

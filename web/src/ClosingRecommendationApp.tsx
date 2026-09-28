@@ -97,6 +97,17 @@ type OvernightPerformance = {
   stopHit: boolean
   status: string
   calculationVersion: string
+  virtualEntryAt?: string | null
+  virtualEntryPrice?: number | null
+  executionExitAt?: string | null
+  executionExitPrice?: number | null
+  grossReturnRate?: number | null
+  netReturnRate?: number | null
+  executionExitReason?: string | null
+  executionAmbiguous?: boolean
+  executionModelVersion?: string | null
+  costAssumption?: string
+  costStatus?: string
 }
 
 type TrackPerformanceResponse = {
@@ -267,6 +278,8 @@ type StrategyAnalytics = {
   generatedAt: string
   sampleSize: number
   population: string
+  netExecutionSampleSize: number
+  averageNetReturn: number | null
   targetRates: number[]
   warnings: string[]
   scoreBands: Array<{
@@ -390,8 +403,8 @@ function scannerTypeLabel(value: string | null) {
     TURNOVER_BREAKOUT: '회전율 돌파',
     HIGH_BREAKOUT: '고가 돌파',
     VWAP_BREAKOUT: '평균가 돌파',
-    VWAP_RECLAIM: '평균가 회복',
-    PULLBACK_REBREAK: '눌림 후 재돌파',
+    VWAP_RECLAIM: 'VWAP 상단·상승 동시 충족',
+    PULLBACK_REBREAK: '동일 봉 VWAP 접촉·고점 상회',
   }
   return labels[value] ?? value
 }
@@ -745,7 +758,7 @@ export function ClosingRecommendationPage({ back, advanced = false }: { back: ()
         </section>}
         <section className="menuGuide">
           <h2>사용 안내</h2>
-          <p>성과는 신호 가격 대비 시장 관측값이며 실제 체결 손익이 아닙니다. 장중 관측과 최종 종가를 구분하며, 기존 계산 기록은 보존됩니다.</p>
+          <p>시장 관측과 가상 체결은 분리됩니다. 가상 진입가는 추천 완료 후 첫 확정 5분봉 시가이며, 비용이 검증되지 않으면 순수익을 표시하지 않습니다.</p>
         </section>
         {generate.error && <div className="closingEmpty">{generate.error.message}</div>}
         {track.error && <div className="closingEmpty">{track.error.message}</div>}
@@ -915,7 +928,7 @@ function OosValidationPanel({ value }: { value: StrategyAnalytics['oosValidation
   if (!value) return null
   const featureLabels: Record<string, string> = {
     vwapDistanceRate: 'VWAP 이격률', dayHighDistanceRate: '당일 고가 거리',
-    tradeStrength: '체결강도', turnoverRatio: '회전율',
+  tradeStrength: '체결강도', turnoverRatio: '5분 거래대금 배수',
   }
   return <>
     <h3>시간순 표본 외 검증</h3>
@@ -1061,7 +1074,7 @@ function StrategySummaryPanel({ summaries }: { summaries: OvernightExitStrategyS
           <small>매도 전략 비교</small>
           <b>보유 연장 백테스트</b>
         </span>
-        <small>목표/손절 동시 도달은 보수적으로 손절 처리 · 비용 미설정 시 순수익은 총수익과 동일</small>
+        <small>목표/손절 동시 도달은 보수적으로 손절 처리 · 비용 미설정 시 순수익은 미검증으로 표시</small>
       </div>
       <div className="strategyRows">
         {summaries.map(item => (
@@ -1212,6 +1225,10 @@ function PerformancePanel({ performance }: { performance?: OvernightPerformance 
       <span><small>{legacy ? '기존 마지막 관측' : '최종 종가'}</small><b className={(performance.closeReturnRate ?? 0) >= 0 ? 'gain' : 'loss'}>{pct(performance.closeReturnRate)}</b></span>
       <span><small>관측 구간 내 도달</small><b>{hitLabel(performance.targetHit, performance.stopHit)}</b></span>
       {!legacy && <span><small>고정 관측 기준</small><b>목표 {pct(performance.targetRate ?? null)} / 손절 {pct(performance.stopRate ?? null)}</b></span>}
+      {!legacy && <span><small>가상 진입가</small><b>{performance.virtualEntryPrice == null ? '--' : `${money(performance.virtualEntryPrice)}원`}</b></span>}
+      {!legacy && <span><small>가상 체결 총수익</small><b>{pct(performance.grossReturnRate ?? null)}</b></span>}
+      {!legacy && <span><small>비용 반영 순수익</small><b>{performance.netReturnRate == null ? '미검증' : pct(performance.netReturnRate)}</b></span>}
+      {!legacy && <span><small>비용 상태</small><b>{performance.costStatus ?? 'NOT_EVALUATED'}</b></span>}
     </div>
     {missing.length > 0 && <details className="observationGaps"><summary>누락·중복 구간 {missing.length}개</summary>
       <ul>{missing.map(at => <li key={at}>{new Date(at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}</li>)}</ul>

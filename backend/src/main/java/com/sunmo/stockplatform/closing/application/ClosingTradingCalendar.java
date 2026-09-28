@@ -4,10 +4,14 @@ import com.sunmo.stockplatform.market.config.MarketWideScheduleProperties;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import java.time.*;
+import java.util.Set;
 
 @Component
 public class ClosingTradingCalendar {
     public static final ZoneId ZONE = ZoneId.of("Asia/Seoul");
+    // KRX closures confirmed for the audited period. Additional closures remain configurable.
+    private static final Set<LocalDate> VERIFIED_SPECIAL_CLOSURES = Set.of(
+            LocalDate.of(2026, 9, 24), LocalDate.of(2026, 9, 25));
     private final MarketWideScheduleProperties schedule;
     private final Clock clock;
 
@@ -26,7 +30,7 @@ public class ClosingTradingCalendar {
 
     public boolean isTradingDay(LocalDate date) {
         return date.getDayOfWeek() != DayOfWeek.SATURDAY && date.getDayOfWeek() != DayOfWeek.SUNDAY
-                && !schedule.holidays().contains(date);
+                && !VERIFIED_SPECIAL_CLOSURES.contains(date) && !schedule.holidays().contains(date);
     }
 
     public LocalDate nextTradingDay(LocalDate date) {

@@ -50,7 +50,10 @@ public class ClosingStrategyAnalyticsService {
                 .filter(Objects::nonNull).map(BigDecimal::stripTrailingZeros)
                 .collect(Collectors.toCollection(TreeSet::new));
         List<String> warnings = new ArrayList<>();
-        warnings.add("신호가격 기준 시장 관측이며 실제 또는 모의 체결 순수익이 아닙니다.");
+        warnings.add("추천 점수는 상승 확률이 아니며 규칙 기반 우선순위입니다.");
+        List<OvernightPerformance> netRows = rows.stream().filter(row -> row.getNetReturnRate() != null).toList();
+        if (netRows.isEmpty())
+            warnings.add("검증된 비용 설정이 적용된 공식 가상체결 순수익 표본이 없습니다.");
         if (rows.size() < 30)
             warnings.add("공식 전진 표본이 30건 미만이므로 결과는 탐색적으로만 해석하세요.");
         if (targetRates.size() > 1)
@@ -60,20 +63,22 @@ public class ClosingStrategyAnalyticsService {
         ContextCoverage context = new ContextCoverage(true, false, false,
                 "시장 구분 성과는 제공하지만 시점별 지수 Regime과 업종 이력 데이터는 아직 없습니다.");
         return new StrategyAnalyticsReport(start, end, calendar.now(), rows.size(),
-                "OFFICIAL_FORWARD_SIGNAL_PRICE_OBSERVATION_ONLY", List.copyOf(targetRates), List.copyOf(warnings),
+                "OFFICIAL_FORWARD_POINT_IN_TIME", netRows.size(), average(netRows, OvernightPerformance::getNetReturnRate),
+                List.copyOf(targetRates), List.copyOf(warnings),
                 scoreBands(rows), segments(rows), lossPatterns(rows), oos, monitoring, context,
-                promotionGate(oos, monitoring, context));
+                promotionGate(oos, monitoring, context, netRows.size()));
     }
 
     private StrategyPromotionGate promotionGate(OosValidation oos, PerformanceMonitoring monitoring,
-            ContextCoverage context) {
+            ContextCoverage context, int netSampleSize) {
         List<ReadinessCheck> checks = List.of(
                 new ReadinessCheck("OFFICIAL_OOS", "공식 시간순 표본 외 검증", "READY".equals(oos.status()),
                         "개발·검증 구간의 최소 표본과 시점 분리가 필요합니다."),
                 new ReadinessCheck("RECENT_STABILITY", "최근 전략 안정성", "OBSERVE".equals(monitoring.status()),
                         "최근 성과 감시가 준비되고 악화 상태가 아니어야 합니다."),
-                new ReadinessCheck("NET_EXECUTION_OUTCOMES", "비용 반영 공식 모의체결 성과", false,
-                        "현재 공식 성과는 신호가격 관측이며 모의 주문·체결 순수익 원장이 없습니다."),
+                new ReadinessCheck("NET_EXECUTION_OUTCOMES", "비용 반영 공식 모의체결 성과", netSampleSize >= 30,
+                        "검증된 비용과 진입가격이 있는 공식 가상체결 표본이 최소 30건 필요합니다. 현재 "
+                                + netSampleSize + "건입니다."),
                 new ReadinessCheck("MARKET_CONTEXT", "시점별 시장·업종 맥락", context.marketRegimeAvailable()
                         && context.sectorHistoryAvailable(), "지수 원시값과 유효기간이 있는 업종 이력이 필요합니다."),
                 new ReadinessCheck("TIMESTAMPED_EVENTS", "공개·수신 시각이 보존된 뉴스·공시", false,
@@ -321,7 +326,8 @@ public class ClosingStrategyAnalyticsService {
     }
 
     public record StrategyAnalyticsReport(LocalDate from, LocalDate to, Instant generatedAt, int sampleSize,
-            String population, List<BigDecimal> targetRates, List<String> warnings, List<ScoreBand> scoreBands,
+            String population, int netExecutionSampleSize, BigDecimal averageNetReturn,
+            List<BigDecimal> targetRates, List<String> warnings, List<ScoreBand> scoreBands,
             List<SegmentSummary> segments, List<LossPattern> lossPatterns, OosValidation oosValidation,
             PerformanceMonitoring monitoring, ContextCoverage contextCoverage,
             StrategyPromotionGate promotionGate) { }

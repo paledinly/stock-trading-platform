@@ -44,6 +44,7 @@ class KisRealtimeTickParserBatchTest {
         fields[12] = volume;
         fields[13] = cumulativeVolume;
         fields[14] = cumulativeValue;
+        fields[33] = "20260923";
         return fields;
     }
 }

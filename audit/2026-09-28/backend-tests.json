@@ -1,0 +1,170 @@
+[
+  {
+    "name": "com.sunmo.stockplatform.candle.CandleBackfillAggregationTest",
+    "tests": 1,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "name": "com.sunmo.stockplatform.candle.CandleGapDetectorTest",
+    "tests": 1,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "name": "com.sunmo.stockplatform.candle.DailyCandleBackfillServiceTest",
+    "tests": 2,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "name": "com.sunmo.stockplatform.candle.DailyCandlePersistenceTest",
+    "tests": 1,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "name": "com.sunmo.stockplatform.candle.FiveMinuteCandleAggregatorTest",
+    "tests": 5,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "name": "com.sunmo.stockplatform.candle.LateTickRevisionTest",
+    "tests": 1,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "name": "com.sunmo.stockplatform.closing.AccountPerformanceCalculatorTest",
+    "tests": 5,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "name": "com.sunmo.stockplatform.closing.ClosingPrecisionEvaluatorTest",
+    "tests": 5,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "name": "com.sunmo.stockplatform.closing.ClosingRecommendationSchedulerTest",
+    "tests": 3,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "name": "com.sunmo.stockplatform.closing.ClosingRecommendationScorerTest",
+    "tests": 7,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "name": "com.sunmo.stockplatform.closing.ClosingRecommendationServiceTest",
+    "tests": 17,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "name": "com.sunmo.stockplatform.closing.ClosingRunMigrationTest",
+    "tests": 1,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "name": "com.sunmo.stockplatform.closing.ClosingStrategyAnalyticsServiceTest",
+    "tests": 3,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "name": "com.sunmo.stockplatform.closing.DailyMovingAverageServiceTest",
+    "tests": 3,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "name": "com.sunmo.stockplatform.closing.IntradayMovingAverageServiceTest",
+    "tests": 4,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "name": "com.sunmo.stockplatform.closing.OvernightBacktestServiceTest",
+    "tests": 4,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "name": "com.sunmo.stockplatform.closing.OvernightExecutionSimulatorTest",
+    "tests": 3,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "name": "com.sunmo.stockplatform.closing.OvernightPerformanceServiceTest",
+    "tests": 5,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "name": "com.sunmo.stockplatform.closing.OvernightPositionDecisionServiceTest",
+    "tests": 2,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "name": "com.sunmo.stockplatform.kis.websocket.KisRealtimeTickParserBatchTest",
+    "tests": 2,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "name": "com.sunmo.stockplatform.kis.websocket.KisRealtimeTickParserTest",
+    "tests": 1,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "name": "com.sunmo.stockplatform.market.feature.MarketFeatureEngineTest",
+    "tests": 5,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "name": "com.sunmo.stockplatform.scanner.OpportunityRiskScorerTest",
+    "tests": 2,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "name": "com.sunmo.stockplatform.scanner.ScannerEvaluatorTest",
+    "tests": 5,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  }
+]

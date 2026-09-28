@@ -24,6 +24,8 @@ class IntradayMovingAverageServiceTest {
         series.add(candle(at, bd("10000")));
         series.forEach(candle -> org.springframework.test.util.ReflectionTestUtils.setField(candle, "updatedAt",
                 candle.getStartTime().plusSeconds(300)));
+        series.forEach(candle -> org.springframework.test.util.ReflectionTestUtils.setField(candle, "createdAt",
+                candle.getStartTime().plusSeconds(300)));
         org.mockito.Mockito.when(repository
                 .findTop61ByStockIdAndTimeframeAndStartTimeLessThanEqualAndFinalCandleTrueOrderByStartTimeDesc(
                         1L, "5M", at.minusSeconds(300))).thenReturn(series);

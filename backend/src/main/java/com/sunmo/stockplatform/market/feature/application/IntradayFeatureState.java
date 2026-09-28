@@ -38,6 +38,11 @@ final class IntradayFeatureState {
     MarketFeatureSnapshot accept(MarketTick tick) {
         if (latest != null && tick.sequence() > 0 && tick.sequence() <= lastSequence)
             return latest;
+        if (latest != null && tick.occurredAt().isBefore(latest.occurredAt()))
+            return latest;
+        if (latest != null && tick.occurredAt().equals(latest.occurredAt())
+                && tick.cumulativeVolume() <= latest.cumulativeVolume())
+            return latest;
         if (businessDate == null || !businessDate.equals(tick.businessDate()))
             reset(tick.businessDate());
         Instant nextBucket = bucketStart(tick.occurredAt());
@@ -46,8 +51,13 @@ final class IntradayFeatureState {
         if (bucketStart == null)
             bucketStart = nextBucket;
         if (nextBucket.isAfter(bucketStart)) {
-            remember(completedVolumes, bucketVolume);
-            remember(completedValues, bucketValue);
+            if (nextBucket.equals(bucketStart.plus(Duration.ofMinutes(5)))) {
+                remember(completedVolumes, bucketVolume);
+                remember(completedValues, bucketValue);
+            } else {
+                completedVolumes.clear();
+                completedValues.clear();
+            }
             bucketStart = nextBucket;
             bucketVolume = 0;
             bucketValue = BigDecimal.ZERO;
@@ -146,7 +156,7 @@ final class IntradayFeatureState {
     }
 
     private BigDecimal ratio(long current, Deque<Long> baseline) {
-        if (baseline.isEmpty())
+        if (baseline.size() < BASELINE_BUCKETS)
             return null;
         long sum = baseline.stream().mapToLong(Long::longValue).sum();
         return sum == 0 ? null
@@ -156,7 +166,7 @@ final class IntradayFeatureState {
     }
 
     private BigDecimal ratio(BigDecimal current, Deque<BigDecimal> baseline) {
-        if (baseline.isEmpty())
+        if (baseline.size() < BASELINE_BUCKETS)
             return null;
         BigDecimal sum = baseline.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
         if (sum.signum() == 0)

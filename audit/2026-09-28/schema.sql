@@ -1,0 +1,2 @@
+select current_timestamp as audited_at, table_name from information_schema.tables where table_schema='public' order by table_name;
+select table_name,column_name,data_type from information_schema.columns where table_schema='public' and table_name in ('closing_recommendation','closing_recommendation_run','overnight_performance','scanner_detection','stock_candle','stock') order by table_name,ordinal_position;

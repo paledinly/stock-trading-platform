@@ -24,15 +24,17 @@ public class OvernightPerformanceService {
     private final StockCandleRepository candles;
     private final ClosingTradingCalendar calendar;
     private final ObjectMapper mapper;
+    private final OvernightExecutionSimulator execution;
 
     public OvernightPerformanceService(ClosingRecommendationRepository recommendations,
             OvernightPerformanceRepository performances, StockCandleRepository candles,
-            ClosingTradingCalendar calendar, ObjectMapper mapper) {
+            ClosingTradingCalendar calendar, ObjectMapper mapper, OvernightExecutionSimulator execution) {
         this.recommendations = recommendations;
         this.performances = performances;
         this.candles = candles;
         this.calendar = calendar;
         this.mapper = mapper;
+        this.execution = execution;
     }
 
     @Transactional
@@ -94,13 +96,15 @@ public class OvernightPerformanceService {
                 .filter(this::validPrices).sorted(Comparator.comparing(StockCandle::getStartTime)).toList();
         Map<Instant, Long> counts = series.stream().collect(Collectors.groupingBy(StockCandle::getStartTime, Collectors.counting()));
         List<Instant> missing = new ArrayList<>();
-        // The aggregator puts the 15:30 closing print in its own bucket; require it too.
-        for (Instant start = open; !start.isAfter(close) && !end(start, close).isAfter(now); start = start.plusSeconds(300)) {
+        // Regular five-minute candles start at 09:00 through 15:25. A 15:30 print is not a new candle.
+        for (Instant start = open; start.isBefore(close) && !end(start, close).isAfter(now); start = start.plusSeconds(300)) {
             if (counts.getOrDefault(start, 0L) != 1) missing.add(start);
         }
         OvernightPerformanceStatus state = now.isBefore(open) ? OvernightPerformanceStatus.PENDING
+                : now.isBefore(close) ? OvernightPerformanceStatus.IN_PROGRESS
+                : series.isEmpty() ? OvernightPerformanceStatus.DATA_MISSING
                 : !missing.isEmpty() ? OvernightPerformanceStatus.DATA_INCOMPLETE
-                : now.isBefore(close) ? OvernightPerformanceStatus.IN_PROGRESS : OvernightPerformanceStatus.COMPLETED;
+                : OvernightPerformanceStatus.COMPLETED;
         BigDecimal base = recommendation.getBuyReferencePrice();
         BigDecimal first = series.isEmpty() || !series.getFirst().getStartTime().equals(open) ? null : series.getFirst().getOpen();
         BigDecimal latest = series.isEmpty() ? null : series.getLast().getClose();
@@ -113,7 +117,34 @@ public class OvernightPerformanceService {
         result.observe(now, series.isEmpty() ? null : end(series.getLast().getStartTime(), close), gaps, state,
                 first, high, low, latest, pct(first, base), pct(latest, base), maximum, minimum,
                 maximum != null && maximum.compareTo(target) >= 0, minimum != null && minimum.compareTo(stop) <= 0);
+        if (state == OvernightPerformanceStatus.COMPLETED)
+            recordOfficialExecution(recommendation, result, series, target, stop);
         return performances.save(result);
+    }
+
+    private void recordOfficialExecution(ClosingRecommendation recommendation, OvernightPerformance result,
+            List<StockCandle> exitSeries, BigDecimal target, BigDecimal stop) {
+        ClosingRecommendationRun run = recommendation.getRun();
+        if (run == null || !"FORWARD".equals(run.getExecutionMode()) || run.getCompletedAt() == null) {
+            result.recordExecution(null, null, null, execution.costAssumption());
+            return;
+        }
+        Instant entryStart = ceilFiveMinutes(run.getCompletedAt());
+        Instant recommendationClose = calendar.close(recommendation.getRecommendationDate());
+        StockCandle entry = candles
+                .findByStockIdAndTimeframeAndStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(
+                        recommendation.getStock().getId(), "5M", entryStart, recommendationClose)
+                .stream().filter(StockCandle::isFinalCandle).filter(this::validPrices).findFirst().orElse(null);
+        BigDecimal entryPrice = entry == null ? null : entry.getOpen();
+        result.recordExecution(entry == null ? null : entry.getStartTime(), entryPrice,
+                entryPrice == null ? null : execution.targetOrStop(entryPrice, exitSeries, target, stop),
+                execution.costAssumption());
+    }
+
+    private Instant ceilFiveMinutes(Instant value) {
+        long seconds = value.getEpochSecond();
+        long rounded = Math.floorDiv(seconds + 299, 300) * 300;
+        return Instant.ofEpochSecond(rounded);
     }
 
     private Instant end(Instant start, Instant close) {

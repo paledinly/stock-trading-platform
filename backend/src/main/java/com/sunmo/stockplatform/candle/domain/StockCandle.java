@@ -74,6 +74,9 @@ public class StockCandle {
             BigDecimal value, boolean done, int revision, CandleSource incoming) {
         if (incoming == CandleSource.BACKFILL && source == CandleSource.REALTIME && finalCandle)
             return;
+        if (incoming == CandleSource.REALTIME && source == CandleSource.REALTIME && finalCandle
+                && revision <= this.revision)
+            return;
         this.open = open;
         this.high = high;
         this.low = low;

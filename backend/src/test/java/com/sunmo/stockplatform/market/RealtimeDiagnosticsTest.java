@@ -19,12 +19,15 @@ class RealtimeDiagnosticsTest {
         diagnostics.subscriptionAcknowledged("005930", true, "SUBSCRIBE SUCCESS");
         diagnostics.messageReceived();
         diagnostics.ticksReceived(2);
+        diagnostics.processingFailed("005930", "test failure");
         diagnostics.featureSnapshot(1);
 
         var snapshot = diagnostics.snapshot();
         assertThat(snapshot.connected()).isTrue();
         assertThat(snapshot.receivedFrames()).isEqualTo(1);
         assertThat(snapshot.receivedTicks()).isEqualTo(2);
+        assertThat(snapshot.parseErrors()).isZero();
+        assertThat(snapshot.processingErrors()).isEqualTo(1);
         assertThat(snapshot.featureSnapshots()).isEqualTo(1);
         assertThat(snapshot.featureTrackedStocks()).isEqualTo(1);
         assertThat(snapshot.subscriptionSuccesses()).isEqualTo(1);

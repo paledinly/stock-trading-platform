@@ -127,7 +127,7 @@ public class OvernightBacktestService {
             Map<LocalDate, List<ScannerDetection>> byDate) {
         List<AlgorithmProfile> profiles = List.of(
                 new AlgorithmProfile("SCANNER_BASELINE", "기존 탐지 점수", minOpportunity, maxRisk),
-                new AlgorithmProfile("CLOSING_NO_MA", "마감 점수", minOpportunity, maxRisk),
+                new AlgorithmProfile("CLOSING_NO_MA_THRESHOLD_55", "이평선 점수·게이트 제거(기준점수 유지)", minOpportunity, maxRisk),
                 new AlgorithmProfile("CLOSING_MA", "마감 점수 + 이평선", minOpportunity, maxRisk),
                 new AlgorithmProfile("CLOSING_MA_STRICT", "보수형 이평선", minOpportunity.add(bd("10")),
                         maxRisk.subtract(bd("10")).max(BigDecimal.ZERO)));
@@ -155,9 +155,12 @@ public class OvernightBacktestService {
         for (LocalDate date = start; !date.isAfter(end); date = date.plusDays(1)) {
             Instant cutoffAt = date.atTime(properties.evaluationStart()).atZone(MARKET_ZONE).toInstant();
             Instant asOf = date.atTime(properties.featureFreezeAt()).atZone(MARKET_ZONE).toInstant();
-            List<ScoredDetection> candidates = precisionEvaluator.representatives(
-                    byDate.getOrDefault(date, List.of()), cutoffAt, asOf,
-                    profile.minOpportunity(), profile.maxRisk()).stream()
+            List<ClosingPrecisionEvaluator.Assessment> assessments = "CLOSING_NO_MA_THRESHOLD_55".equals(profile.code())
+                    ? precisionEvaluator.representativesWithoutMovingAverage(byDate.getOrDefault(date, List.of()),
+                            cutoffAt, asOf, profile.minOpportunity(), profile.maxRisk())
+                    : precisionEvaluator.representatives(byDate.getOrDefault(date, List.of()), cutoffAt, asOf,
+                            profile.minOpportunity(), profile.maxRisk());
+            List<ScoredDetection> candidates = assessments.stream()
                     .filter(row -> row.reason().equals("QUALIFIED"))
                     .filter(row -> !"CLOSING_MA_STRICT".equals(profile.code())
                             || ((Number) row.dataReadiness().getOrDefault("dailyCandles", 0)).intValue() >= 60)
@@ -182,7 +185,7 @@ public class OvernightBacktestService {
                     .setScale(3, RoundingMode.HALF_UP);
             return new ScoreResult(score, "{}", "{}");
         }
-        if ("CLOSING_NO_MA".equals(profile.code())) {
+        if ("CLOSING_NO_MA_THRESHOLD_55".equals(profile.code())) {
             return scorer.score(detection);
         }
         return scorer.score(detection, intradayMa.calculate(detection), dailyMa.calculate(detection));
@@ -365,6 +368,7 @@ public class OvernightBacktestService {
         long targetHits = values.stream().filter(StrategyResult::targetHit).count();
         long stopHits = values.stream().filter(StrategyResult::stopHit).count();
         int ambiguous = (int) values.stream().filter(StrategyResult::ambiguous).count();
+        boolean costsApplied = values.stream().allMatch(StrategyResult::costsApplied);
         return new OvernightExitStrategySummary(
                 strategy,
                 label,
@@ -372,8 +376,8 @@ public class OvernightBacktestService {
                 ratio(wins, values.size()),
                 values.stream().map(StrategyResult::returnRate).reduce(BigDecimal.ZERO, BigDecimal::add)
                         .divide(BigDecimal.valueOf(values.size()), 6, RoundingMode.HALF_UP),
-                values.stream().map(StrategyResult::netReturnRate).reduce(BigDecimal.ZERO, BigDecimal::add)
-                        .divide(BigDecimal.valueOf(values.size()), 6, RoundingMode.HALF_UP),
+                costsApplied ? values.stream().map(StrategyResult::netReturnRate).reduce(BigDecimal.ZERO, BigDecimal::add)
+                        .divide(BigDecimal.valueOf(values.size()), 6, RoundingMode.HALF_UP) : null,
                 avg(evaluations.stream()
                         .map(BacktestEvaluation::row)
                         .filter(row -> "COMPLETED".equals(row.status()))
@@ -381,7 +385,7 @@ public class OvernightBacktestService {
                 ratio(targetHits, values.size()),
                 ratio(stopHits, values.size()),
                 ambiguous,
-                values.stream().anyMatch(StrategyResult::costsApplied),
+                costsApplied,
                 OvernightExecutionSimulator.VERSION);
     }
 

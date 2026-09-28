@@ -1,17 +1,14 @@
-# stock_platform_mobile
+# Mobile Client
 
-A new Flutter project.
+Flutter 기반 보조 클라이언트다. 현재 핵심 운영 화면과 전략 검증 기능은 Web이 우선이며 Mobile은 제한된 조회 기능만 제공한다.
 
-## Getting Started
+## 실행
 
-This project is a starting point for a Flutter application.
+    flutter pub get
+    flutter run
 
-A few resources to get you started if this is your first Flutter project:
+## 테스트
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+    flutter test
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+공통 도메인 규칙과 Backend 실행 방법은 루트 README와 docs를 기준으로 한다.

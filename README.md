@@ -1,314 +1,102 @@
-## 시작
+# Stock Trading Platform
 
-### Bash
+한국투자증권(KIS) 국내주식 시세를 수집해 관심종목, 5분봉, 실시간 탐지, 시장 전체 후보, 15시 마감 추천, 익일 성과와 백테스트를 한 화면에서 확인하는 연구용 플랫폼입니다.
 
-프로젝트 루트에서 환경 파일과 PostgreSQL·Redis를 준비합니다.
+현재 시스템은 실제 주문을 실행하지 않습니다. 추천 점수는 상승 확률이 아니며, 전략 수익성은 충분한 OOS/Forward 표본이 쌓이기 전까지 미검증 상태입니다.
 
-```bash
-cp .env.example .env
-docker compose up -d
-```
+## 주요 기능
 
-Backend를 실행합니다.
+- KIS REST/WebSocket 기반 현재가, 분봉, 일봉, 실시간 체결 수집
+- 관심종목 및 제한된 정밀 실시간 구독 관리
+- 확정 5분봉과 시장 Feature 생성
+- 실시간 레이더와 시장 전체 후보 스캔
+- 15:00 기준 마감 추천과 제외 사유 조회
+- 다음 거래일 성과, 가상 체결 및 비용 포함 순손익 추적
+- 저장된 데이터 기반 전략 재생과 성과 분석
 
-```bash
-cd backend
-./gradlew bootRun
-```
+## 구성
 
-새 터미널에서 Web을 실행합니다.
+- `backend/`: Java 21, Spring Boot, JPA, Flyway, PostgreSQL, Redis
+- `web/`: React 19, TypeScript, Vite, TanStack Query
+- `mobile/`: Flutter 보조 클라이언트
+- `docs/`: 현재 코드의 운영·구조·전략 문서
+- `audit/`: 특정 시점의 재현 자료와 감사 기록
 
-```bash
-cd web
-npm install
-npm run dev
-```
+자세한 구조는 [아키텍처](docs/ARCHITECTURE.md), 전략 의미는 [거래 전략](docs/TRADING_STRATEGY.md)을 참고합니다.
 
-Flutter가 설치되어 있다면 새 터미널에서 Mobile을 실행합니다.
+## 빠른 시작
 
-```bash
-cd mobile
-flutter pub get
-flutter run
-```
+### 1. 환경 파일과 인프라
 
-### Windows PowerShell
-
-프로젝트 루트에서 환경 파일과 PostgreSQL·Redis를 준비합니다.
+프로젝트 루트에서 실행합니다.
 
 ```powershell
-Set-Location D:\sunmo\codexApp\stock-trading-platform
 Copy-Item .env.example .env
 docker compose up -d
 ```
 
-`.env` 값을 현재 PowerShell 프로세스에 적용합니다.
+기본값은 로컬 PostgreSQL과 Redis입니다. Supabase를 사용할 경우 `.env`의 `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`만 Session Pooler 정보로 변경합니다. `.env`는 커밋하지 않습니다.
+
+### 2. Backend
 
 ```powershell
-Get-Content .env |
-    Where-Object { $_ -and -not $_.StartsWith('#') } |
-    ForEach-Object {
-        $name, $value = $_ -split '=', 2
-        [Environment]::SetEnvironmentVariable($name, $value, 'Process')
-    }
-```
-
-같은 PowerShell 창에서 Backend를 실행합니다.
-
-```powershell
-Set-Location D:\sunmo\codexApp\stock-trading-platform\backend
+Set-Location backend
 $env:GRADLE_USER_HOME = "$PWD\.gradle-user-home"
 .\gradlew.bat bootRun
 ```
 
-새 PowerShell 창에서 Web을 실행합니다.
+Health check: `http://localhost:8080/actuator/health`
+
+### 3. Web
 
 ```powershell
-Set-Location D:\sunmo\codexApp\stock-trading-platform\web
+Set-Location web
 npm install --cache .npm-cache
 npm run dev
 ```
 
-Flutter가 설치되어 있다면 새 PowerShell 창에서 Mobile을 실행합니다.
+Vite가 출력한 로컬 주소로 접속합니다.
+
+### 4. Mobile
+
+Flutter가 설치된 경우에만 실행합니다.
 
 ```powershell
-Set-Location D:\sunmo\codexApp\stock-trading-platform\mobile
+Set-Location mobile
 flutter pub get
 flutter run
 ```
 
-Backend health:
-
-```text
-http://localhost:8080/actuator/health
-```
-
-Web:
-
-```text
-http://localhost:5173
-```
-
-## 마감추천 일봉 준비
-
-추천 평가에는 종목별로 전일까지 확정된 `1D` 일봉 21개 이상이 필요합니다. KIS를 활성화하면 관심종목과 최근 탐지 종목의 일봉을 매 거래일 오전 08:10(한국 시간)에 제한적으로 준비합니다. 고급 마감추천 화면의 **일봉 데이터 준비** 버튼으로 수동 실행할 수도 있습니다. 한 번에 최대 40종목을 조회하며, 같은 종목의 실패 재시도에는 기본 1시간 간격을 둡니다.
-
-```dotenv
-KIS_ENABLED=true
-CLOSING_DAILY_BACKFILL_ENABLED=true
-CLOSING_DAILY_BACKFILL_MAX_STOCKS=40
-```
-
-마감 후 준비한 일봉은 다음 거래일 추천에 사용됩니다. 이미 끝난 평가 시각의 추천 결과를 사후 데이터로 승격시키지 않습니다. 일봉이 준비되어도 다른 위험·기회·분봉 조건을 통과하지 못하면 추천 종목은 0개일 수 있습니다. KIS 원주가 일봉을 저장하므로 수정주가 기반 장기 분석과 혼용하지 마세요.
-
-## Supabase DB 사용
-
-로컬 Docker PostgreSQL 대신 Supabase PostgreSQL을 사용할 수 있습니다. Redis는 로컬 Docker 또는 Upstash/VPS Redis를 계속 사용할 수 있습니다.
-
-### `.env` 설정
-
-Supabase Session Pooler를 사용하는 경우 프로젝트 루트의 `.env`에서 DB 설정을 다음 형태로 변경합니다.
-
-```env
-DB_URL=jdbc:postgresql://aws-0-ap-northeast-2.pooler.supabase.com:5432/postgres?sslmode=require
-DB_USERNAME=postgres.umyianworjumpiockbrr
-DB_PASSWORD=Supabase_DB_비밀번호
-```
-
-Direct connection을 사용하는 경우에는 Supabase Dashboard의 host 값을 사용합니다.
-
-```env
-DB_URL=jdbc:postgresql://db.프로젝트_REF.supabase.co:5432/postgres?sslmode=require
-DB_USERNAME=postgres
-DB_PASSWORD=Supabase_DB_비밀번호
-```
-
-> Supabase Direct connection은 IPv6 환경이 필요할 수 있습니다. 로컬 PC나 VPS에서 연결이 되지 않으면 Session Pooler를 사용하세요.
-
-### 테이블 생성
-
-Supabase DB가 비어 있다면 백엔드를 한 번 실행해 Flyway 마이그레이션으로 테이블을 생성합니다.
-
-```powershell
-Set-Location D:\sunmo\codexApp\stock-trading-platform\backend
-.\gradlew.bat bootRun
-```
-
-`flyway_schema_history`는 Flyway가 마이그레이션 실행 이력을 관리하는 테이블입니다. 로컬 데이터를 이관할 때 이 테이블은 제외하고, Supabase에 생성된 이력은 유지합니다.
-
-### 로컬 Docker PostgreSQL 데이터 이관
-
-로컬 PostgreSQL에서 데이터만 dump합니다.
-
-```powershell
-Set-Location D:\sunmo\codexApp\stock-trading-platform
-New-Item -ItemType Directory -Force backup
-docker compose exec postgres sh -c "pg_dump -U stock -d stock_platform --data-only --format=custom --no-owner --no-privileges --exclude-table=flyway_schema_history -f /tmp/stock_data.dump"
-$cid = docker compose ps -q postgres
-docker cp "${cid}:/tmp/stock_data.dump" ".\backup\stock_data.dump"
-```
-
-Supabase에 이미 일부 데이터가 들어갔다면 restore 전에 앱 테이블만 비웁니다. `flyway_schema_history`는 비우지 않습니다.
-
-```sql
-truncate table
-  overnight_position_decision,
-  overnight_performance,
-  closing_recommendation,
-  detection_performance,
-  scanner_detection,
-  stock_candle,
-  market_broad_snapshot,
-  market_wide_scan_run,
-  precision_subscription_session,
-  trade_reason,
-  investment_journal,
-  trade,
-  watchlist_item,
-  watchlist_group,
-  scanner_setting,
-  platform_schema_version,
-  stock
-restart identity cascade;
-```
-
-dump 파일을 Supabase로 restore합니다.
-
-```powershell
-docker run --rm -e PGPASSWORD="Supabase_DB_비밀번호" -v "${PWD}\backup:/backup" postgres:17-alpine pg_restore `
-  --host=aws-0-ap-northeast-2.pooler.supabase.com `
-  --port=5432 `
-  --username=postgres.umyianworjumpiockbrr `
-  --dbname=postgres `
-  --data-only `
-  --no-owner `
-  --no-privileges `
-  /backup/stock_data.dump
-```
-
-> Supabase에서는 일반 사용자가 시스템 FK 트리거를 끌 수 없으므로 `pg_restore --disable-triggers` 옵션을 사용하지 않습니다.
-
-### 이관 확인
-
-Supabase SQL Editor에서 데이터와 용량을 확인합니다.
-
-```sql
-select count(*) from stock;
-select count(*) from stock_candle;
-select count(*) from scanner_detection;
-select count(*) from market_broad_snapshot;
-select count(*) from closing_recommendation;
-select pg_size_pretty(pg_database_size(current_database()));
-```
-
 ## 테스트
 
-### Bash
-
-```bash
-(cd backend && ./gradlew clean test)
-(cd web && npm test && npm run build)
-(cd mobile && flutter test)
-```
-
-### Windows PowerShell
-
 ```powershell
-Set-Location D:\sunmo\codexApp\stock-trading-platform
-
-Push-Location backend
+Set-Location backend
 $env:GRADLE_USER_HOME = "$PWD\.gradle-user-home"
-.\gradlew.bat clean test
-Pop-Location
+.\gradlew.bat test
 
-Push-Location web
+Set-Location ..\web
 npm test
 npm run build
-Pop-Location
-
-Push-Location mobile
-flutter test
-Pop-Location
 ```
 
-## 종료 방법
+## 운영 전 확인
 
-### Bash
+- 실시간 수집은 `MARKET_REALTIME_ENABLED=true`일 때만 동작합니다.
+- KIS WebSocket 구독 기본 한도는 41개이며 관심종목 수와 동일하지 않을 수 있습니다.
+- 자동 시장 스캔, 정밀 구독, 마감 추천 자동화는 기본적으로 비활성화되어 있습니다.
+- 비용 설정이 모두 0이면 가상 체결의 순수익은 검증된 현실 수익으로 취급하지 않습니다.
+- 휴장일 목록과 KIS 호출 한도는 운영 환경에 맞게 확인해야 합니다.
 
-Foreground로 실행한 Backend, Web, Mobile은 해당 터미널에서 `Ctrl+C`를 눌러 종료합니다.
+운영 절차와 장애 확인은 [운영 가이드](docs/OPERATIONS.md)를 참고합니다.
 
-PostgreSQL과 Redis를 종료합니다.
+## 문서
 
-```bash
-docker compose stop
-```
-
-컨테이너까지 제거하되 DB·Redis 데이터는 유지합니다.
-
-```bash
-docker compose down
-```
-
-DB·Redis 데이터 볼륨까지 삭제하려면 다음 명령을 사용합니다.
-
-```bash
-docker compose down --volumes
-```
-
-> `--volumes`를 사용하면 로컬 PostgreSQL과 Redis 데이터가 삭제되므로 주의하세요.
-
-### Windows PowerShell
-
-Foreground로 실행한 프로세스는 각각의 PowerShell 창에서 `Ctrl+C`를 눌러 종료합니다.
-
-- Backend: `gradlew.bat bootRun`을 실행한 창에서 `Ctrl+C`
-- Web: `npm run dev`를 실행한 창에서 `Ctrl+C`
-- Mobile: `flutter run`을 실행한 창에서 `q` 또는 `Ctrl+C`
-
-PostgreSQL과 Redis를 종료합니다.
-
-```powershell
-Set-Location D:\sunmo\codexApp\stock-trading-platform
-docker compose stop
-```
-
-컨테이너까지 제거하되 데이터는 유지합니다.
-
-```powershell
-docker compose down
-```
-
-DB·Redis 데이터 볼륨까지 삭제합니다.
-
-```powershell
-docker compose down --volumes
-```
-
-> `docker compose down --volumes`는 로컬 DB와 Redis 데이터를 삭제합니다.
-
-### 포트가 계속 사용 중일 때
-
-포트를 사용하는 프로세스를 확인합니다.
-
-```powershell
-Get-NetTCPConnection -LocalPort 8080, 5173 |
-    Select-Object LocalPort, State, OwningProcess
-```
-
-프로세스 정보를 확인합니다.
-
-```powershell
-Get-Process -Id <OwningProcess>
-```
-
-필요한 프로세스임을 확인한 후 종료합니다.
-
-```powershell
-Stop-Process -Id <OwningProcess>
-```
-
-정상 종료되지 않을 때만 강제 종료합니다.
-
-```powershell
-Stop-Process -Id <OwningProcess> -Force
-```
+- [개발 가이드](docs/DEVELOPMENT.md)
+- [운영 가이드](docs/OPERATIONS.md)
+- [시장 데이터](docs/MARKET_DATA.md)
+- [데이터베이스](docs/DATABASE.md)
+- [API](docs/API.md)
+- [거래 전략](docs/TRADING_STRATEGY.md)
+- [백테스트와 성과 검증](docs/BACKTESTING.md)
+- [로드맵](docs/ROADMAP.md)
+- [변경 기록](docs/CHANGELOG.md)

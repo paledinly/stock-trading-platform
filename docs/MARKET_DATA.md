@@ -1,5 +1,32 @@
 # Market Data
 
-Phase 5 ingests normalized KIS H0STCNT0 ticks for selected stocks. Tick data remains ephemeral in Redis/process memory; finalized 5-minute candles are persisted in PostgreSQL and streamed to clients through SSE.
+## 공급원
 
-The production WebSocket is enabled with MARKET_REALTIME_ENABLED. Account-specific subscription limits require a market-hours soak test; the service never assumes whole-market subscription capacity.
+- KIS WebSocket: 실시간 체결
+- KIS REST: 현재가, 과거 분봉, 일봉, 거래량/거래대금 랭킹
+- PostgreSQL: 확정봉, 탐지, 추천과 성과 이력
+
+## 실시간 시각
+
+MarketTick은 원천 거래일과 발생시각, 서버 수신시각을 구분한다. 파서가 확인할 수 없는 날짜나 숫자를 현재 날짜 또는 0으로 대체해서는 안 된다. 오류 카운터에는 파싱 외 처리 예외가 포함될 수 있어 전체 틱 손실률과 동일하지 않다.
+
+## 5분봉
+
+정규장 bucket은 09:00부터 15:25까지다. 15:30 종가 체결은 마지막 15:25 봉에 반영한다. 확정 후 도착한 늦은 틱, 중복 틱, 과거 bucket 틱은 확정봉을 부분 데이터로 재생성하지 않는다.
+
+과거 분봉 backfill은 누락 구간 보완용이다. 실시간 당시 수신 여부를 증명하지 못하므로 15시 공식 판단의 원자료로 소급 사용하지 않는다.
+
+## Feature
+
+현재 Feature 버전은 market-feature-v2다. 진행 중 봉과 확정봉은 같은 의미로 비교하지 않는다. 거래량 배수는 동일 길이의 유효 baseline을 요구하며 결측, 재시작, 세션 불연속을 구분한다.
+
+- VWAP은 당일 누적값과 대체값의 품질을 구분한다.
+- 체결강도와 직전 틱 증분은 고정 시간창 지속 수급과 동일하지 않다.
+- 과거 turnoverRatio 이름이 거래대금 배수를 뜻하는 경로가 있어 필드 정의를 확인한다.
+- VI 기준가와 거래정지는 KIS 원천 필드 및 종목 상태와 함께 검증한다.
+
+## 구독과 후보
+
+관심종목은 사용자 목록이고 실시간 구독은 KIS 한도 내 운영 자원이다. Broad 후보는 랭킹과 제한된 상세 현재가 조회로 만들어져 QUOTE_FAILED가 많으면 품질이 낮아질 수 있다. Precision 후보는 제한된 종목을 더 정밀하게 관측한다.
+
+전역 마지막 틱만으로 모든 종목이 최신이라고 판단하지 않는다. 종목별 최신성, 봉 수, 연속성, 확정 여부, 원천/수신 시각과 거래가능 상태를 각각 확인한다.

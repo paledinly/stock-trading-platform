@@ -147,7 +147,11 @@ public final class ClosingRecommendationDtos {
             String calculationVersion,
             LocalDate expectedSessionDate, Instant sessionOpen, Instant sessionClose, Instant observedThrough,
             String missingIntervals, BigDecimal latestPrice, BigDecimal latestReturnRate,
-            BigDecimal targetRate, BigDecimal stopRate, Long runId) {
+            BigDecimal targetRate, BigDecimal stopRate, Long runId,
+            Instant virtualEntryAt, BigDecimal virtualEntryPrice, Instant executionExitAt,
+            BigDecimal executionExitPrice, BigDecimal grossReturnRate, BigDecimal netReturnRate,
+            String executionExitReason, boolean executionAmbiguous, String executionModelVersion,
+            String costAssumption, String costStatus) {
         public static OvernightPerformanceResponse from(OvernightPerformance performance) {
             ClosingRecommendation recommendation = performance.getRecommendation();
             return new OvernightPerformanceResponse(
@@ -175,7 +179,13 @@ public final class ClosingRecommendationDtos {
                     performance.getSessionOpen(), performance.getSessionClose(), performance.getObservedThrough(),
                     performance.getMissingIntervals(), performance.getLatestPrice(), performance.getLatestReturnRate(),
                     performance.getTargetRate(), performance.getStopRate(),
-                    recommendation.getRun() == null ? null : recommendation.getRun().getId());
+                    recommendation.getRun() == null ? null : recommendation.getRun().getId(),
+                    performance.getVirtualEntryAt(), performance.getVirtualEntryPrice(),
+                    performance.getExecutionExitAt(), performance.getExecutionExitPrice(),
+                    performance.getGrossReturnRate(), performance.getNetReturnRate(),
+                    performance.getExecutionExitReason(), performance.isExecutionAmbiguous(),
+                    performance.getExecutionModelVersion(), performance.getCostAssumption(),
+                    performance.getCostStatus());
         }
     }
 

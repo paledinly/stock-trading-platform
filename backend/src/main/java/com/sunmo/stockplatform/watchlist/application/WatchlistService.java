@@ -7,6 +7,8 @@ import com.sunmo.stockplatform.watchlist.api.WatchlistResponse;
 import com.sunmo.stockplatform.watchlist.domain.*;
 import com.sunmo.stockplatform.watchlist.infrastructure.*;
 import com.sunmo.stockplatform.market.application.RealtimeSubscriptionRegistry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -17,6 +19,7 @@ import java.util.stream.Collectors;
 @Service
 @Transactional
 public class WatchlistService {
+    private static final Logger log = LoggerFactory.getLogger(WatchlistService.class);
     private static final long OWNER_ID = 1L;
     private final WatchlistGroupRepository groups;
     private final WatchlistItemRepository items;
@@ -86,7 +89,11 @@ public class WatchlistService {
         try {
             WatchlistResponse.Item result = WatchlistResponse.Item
                     .from(items.save(new WatchlistItem(group, stock, order)));
-            subscriptions.add(stockCode, RealtimeSubscriptionRegistry.Source.WATCHLIST);
+            try {
+                subscriptions.add(stockCode, RealtimeSubscriptionRegistry.Source.WATCHLIST);
+            } catch (IllegalStateException error) {
+                log.warn("Saved watchlist item {} without realtime subscription: {}", stockCode, error.getMessage());
+            }
             return result;
         } catch (DataIntegrityViolationException e) {
             duplicate("Stock is already in this group");

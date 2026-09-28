@@ -52,11 +52,21 @@ public class ClosingPrecisionEvaluator {
 
     public List<Assessment> representatives(List<ScannerDetection> source, Instant from, Instant asOf,
             BigDecimal minOpportunity, BigDecimal maxRisk) {
+        return representatives(source, from, asOf, minOpportunity, maxRisk, true);
+    }
+
+    public List<Assessment> representativesWithoutMovingAverage(List<ScannerDetection> source, Instant from,
+            Instant asOf, BigDecimal minOpportunity, BigDecimal maxRisk) {
+        return representatives(source, from, asOf, minOpportunity, maxRisk, false);
+    }
+
+    private List<Assessment> representatives(List<ScannerDetection> source, Instant from, Instant asOf,
+            BigDecimal minOpportunity, BigDecimal maxRisk, boolean applyMovingAverage) {
         Map<Long, Assessment> selected = new LinkedHashMap<>();
         source.stream().filter(row -> !row.getDetectedAt().isBefore(from) && !row.getDetectedAt().isAfter(asOf))
                 .sorted(Comparator.comparing(ScannerDetection::getDetectedAt).reversed())
                 .forEach(row -> selected.computeIfAbsent(row.getStock().getId(), ignored ->
-                        assess(row, from, asOf, minOpportunity, maxRisk)));
+                        assess(row, from, asOf, minOpportunity, maxRisk, applyMovingAverage)));
         return List.copyOf(selected.values());
     }
 
@@ -71,7 +81,15 @@ public class ClosingPrecisionEvaluator {
 
     public Assessment assess(ScannerDetection detection, Instant from, Instant asOf,
             BigDecimal minOpportunity, BigDecimal maxRisk) {
+        return assess(detection, from, asOf, minOpportunity, maxRisk, true);
+    }
+
+    private Assessment assess(ScannerDetection detection, Instant from, Instant asOf,
+            BigDecimal minOpportunity, BigDecimal maxRisk, boolean applyMovingAverage) {
         List<String> missing = new ArrayList<>();
+        Instant availableBy = asOf.plus(properties.candleFinalizationGrace());
+        boolean haltedAtSignal = false;
+        boolean tradabilityVerified = false;
         if (detection.getOpportunityScore() == null) missing.add("opportunityScore");
         if (detection.getRiskScore() == null) missing.add("riskScore");
         if (detection.getVolumeRatio() == null) missing.add("volumeRatio");
@@ -80,26 +98,34 @@ public class ClosingPrecisionEvaluator {
             for (String field : List.of("vwapDistanceRate", "dayHighDistanceRate", "tradeStrength")) {
                 if (!node.hasNonNull(field) || node.path(field).asText().isBlank()) missing.add(field);
             }
+            haltedAtSignal = node.path("tradingHalted").asBoolean(false);
+            tradabilityVerified = node.hasNonNull("tradingHalted");
         } catch (Exception error) {
             missing.add("featureSnapshot");
         }
+        if (!tradabilityVerified) missing.add("TRADABILITY_UNVERIFIED");
         if (Duration.between(detection.getDetectedAt(), asOf).compareTo(MAX_SIGNAL_AGE) > 0)
             missing.add("STALE_FEATURE");
-        if (detection.getReceivedAt() != null && detection.getReceivedAt().isAfter(asOf))
+        if (detection.getReceivedAt() == null)
+            missing.add("RECEIVED_AT_MISSING");
+        else if (detection.getReceivedAt().isAfter(availableBy))
             missing.add("RECEIVED_AFTER_EVALUATION");
 
         List<StockCandle> session = candles
                 .findByStockIdAndTimeframeAndStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(
                         detection.getStock().getId(), "5M", from, asOf.plusSeconds(1));
-        Instant availableBy = asOf.plus(properties.candleFinalizationGrace());
         Set<Instant> starts = new HashSet<>();
         Set<Instant> unavailableAtEvaluation = new HashSet<>();
+        boolean missingCandleTimestamp = false;
         StockCandle latest = null;
         for (StockCandle candle : session) {
             if (!candle.isFinalCandle() || candle.getStartTime().plus(Duration.ofMinutes(5)).isAfter(asOf))
                 continue;
-            if ((candle.getCreatedAt() != null && candle.getCreatedAt().isAfter(availableBy))
-                    || (candle.getUpdatedAt() != null && candle.getUpdatedAt().isAfter(availableBy))) {
+            if (candle.getCreatedAt() == null || candle.getUpdatedAt() == null) {
+                missingCandleTimestamp = true;
+                continue;
+            }
+            if (candle.getCreatedAt().isAfter(availableBy) || candle.getUpdatedAt().isAfter(availableBy)) {
                 unavailableAtEvaluation.add(candle.getStartTime());
                 continue;
             }
@@ -119,12 +145,14 @@ public class ClosingPrecisionEvaluator {
         boolean lateRevision = unavailableAtEvaluation.contains(firstMissing)
                 || (latestStart != null && unavailableAtEvaluation.stream().anyMatch(start -> start.isAfter(latestStart)));
         if (lateRevision) missing.add("RECEIVED_AFTER_EVALUATION");
+        if (missingCandleTimestamp) missing.add("CANDLE_TIMESTAMP_MISSING");
         if (finalCandles < properties.minimumFinalCandles()) missing.add("CANDLE_GAP");
 
-        IntradayMovingAverageFeature intraday = intradayMa.calculate(detection);
-        DailyMovingAverageFeature daily = dailyMa.calculate(detection);
-        if (daily == null || daily.candleCount() < 21 || !daily.ready()) missing.add("DAILY_DATA_MISSING");
-        if (daily != null && daily.ready() && daily.asOfDate() != null
+        IntradayMovingAverageFeature intraday = intradayMa.calculate(detection, availableBy);
+        DailyMovingAverageFeature daily = dailyMa.calculate(detection, availableBy);
+        if (applyMovingAverage && (daily == null || daily.candleCount() < 21 || !daily.ready()))
+            missing.add("DAILY_DATA_MISSING");
+        if (applyMovingAverage && daily != null && daily.ready() && daily.asOfDate() != null
                 && !daily.asOfDate().equals(calendar.previousTradingDay(detection.getSessionDate())))
             missing.add("DAILY_DATA_STALE");
         boolean dailyTrend = daily != null && daily.ready() && daily.ma20() != null
@@ -139,15 +167,18 @@ public class ClosingPrecisionEvaluator {
         boolean liquid = detection.getDailyValue() != null && latest != null && latest.getTradingValue() != null
                 && detection.getDailyValue().compareTo(MIN_DAILY_VALUE) >= 0
                 && latest.getTradingValue().compareTo(MIN_FIVE_MINUTE_VALUE) >= 0;
-        ScoreResult score = scorer.score(detection,
-                intraday == null ? IntradayMovingAverageFeature.empty(0) : intraday,
-                daily == null ? DailyMovingAverageFeature.empty(0) : daily);
+        ScoreResult score = applyMovingAverage
+                ? scorer.score(detection, intraday == null ? IntradayMovingAverageFeature.empty(0) : intraday,
+                        daily == null ? DailyMovingAverageFeature.empty(0) : daily)
+                : scorer.score(detection);
         Map<String, Object> readiness = new LinkedHashMap<>();
         readiness.put("detectedAt", detection.getDetectedAt().toString());
         readiness.put("receivedAt", detection.getReceivedAt() == null ? null : detection.getReceivedAt().toString());
         readiness.put("evaluatedAsOf", asOf.toString());
-        readiness.put("candleAvailableBy", availableBy.toString());
+        readiness.put("inputReceiptDeadline", availableBy.toString());
+        readiness.put("decisionAvailableAfter", availableBy.toString());
         readiness.put("receiptVerified", detection.getReceivedAt() != null);
+        readiness.put("tradabilityAtSignalVerified", tradabilityVerified);
         readiness.put("lastFinalCandleAt", latest == null ? null : latest.getStartTime().toString());
         readiness.put("finalCandles", finalCandles);
         readiness.put("intradayMaCandles", intraday == null ? 0 : intraday.candleCount());
@@ -168,9 +199,11 @@ public class ClosingPrecisionEvaluator {
         readiness.put("sectorExposure", "UNVERIFIED");
         readiness.put("accountExposure", "UNVERIFIED");
         readiness.put("orderEligible", false);
+        readiness.put("movingAverageExperiment", applyMovingAverage ? "PRODUCTION_BASELINE" : "REMOVED_THRESHOLD_55");
         String reason;
         Stock stock = detection.getStock();
-        if (!stock.isActive() || stock.isManaged() || stock.isTradingHalted() || stock.isEtf() || stock.isEtn())
+        if (!stock.isActive() || stock.isManaged() || stock.isTradingHalted() || haltedAtSignal
+                || stock.isEtf() || stock.isEtn())
             reason = "NOT_TRADABLE";
         else if (detection.getOpportunityScore() == null || detection.getRiskScore() == null
                 || detection.getOpportunityScore().compareTo(minOpportunity) < 0
@@ -178,10 +211,10 @@ public class ClosingPrecisionEvaluator {
             reason = "OPPORTUNITY_OR_RISK_FILTERED";
         else if (!missing.isEmpty()) reason = missing.getFirst();
         else if (finalCandles * 5 < properties.minimumCoverageMinutes()) reason = "INSUFFICIENT_INTRADAY_COVERAGE";
-        else if (!dailyTrend) reason = "DAILY_TREND_WEAK";
+        else if (applyMovingAverage && !dailyTrend) reason = "DAILY_TREND_WEAK";
         else if (!latestFresh) reason = "LATEST_CANDLE_STALE";
         else if (!retained) reason = "INTRADAY_REVERSAL";
-        else if (overextended) reason = "OVEREXTENDED";
+        else if (applyMovingAverage && overextended) reason = "OVEREXTENDED";
         else if (!liquid) reason = "LOW_LIQUIDITY";
         else if (score.score().compareTo(properties.minimumFinalScore()) < 0) reason = "LOW_FINAL_SCORE";
         else reason = "QUALIFIED";

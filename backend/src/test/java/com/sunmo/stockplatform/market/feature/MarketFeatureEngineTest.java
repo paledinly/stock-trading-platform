@@ -29,10 +29,14 @@ class MarketFeatureEngineTest {
 
     @Test
     void calculatesVolumeAndTurnoverRatioFromCompletedBuckets() {
-        engine.onTick(tick("2026-08-18T00:00:01Z", "100", 10, 10, "1000", 1));
+        for (int index = 0; index < 6; index++) {
+            long cumulative = (index + 1L) * 10;
+            engine.onTick(tick(Instant.parse("2026-08-18T00:00:01Z").plusSeconds(index * 300L).toString(),
+                    "100", 10, cumulative, Long.toString(cumulative * 100), index + 1L));
+        }
 
         MarketFeatureSnapshot snapshot = engine.onTick(
-                tick("2026-08-18T00:05:01Z", "110", 30, 40, "4300", 2));
+                tick("2026-08-18T00:30:01Z", "110", 30, 90, "9300", 7));
 
         assertThat(snapshot.volumeRatio()).isEqualByComparingTo("3.000000");
         assertThat(snapshot.turnoverRatio()).isEqualByComparingTo("3.300000");
@@ -67,7 +71,7 @@ class MarketFeatureEngineTest {
 
         String json = new ObjectMapper().findAndRegisterModules().writeValueAsString(snapshot);
 
-        assertThat(json).contains("\"featureVersion\":\"market-feature-v1\"");
+        assertThat(json).contains("\"featureVersion\":\"market-feature-v2\"");
         assertThat(json).contains("\"stockCode\":\"005930\"");
     }
 

@@ -1,0 +1,6 @@
+Audit verification 2026-09-28
+Backend: Gradle selected closing/scanner/market.feature/candle/KisRealtimeTickParser suites, 88 tests / 24 suites, failures 0, errors 0, skipped 0. BUILD SUCCESSFUL.
+Web: npm test, 9 test files / 13 tests passed, duration 16.90s.
+Standalone original-class reproduction: 15:30 tick rejected; same flushed bucket re-emitted with volume 600 -> 50 and revision 0 -> 0.
+Application source and operating configuration: unchanged.
+Database audit: READ ONLY REPEATABLE READ queries, rollback on close. No recommendation generation, no performance mutation, no order.

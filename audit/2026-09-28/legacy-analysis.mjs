@@ -1,0 +1,19 @@
+import fs from 'node:fs';
+function read(file){const text=fs.readFileSync(file,'utf8').replace(/^\uFEFF/,'');const lines=text.split(/\r?\n/);const stop=lines.findIndex((x,i)=>i>0&&x.startsWith('QUERY:'));const part=lines.slice(1,stop<0?undefined:stop).filter(Boolean);const heads=part.shift().split('\t');return part.map(x=>Object.fromEntries(x.split('\t').map((v,i)=>[heads[i],v==='NULL'?null:v])));}
+const rows=read('audit/2026-09-28/outcomes.tsv').filter(r=>r.status==='COMPLETED');const feat=read('audit/2026-09-28/detail.tsv');
+const avg=a=>a.length?a.reduce((a,b)=>a+b,0)/a.length:null;const med=a=>{a=[...a].sort((a,b)=>a-b);return !a.length?null:a.length%2?a[(a.length-1)/2]:(a[a.length/2-1]+a[a.length/2])/2};
+const wilson=(k,n)=>{if(!n)return null;const z=1.96,p=k/n,d=1+z*z/n,c=(p+z*z/(2*n))/d,m=z*Math.sqrt(p*(1-p)/n+z*z/(4*n*n))/d;return [100*(c-m),100*(c+m)];};
+function stats(a){let rets=a.map(r=>+r.close_return_rate),wins=rets.filter(x=>x>0).length;let gain=rets.filter(x=>x>0).reduce((a,b)=>a+b,0),loss=-rets.filter(x=>x<0).reduce((a,b)=>a+b,0);return {n:a.length,days:new Set(a.map(r=>r.recommendation_date)).size,winPct:a.length?100*wins/a.length:null,winCI:wilson(wins,a.length),mean:avg(rets),median:med(rets),p1:a.length?100*a.filter(r=>+r.max_return_rate>=1).length/a.length:null,p2:a.length?100*a.filter(r=>+r.max_return_rate>=2).length/a.length:null,p3:a.length?100*a.filter(r=>+r.max_return_rate>=3).length/a.length:null,mfe:avg(a.map(r=>+r.max_return_rate)),mae:avg(a.map(r=>+r.max_drawdown_rate)),pf:loss?gain/loss:null};}
+const out={population:'LEGACY mixed versions; incomplete sessions; NOT strategy validation',overall:stats(rows),scoreBands:{},ranks:{},thresholds:{},dates:{},versions:{},features:{},markets:{}};
+for(const [lo,hi] of [[0,70],[70,75],[75,80],[80,85],[85,90],[90,95],[95,101]])out.scoreBands[`${lo}-${hi}`]=stats(rows.filter(r=>+r.recommendation_score>=lo&&+r.recommendation_score<hi));
+for(const [lo,hi] of [[1,1],[2,2],[3,3],[4,5],[6,30]])out.ranks[`${lo}-${hi}`]=stats(rows.filter(r=>+r.rank_no>=lo&&+r.rank_no<=hi));
+for(const t of [55,75,80,85,90])out.thresholds[t]=stats(rows.filter(r=>+r.recommendation_score>=t));
+for(const d of [...new Set(rows.map(r=>r.recommendation_date))].sort())out.dates[d]=stats(rows.filter(r=>r.recommendation_date===d));
+for(const v of new Set(rows.map(r=>r.strategy_version)))out.versions[v]=stats(rows.filter(r=>r.strategy_version===v));
+for(const name of ['volume_ratio','daily_trading_value','five_minute_change_rate','trade_strength','vwap_distance','high_distance','turnover']){const a=feat.filter(r=>r[name]!==null);const m=med(a.map(r=>+r[name]));out.features[name]={median:m,low:stats(a.filter(r=>+r[name]<m)),high:stats(a.filter(r=>+r[name]>=m))};}
+for(const market of ['KOSPI','KOSDAQ'])out.markets[market]=stats(feat.filter(r=>r.market===market));
+out.worst10=[...rows].sort((a,b)=>+a.close_return_rate-+b.close_return_rate).slice(0,10).map(r=>({id:r.id,date:r.recommendation_date,code:r.stock_code,close:+r.close_return_rate,open:+r.open_return_rate,mae:+r.max_drawdown_rate}));
+out.entryRelativeOpen={n:rows.length,up:rows.filter(r=>+r.open_return_rate>0).length,down:rows.filter(r=>+r.open_return_rate<0).length,mean:avg(rows.map(r=>+r.open_return_rate)),belowMinus3:rows.filter(r=>+r.open_return_rate<=-3).length};
+out.excursions={rawHighBelowEntry:rows.filter(r=>+r.max_return_rate<0).length,rawLowAboveEntry:rows.filter(r=>+r.max_drawdown_rate>0).length,highMedian:med(rows.map(r=>+r.max_return_rate)),lowMedian:med(rows.map(r=>+r.max_drawdown_rate))};
+fs.writeFileSync('audit/2026-09-28/legacy-statistics.json',JSON.stringify(out,null,2));
+console.log(JSON.stringify({overall:out.overall,scoreBands:out.scoreBands,ranks:out.ranks,thresholds:out.thresholds,dates:out.dates,versions:out.versions,worst10:out.worst10,entryRelativeOpen:out.entryRelativeOpen,excursions:out.excursions},null,2));

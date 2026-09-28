@@ -23,7 +23,7 @@ class OpportunityRiskScorerTest {
         assertThat(score.opportunityScore()).isGreaterThan(bd("60"));
         assertThat(score.riskScore()).isLessThan(bd("10"));
         assertThat(score.opportunityFactors()).containsKeys("priceMomentum", "volumeExpansion", "vwapLeadership");
-        assertThat(score.riskFactors()).containsKeys("vwapOverextension", "sellPressure");
+        assertThat(score.riskFactors()).containsKeys("vwapOverextension", "lastTickSellImbalance");
         assertThat(score.scoreVersion()).isEqualTo("opportunity-risk-v1");
     }
 

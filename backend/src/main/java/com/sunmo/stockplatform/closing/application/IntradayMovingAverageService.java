@@ -21,16 +21,26 @@ public class IntradayMovingAverageService {
     }
 
     public IntradayMovingAverageFeature calculate(ScannerDetection detection) {
-        return calculate(detection.getStock().getId(), detection.getDetectedAt());
+        return calculate(detection.getStock().getId(), detection.getDetectedAt(), detection.getDetectedAt());
     }
 
     public IntradayMovingAverageFeature calculate(Long stockId, java.time.Instant at) {
+        return calculate(stockId, at, at);
+    }
+
+    public IntradayMovingAverageFeature calculate(ScannerDetection detection, java.time.Instant availableBy) {
+        return calculate(detection.getStock().getId(), detection.getDetectedAt(), availableBy);
+    }
+
+    private IntradayMovingAverageFeature calculate(Long stockId, java.time.Instant at,
+            java.time.Instant availableBy) {
         List<StockCandle> series = candles
                 .findTop61ByStockIdAndTimeframeAndStartTimeLessThanEqualAndFinalCandleTrueOrderByStartTimeDesc(
                         stockId, TIMEFRAME, at.minus(java.time.Duration.ofMinutes(5)))
                 .stream()
                 .filter(row -> row.isFinalCandle() && !row.getStartTime().plus(java.time.Duration.ofMinutes(5)).isAfter(at))
-                .filter(row -> row.getUpdatedAt() == null || !row.getUpdatedAt().isAfter(at))
+                .filter(row -> row.getCreatedAt() != null && row.getUpdatedAt() != null)
+                .filter(row -> !row.getCreatedAt().isAfter(availableBy) && !row.getUpdatedAt().isAfter(availableBy))
                 .sorted(Comparator.comparing(StockCandle::getStartTime))
                 .toList();
         return calculate(series);

@@ -31,6 +31,7 @@ public class RealtimeDiagnostics {
             long receivedFrames,
             long receivedTicks,
             long parseErrors,
+            long processingErrors,
             long subscriptionRequests,
             long subscriptionSuccesses,
             long subscriptionFailures,
@@ -53,6 +54,7 @@ public class RealtimeDiagnostics {
     private final AtomicLong receivedFrames = new AtomicLong();
     private final AtomicLong receivedTicks = new AtomicLong();
     private final AtomicLong parseErrors = new AtomicLong();
+    private final AtomicLong processingErrors = new AtomicLong();
     private final AtomicLong subscriptionRequests = new AtomicLong();
     private final AtomicLong subscriptionSuccesses = new AtomicLong();
     private final AtomicLong subscriptionFailures = new AtomicLong();
@@ -127,6 +129,11 @@ public class RealtimeDiagnostics {
         error("KIS realtime parse failed: " + reason);
     }
 
+    public void processingFailed(String stockCode, String reason) {
+        processingErrors.incrementAndGet();
+        error("Realtime tick processing failed for " + stockCode + ": " + reason);
+    }
+
     public boolean isConnectionStale(Instant now, Duration timeout) {
         Instant latest = lastMessageAt == null ? connectedAt : lastMessageAt;
         return connected && latest != null && latest.plus(timeout).isBefore(now);
@@ -196,7 +203,7 @@ public class RealtimeDiagnostics {
 
     public Snapshot snapshot() {
         return new Snapshot(connected, connectedAt, disconnectedAt, lastMessageAt, lastPingAt, lastTickAt,
-                receivedFrames.get(), receivedTicks.get(), parseErrors.get(), subscriptionRequests.get(),
+                receivedFrames.get(), receivedTicks.get(), parseErrors.get(), processingErrors.get(), subscriptionRequests.get(),
                 subscriptionSuccesses.get(), subscriptionFailures.get(), lastCandleAt, lastScannerEvaluationAt,
                 detections.get(), pendingPerformances, lastPerformanceFlushAt, lastPerformanceFlushSize,
                 lastFeatureAt, featureSnapshots.get(), featureTrackedStocks,

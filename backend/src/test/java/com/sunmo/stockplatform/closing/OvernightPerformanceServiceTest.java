@@ -37,7 +37,9 @@ class OvernightPerformanceServiceTest {
         when(recommendations.findByRecommendationDateOrderByRankAsc(FRIDAY)).thenReturn(List.of(recommendation));
         when(recommendations.findLockedById(10L)).thenReturn(Optional.of(recommendation));
         when(performances.save(any())).thenAnswer(i -> i.getArgument(0));
-        return new OvernightPerformanceService(recommendations, performances, candles, calendar, new ObjectMapper());
+        return new OvernightPerformanceService(recommendations, performances, candles, calendar, new ObjectMapper(),
+                new OvernightExecutionSimulator(new com.sunmo.stockplatform.closing.config.TradingCostProperties(
+                        BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO)));
     }
 
     @Test
@@ -56,10 +58,10 @@ class OvernightPerformanceServiceTest {
     @Test
     void holidayMovesExpectedSessionButMissingMondayDoesNotMoveItToTuesday() {
         var service = service(MONDAY.plusDays(1), LocalTime.of(16, 0), List.of());
-        stubCandles(bars(MONDAY.plusDays(1), 79));
+        stubCandles(bars(MONDAY.plusDays(1), 78));
         var row = service.track(FRIDAY, null, null, null).performances().getFirst();
         assertThat(row.expectedSessionDate()).isEqualTo(MONDAY);
-        assertThat(row.status()).isEqualTo("DATA_INCOMPLETE");
+        assertThat(row.status()).isEqualTo("DATA_MISSING");
         assertThat(row.latestPrice()).isNull();
         service = service(MONDAY.plusDays(1), LocalTime.of(16, 0), List.of(MONDAY));
         row = service.track(FRIDAY, null, null, null).performances().getFirst();
@@ -70,12 +72,12 @@ class OvernightPerformanceServiceTest {
     @Test
     void missingClosingPrintOrInteriorCandlePreventsCompletion() {
         var service = service(MONDAY, LocalTime.of(16, 0), List.of());
-        stubCandles(bars(MONDAY, 78));
+        stubCandles(bars(MONDAY, 77));
         var row = service.track(FRIDAY, null, null, null).performances().getFirst();
         assertThat(row.status()).isEqualTo("DATA_INCOMPLETE");
-        assertThat(row.missingIntervals()).contains("06:30:00Z");
+        assertThat(row.missingIntervals()).contains("06:25:00Z");
         assertThat(row.closePrice()).isNull();
-        var missing = new ArrayList<>(bars(MONDAY, 79));
+        var missing = new ArrayList<>(bars(MONDAY, 78));
         missing.remove(2);
         stubCandles(missing);
         assertThat(service.track(FRIDAY, null, null, null).performances().getFirst().status()).isEqualTo("DATA_INCOMPLETE");
@@ -84,7 +86,7 @@ class OvernightPerformanceServiceTest {
     @Test
     void completedObservationAndLegacyRecordAreNeverRecalculated() {
         var service = service(MONDAY, LocalTime.of(16, 0), List.of());
-        stubCandles(bars(MONDAY, 79));
+        stubCandles(bars(MONDAY, 78));
         service.track(FRIDAY, null, null, null);
         var capture = org.mockito.ArgumentCaptor.forClass(OvernightPerformance.class);
         verify(performances).save(capture.capture());
@@ -114,6 +116,29 @@ class OvernightPerformanceServiceTest {
         when(performances.findByRecommendationId(10L)).thenReturn(Optional.of(capture.getValue()));
         assertThatThrownBy(() -> service.track(FRIDAY, BigDecimal.ONE, null, null))
                 .isInstanceOf(com.sunmo.stockplatform.common.error.ApplicationException.class);
+    }
+
+    @Test
+    void officialForwardRunSeparatesSignalPriceVirtualEntryAndUnverifiedZeroCostNet() {
+        var service = service(MONDAY, LocalTime.of(16, 0), List.of());
+        ClosingRecommendationRun run = mock(ClosingRecommendationRun.class);
+        when(run.getExecutionMode()).thenReturn("FORWARD");
+        when(run.getCompletedAt()).thenReturn(at(FRIDAY, LocalTime.of(15, 0, 10)));
+        when(recommendation.getRun()).thenReturn(run);
+        StockCandle entry = bars(FRIDAY, 1).getFirst();
+        when(entry.getStartTime()).thenReturn(at(FRIDAY, LocalTime.of(15, 5)));
+        when(entry.getOpen()).thenReturn(new BigDecimal("102"));
+        List<StockCandle> exitBars = bars(MONDAY, 78);
+        when(candles.findByStockIdAndTimeframeAndStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(
+                anyLong(), anyString(), any(), any())).thenReturn(exitBars, List.of(entry));
+
+        var row = service.track(FRIDAY, null, null, null).performances().getFirst();
+
+        assertThat(row.buyReferencePrice()).isEqualByComparingTo("100");
+        assertThat(row.virtualEntryPrice()).isEqualByComparingTo("102");
+        assertThat(row.grossReturnRate()).isNotNull();
+        assertThat(row.netReturnRate()).isNull();
+        assertThat(row.costStatus()).isEqualTo("ZERO_COSTS_UNVERIFIED");
     }
 
     private void stubCandles(List<StockCandle> rows) {

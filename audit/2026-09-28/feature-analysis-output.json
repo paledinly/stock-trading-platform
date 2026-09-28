@@ -1,0 +1,512 @@
+{
+  "buckets": {
+    "trade_strength": {
+      "-Infinity to 100": {
+        "n": 5,
+        "days": 4,
+        "net": null,
+        "gross": -1.1850392,
+        "median": -0.504767,
+        "win": 20,
+        "p1": 20,
+        "p2": 0,
+        "p3": 0,
+        "high": -0.2731237999999999,
+        "low": -2.8126147999999995
+      },
+      "100 to 120": {
+        "n": 7,
+        "days": 4,
+        "net": null,
+        "gross": -1.9611192857142858,
+        "median": -1.800554,
+        "win": 28.571428571428573,
+        "p1": 28.571428571428573,
+        "p2": 14.285714285714286,
+        "p3": 0,
+        "high": -0.9359280000000003,
+        "low": -3.508690285714286
+      },
+      "120 to 140": {
+        "n": 8,
+        "days": 5,
+        "net": null,
+        "gross": -0.8789993750000001,
+        "median": -1.0551585,
+        "win": 37.5,
+        "p1": 37.5,
+        "p2": 0,
+        "p3": 0,
+        "high": 0.23272299999999996,
+        "low": -1.96783475
+      },
+      "140 to 160": {
+        "n": 8,
+        "days": 5,
+        "net": null,
+        "gross": -1.04457925,
+        "median": -1.4320365,
+        "win": 12.5,
+        "p1": 62.5,
+        "p2": 37.5,
+        "p3": 25,
+        "high": 1.4328421250000003,
+        "low": -2.1848445
+      },
+      "160 to Infinity": {
+        "n": 10,
+        "days": 4,
+        "net": null,
+        "gross": -1.7600731,
+        "median": -1.9756965,
+        "win": 10,
+        "p1": 20,
+        "p2": 10,
+        "p3": 0,
+        "high": -0.3863123,
+        "low": -3.2855510000000003
+      }
+    },
+    "volume_ratio": {
+      "-Infinity to 1": {
+        "n": 5,
+        "days": 3,
+        "net": null,
+        "gross": -2.2670193999999997,
+        "median": -1.992032,
+        "win": 0,
+        "p1": 60,
+        "p2": 40,
+        "p3": 20,
+        "high": 0.9475098000000001,
+        "low": -3.3565506
+      },
+      "1 to 2": {
+        "n": 3,
+        "days": 2,
+        "net": null,
+        "gross": -3.127632333333333,
+        "median": -2.69331,
+        "win": 0,
+        "p1": 0,
+        "p2": 0,
+        "p3": 0,
+        "high": 0.04299700000000001,
+        "low": -4.22053
+      },
+      "2 to 3": {
+        "n": 15,
+        "days": 5,
+        "net": null,
+        "gross": -0.26515513333333335,
+        "median": -0.706991,
+        "win": 33.333333333333336,
+        "p1": 46.666666666666664,
+        "p2": 20,
+        "p3": 6.666666666666667,
+        "high": 0.8946723999999999,
+        "low": -1.9777477333333338
+      },
+      "3 to 5": {
+        "n": 8,
+        "days": 3,
+        "net": null,
+        "gross": -0.64053725,
+        "median": -0.62517,
+        "win": 37.5,
+        "p1": 37.5,
+        "p2": 0,
+        "p3": 0,
+        "high": 0.150943125,
+        "low": -2.0582054999999997
+      },
+      "5 to Infinity": {
+        "n": 7,
+        "days": 1,
+        "net": null,
+        "gross": -3.260396,
+        "median": -3.971119,
+        "win": 0,
+        "p1": 0,
+        "p2": 0,
+        "p3": 0,
+        "high": -2.5642697142857145,
+        "low": -4.160663857142858
+      }
+    },
+    "vwap_distance": {
+      "-Infinity to 0": {
+        "n": 1,
+        "days": 1,
+        "net": null,
+        "gross": -0.847458,
+        "median": -0.847458,
+        "win": 0,
+        "p1": 100,
+        "p2": 0,
+        "p3": 0,
+        "high": 1.271186,
+        "low": -2.118644
+      },
+      "0 to 1": {
+        "n": 8,
+        "days": 3,
+        "net": null,
+        "gross": -1.130731,
+        "median": -0.8522485,
+        "win": 37.5,
+        "p1": 37.5,
+        "p2": 12.5,
+        "p3": 12.5,
+        "high": -0.572227,
+        "low": -2.4928813749999996
+      },
+      "1 to 3": {
+        "n": 25,
+        "days": 5,
+        "net": null,
+        "gross": -1.2578586800000002,
+        "median": -1.42003,
+        "win": 20,
+        "p1": 32,
+        "p2": 12,
+        "p3": 0,
+        "high": 0.028318399999999837,
+        "low": -2.6594865599999995
+      },
+      "3 to 5": {
+        "n": 3,
+        "days": 1,
+        "net": null,
+        "gross": -2.292613,
+        "median": -2.264808,
+        "win": 0,
+        "p1": 33.333333333333336,
+        "p2": 33.333333333333336,
+        "p3": 33.333333333333336,
+        "high": 1.2221460000000002,
+        "low": -3.772923666666667
+      },
+      "5 to Infinity": {
+        "n": 1,
+        "days": 1,
+        "net": null,
+        "gross": -4.424779,
+        "median": -4.424779,
+        "win": 0,
+        "p1": 0,
+        "p2": 0,
+        "p3": 0,
+        "high": 0.476515,
+        "low": -4.83322
+      }
+    },
+    "high_distance": {
+      "0 to 0.3": {
+        "n": 19,
+        "days": 5,
+        "net": null,
+        "gross": -1.402413263157895,
+        "median": -1.529412,
+        "win": 26.31578947368421,
+        "p1": 42.10526315789474,
+        "p2": 21.05263157894737,
+        "p3": 10.526315789473685,
+        "high": 0.3508188947368421,
+        "low": -2.7676398421052624
+      },
+      "0.3 to 1": {
+        "n": 14,
+        "days": 5,
+        "net": null,
+        "gross": -1.4674774285714285,
+        "median": -1.504086,
+        "win": 14.285714285714286,
+        "p1": 21.428571428571427,
+        "p2": 7.142857142857143,
+        "p3": 0,
+        "high": -0.27536035714285717,
+        "low": -2.884002857142857
+      },
+      "1 to 3": {
+        "n": 5,
+        "days": 3,
+        "net": null,
+        "gross": -1.0903709999999998,
+        "median": -0.847458,
+        "win": 20,
+        "p1": 40,
+        "p2": 0,
+        "p3": 0,
+        "high": -0.2532462000000001,
+        "low": -2.3479306
+      },
+      "3 to Infinity": {
+        "n": 0,
+        "days": 0,
+        "net": null,
+        "gross": null,
+        "median": null,
+        "win": null,
+        "p1": null,
+        "p2": null,
+        "p3": null,
+        "high": null,
+        "low": null
+      }
+    }
+  },
+  "successFailure": {
+    "positive": {
+      "n": 8,
+      "days": 4,
+      "net": null,
+      "gross": 1.147354,
+      "median": 0.9936229999999999,
+      "win": 100,
+      "p1": 100,
+      "p2": 25,
+      "p3": 12.5,
+      "high": 1.785280375,
+      "low": -1.103827375,
+      "ids": [
+        "1",
+        "2",
+        "42",
+        "104",
+        "112",
+        "113",
+        "114",
+        "115"
+      ],
+      "features": {
+        "volume_ratio": {
+          "mean": 2.717290625,
+          "median": 2.382544
+        },
+        "daily_trading_value": {
+          "mean": 535159107321.875,
+          "median": 28108691575
+        },
+        "five_minute_change_rate": {
+          "mean": 0.29768075,
+          "median": 0.304452
+        },
+        "trade_strength": {
+          "mean": 128.97,
+          "median": 130
+        },
+        "vwap_distance": {
+          "mean": 1.566546,
+          "median": 1.31514
+        },
+        "high_distance": {
+          "mean": 0.33240662500000007,
+          "median": 0.1433255
+        },
+        "turnover": {
+          "mean": 1.9676237499999998,
+          "median": 2.0078395
+        }
+      }
+    },
+    "negative": {
+      "n": 28,
+      "days": 5,
+      "net": null,
+      "gross": -2.2079008214285714,
+      "median": -1.826203,
+      "win": 0,
+      "p1": 17.857142857142858,
+      "p2": 10.714285714285714,
+      "p3": 3.5714285714285716,
+      "high": -0.4827876071428571,
+      "low": -3.2661064642857136,
+      "ids": [
+        "37",
+        "38",
+        "39",
+        "40",
+        "41",
+        "43",
+        "44",
+        "45",
+        "46",
+        "57",
+        "78",
+        "79",
+        "80",
+        "81",
+        "82",
+        "83",
+        "84",
+        "85",
+        "86",
+        "87",
+        "98",
+        "99",
+        "100",
+        "101",
+        "102",
+        "103",
+        "106",
+        "116"
+      ],
+      "features": {
+        "volume_ratio": {
+          "mean": 39.433355321428564,
+          "median": 2.5308365000000004
+        },
+        "daily_trading_value": {
+          "mean": 249309937639.64285,
+          "median": 75649029225
+        },
+        "five_minute_change_rate": {
+          "mean": 0.42314153571428564,
+          "median": 0.3782315
+        },
+        "trade_strength": {
+          "mean": 143.64821428571432,
+          "median": 143.31
+        },
+        "vwap_distance": {
+          "mean": 1.7806183571428573,
+          "median": 1.452743
+        },
+        "high_distance": {
+          "mean": 0.4875610357142857,
+          "median": 0.3028775
+        },
+        "turnover": {
+          "mean": 1.4496347500000002,
+          "median": 1.4012280000000001
+        }
+      }
+    },
+    "zero": {
+      "n": 2,
+      "days": 2,
+      "net": null,
+      "gross": 0,
+      "median": 0,
+      "win": 0,
+      "p1": 0,
+      "p2": 0,
+      "p3": 0,
+      "high": 0.3900465,
+      "low": -2.209625,
+      "ids": [
+        "3",
+        "105"
+      ],
+      "features": {
+        "volume_ratio": {
+          "mean": 2.284906,
+          "median": 2.284906
+        },
+        "daily_trading_value": {
+          "mean": 50501654312.5,
+          "median": 50501654312.5
+        },
+        "five_minute_change_rate": {
+          "mean": 0.026187000000000002,
+          "median": 0.026187000000000002
+        },
+        "trade_strength": {
+          "mean": 134.875,
+          "median": 134.875
+        },
+        "vwap_distance": {
+          "mean": 1.333478,
+          "median": 1.333478
+        },
+        "high_distance": {
+          "mean": 0.414046,
+          "median": 0.414046
+        },
+        "turnover": {
+          "mean": 1.466011,
+          "median": 1.466011
+        }
+      }
+    }
+  },
+  "falsePositive": [
+    {
+      "recommendation_date": "2026-09-09",
+      "id": "37",
+      "stock_code": "006400",
+      "market": "KOSPI",
+      "rank_no": "1",
+      "recommendation_score": "81.126",
+      "volume_ratio": "1.014208",
+      "daily_trading_value": "333153090500.0000",
+      "five_minute_change_rate": "0.525394",
+      "trade_strength": "183.68",
+      "vwap_distance": "3.521658",
+      "high_distance": "0.000000",
+      "turnover": "1.017473",
+      "close_return_rate": "-2.264808",
+      "max_return_rate": "0.000000",
+      "max_drawdown_rate": "-3.484321"
+    },
+    {
+      "recommendation_date": "2026-09-09",
+      "id": "38",
+      "stock_code": "247540",
+      "market": "KOSDAQ",
+      "rank_no": "2",
+      "recommendation_score": "80.231",
+      "volume_ratio": "1.009031",
+      "daily_trading_value": "45718639200.0000",
+      "five_minute_change_rate": "0.524017",
+      "trade_strength": "180.64",
+      "vwap_distance": "3.751439",
+      "high_distance": "0.000000",
+      "turnover": "1.011542",
+      "close_return_rate": "-2.693310",
+      "max_return_rate": "-0.347524",
+      "max_drawdown_rate": "-4.344049"
+    },
+    {
+      "recommendation_date": "2026-09-15",
+      "id": "98",
+      "stock_code": "052690",
+      "market": "KOSPI",
+      "rank_no": "1",
+      "recommendation_score": "85.965",
+      "volume_ratio": "1.846634",
+      "daily_trading_value": "148764791400.0000",
+      "five_minute_change_rate": "2.512212",
+      "trade_strength": "113.11",
+      "vwap_distance": "5.154933",
+      "high_distance": "0.068027",
+      "turnover": "1.533536",
+      "close_return_rate": "-4.424779",
+      "max_return_rate": "0.476515",
+      "max_drawdown_rate": "-4.833220"
+    },
+    {
+      "recommendation_date": "2026-09-15",
+      "id": "99",
+      "stock_code": "047040",
+      "market": "KOSPI",
+      "rank_no": "2",
+      "recommendation_score": "82.793",
+      "volume_ratio": "2.840436",
+      "daily_trading_value": "79613920480.0000",
+      "five_minute_change_rate": "0.156169",
+      "trade_strength": "120.05",
+      "vwap_distance": "1.907166",
+      "high_distance": "0.465598",
+      "turnover": "2.007853",
+      "close_return_rate": "-1.403326",
+      "max_return_rate": "0.519751",
+      "max_drawdown_rate": "-1.611227"
+    }
+  ],
+  "saturation": {
+    "liquidityAtCap": 38,
+    "total": 38
+  }
+}

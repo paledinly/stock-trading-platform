@@ -29,9 +29,7 @@ class FiveMinuteCandleAggregatorTest {
     @Test
     void ignoresDuplicateSequence() {
         aggregator.accept(tick("2026-08-18T00:00:01Z", "100", 5, 5, "500", 7));
-        var duplicate = aggregator.accept(tick("2026-08-18T00:00:02Z", "120", 5, 10, "1100", 7)).getFirst();
-        assertThat(duplicate.close()).isEqualByComparingTo("100");
-        assertThat(duplicate.volume()).isEqualTo(5);
+        assertThat(aggregator.accept(tick("2026-08-18T00:00:02Z", "120", 5, 10, "1100", 7))).isEmpty();
     }
 
     @Test
@@ -42,10 +40,45 @@ class FiveMinuteCandleAggregatorTest {
     }
 
     @Test
+    void ignoresOutOfOrderTickWithoutCorruptingFollowingCumulativeDelta() {
+        aggregator.accept(tick("2026-08-18T00:00:02Z", "100", 5, 100, "10000", 1));
+        assertThat(aggregator.accept(tick("2026-08-18T00:00:01Z", "90", 3, 90, "9000", 2)))
+                .isEmpty();
+
+        var next = aggregator.accept(tick("2026-08-18T00:00:03Z", "101", 2, 102, "10202", 3)).getFirst();
+
+        assertThat(next.volume()).isEqualTo(7);
+        assertThat(next.low()).isEqualByComparingTo("100");
+    }
+
+    @Test
     void watermarkClosesSilentBucket() {
         aggregator.accept(tick("2026-08-18T00:00:01Z", "100", 1, 1, "100", 1));
         assertThat(aggregator.flush(Instant.parse("2026-08-18T00:05:01Z"))).isEmpty();
         assertThat(aggregator.flush(Instant.parse("2026-08-18T00:05:02Z"))).hasSize(1);
+    }
+
+    @Test
+    void lateTickAfterWatermarkCannotReplaceTheFinalCandleWithAPartialOne() {
+        aggregator.accept(tick("2026-08-18T00:00:01Z", "100", 100, 100, "10000", 1));
+        aggregator.accept(tick("2026-08-18T00:04:50Z", "101", 500, 600, "60500", 2));
+        assertThat(aggregator.flush(Instant.parse("2026-08-18T00:05:02Z")).getFirst().volume()).isEqualTo(600);
+
+        var ignored = aggregator.accept(tick("2026-08-18T00:04:55Z", "102", 50, 650, "65600", 3));
+
+        assertThat(ignored).isEmpty();
+        assertThat(aggregator.flush(Instant.parse("2026-08-18T00:10:00Z"))).isEmpty();
+    }
+
+    @Test
+    void closingPrintBelongsToTheFinalRegularSessionBucket() {
+        aggregator.accept(tick("2026-08-18T06:25:01Z", "100", 5, 5, "500", 1));
+
+        var update = aggregator.accept(tick("2026-08-18T06:30:00Z", "101", 2, 7, "702", 2)).getFirst();
+
+        assertThat(update.startTime()).isEqualTo(Instant.parse("2026-08-18T06:25:00Z"));
+        assertThat(update.close()).isEqualByComparingTo("101");
+        assertThat(update.volume()).isEqualTo(7);
     }
 
     @Test

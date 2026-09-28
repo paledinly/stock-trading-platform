@@ -43,6 +43,28 @@ public class OvernightPerformance {
     private BigDecimal targetRate;
     @Column(name = "stop_rate", precision = 12, scale = 6)
     private BigDecimal stopRate;
+    @Column(name = "virtual_entry_at")
+    private Instant virtualEntryAt;
+    @Column(name = "virtual_entry_price", precision = 20, scale = 4)
+    private BigDecimal virtualEntryPrice;
+    @Column(name = "execution_exit_at")
+    private Instant executionExitAt;
+    @Column(name = "execution_exit_price", precision = 20, scale = 4)
+    private BigDecimal executionExitPrice;
+    @Column(name = "gross_return_rate", precision = 12, scale = 6)
+    private BigDecimal grossReturnRate;
+    @Column(name = "net_return_rate", precision = 12, scale = 6)
+    private BigDecimal netReturnRate;
+    @Column(name = "execution_exit_reason", length = 40)
+    private String executionExitReason;
+    @Column(name = "execution_ambiguous", nullable = false)
+    private boolean executionAmbiguous;
+    @Column(name = "execution_model_version", length = 40)
+    private String executionModelVersion;
+    @Column(name = "cost_assumption", nullable = false, columnDefinition = "text")
+    private String costAssumption = "{}";
+    @Column(name = "cost_status", nullable = false, length = 40)
+    private String costStatus = "NOT_EVALUATED";
 
     @Column(name = "evaluated_at", nullable = false)
     private Instant evaluatedAt;
@@ -232,6 +254,30 @@ public class OvernightPerformance {
         closeReturnRate = state == OvernightPerformanceStatus.COMPLETED ? latestReturn : null;
     }
 
+    public void recordExecution(Instant entryAt, BigDecimal entryPrice,
+            com.sunmo.stockplatform.closing.application.OvernightExecutionSimulator.ExecutionResult execution,
+            String assumption) {
+        virtualEntryAt = entryAt;
+        virtualEntryPrice = entryPrice;
+        costAssumption = assumption;
+        if (entryAt == null || entryPrice == null) {
+            costStatus = "ENTRY_PRICE_UNAVAILABLE";
+            return;
+        }
+        if (execution == null) {
+            costStatus = "EXIT_DATA_UNAVAILABLE";
+            return;
+        }
+        executionExitAt = execution.exitAt();
+        executionExitPrice = execution.exitReferencePrice();
+        grossReturnRate = execution.grossReturnRate();
+        netReturnRate = execution.costsApplied() ? execution.netReturnRate() : null;
+        executionExitReason = execution.exitReason();
+        executionAmbiguous = execution.ambiguous();
+        executionModelVersion = execution.modelVersion();
+        costStatus = execution.costsApplied() ? "COSTS_APPLIED" : "ZERO_COSTS_UNVERIFIED";
+    }
+
     public LocalDate getExpectedSessionDate() { return expectedSessionDate; }
     public Instant getSessionOpen() { return sessionOpen; }
     public Instant getSessionClose() { return sessionClose; }
@@ -241,4 +287,15 @@ public class OvernightPerformance {
     public BigDecimal getLatestReturnRate() { return latestReturnRate; }
     public BigDecimal getTargetRate() { return targetRate; }
     public BigDecimal getStopRate() { return stopRate; }
+    public Instant getVirtualEntryAt() { return virtualEntryAt; }
+    public BigDecimal getVirtualEntryPrice() { return virtualEntryPrice; }
+    public Instant getExecutionExitAt() { return executionExitAt; }
+    public BigDecimal getExecutionExitPrice() { return executionExitPrice; }
+    public BigDecimal getGrossReturnRate() { return grossReturnRate; }
+    public BigDecimal getNetReturnRate() { return netReturnRate; }
+    public String getExecutionExitReason() { return executionExitReason; }
+    public boolean isExecutionAmbiguous() { return executionAmbiguous; }
+    public String getExecutionModelVersion() { return executionModelVersion; }
+    public String getCostAssumption() { return costAssumption; }
+    public String getCostStatus() { return costStatus; }
 }

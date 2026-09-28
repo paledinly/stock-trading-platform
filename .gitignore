@@ -16,3 +16,10 @@ mobile/.dart_tool/
 mobile/build/
 mobile/.flutter-plugins*
 *.log
+*.tmp
+*.bak
+*.old
+*.class
+.DS_Store
+Thumbs.db
+audit/**/classes/
