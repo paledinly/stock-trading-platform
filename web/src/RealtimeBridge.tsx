@@ -33,6 +33,7 @@ export function RealtimeBridge() {
     source.addEventListener('quote.updated', updateQuote as EventListener)
     source.addEventListener('candle.5m.updated', updateCandle as EventListener)
     source.addEventListener('candle.5m.closed', updateCandle as EventListener)
+    source.addEventListener('intraday.entry-ready', () => { void cache.invalidateQueries({ queryKey: ['intraday'] }) })
     return () => source.close()
   }, [cache])
 

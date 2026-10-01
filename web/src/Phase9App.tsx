@@ -1,4 +1,4 @@
-import { FormEvent, useState } from 'react'
+import { FormEvent, useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Phase3App } from './Phase3App'
 import { JournalPage } from './Phase4App'
@@ -6,6 +6,7 @@ import { ScannerPage } from './Phase6App'
 import { AnalyticsPage } from './Phase7App'
 import { MarketWidePage } from './Phase8App'
 import { ClosingRecommendationPage } from './ClosingRecommendationApp'
+import { IntradayPage } from './IntradayApp'
 import './phase9.css'
 
 type Setting = { id: number; name: string }
@@ -167,15 +168,32 @@ export function BacktestPage({ back }: { back: () => void }) {
   )
 }
 
+function savedSelection<T extends string>(key: string, choices: readonly T[], fallback: T): T {
+  try {
+    const saved = sessionStorage.getItem(key)
+    return choices.find(choice => choice === saved) ?? fallback
+  } catch {
+    return fallback
+  }
+}
+
 export function Phase9App() {
-  const [page, setPage] = useState<'dashboard' | 'journal' | 'scanner' | 'analytics' | 'wide' | 'backtest' | 'closing'>('dashboard')
-  const [mode, setMode] = useState<'beginner' | 'advanced'>('beginner')
+  const [page, setPage] = useState(() => savedSelection('workspace.page', ['dashboard', 'journal', 'scanner', 'analytics', 'wide', 'backtest', 'closing', 'intraday'] as const, 'dashboard'))
+  const [mode, setMode] = useState(() => savedSelection('workspace.mode', ['beginner', 'advanced'] as const, 'beginner'))
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('workspace.page', page)
+      sessionStorage.setItem('workspace.mode', mode)
+    } catch {
+      // Storage may be disabled; navigation still works for the current mount.
+    }
+  }, [page, mode])
   const goDashboard = () => setPage('dashboard')
   const advanced = mode === 'advanced'
 
   function changeMode(value: 'beginner' | 'advanced') {
     setMode(value)
-    if (value === 'beginner' && !['dashboard', 'journal', 'closing'].includes(page)) {
+    if (value === 'beginner' && !['dashboard', 'journal', 'closing', 'intraday'].includes(page)) {
       setPage('closing')
     }
   }
@@ -188,6 +206,7 @@ export function Phase9App() {
           <button className={mode === 'advanced' ? 'active' : ''} onClick={() => changeMode('advanced')}>고급</button>
         </span>
         <button className={`closingLaunch ${page === 'closing' ? 'active' : ''}`} onClick={() => setPage('closing')}>마감 추천</button>
+        <button className={page === 'intraday' ? 'active' : ''} onClick={() => setPage('intraday')}>장중 추천</button>
         {advanced && <button className={`backtestLaunch ${page === 'backtest' ? 'active' : ''}`} onClick={() => setPage('backtest')}>백테스트</button>}
         {advanced && <button className={`wideLaunch ${page === 'wide' ? 'active' : ''}`} onClick={() => setPage('wide')}>시장 전체</button>}
         {advanced && <button className={`analyticsLaunch ${page === 'analytics' ? 'active' : ''}`} onClick={() => setPage('analytics')}>성과 분석</button>}
@@ -204,6 +223,7 @@ export function Phase9App() {
       {page === 'wide' && <MarketWidePage back={goDashboard} />}
       {page === 'backtest' && <BacktestPage back={goDashboard} />}
       {page === 'closing' && <ClosingRecommendationPage back={goDashboard} advanced={advanced} />}
+      {page === 'intraday' && <IntradayPage back={goDashboard} />}
     </>
   )
 }

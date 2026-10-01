@@ -21,7 +21,7 @@ class PrecisionSubscriptionAllocatorTest {
         PrecisionSubscriptionAllocator allocator = allocator(registry, Duration.ZERO, "10");
 
         var result = allocator.reconcile(List.of(candidate("A00001", "90"), candidate("A00002", "80"),
-                candidate("A00003", "70")));
+                candidate("A00003", "70")), Instant.parse("2026-09-07T04:00:00Z"));
 
         assertThat(result.capacity()).isEqualTo(2);
         assertThat(result.activeCount()).isEqualTo(2);
@@ -60,6 +60,19 @@ class PrecisionSubscriptionAllocatorTest {
         registry.acknowledge("A00003", true, false, "limit exceeded");
 
         assertThat(registry.all()).contains("A00001", "A00002").doesNotContain("A00003");
+    }
+
+    @Test
+    void doesNotAddFirstCandidateAfterFreezeTime() {
+        RealtimeSubscriptionRegistry registry = registry(3);
+        PrecisionSubscriptionAllocator allocator = allocator(registry, Duration.ZERO, "10");
+
+        var result = allocator.reconcile(List.of(candidate("A00001", "90")),
+                Instant.parse("2026-09-07T05:50:00Z"));
+
+        assertThat(result.state()).isEqualTo("FROZEN");
+        assertThat(result.activeCount()).isZero();
+        assertThat(registry.all()).doesNotContain("A00001");
     }
 
     private PrecisionSubscriptionAllocator allocator(RealtimeSubscriptionRegistry registry, Duration minHold,

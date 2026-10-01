@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Phase9App } from './Phase9App'
 
 beforeEach(() => {
+  sessionStorage.clear()
   globalThis.fetch = vi.fn().mockImplementation((url: string) => Promise.resolve({
     ok: true,
     json: async () => url.includes('backtests/stocks')
@@ -27,10 +28,26 @@ beforeEach(() => {
           summaries: [],
           detections: [],
         }
+      : url.includes('/intraday/status')
+        ? { enabled: true, costsConfigured: false, queued: 0, dropped: 0, candidates: [] }
       : url.includes('closing-recommendations')
         ? []
       : [],
   })) as typeof fetch
+})
+
+test('restores intraday workspace after remount and keeps it on focus', async () => {
+  const app = () => <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><Phase9App /></QueryClientProvider>
+  const first = render(app())
+  fireEvent.click(screen.getByRole('button', { name: '장중 추천' }))
+  expect(await screen.findByRole('heading', { name: 'NO TRADE' })).toBeInTheDocument()
+  first.unmount()
+  render(app())
+  expect(screen.getByRole('heading', { name: '실시간 장중 추천' })).toBeInTheDocument()
+  fireEvent(window, new Event('blur'))
+  fireEvent(window, new Event('focus'))
+  expect(await screen.findByRole('heading', { name: 'NO TRADE' })).toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: '실시간 장중 추천' })).toBeInTheDocument()
 })
 
 test('opens backtesting workspace', async () => {

@@ -48,6 +48,12 @@ public class WatchlistController {
         return service.moveItem(id, body.groupId(), body.displayOrder(), body.version());
     }
 
+    @PatchMapping("/watchlists/{id}/realtime")
+    public WatchlistResponse.Item updateRealtime(@PathVariable long id,
+            @Valid @RequestBody WatchlistRequests.UpdateRealtime body) {
+        return service.updateRealtime(id, body.enabled(), body.version());
+    }
+
     @DeleteMapping("/watchlists/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable long id) {

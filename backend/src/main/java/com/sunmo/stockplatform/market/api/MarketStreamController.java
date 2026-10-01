@@ -18,4 +18,10 @@ public class MarketStreamController {
     public SseEmitter stream(@RequestHeader(value = "Last-Event-ID", required = false) String lastId) {
         return gateway.connect(lastId);
     }
+
+    /** Failed SSE writes are redispatched by the container after the client connection has gone away. */
+    @ExceptionHandler(java.io.IOException.class)
+    public void disconnected(java.io.IOException exception) {
+        org.slf4j.LoggerFactory.getLogger(getClass()).debug("SSE response write failed; connection closed", exception);
+    }
 }

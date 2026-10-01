@@ -45,6 +45,18 @@ Backend의 주요 영역은 stock, watchlist, kis, market, candle, scanner, clos
 - 거래 불가·핵심 결측은 높은 점수로 상쇄하지 않는다.
 - 전략 점수와 확률, 코드 수정과 수익성 검증을 구분한다.
 
+## 독립 Intraday 연구 모듈
+
+`intraday`는 기존 `MarketDataService`의 공통 Feature 계산 결과와 체결을 `ObservedMarketTick`으로 받는다. 이벤트에는 gateway 수신시각을 추가하며 원천 발생시각과 구분한다. 기존 시장 처리 트랜잭션이 커밋된 뒤 제한된 메모리 큐에 전달하므로 Intraday DB 실패가 Closing 트랜잭션을 롤백하지 않는다. 별도 KIS 요청이나 실시간 구독 슬롯은 추가하지 않는다.
+
+`IntradayService`는 입력 원장과 독립 추천/성과를 같은 DB 트랜잭션으로 저장한다. 실패하면 계산 상태를 버리고 마지막 커밋 원장에서 복구한다. 추천 JSON은 JPA에서 수정 불가이며 성과 JSON만 갱신한다. 재시작 시 기존 추천이 Paper 기록의 기준이다. 비활성화해도 만료·과거 미청산 상태를 정리하며 없는 종가로 청산하지 않는다.
+
+`IntradayEngine`, `IntradayFeatures`, `IntradaySetups`, `IntradayTracker`가 실시간 Paper와 수신 원장 재생의 공통 계산 경로다. Closing 점수/추천/익일성과 및 기존 Scanner 탐지성과와 저장·집계를 공유하지 않는다. 공통 달력 정책은 `ClosingTradingCalendar`를 그대로 사용한다.
+
+입력 저장·복구·만료는 별도 `intradayScheduler`에서 실행하여 기존 봉 확정·마감추천 scheduler를 점유하지 않는다. DB와 프로세스 자원은 공유하므로 수집 규모별 부하 검증은 필요하다.
+
+큐는 기본 20,000건, 처리 batch는 1,000건, 종목별 rolling history는 최대 100,000틱이다. 모두 `intraday` 설정으로 조절한다. 입력 큐 누락은 다음 batch에 손실 표식을 남기고 활성 포지션의 판정을 불확실로 만든다. history 상한 초과는 재워밍업한다. 프로세스 종료 전 아직 DB에 쓰지 못한 큐의 내구성은 보장하지 않는다. 고빈도 운영 처리량은 별도 부하 검증 대상이다.
+
 ## 관련 문서
 
 - [시장 데이터](MARKET_DATA.md)

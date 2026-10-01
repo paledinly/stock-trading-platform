@@ -21,7 +21,7 @@ public class WatchlistSubscriptionBootstrap implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
-        for (String code : items.findDistinctStockCodesByOwnerId(1L)) {
+        for (String code : items.findDistinctRealtimePinnedStockCodesByOwnerId(1L)) {
             try {
                 subscriptions.add(code, RealtimeSubscriptionRegistry.Source.WATCHLIST);
             } catch (IllegalStateException error) {

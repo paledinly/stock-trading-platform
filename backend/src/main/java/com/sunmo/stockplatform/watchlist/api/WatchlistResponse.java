@@ -13,11 +13,11 @@ public record WatchlistResponse(List<Group> groups) {
     }
 
     public record Item(Long id, Long groupId, String stockCode, String stockName, String market, int displayOrder,
-            long version) {
+            boolean realtimePinned, long version) {
         public static Item from(WatchlistItem item) {
             return new Item(item.getId(), item.getGroup().getId(), item.getStock().getStockCode(),
                     item.getStock().getStockName(), item.getStock().getMarket().name(), item.getDisplayOrder(),
-                    item.getVersion());
+                    item.isRealtimePinned(), item.getVersion());
         }
     }
 }

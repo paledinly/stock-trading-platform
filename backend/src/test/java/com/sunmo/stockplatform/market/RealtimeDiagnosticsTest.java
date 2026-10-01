@@ -10,6 +10,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class RealtimeDiagnosticsTest {
     @Test
+    void newSessionDoesNotBecomeStaleBecauseLastMessageWasYesterday() {
+        var diagnostics = new RealtimeDiagnostics();
+        diagnostics.connected();
+        org.springframework.test.util.ReflectionTestUtils.setField(diagnostics, "lastMessageAt", Instant.now().minus(Duration.ofDays(1)));
+        assertThat(diagnostics.isConnectionStale(Instant.now().plusSeconds(30), Duration.ofSeconds(60))).isFalse();
+        assertThat(diagnostics.isConnectionStale(Instant.now().plusSeconds(61), Duration.ofSeconds(60))).isTrue();
+    }
+
+    @Test
     void exposesConnectionSubscriptionAndTickState() {
         RealtimeDiagnostics diagnostics = new RealtimeDiagnostics();
 

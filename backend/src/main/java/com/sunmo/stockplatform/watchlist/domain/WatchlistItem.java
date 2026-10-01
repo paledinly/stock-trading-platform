@@ -18,6 +18,8 @@ public class WatchlistItem {
     private Stock stock;
     @Column(name = "display_order", nullable = false)
     private int displayOrder;
+    @Column(name = "realtime_pinned", nullable = false)
+    private boolean realtimePinned;
     @Version
     private long version;
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -37,6 +39,10 @@ public class WatchlistItem {
     public void move(WatchlistGroup group, int displayOrder) {
         this.group = group;
         this.displayOrder = displayOrder;
+    }
+
+    public void setRealtimePinned(boolean realtimePinned) {
+        this.realtimePinned = realtimePinned;
     }
 
     @PrePersist
@@ -68,5 +74,9 @@ public class WatchlistItem {
 
     public long getVersion() {
         return version;
+    }
+
+    public boolean isRealtimePinned() {
+        return realtimePinned;
     }
 }

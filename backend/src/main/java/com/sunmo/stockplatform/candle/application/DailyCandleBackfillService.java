@@ -4,6 +4,8 @@ import com.sunmo.stockplatform.candle.config.DailyCandleBackfillProperties;
 import com.sunmo.stockplatform.closing.application.ClosingTradingCalendar;
 import com.sunmo.stockplatform.kis.candle.KisDailyCandleClient;
 import com.sunmo.stockplatform.kis.config.KisProperties;
+import com.sunmo.stockplatform.marketwide.domain.PrecisionSubscriptionSession;
+import com.sunmo.stockplatform.marketwide.infrastructure.PrecisionSubscriptionSessionRepository;
 import com.sunmo.stockplatform.scanner.infrastructure.ScannerDetectionRepository;
 import com.sunmo.stockplatform.stock.domain.Stock;
 import com.sunmo.stockplatform.stock.infrastructure.StockRepository;
@@ -33,6 +35,7 @@ public class DailyCandleBackfillService {
     private final ScannerDetectionRepository detections;
     private final WatchlistItemRepository watchlist;
     private final StockRepository stocks;
+    private final PrecisionSubscriptionSessionRepository precisionSessions;
     private final KisDailyCandleClient client;
     private final DailyCandlePersistence persistence;
     private final Map<String, Instant> lastAttempt = new ConcurrentHashMap<>();
@@ -40,15 +43,29 @@ public class DailyCandleBackfillService {
     public DailyCandleBackfillService(DailyCandleBackfillProperties settings, KisProperties kis,
             ClosingTradingCalendar calendar, ScannerDetectionRepository detections,
             WatchlistItemRepository watchlist, StockRepository stocks, KisDailyCandleClient client,
-            DailyCandlePersistence persistence) {
+            DailyCandlePersistence persistence, PrecisionSubscriptionSessionRepository precisionSessions) {
         this.settings = settings;
         this.kis = kis;
         this.calendar = calendar;
         this.detections = detections;
         this.watchlist = watchlist;
         this.stocks = stocks;
+        this.precisionSessions = precisionSessions;
         this.client = client;
         this.persistence = persistence;
+    }
+
+    @Scheduled(cron = "${closing.daily-backfill.precision-cron:0 25,35 14 * * MON-FRI}", zone = "Asia/Seoul")
+    public void scheduledPreparePrecision() {
+        if (!settings.enabled() || !kis.enabled()) return;
+        try {
+            PrepareResult result = preparePrecision();
+            log.info("Precision daily candle preparation: target={}, candidates={}, saved={}, ready={}, failed={}",
+                    result.recommendationDate(), result.candidateStocks(), result.savedCandles(),
+                    result.readyStocks(), result.failedStocks());
+        } catch (RuntimeException error) {
+            log.warn("Precision daily candle preparation failed: {}", error.getMessage());
+        }
     }
 
     @Scheduled(cron = "${closing.daily-backfill.cron:0 10 8 * * MON-FRI}", zone = "Asia/Seoul")
@@ -65,16 +82,33 @@ public class DailyCandleBackfillService {
     }
 
     public synchronized PrepareResult prepare() {
+        TargetWindow window = targetWindow();
+        return prepare(window, candidates(window.target(), window.latestRequired()));
+    }
+
+    public synchronized PrepareResult preparePrecision() {
+        TargetWindow window = targetWindow();
+        List<String> codes = precisionSessions
+                .findBySessionDateAndStatusOrderByRequestedAtAsc(window.target(),
+                        PrecisionSubscriptionSession.Status.ACTIVE)
+                .stream().map(PrecisionSubscriptionSession::getStockCode).distinct().toList();
+        return prepare(window, codes);
+    }
+
+    public synchronized PrepareResult prepareCodes(List<String> stockCodes) {
+        return prepare(targetWindow(), stockCodes == null ? List.of() : stockCodes);
+    }
+
+    private PrepareResult prepare(TargetWindow window, List<String> requestedCodes) {
         if (!settings.enabled() || !kis.enabled())
             throw new IllegalStateException("Daily candle preparation or KIS integration is disabled");
         kis.requireCredentials();
-        LocalDate today = calendar.today();
-        LocalDate target = calendar.isTradingDay(today) && calendar.now().isBefore(calendar.close(today).plus(Duration.ofMinutes(15)))
-                ? today : calendar.nextTradingDay(today);
-        LocalDate latestRequired = calendar.previousTradingDay(target);
+        LocalDate target = window.target();
+        LocalDate latestRequired = window.latestRequired();
         LocalDate from = latestRequired.minusDays(settings.lookbackDays());
         Instant now = calendar.now();
-        List<String> codes = candidates(latestRequired);
+        List<String> codes = requestedCodes.stream().filter(java.util.Objects::nonNull)
+                .map(String::trim).filter(code -> !code.isEmpty()).distinct().toList();
         int attempted = 0;
         int saved = 0;
         int ready = 0;
@@ -100,6 +134,7 @@ public class DailyCandleBackfillService {
                         client.fetch(code, from, latestRequired));
                 if (persistence.ready(stock, latestRequired)) ready++;
             } catch (RuntimeException error) {
+                lastAttempt.remove(code);
                 failed++;
                 log.warn("Daily candles unavailable for {}: {}", code, error.getMessage());
             }
@@ -107,16 +142,35 @@ public class DailyCandleBackfillService {
         return new PrepareResult(target, latestRequired, codes.size(), attempted, saved, ready, failed, skipped);
     }
 
-    private List<String> candidates(LocalDate latestRequired) {
+    private TargetWindow targetWindow() {
+        LocalDate today = calendar.today();
+        LocalDate target = calendar.isTradingDay(today)
+                && calendar.now().isBefore(calendar.close(today).plus(Duration.ofMinutes(15)))
+                        ? today : calendar.nextTradingDay(today);
+        return new TargetWindow(target, calendar.previousTradingDay(target));
+    }
+
+    private List<String> candidates(LocalDate target, LocalDate latestRequired) {
+        Set<String> activePrecision = precisionSessions
+                .findBySessionDateAndStatusOrderByRequestedAtAsc(target, PrecisionSubscriptionSession.Status.ACTIVE)
+                .stream().map(PrecisionSubscriptionSession::getStockCode)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        Instant todayStart = target.atStartOfDay(ClosingTradingCalendar.ZONE).toInstant();
         Instant start = latestRequired.atStartOfDay(ClosingTradingCalendar.ZONE).toInstant();
+        Set<String> todayRecent = new LinkedHashSet<>(
+                detections.findRecentStockCodesForSession(target, todayStart, PageRequest.of(0, 500)));
         Set<String> recent = new LinkedHashSet<>();
         recent.addAll(detections.findRecentStockCodesForSession(latestRequired, start, PageRequest.of(0, 500)));
         LinkedHashSet<String> ordered = new LinkedHashSet<>();
+        ordered.addAll(activePrecision);
+        ordered.addAll(todayRecent);
         recent.stream().limit(Math.max(1, settings.maxStocks() / 2)).forEach(ordered::add);
         ordered.addAll(watchlist.findDistinctStockCodesByOwnerId(1L));
         ordered.addAll(recent);
         return new ArrayList<>(ordered);
     }
+
+    private record TargetWindow(LocalDate target, LocalDate latestRequired) { }
 
     public record PrepareResult(LocalDate recommendationDate, LocalDate latestRequiredDate,
             int candidateStocks, int attemptedStocks, int savedCandles, int readyStocks,

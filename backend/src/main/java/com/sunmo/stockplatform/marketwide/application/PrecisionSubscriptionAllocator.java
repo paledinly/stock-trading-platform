@@ -52,8 +52,10 @@ public class PrecisionSubscriptionAllocator {
 
         int capacity = capacity();
         trimExcess(capacity, now);
-        fill(candidates.values(), capacity, now);
-        replace(candidates.values(), capacity, now);
+        if (!frozen(now)) {
+            fill(candidates.values(), capacity, now);
+            replace(candidates.values(), capacity, now);
+        }
         return snapshot(frozen(now) ? "FROZEN" : "ACTIVE", capacity, now);
     }
 
@@ -162,7 +164,7 @@ public class PrecisionSubscriptionAllocator {
     }
 
     private boolean frozen(Instant now) {
-        return !allocations.isEmpty() && !now.atZone(MARKET_ZONE).toLocalTime().isBefore(properties.freezeAt());
+        return !now.atZone(MARKET_ZONE).toLocalTime().isBefore(properties.freezeAt());
     }
 
     private Snapshot snapshot(String state, int capacity, Instant now) {

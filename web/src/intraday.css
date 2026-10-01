@@ -1,0 +1,13 @@
+.intradayPage { color: #18263d; background: #f3f6fb; min-height: 100vh; padding: 28px; }
+.intradayPage header, .intradayPage main { max-width: 1500px; margin: auto; }
+.intradayPage section, .intradayPage details { background: white; padding: 20px; border: 1px solid #dce3ed; border-radius: 12px; margin: 16px 0; }
+.intradayPage h1 { font-size: 30px; margin-bottom: 8px; }
+.intradayPage h2 { font-size: 19px; }
+.intradayPage p, .intradayPage li { line-height: 1.7; }
+.intradayPage button, .intradayPage input { border: 1px solid #bdcbdc; background: white; color: #18263d; border-radius: 6px; padding: 9px 14px; }
+.intradayPage button, .intradayPage summary { cursor: pointer; }
+.intradayTable { overflow-x: auto; }
+.intradayTable table { border-collapse: collapse; width: 100%; white-space: nowrap; text-align: left; }
+.intradayTable th, .intradayTable td { padding: 12px; border-bottom: 1px solid #e5eaf1; font-size: 13px; }
+.intradayTable small { display: block; color: #586981; margin-top: 6px; }
+@media (max-width: 700px) { .intradayPage { padding: 14px; } }

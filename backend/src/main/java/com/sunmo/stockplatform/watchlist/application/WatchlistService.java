@@ -6,9 +6,8 @@ import com.sunmo.stockplatform.stock.infrastructure.StockRepository;
 import com.sunmo.stockplatform.watchlist.api.WatchlistResponse;
 import com.sunmo.stockplatform.watchlist.domain.*;
 import com.sunmo.stockplatform.watchlist.infrastructure.*;
+import com.sunmo.stockplatform.watchlist.config.WatchlistRealtimeProperties;
 import com.sunmo.stockplatform.market.application.RealtimeSubscriptionRegistry;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -19,19 +18,20 @@ import java.util.stream.Collectors;
 @Service
 @Transactional
 public class WatchlistService {
-    private static final Logger log = LoggerFactory.getLogger(WatchlistService.class);
     private static final long OWNER_ID = 1L;
     private final WatchlistGroupRepository groups;
     private final WatchlistItemRepository items;
     private final StockRepository stocks;
     private final RealtimeSubscriptionRegistry subscriptions;
+    private final WatchlistRealtimeProperties realtime;
 
     public WatchlistService(WatchlistGroupRepository groups, WatchlistItemRepository items, StockRepository stocks,
-            RealtimeSubscriptionRegistry subscriptions) {
+            RealtimeSubscriptionRegistry subscriptions, WatchlistRealtimeProperties realtime) {
         this.groups = groups;
         this.items = items;
         this.stocks = stocks;
         this.subscriptions = subscriptions;
+        this.realtime = realtime;
     }
 
     @Transactional(readOnly = true)
@@ -74,7 +74,7 @@ public class WatchlistService {
         groups.flush();
         for (WatchlistItem item : removed) {
             Long stockId = item.getStock().getId();
-            if (items.countByStockId(stockId) == 0)
+            if (item.isRealtimePinned() && items.countByStockIdAndRealtimePinnedTrue(stockId) == 0)
                 subscriptions.remove(item.getStock().getStockCode(), RealtimeSubscriptionRegistry.Source.WATCHLIST);
         }
     }
@@ -87,14 +87,7 @@ public class WatchlistService {
             duplicate("Stock is already in this group");
         int order = displayOrder == null ? Math.toIntExact(items.countByGroupId(groupId)) : displayOrder;
         try {
-            WatchlistResponse.Item result = WatchlistResponse.Item
-                    .from(items.save(new WatchlistItem(group, stock, order)));
-            try {
-                subscriptions.add(stockCode, RealtimeSubscriptionRegistry.Source.WATCHLIST);
-            } catch (IllegalStateException error) {
-                log.warn("Saved watchlist item {} without realtime subscription: {}", stockCode, error.getMessage());
-            }
-            return result;
+            return WatchlistResponse.Item.from(items.save(new WatchlistItem(group, stock, order)));
         } catch (DataIntegrityViolationException e) {
             duplicate("Stock is already in this group");
             return null;
@@ -112,13 +105,42 @@ public class WatchlistService {
         return WatchlistResponse.Item.from(item);
     }
 
+    public WatchlistResponse.Item updateRealtime(long id, boolean enabled, long version) {
+        WatchlistItem item = requireItem(id);
+        checkVersion(item.getVersion(), version);
+        if (item.isRealtimePinned() == enabled)
+            return WatchlistResponse.Item.from(item);
+        Long stockId = item.getStock().getId();
+        String code = item.getStock().getStockCode();
+        if (enabled) {
+            boolean sameStockAlreadyPinned = items.countByStockIdAndRealtimePinnedTrue(stockId) > 0;
+            if (!sameStockAlreadyPinned
+                    && items.countDistinctRealtimePinnedStocksByOwnerId(OWNER_ID) >= realtime.maxPinned())
+                throw error(HttpStatus.CONFLICT,
+                        "Realtime watchlist limit reached: " + realtime.maxPinned());
+            try {
+                subscriptions.add(code, RealtimeSubscriptionRegistry.Source.WATCHLIST);
+            } catch (IllegalStateException error) {
+                throw new ApplicationException(ErrorCode.INVALID_REQUEST, HttpStatus.CONFLICT,
+                        "No realtime subscription slot is available");
+            }
+            item.setRealtimePinned(true);
+        } else {
+            item.setRealtimePinned(false);
+            items.flush();
+            if (items.countByStockIdAndRealtimePinnedTrue(stockId) == 0)
+                subscriptions.remove(code, RealtimeSubscriptionRegistry.Source.WATCHLIST);
+        }
+        return WatchlistResponse.Item.from(item);
+    }
+
     public void deleteItem(long id) {
         WatchlistItem item = requireItem(id);
         Long stockId = item.getStock().getId();
         String code = item.getStock().getStockCode();
         items.delete(item);
         items.flush();
-        if (items.countByStockId(stockId) == 0)
+        if (item.isRealtimePinned() && items.countByStockIdAndRealtimePinnedTrue(stockId) == 0)
             subscriptions.remove(code, RealtimeSubscriptionRegistry.Source.WATCHLIST);
     }
 

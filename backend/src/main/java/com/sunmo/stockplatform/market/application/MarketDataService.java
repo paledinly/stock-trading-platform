@@ -26,10 +26,12 @@ public class MarketDataService {
     private final DetectionPerformanceTracker performance;
     private final RealtimeDiagnostics diagnostics;
     private final MarketFeatureEngine features;
+    private final org.springframework.context.ApplicationEventPublisher publisher;
 
     public MarketDataService(QuoteStateStore quotes, StockRepository stocks, StockCandleRepository candles,
             MarketEventGateway events, RealtimeMarketProperties properties, ScannerEngine scanner,
-            DetectionPerformanceTracker performance, RealtimeDiagnostics diagnostics, MarketFeatureEngine features) {
+            DetectionPerformanceTracker performance, RealtimeDiagnostics diagnostics, MarketFeatureEngine features,
+            org.springframework.context.ApplicationEventPublisher publisher) {
         this.quotes = quotes;
         this.stocks = stocks;
         this.candles = candles;
@@ -39,11 +41,13 @@ public class MarketDataService {
         this.performance = performance;
         this.diagnostics = diagnostics;
         this.features = features;
+        this.publisher = publisher;
     }
 
     @Transactional
     public void onTick(MarketTick tick) {
-        features.onTick(tick);
+        Instant receivedAt = Instant.now();
+        var feature = features.onTick(tick);
         quotes.put(tick);
         events.publish("quote.updated",
                 Map.of("stockCode", tick.stockCode(), "price", tick.price().toPlainString(), "cumulativeVolume",
@@ -53,6 +57,7 @@ public class MarketDataService {
         for (CandleSnapshot candle : aggregator.accept(tick))
             handle(candle);
         performance.onTick(tick);
+        publisher.publishEvent(new ObservedMarketTick(tick, feature, receivedAt));
     }
 
     @Scheduled(fixedDelay = 1000)

@@ -5,7 +5,7 @@ import type { Candle, Quote } from './marketData'
 import './phase3.css'
 
 type Stock = { stockCode: string; stockName: string; market: string }
-type Item = Stock & { id: number; groupId: number; version: number }
+type Item = Stock & { id: number; groupId: number; realtimePinned: boolean; version: number }
 type Group = { id: number; name: string; version: number; items: Item[] }
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
@@ -108,8 +108,14 @@ export function Phase3App() {
     mutationFn: (id: number) => api(`/api/v1/watchlists/${id}`, { method: 'DELETE' }),
     onSuccess: refresh,
   })
+  const realtime = useMutation({
+    mutationFn: (item: Item) => api(`/api/v1/watchlists/${item.id}/realtime`, {
+      method: 'PATCH', body: JSON.stringify({ enabled: !item.realtimePinned, version: item.version }),
+    }),
+    onSuccess: refresh,
+  })
   const items = lists.data?.groups.flatMap(group => group.items) ?? []
-  const error = create.error ?? add.error ?? remove.error
+  const error = create.error ?? add.error ?? remove.error ?? realtime.error
 
   return <div className="phase3">
     <header>
@@ -126,7 +132,7 @@ export function Phase3App() {
       {error && <div className="alert">{error.message}</div>}
       <div className="columns">
         <section className="panel watch">
-          <section className="menuGuide"><h2>사용 안내</h2><p>상단 검색창에서 종목명이나 코드를 검색하고, 관심종목 그룹에 추가합니다. 종목을 선택하면 현재가, 오늘 5분봉, 거래량과 거래대금을 확인할 수 있습니다.</p></section>
+          <section className="menuGuide"><h2>사용 안내</h2><p>관심종목은 목록 저장용입니다. 시세를 계속 받을 종목만 안테나 버튼으로 최대 10개까지 실시간 고정하세요.</p></section>
           <div className="title"><span><small>내 관심종목</small><h2>관심종목</h2></span><b>{items.length}</b></div>
           <form onSubmit={event => {
             event.preventDefault()
@@ -141,6 +147,10 @@ export function Phase3App() {
             {group.items.map(item => <div className="item" key={item.id}>
               <button onClick={() => setSelected(item)}><i>{item.stockName[0]}</i><span><b>{item.stockName}</b>
                 <small>{item.stockCode} · {item.market}</small></span></button>
+              <button className={item.realtimePinned ? 'realtimePin active' : 'realtimePin'}
+                aria-label={`${item.stockName} 실시간 고정 ${item.realtimePinned ? '해제' : '설정'}`}
+                aria-pressed={item.realtimePinned} title={item.realtimePinned ? '실시간 고정 해제' : '실시간 고정'}
+                onClick={() => realtime.mutate(item)}>⌁</button>
               <button aria-label={`${item.stockName} 삭제`} onClick={() => remove.mutate(item.id)}>×</button>
             </div>)}
           </div>)}

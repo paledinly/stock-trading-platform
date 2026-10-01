@@ -153,7 +153,7 @@ market:
     reserve: ${MARKET_SUBSCRIPTION_RESERVE:3}
     min-hold: ${MARKET_PRECISION_MIN_HOLD:15m}
     replace-margin: ${MARKET_PRECISION_REPLACE_MARGIN:10}
-    freeze-at: ${MARKET_PRECISION_FREEZE_AT:14:50}
+    freeze-at: ${MARKET_PRECISION_FREEZE_AT:14:35}
   performance:
     flush-interval: ${MARKET_PERFORMANCE_FLUSH_INTERVAL:1s}
   backfill:
@@ -162,6 +162,9 @@ market:
     max-requests-per-query: ${MARKET_BACKFILL_MAX_REQUESTS:14}
   realtime:
     enabled: ${MARKET_REALTIME_ENABLED:false}
+    session:
+      connect-before-open: ${MARKET_REALTIME_CONNECT_BEFORE_OPEN:1m}
+      disconnect-after-close: ${MARKET_REALTIME_DISCONNECT_AFTER_CLOSE:1m}
     websocket-url: ${KIS_WEBSOCKET_URL:ws://ops.koreainvestment.com:21000}
     candle-watermark: ${MARKET_CANDLE_WATERMARK:2s}
     quote-ttl: ${MARKET_QUOTE_TTL:16h}
@@ -173,8 +176,35 @@ market:
 watchlist:
   initial:
     enabled: ${WATCHLIST_INITIAL_ENABLED:true}
+  realtime:
+    max-pinned: ${WATCHLIST_REALTIME_MAX_PINNED:10}
+
+intraday:
+  enabled: ${INTRADAY_ENABLED:false}
+  costs:
+    buy-fee-percent: ${INTRADAY_BUY_FEE_PERCENT:}
+    sell-fee-percent: ${INTRADAY_SELL_FEE_PERCENT:}
+    sell-tax-percent: ${INTRADAY_SELL_TAX_PERCENT:}
+    spread-percent: ${INTRADAY_SPREAD_PERCENT:}
+    buy-slippage-percent: ${INTRADAY_BUY_SLIPPAGE_PERCENT:}
+    sell-slippage-percent: ${INTRADAY_SELL_SLIPPAGE_PERCENT:}
 
 closing:
+  trajectory:
+    enabled: ${CLOSING_TRAJECTORY_ENABLED:false}
+    index-enabled: ${CLOSING_TRAJECTORY_INDEX_ENABLED:false}
+    analysis-start: ${CLOSING_ANALYSIS_START:14:30}
+    analysis-end: ${CLOSING_ANALYSIS_END:15:20}
+    snapshot-minutes: ${CLOSING_SNAPSHOT_MINUTES:5}
+    watermark: ${CLOSING_TRAJECTORY_WATERMARK:2s}
+    context-max-age: ${CLOSING_CONTEXT_MAX_AGE:6m}
+    index-interval: ${CLOSING_INDEX_INTERVAL:5m}
+    morning-end: ${CLOSING_MORNING_END:10:30}
+    target-percent: ${CLOSING_TRAJECTORY_TARGET:3}
+    stop-percent: ${CLOSING_TRAJECTORY_STOP:-2}
+    pullback-percent: ${CLOSING_PULLBACK_PERCENT:1}
+    volume-comparison-windows: ${CLOSING_VOLUME_WINDOWS:5,15,30}
+    turnover-comparison-windows: ${CLOSING_TURNOVER_WINDOWS:5,15,30}
   automation:
     enabled: ${CLOSING_AUTOMATION_ENABLED:false}
     poll-interval: ${CLOSING_AUTOMATION_POLL_INTERVAL:30s}
@@ -189,7 +219,10 @@ closing:
     lookback-days: ${CLOSING_DAILY_BACKFILL_LOOKBACK_DAYS:120}
     refresh-interval: ${CLOSING_DAILY_BACKFILL_REFRESH_INTERVAL:1h}
     cron: ${CLOSING_DAILY_BACKFILL_CRON:0 10 8 * * MON-FRI}
+    precision-cron: ${CLOSING_DAILY_PRECISION_CRON:0 25,35 14 * * MON-FRI}
   recommendation:
+    minimum-daily-trading-value: ${CLOSING_MIN_DAILY_TRADING_VALUE:1000000000}
+    minimum-five-minute-trading-value: ${CLOSING_MIN_5M_TRADING_VALUE:20000000}
     minimum-coverage-minutes: ${CLOSING_MIN_COVERAGE_MINUTES:20}
     minimum-final-candles: ${CLOSING_MIN_FINAL_CANDLES:4}
     minimum-final-score: ${CLOSING_MIN_FINAL_SCORE:55}

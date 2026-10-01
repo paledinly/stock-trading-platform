@@ -1,5 +1,16 @@
 # Database
 
+## Closing Trajectory (V28)
+
+`closing_minute_feature`, `closing_context_observation`, `closing_trajectory_snapshot`을 추가한다. 기존 봉/추천 테이블은 유지한다. 입력 JSON text는 불변이고 오전 outcome만 갱신한다. [키·인덱스·보관 정책](CLOSING_TRAJECTORY.md)을 참고한다.
+
+## Intraday (V27)
+
+- `intraday_input`: 거래일·종목·수신/평가시각과 변경 불가 입력 JSON. 실험 당시 Feature와 설정을 함께 저장한다.
+- `intraday_recommendation`: UUID, 종목/Setup/추천시각 고유 제약, 변경 불가 추천 Snapshot, 별도 가변 성과 JSON, optimistic version 및 추적 완료 표식.
+- 두 테이블 모두 기존 Closing/Scanner 성과 FK나 집계에 연결하지 않는다. Backtest는 원장을 읽어 별도 응답을 만들며 Paper 테이블에 추가하지 않는다.
+- 틱 원장은 데이터량이 크다. 활성화 전 보관 용량과 기간을 정해야 하며 자동 삭제를 수행하지 않는다. 입력 원장을 제거하면 해당 기간 재생 가능성도 사라진다.
+
 ## 역할
 
 PostgreSQL은 영구 데이터의 시스템 오브 레코드다. Redis와 프로세스 메모리는 캐시와 실시간 상태이며 영구 이력으로 간주하지 않는다. Schema는 backend/src/main/resources/db/migration의 Flyway migration으로 관리한다.

@@ -13,6 +13,7 @@ import com.sunmo.stockplatform.closing.application.OvernightPerformanceService;
 import com.sunmo.stockplatform.closing.application.OvernightPositionDecisionService;
 import com.sunmo.stockplatform.closing.application.AccountPerformanceCalculator;
 import com.sunmo.stockplatform.closing.application.ClosingStrategyAnalyticsService;
+import com.sunmo.stockplatform.closing.application.ClosingCandidateObservationService;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.PositiveOrZero;
@@ -34,17 +35,20 @@ public class ClosingRecommendationController {
     private final OvernightPositionDecisionService decisionService;
     private final AccountPerformanceCalculator accountPerformance;
     private final ClosingStrategyAnalyticsService strategyAnalytics;
+    private final ClosingCandidateObservationService candidateObservations;
 
     public ClosingRecommendationController(ClosingRecommendationService service,
             OvernightPerformanceService performanceService, OvernightBacktestService backtestService,
             OvernightPositionDecisionService decisionService, AccountPerformanceCalculator accountPerformance,
-            ClosingStrategyAnalyticsService strategyAnalytics) {
+            ClosingStrategyAnalyticsService strategyAnalytics,
+            ClosingCandidateObservationService candidateObservations) {
         this.service = service;
         this.performanceService = performanceService;
         this.backtestService = backtestService;
         this.decisionService = decisionService;
         this.accountPerformance = accountPerformance;
         this.strategyAnalytics = strategyAnalytics;
+        this.candidateObservations = candidateObservations;
     }
 
     @PostMapping("/generate")
@@ -131,5 +135,18 @@ public class ClosingRecommendationController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
         return strategyAnalytics.analyze(from, to);
+    }
+
+    @PostMapping("/candidate-observations/track")
+    public ClosingCandidateObservationService.Report trackCandidateObservations(
+            @RequestParam Long runId,
+            @RequestParam(defaultValue = "3") BigDecimal targetRate,
+            @RequestParam(defaultValue = "-2") BigDecimal stopRate) {
+        return candidateObservations.track(runId, targetRate, stopRate);
+    }
+
+    @GetMapping("/candidate-observations")
+    public ClosingCandidateObservationService.Report candidateObservations(@RequestParam Long runId) {
+        return candidateObservations.list(runId);
     }
 }

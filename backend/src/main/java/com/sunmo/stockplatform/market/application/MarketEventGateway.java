@@ -25,6 +25,7 @@ public class MarketEventGateway {
         clients.put(client, emitter);
         emitter.onCompletion(() -> clients.remove(client));
         emitter.onTimeout(() -> clients.remove(client));
+        emitter.onError(error -> clients.remove(client));
         if (lastId != null)
             replay.stream().dropWhile(e -> !e.id().equals(lastId)).skip(1).forEach(e -> send(client, emitter, e));
         return emitter;
@@ -45,7 +46,7 @@ public class MarketEventGateway {
             emitter.send(SseEmitter.event().id(event.id()).name(event.type()).data(event));
         } catch (IOException | IllegalStateException exception) {
             clients.remove(key);
-            emitter.complete();
+            // The servlet container owns completion after a failed write; do not complete it again.
         }
     }
 }

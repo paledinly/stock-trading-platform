@@ -35,6 +35,7 @@ class KisMarketRankingClientTest {
                 .andExpect(method(HttpMethod.GET))
                 .andExpect(queryParam("FID_INPUT_ISCD", "0001"))
                 .andExpect(queryParam("FID_RANK_SORT_CLS_CODE", "3"))
+                .andExpect(queryParam("FID_BLNG_CLS_CODE", "3"))
                 .andExpect(header("tr_id", "FHPST01710000"))
                 .andRespond(withSuccess("""
                         {"rt_cd":"0","msg_cd":"MCA00000","msg1":"정상처리",

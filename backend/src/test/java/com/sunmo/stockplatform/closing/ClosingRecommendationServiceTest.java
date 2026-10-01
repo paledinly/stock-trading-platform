@@ -86,22 +86,22 @@ class ClosingRecommendationServiceTest {
     }
 
     @Test
-    void limitedModeKeepsOnlyHighestRankedCandidateAndExplainsTheOther() {
+    void limitedModeKeepsTopFiveCandidatesAndExplainsTheOther() {
         Fixture fixture = new Fixture();
         LocalDate date = LocalDate.now(SEOUL).minusDays(1);
         Instant at = date.atTime(15, 0).atZone(SEOUL).toInstant();
-        ScannerDetection first = fixture.detection(fixture.stock(1L), at);
-        ScannerDetection second = fixture.detection(fixture.stock(2L), at);
+        List<ScannerDetection> signals = java.util.stream.LongStream.rangeClosed(1, 6)
+                .mapToObj(id -> fixture.detection(fixture.stock(id), at)).toList();
         when(fixture.detections.findBySessionDateAndDetectedAtGreaterThanEqualOrderByDetectedAtDesc(eq(date), any()))
-                .thenReturn(List.of(first, second));
+                .thenReturn(signals);
 
         var response = fixture.service.generate(date, 10, bd("35"), bd("65"));
 
-        assertThat(response.candidates()).hasSize(1);
-        assertThat(response.evaluations()).hasSize(2);
+        assertThat(response.candidates()).hasSize(5);
+        assertThat(response.evaluations()).hasSize(6);
         assertThat(response.evaluations()).extracting(row -> row.decisionReason())
-                .containsExactly("QUALIFIED", "LIMITED_MODE_WATCH");
-        assertThat(response.criteria()).containsEntry("limitedModeMaxCandidates", 1)
+                .containsExactly("QUALIFIED", "QUALIFIED", "QUALIFIED", "QUALIFIED", "QUALIFIED", "LIMITED_MODE_WATCH");
+        assertThat(response.criteria()).containsEntry("limitedModeMaxCandidates", 5)
                 .containsEntry("marketSectorAccountChecks", "UNVERIFIED");
     }
 

@@ -18,5 +18,15 @@ public interface WatchlistItemRepository extends JpaRepository<WatchlistItem, Lo
     List<String> findDistinctStockCodesByOwnerId(
             @org.springframework.data.repository.query.Param("ownerId") Long ownerId);
 
+    @org.springframework.data.jpa.repository.Query("select distinct i.stock.stockCode from WatchlistItem i where i.group.ownerId = :ownerId and i.realtimePinned = true")
+    List<String> findDistinctRealtimePinnedStockCodesByOwnerId(
+            @org.springframework.data.repository.query.Param("ownerId") Long ownerId);
+
+    @org.springframework.data.jpa.repository.Query("select count(distinct i.stock.id) from WatchlistItem i where i.group.ownerId = :ownerId and i.realtimePinned = true")
+    long countDistinctRealtimePinnedStocksByOwnerId(
+            @org.springframework.data.repository.query.Param("ownerId") Long ownerId);
+
     long countByStockId(Long stockId);
+
+    long countByStockIdAndRealtimePinnedTrue(Long stockId);
 }

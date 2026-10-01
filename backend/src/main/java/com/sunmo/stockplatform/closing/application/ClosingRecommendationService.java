@@ -103,8 +103,8 @@ public class ClosingRecommendationService {
         criteria.put("minimumFinalScore", properties.minimumFinalScore());
         criteria.put("minimumDailyCandles", 21);
         criteria.put("maximumSignalAgeMinutes", 30);
-        criteria.put("minimumDailyTradingValue", ClosingPrecisionEvaluator.MIN_DAILY_VALUE);
-        criteria.put("minimumFiveMinuteTradingValue", ClosingPrecisionEvaluator.MIN_FIVE_MINUTE_VALUE);
+        criteria.put("minimumDailyTradingValue", properties.minimumDailyTradingValue());
+        criteria.put("minimumFiveMinuteTradingValue", properties.minimumFiveMinuteTradingValue());
         criteria.put("maximumMa20DistancePercent", ClosingPrecisionEvaluator.MAX_MA20_DISTANCE_PERCENT);
         criteria.put("limitedModeMaxCandidates", ClosingPrecisionEvaluator.LIMITED_MODE_MAX_CANDIDATES);
         criteria.put("marketSectorAccountChecks", "UNVERIFIED");

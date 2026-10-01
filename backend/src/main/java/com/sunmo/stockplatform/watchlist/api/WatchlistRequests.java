@@ -20,4 +20,7 @@ public final class WatchlistRequests {
     public record MoveItem(@NotNull @Positive Long groupId, @NotNull @PositiveOrZero Integer displayOrder,
             @PositiveOrZero long version) {
     }
+
+    public record UpdateRealtime(boolean enabled, @PositiveOrZero long version) {
+    }
 }

@@ -136,6 +136,7 @@ public class RealtimeDiagnostics {
 
     public boolean isConnectionStale(Instant now, Duration timeout) {
         Instant latest = lastMessageAt == null ? connectedAt : lastMessageAt;
+        if (connectedAt != null && (latest == null || connectedAt.isAfter(latest))) latest = connectedAt;
         return connected && latest != null && latest.plus(timeout).isBefore(now);
     }
 

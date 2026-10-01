@@ -23,11 +23,9 @@ import java.util.Set;
 
 @Component
 public class ClosingPrecisionEvaluator {
-    public static final int LIMITED_MODE_MAX_CANDIDATES = 1;
+    public static final int LIMITED_MODE_MAX_CANDIDATES = 5;
     private static final Duration MAX_SIGNAL_AGE = Duration.ofMinutes(30);
     private static final Duration MAX_CANDLE_AGE = Duration.ofMinutes(10);
-    public static final BigDecimal MIN_DAILY_VALUE = new BigDecimal("1000000000");
-    public static final BigDecimal MIN_FIVE_MINUTE_VALUE = new BigDecimal("20000000");
     public static final BigDecimal MAX_MA20_DISTANCE_PERCENT = new BigDecimal("12");
     private static final BigDecimal MIN_SIGNAL_RETENTION = new BigDecimal("0.99");
     private final ClosingRecommendationScorer scorer;
@@ -37,6 +35,10 @@ public class ClosingPrecisionEvaluator {
     private final ClosingRecommendationProperties properties;
     private final ObjectMapper mapper;
     private final ClosingTradingCalendar calendar;
+    private com.sunmo.stockplatform.closing.trajectory.TrajectoryStore trajectory;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public void setTrajectory(com.sunmo.stockplatform.closing.trajectory.TrajectoryStore trajectory) { this.trajectory = trajectory; }
 
     public ClosingPrecisionEvaluator(ClosingRecommendationScorer scorer, IntradayMovingAverageService intradayMa,
             DailyMovingAverageService dailyMa, StockCandleRepository candles,
@@ -165,8 +167,8 @@ public class ClosingPrecisionEvaluator {
                 && detection.getDetectedPrice().compareTo(daily.ma20().multiply(BigDecimal.ONE
                         .add(MAX_MA20_DISTANCE_PERCENT.movePointLeft(2)))) > 0;
         boolean liquid = detection.getDailyValue() != null && latest != null && latest.getTradingValue() != null
-                && detection.getDailyValue().compareTo(MIN_DAILY_VALUE) >= 0
-                && latest.getTradingValue().compareTo(MIN_FIVE_MINUTE_VALUE) >= 0;
+                && detection.getDailyValue().compareTo(properties.minimumDailyTradingValue()) >= 0
+                && latest.getTradingValue().compareTo(properties.minimumFiveMinuteTradingValue()) >= 0;
         ScoreResult score = applyMovingAverage
                 ? scorer.score(detection, intraday == null ? IntradayMovingAverageFeature.empty(0) : intraday,
                         daily == null ? DailyMovingAverageFeature.empty(0) : daily)
@@ -199,6 +201,11 @@ public class ClosingPrecisionEvaluator {
         readiness.put("sectorExposure", "UNVERIFIED");
         readiness.put("accountExposure", "UNVERIFIED");
         readiness.put("orderEligible", false);
+        if (trajectory != null) {
+            var snapshot = trajectory.available(detection.getStock().getStockCode(), asOf, availableBy);
+            readiness.put("trajectory", snapshot);
+            readiness.put("trajectoryMode", "SHADOW_NOT_USED_IN_PRODUCTION_SCORE");
+        }
         readiness.put("movingAverageExperiment", applyMovingAverage ? "PRODUCTION_BASELINE" : "REMOVED_THRESHOLD_55");
         String reason;
         Stock stock = detection.getStock();

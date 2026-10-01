@@ -122,6 +122,20 @@ type TrackPerformanceResponse = {
   performances: OvernightPerformance[]
 }
 
+type CandidateObservationReport = {
+  runId: number
+  candidates: number
+  selected: number
+  unselected: number
+  completed: number
+  rows: Array<{
+    id: number; stockCode: string; stockName: string; candidateSource: string
+    disposition: string; decisionReason: string; finalScore: number | null; status: string
+    expectedSessionDate: string; entryPrice: number | null; exitPrice: number | null
+    grossReturnRate: number | null; netReturnRate: number | null; costStatus: string
+  }>
+}
+
 type OvernightDecision = {
   id: number
   recommendationId: number
@@ -630,6 +644,12 @@ export function ClosingRecommendationPage({ back, advanced = false }: { back: ()
     queryFn: () => api<OvernightPerformance[]>(`/api/v1/closing-recommendations/performance?date=${date}${runParam}`),
     enabled: history.isSuccess,
   })
+  const candidateObservations = useQuery({
+    queryKey: ['closing-candidate-observations', runId],
+    queryFn: () => api<CandidateObservationReport>(
+      `/api/v1/closing-recommendations/candidate-observations?runId=${runId}`),
+    enabled: advanced && runId != null && selectedRun?.executionMode === 'FORWARD',
+  })
   const decisions = useQuery({
     queryKey: ['closing-recommendation-decisions', date, runId],
     queryFn: () => api<OvernightDecision[]>(`/api/v1/closing-recommendations/decisions?date=${date}${runParam}`),
@@ -667,6 +687,13 @@ export function ClosingRecommendationPage({ back, advanced = false }: { back: ()
     onSuccess: () => {
       cache.invalidateQueries({ queryKey: ['closing-recommendation-performance'] })
     },
+  })
+  const trackCandidates = useMutation({
+    mutationFn: () => api<CandidateObservationReport>(
+      `/api/v1/closing-recommendations/candidate-observations/track?runId=${runId}&targetRate=${targetRate}&stopRate=${stopRate}`,
+      { method: 'POST' },
+    ),
+    onSuccess: result => cache.setQueryData(['closing-candidate-observations', result.runId], result),
   })
   const evaluateDecisions = useMutation({
     mutationFn: () => api<DecisionEvaluationResponse>(
@@ -743,7 +770,18 @@ export function ClosingRecommendationPage({ back, advanced = false }: { back: ()
           <label>손절 기준 %<input type="number" step="0.1" value={stopRate} onChange={event => setStopRate(Number(event.target.value))} /></label>
           <button onClick={() => track.mutate()} disabled={track.isPending || rows.length === 0}>{track.isPending ? '추적 중...' : '다음날 성과 추적'}</button>
           <button onClick={() => evaluateDecisions.mutate()} disabled={evaluateDecisions.isPending || rows.length === 0}>{evaluateDecisions.isPending ? '판단 중...' : '매도/보유 판단'}</button>
+          {advanced && <button onClick={() => trackCandidates.mutate()}
+            disabled={trackCandidates.isPending || runId == null || selectedRun?.executionMode !== 'FORWARD'}>
+            {trackCandidates.isPending ? '전체 후보 추적 중...' : '전체 후보 성과 추적'}
+          </button>}
         </section>
+        {advanced && candidateObservations.data && <section className="menuGuide">
+          <h2>선택 편향 관측</h2>
+          <p>동일한 가상 진입·익일 청산·비용 규칙으로 최종 추천 {candidateObservations.data.selected}건과 미선정 {candidateObservations.data.unselected}건을 분리 관측합니다. 완료 {candidateObservations.data.completed}/{candidateObservations.data.candidates}건입니다.</p>
+          {candidateObservations.data.rows.map(row => <p key={row.id}>
+            {row.stockName} ({row.stockCode}) · {row.disposition === 'SELECTED' ? '최종 추천' : '미선정'} · {row.status} · 총수익 {pct(row.grossReturnRate)} · 순수익 {row.netReturnRate == null ? '미산출' : pct(row.netReturnRate)}
+          </p>)}
+        </section>}
         {advanced && <section className="backtestControls">
           <label>백테스트 시작일<input type="date" value={backtestFrom} onChange={event => setBacktestFrom(event.target.value)} /></label>
           <label>백테스트 종료일<input type="date" value={backtestTo} onChange={event => setBacktestTo(event.target.value)} /></label>
@@ -762,6 +800,7 @@ export function ClosingRecommendationPage({ back, advanced = false }: { back: ()
         </section>
         {generate.error && <div className="closingEmpty">{generate.error.message}</div>}
         {track.error && <div className="closingEmpty">{track.error.message}</div>}
+        {trackCandidates.error && <div className="closingEmpty">전체 후보 성과 추적 실패: {trackCandidates.error.message}</div>}
         {evaluateDecisions.error && <div className="closingEmpty">{evaluateDecisions.error.message}</div>}
         {runBacktest.error && <div className="closingEmpty">{runBacktest.error.message}</div>}
         {recommendations.error && <div className="closingEmpty">{recommendations.error.message}</div>}
@@ -789,7 +828,7 @@ export function ClosingRecommendationPage({ back, advanced = false }: { back: ()
           <article><small>보유 연장</small><b>{(decisions.data ?? []).filter(row => row.decision === 'EXTEND_HOLD').length}</b></article>
         </section>
         {lastRun?.criteria?.marketSectorAccountChecks === 'UNVERIFIED' &&
-          <div className="closingEmpty"><b>제한 모드: 주문 자격 미확인</b><p>시장 지표·업종 집중·계좌 노출 데이터가 없어 추천 목록에는 최대 1종목만 표시합니다. 추천 순위는 매수 가능 판정이나 수익 확률이 아닙니다.</p></div>}
+          <div className="closingEmpty"><b>제한 모드: 주문 자격 미확인</b><p>조건을 충족한 종목을 최대 5종목까지 추천합니다. 시장 지표·업종 집중·계좌 노출은 미검증이며 추천 순위는 매수 가능 판정이나 수익 확률이 아닙니다.</p></div>}
         {lastRun && lastRun.storedCandidates === 0 && lastRun.watchCandidates + lastRun.excludedCandidates > 0 &&
           <div className="closingEmpty"><b>조건을 충족한 최종 추천이 없습니다</b><p>{Object.entries(lastRun.exclusionReasons).map(([reason, count]) => `${closingExclusionLabel(reason)} ${count}건`).join(' · ')}</p></div>}
         <section className="closingGrid">

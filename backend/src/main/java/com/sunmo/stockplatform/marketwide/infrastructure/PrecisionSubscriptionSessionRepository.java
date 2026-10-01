@@ -9,4 +9,6 @@ public interface PrecisionSubscriptionSessionRepository extends JpaRepository<Pr
     Optional<PrecisionSubscriptionSession> findFirstByStockCodeAndStatusOrderByRequestedAtDesc(
             String stockCode, PrecisionSubscriptionSession.Status status);
     List<PrecisionSubscriptionSession> findBySessionDateOrderByRequestedAtAsc(LocalDate date);
+    List<PrecisionSubscriptionSession> findBySessionDateAndStatusOrderByRequestedAtAsc(
+            LocalDate date, PrecisionSubscriptionSession.Status status);
 }

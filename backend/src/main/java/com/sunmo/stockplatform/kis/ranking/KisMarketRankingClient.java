@@ -26,6 +26,10 @@ public class KisMarketRankingClient implements MarketRankingProvider {
     private final KisProperties properties;
     private final KisTokenManager tokens;
     private final KisRequestExecutor requests;
+    private org.springframework.context.ApplicationEventPublisher publisher;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public void setPublisher(org.springframework.context.ApplicationEventPublisher publisher) { this.publisher = publisher; }
 
     public KisMarketRankingClient(RestClient kisRestClient, KisProperties properties, KisTokenManager tokens,
             KisRequestExecutor requests) {
@@ -68,7 +72,9 @@ public class KisMarketRankingClient implements MarketRankingProvider {
                 if (entries.size() >= Math.max(1, limit))
                     break;
             }
-            return List.copyOf(entries);
+            var result = List.copyOf(entries);
+            if (publisher != null) publisher.publishEvent(new ObservedRanking(type, market, java.time.Instant.now(), result));
+            return result;
         } catch (IllegalStateException exception) {
             throw new ApplicationException(ErrorCode.KIS_NOT_CONFIGURED, HttpStatus.SERVICE_UNAVAILABLE,
                     "KIS integration is not configured", exception);
@@ -132,7 +138,7 @@ public class KisMarketRankingClient implements MarketRankingProvider {
                     .queryParam("FID_TRGT_CLS_CODE", "0")
                     .queryParam("FID_TRGT_EXLS_CLS_CODE", "0")
                     .queryParam("FID_DIV_CLS_CODE", "0")
-                    .queryParam("FID_BLNG_CLS_CODE", "0")
+                    .queryParam("FID_BLNG_CLS_CODE", type == RankingType.TURNOVER ? "3" : "0")
                     .queryParam("FID_INPUT_PRICE_1", "")
                     .queryParam("FID_INPUT_PRICE_2", "")
                     .queryParam("FID_VOL_CNT", "")

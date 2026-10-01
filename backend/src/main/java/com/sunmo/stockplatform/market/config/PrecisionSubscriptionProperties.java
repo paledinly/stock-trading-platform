@@ -14,6 +14,6 @@ public record PrecisionSubscriptionProperties(boolean enabled, int maxSubscripti
         reserve = Math.max(0, reserve);
         minHold = minHold == null ? Duration.ofMinutes(15) : minHold;
         replaceMargin = replaceMargin == null ? BigDecimal.TEN : replaceMargin;
-        freezeAt = freezeAt == null ? LocalTime.of(14, 50) : freezeAt;
+        freezeAt = freezeAt == null ? LocalTime.of(14, 35) : freezeAt;
     }
 }

@@ -8,6 +8,8 @@ import com.sunmo.stockplatform.kis.candle.DailyCandle;
 import com.sunmo.stockplatform.kis.candle.KisDailyCandleClient;
 import com.sunmo.stockplatform.kis.config.KisProperties;
 import com.sunmo.stockplatform.market.config.MarketWideScheduleProperties;
+import com.sunmo.stockplatform.marketwide.domain.PrecisionSubscriptionSession;
+import com.sunmo.stockplatform.marketwide.infrastructure.PrecisionSubscriptionSessionRepository;
 import com.sunmo.stockplatform.scanner.infrastructure.ScannerDetectionRepository;
 import com.sunmo.stockplatform.stock.domain.Stock;
 import com.sunmo.stockplatform.stock.infrastructure.StockRepository;
@@ -42,6 +44,7 @@ class DailyCandleBackfillServiceTest {
         var stocks = mock(StockRepository.class);
         var client = mock(KisDailyCandleClient.class);
         var persistence = mock(DailyCandlePersistence.class);
+        var precisionSessions = mock(PrecisionSubscriptionSessionRepository.class);
         Stock stock = mock(Stock.class);
         when(watchlist.findDistinctStockCodesByOwnerId(1L)).thenReturn(List.of("005930"));
         when(stocks.findByStockCodeAndActiveTrue("005930")).thenReturn(Optional.of(stock));
@@ -51,7 +54,7 @@ class DailyCandleBackfillServiceTest {
         when(persistence.saveMissing(eq(stock), any(), eq(LocalDate.of(2026, 9, 17)), anyList()))
                 .thenReturn(61);
         var service = new DailyCandleBackfillService(settings, kis, calendar, detections, watchlist,
-                stocks, client, persistence);
+                stocks, client, persistence, precisionSessions);
 
         var result = service.prepare();
 
@@ -72,8 +75,42 @@ class DailyCandleBackfillServiceTest {
                 new DailyCandleBackfillProperties(false, 40, 120, Duration.ofHours(1)), kis,
                 mock(ClosingTradingCalendar.class), mock(ScannerDetectionRepository.class),
                 mock(WatchlistItemRepository.class), mock(StockRepository.class), client,
-                mock(DailyCandlePersistence.class));
+                mock(DailyCandlePersistence.class), mock(PrecisionSubscriptionSessionRepository.class));
         service.scheduledPrepare();
         verifyNoInteractions(client);
+    }
+
+    @Test
+    void precisionPreparationFetchesActiveCandidateWithoutWatchlistOrDetection() {
+        var settings = new DailyCandleBackfillProperties(true, 40, 120, Duration.ofHours(1));
+        var kis = mock(KisProperties.class);
+        when(kis.enabled()).thenReturn(true);
+        var calendar = new ClosingTradingCalendar(new MarketWideScheduleProperties(false, 0, 0, false,
+                null, null, null, null, null, List.of()),
+                Clock.fixed(Instant.parse("2026-09-17T05:30:00Z"), ZoneOffset.UTC));
+        var precisionSessions = mock(PrecisionSubscriptionSessionRepository.class);
+        var session = new PrecisionSubscriptionSession("039030", Instant.parse("2026-09-17T05:20:00Z"), true);
+        when(precisionSessions.findBySessionDateAndStatusOrderByRequestedAtAsc(
+                LocalDate.of(2026, 9, 17), PrecisionSubscriptionSession.Status.ACTIVE))
+                .thenReturn(List.of(session));
+        var stocks = mock(StockRepository.class);
+        Stock stock = mock(Stock.class);
+        when(stocks.findByStockCodeAndActiveTrue("039030")).thenReturn(Optional.of(stock));
+        var client = mock(KisDailyCandleClient.class);
+        when(client.fetch(eq("039030"), any(), eq(LocalDate.of(2026, 9, 16))))
+                .thenReturn(List.of(mock(DailyCandle.class)));
+        var persistence = mock(DailyCandlePersistence.class);
+        when(persistence.ready(stock, LocalDate.of(2026, 9, 16))).thenReturn(false, true);
+        when(persistence.saveMissing(eq(stock), any(), eq(LocalDate.of(2026, 9, 16)), anyList()))
+                .thenReturn(61);
+        var service = new DailyCandleBackfillService(settings, kis, calendar,
+                mock(ScannerDetectionRepository.class), mock(WatchlistItemRepository.class), stocks,
+                client, persistence, precisionSessions);
+
+        var result = service.preparePrecision();
+
+        assertThat(result.candidateStocks()).isEqualTo(1);
+        assertThat(result.readyStocks()).isEqualTo(1);
+        verify(client).fetch(eq("039030"), any(), eq(LocalDate.of(2026, 9, 16)));
     }
 }
