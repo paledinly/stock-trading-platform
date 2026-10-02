@@ -23,6 +23,11 @@ class TrajectoryPersistenceTest {
         assertThat(store.available("005930", s.timestamp(), s.timestamp())).isNull();
         assertThat(store.available("005930", s.timestamp(), s.evaluatedAt()).timestamp()).isEqualTo(s.timestamp());
         store.outcome(s, Map.of("status", "PENDING"));
+        var flow = new TrajectoryModel.Context("FOREIGN_NET_BUY", "005930", "KIS_ESTIMATE_ALL", START,
+                java.math.BigDecimal.TEN, null, null, "ESTIMATED_SOURCE_TIME_UNKNOWN", "SHARES");
+        store.context(flow); store.context(flow);
+        assertThat(store.contexts("005930", "KOSPI", START, START.plusSeconds(60))).containsExactly(flow);
+        assertThat(store.recentSymbols(START, START.plusSeconds(60), 20)).containsExactly("005930");
         assertThat(store.outcomes(START, START.plusSeconds(3600))).hasSize(1);
     }
 }

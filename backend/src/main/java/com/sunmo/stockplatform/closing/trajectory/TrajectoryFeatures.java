@@ -133,11 +133,12 @@ public final class TrajectoryFeatures {
         scores.put("MarketRelativeStrengthScore", score((BigDecimal) market.get("relativeStrengthMarket"), "relativeStrengthMarket"));
         for (String key : List.of("OrderbookPressureScore", "SectorStrengthScore", "ThemeBreadthScore", "CatalystQualityScore", "OvernightRiskScore")) scores.put(key, score(null, "NOT_COLLECTED"));
         scores.put("OverheatRiskScore", score((BigDecimal) technical.get("return5d"), "return5d"));
-        return new Snapshot(symbol, cutoff, evaluatedAt, evaluatedAt, "closing-trajectory-v1-shadow", price, volumes, money, execution, vw,
+        return new Snapshot(symbol, cutoff, evaluatedAt, evaluatedAt, "closing-trajectory-v2-flow-shadow", price, volumes, money, execution, vw,
                 technical, patterns, market, scores, fields("catalystKnown", false, "catalystType", "UNKNOWN", "confidence", "UNVALIDATED"),
-                Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), List.of(), List.of(),
+                Map.of(), Map.of(), InvestorFlowFeatures.calculate(symbol, contexts, cutoff, evaluatedAt, policy.contextMaxAge()), Map.of(), Map.of(), List.of(), List.of(),
                 fields("latestMinuteComplete", last.complete(), "lateSessionComplete", lateComplete, "dailyCount", daily.size(),
-                        "unavailable", List.of("orderbook", "closingAuction", "investorFlow", "sector", "theme", "news", "disclosures")), policy);
+                        "investorFlow", "SEE_PER_PARTY_OBSERVATION_STATUS",
+                        "unavailable", List.of("orderbook", "closingAuction", "sector", "theme", "news", "disclosures")), policy);
     }
 
     static Map<String, Object> score(BigDecimal x, String reason) {

@@ -1,6 +1,12 @@
 # Database
 
+## Microstructure (V29)
+
+`closing_microstructure_minute`에 호가와 대량체결 1분 JSON을 저장한다. `(kind, symbol, start_time)` 기본키로 확정된 관측을 덮어쓰지 않으며 `(start_time, symbol)` 인덱스를 추가한다. [집계·시각·보관 정책](MICROSTRUCTURE.md).
+
 ## Closing Trajectory (V28)
+
+Phase 2 수급은 기존 closing_context_observation의 JSON을 재사용한다. Context에 nullable sourceAt/status/unit이 추가되며 기존 레코드는 유지한다. 추가 테이블·migration은 없다. [수급 데이터 의미](INVESTOR_FLOW.md).
 
 `closing_minute_feature`, `closing_context_observation`, `closing_trajectory_snapshot`을 추가한다. 기존 봉/추천 테이블은 유지한다. 입력 JSON text는 불변이고 오전 outcome만 갱신한다. [키·인덱스·보관 정책](CLOSING_TRAJECTORY.md)을 참고한다.
 

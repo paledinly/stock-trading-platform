@@ -21,6 +21,10 @@ public class TrajectoryStore {
         jdbc.update("INSERT INTO closing_context_observation VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING",
                 row.kind(), row.symbol(), row.scope(), Timestamp.from(row.receivedAt()), json(row));
     }
+    public List<String> recentSymbols(Instant since, Instant until, int limit) {
+        return jdbc.query("SELECT symbol FROM closing_minute_feature WHERE start_time>=? AND start_time<? GROUP BY symbol ORDER BY max(start_time) DESC,symbol LIMIT ?",
+                (rs, n) -> rs.getString(1), Timestamp.from(since), Timestamp.from(until), limit);
+    }
     public boolean snapshot(Snapshot row) {
         return jdbc.update("INSERT INTO closing_trajectory_snapshot(symbol,evaluation_time,evaluated_at,payload) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING",
                 row.symbol(), Timestamp.from(row.timestamp()), Timestamp.from(row.evaluatedAt()), json(row)) == 1;

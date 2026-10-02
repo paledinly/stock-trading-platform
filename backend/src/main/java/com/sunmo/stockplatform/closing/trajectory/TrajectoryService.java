@@ -27,10 +27,12 @@ public class TrajectoryService {
     private final ArrayBlockingQueue<Context> contexts = new ArrayBlockingQueue<>(5000);
     private final AtomicLong droppedContexts = new AtomicLong();
     private String error;
+    private final MicrostructureService microstructure;
     public TrajectoryService(TrajectoryProperties policy, TrajectoryStore store, StockRepository stocks,
-            StockCandleRepository candles, ClosingTradingCalendar calendar, PlatformTransactionManager transactions) {
+            StockCandleRepository candles, ClosingTradingCalendar calendar, PlatformTransactionManager transactions, MicrostructureService microstructure) {
         this.policy = policy; this.store = store; this.stocks = stocks; this.candles = candles; this.calendar = calendar;
         aggregator = new MinuteFeatureAggregator(policy.watermark()); transaction = new TransactionTemplate(transactions);
+        this.microstructure = microstructure;
     }
     @TransactionalEventListener
     public void receive(ObservedMarketTick event) {
@@ -41,6 +43,7 @@ public class TrajectoryService {
     @Scheduled(fixedDelayString = "${closing.trajectory.flush-interval:1s}", scheduler = "trajectoryScheduler")
     public synchronized void flush() {
         if (!policy.enabled()) return;
+        microstructure.flush();
         Instant now = calendar.now();
         List<Minute> ready = aggregator.ready(now);
         List<Context> batch = new ArrayList<>(); contexts.drainTo(batch);
@@ -61,7 +64,7 @@ public class TrajectoryService {
                             store.minutes(row.symbol(), calendar.open(local.toLocalDate()), cutoff),
                             store.contexts(row.symbol(), stock.getMarket().name(), calendar.open(local.toLocalDate()), cutoff),
                             availableDaily(daily, local.toLocalDate(), now), policy);
-                    if (snapshot != null) snapshot = snapshot.completedAt(calendar.now());
+                    if (snapshot != null) snapshot = microstructure.enrich(snapshot).completedAt(calendar.now());
                     if (snapshot != null && store.snapshot(snapshot))
                         org.slf4j.LoggerFactory.getLogger(getClass()).info("[ClosingCandidate] symbol={} cutoff={} mode=SHADOW price={} turnover={} execution={} vwap={} patterns={} catalyst=UNKNOWN",
                                 row.symbol(), cutoff, snapshot.price(), snapshot.turnover(), snapshot.execution(), snapshot.vwap(), snapshot.intradayPattern());

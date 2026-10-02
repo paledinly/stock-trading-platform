@@ -13,7 +13,11 @@ public final class TrajectoryModel {
             BigDecimal buyVolume, BigDecimal sellVolume, boolean complete) {}
     /** REST observations use receipt time; no exchange timestamp is invented. Scope prevents mixing rank universes. */
     public record Context(String kind, String symbol, String scope, Instant receivedAt,
-            BigDecimal value, BigDecimal returnPct) {}
+            BigDecimal value, BigDecimal returnPct, Instant sourceAt, String status, String unit) {
+        public Context(String kind, String symbol, String scope, Instant receivedAt, BigDecimal value, BigDecimal returnPct) {
+            this(kind, symbol, scope, receivedAt, value, returnPct, null, null, null);
+        }
+    }
     public record Snapshot(String symbol, Instant timestamp, Instant evaluatedAt, Instant inputAvailableBy, String version,
             Map<String, Object> price, Map<String, Object> volume, Map<String, Object> turnover,
             Map<String, Object> execution, Map<String, Object> vwap, Map<String, Object> technical,

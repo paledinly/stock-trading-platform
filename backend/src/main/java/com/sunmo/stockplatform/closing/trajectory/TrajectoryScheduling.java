@@ -5,6 +5,12 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
 @Configuration
 public class TrajectoryScheduling {
+    @Bean("microstructureContextScheduler")
+    public ThreadPoolTaskScheduler microstructureScheduler() {
+        var scheduler = new ThreadPoolTaskScheduler();
+        scheduler.setPoolSize(1); scheduler.setThreadNamePrefix("closing-microstructure-context-");
+        return scheduler;
+    }
     @Bean("trajectoryScheduler")
     public ThreadPoolTaskScheduler scheduler() {
         var scheduler = new ThreadPoolTaskScheduler();

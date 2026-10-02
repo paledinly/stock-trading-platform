@@ -191,6 +191,19 @@ intraday:
 
 closing:
   trajectory:
+    microstructure:
+      enabled: ${CLOSING_MICROSTRUCTURE_ENABLED:false}
+      orderbook-enabled: ${CLOSING_ORDERBOOK_ENABLED:false}
+      poll-interval: ${CLOSING_ORDERBOOK_POLL_INTERVAL:5s}
+      max-symbols: ${CLOSING_ORDERBOOK_MAX_SYMBOLS:2}
+      symbols: ${CLOSING_ORDERBOOK_SYMBOLS:}
+      large-trade-threshold: ${CLOSING_LARGE_TRADE_THRESHOLD:100000000}
+      max-observation-gap: ${CLOSING_MICROSTRUCTURE_MAX_GAP:15s}
+      watermark: ${CLOSING_MICROSTRUCTURE_WATERMARK:2s}
+    flow:
+      enabled: ${CLOSING_TRAJECTORY_FLOW_ENABLED:false}
+      interval: ${CLOSING_TRAJECTORY_FLOW_INTERVAL:5m}
+      max-symbols: ${CLOSING_TRAJECTORY_FLOW_MAX_SYMBOLS:20}
     enabled: ${CLOSING_TRAJECTORY_ENABLED:false}
     index-enabled: ${CLOSING_TRAJECTORY_INDEX_ENABLED:false}
     analysis-start: ${CLOSING_ANALYSIS_START:14:30}

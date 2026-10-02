@@ -1,5 +1,9 @@
 # Market Data
 
+Phase 3 호가 10단계는 기본 5초 간격의 제한된 REST 표본이며, 대량체결은 기존 WebSocket 체결에서 집계한다. 장중 수집만 허용하고 불연속 체결 방향은 UNKNOWN으로 남긴다. 기본 비활성이고 추천 점수는 유지한다. [설정 및 관측 한계](MICROSTRUCTURE.md).
+
+Phase 2 외국인·기관 가집계 및 KRX 프로그램 누적 수급은 별도 활성화 시 Trajectory의 investorFlow로 제공한다. 수량 단위, 원천/수신시각, 30분 관측 변화량의 의미 및 제한은 [수급 관측](INVESTOR_FLOW.md)을 따른다. 기존 Intraday 입력에는 자동 연결되지 않는다.
+
 ## 장마감 Trajectory (V28)
 
 기존 체결에서 1분 Aggregate와 기본 5분 간격의 대금/순위/VWAP/체결 추세·실제 지수 상대강도 Snapshot을 만든다. 기본 비활성 SHADOW 수집이다. 시간·결측·단위는 [장마감 Trajectory](CLOSING_TRAJECTORY.md)를 따른다. 15:00 이후 연구 자료를 기존 추천에 소급 사용하지 않는다.

@@ -1,5 +1,17 @@
 # API Guide
 
+## Phase 3 호가·대량체결
+
+- GET `/api/v1/closing-trajectory/microstructure/status`: 설정, 요청 오류, 관측 거절, 저장 오류 상태.
+- GET `/api/v1/closing-trajectory/microstructure/minutes?symbol=005930&date=YYYY-MM-DD`: 저장된 1분 호가 및 대량체결 관측.
+- Snapshot의 `orderbook`, `execution`에 원본 Feature와 관측 상태를 제공한다. [시간·결측 의미](MICROSTRUCTURE.md).
+
+## Phase 2 수급 관측
+
+- GET `/api/v1/closing-trajectory/flow/status`: 수급 설정, 수집 시도 완료시각, 오류 횟수.
+- GET `/api/v1/closing-trajectory/flow?symbol=005930&date=YYYY-MM-DD`: 저장된 수급 Context 이력.
+- 기존 Trajectory Snapshot의 `investorFlow`에 누적 수량·30분 관측 변화·시각/품질 정보를 제공한다. [상세 의미](INVESTOR_FLOW.md).
+
 ## 장마감 Trajectory 연구 API
 
 `/api/v1/closing-trajectory` 아래 GET `/status`, `/minutes?symbol=...&date=...`, `/snapshots?date=...`, `/outcomes?date=...`, POST `/outcomes/track?date=...`를 제공한다. 기존 평가의 `dataReadiness.trajectory`에도 당시 사용 가능한 Snapshot을 연결한다. [설정·응답 의미](CLOSING_TRAJECTORY.md)를 참고한다.

@@ -34,15 +34,19 @@ public class KisRealtimeTickParser {
             throw new IllegalArgumentException(
                     "Unexpected H0STCNT0 field count: expected at least " + required + ", got " + fields.length);
         }
+        // Current KRX schema appends MARKET_CLS_CODE; retain legacy 46-field frames.
+        int stride = fields.length == count * (FIELDS_PER_TRADE + 1)
+                ? FIELDS_PER_TRADE + 1 : FIELDS_PER_TRADE;
+        if (fields.length != count * stride)
+            throw new IllegalArgumentException("Unexpected H0STCNT0 field count: " + fields.length);
         List<MarketTick> ticks = new ArrayList<>(count);
         for (int index = 0; index < count; index++) {
-            ticks.add(parse(fields, index * FIELDS_PER_TRADE));
+            ticks.add(parse(fields, index * stride, index));
         }
         return List.copyOf(ticks);
     }
 
-    private MarketTick parse(String[] fields, int offset) {
-        int record = offset / FIELDS_PER_TRADE;
+    private MarketTick parse(String[] fields, int offset, int record) {
         try {
             LocalDate date = LocalDate.parse(required(fields, offset + 33, "businessDate"), DATE);
             LocalTime time = LocalTime.parse(required(fields, offset + 1, "tradeTime"), TIME);
