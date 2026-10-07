@@ -37,7 +37,8 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
 
     private final KisApprovalClient approval;
     private final KisRealtimeTickParser parser;
-    private final MarketDataService market;
+    private final RealtimeTickProcessor processor;
+    private Instant frameReceivedAt;
     private final RealtimeSubscriptionRegistry subscriptions;
     private final RealtimeMarketProperties properties;
     private final RealtimeDiagnostics diagnostics;
@@ -61,14 +62,22 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
     public KisRealtimeClient(KisApprovalClient approval, KisRealtimeTickParser parser, MarketDataService market,
             RealtimeSubscriptionRegistry subscriptions, RealtimeMarketProperties properties,
             RealtimeDiagnostics diagnostics, ObjectMapper objectMapper, RealtimeSessionPolicy session) {
+        this(approval, parser, market, subscriptions, properties, diagnostics, objectMapper, session, 20000);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public KisRealtimeClient(KisApprovalClient approval, KisRealtimeTickParser parser, MarketDataService market,
+            RealtimeSubscriptionRegistry subscriptions, RealtimeMarketProperties properties,
+            RealtimeDiagnostics diagnostics, ObjectMapper objectMapper, RealtimeSessionPolicy session,
+            @org.springframework.beans.factory.annotation.Value("${market.realtime.processing-queue-capacity:20000}") int queueCapacity) {
         this.approval = approval;
         this.parser = parser;
-        this.market = market;
         this.subscriptions = subscriptions;
         this.properties = properties;
         this.diagnostics = diagnostics;
         this.objectMapper = objectMapper;
         this.session = session;
+        this.processor = new RealtimeTickProcessor(market, diagnostics, queueCapacity);
     }
 
     @Override
@@ -115,7 +124,9 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
     }
 
     private void scheduleReconnect(Throwable error) {
+        processor.disconnected();
         diagnostics.disconnected();
+        diagnostics.error("WebSocket disconnect: " + error.getClass().getSimpleName());
         if (stopping.get() || !session.connectionAllowed())
             return;
         if (!reconnectScheduled.compareAndSet(false, true))
@@ -154,6 +165,7 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
         socket = null;
         if (current != null)
             current.abort();
+        diagnostics.error("WebSocket stale timeout: " + properties.staleTimeout());
         scheduleReconnect(new IllegalStateException("no KIS realtime message for " + properties.staleTimeout()));
     }
 
@@ -205,21 +217,27 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
 
     @Override
     public synchronized CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
+        Instant callbackAt = Instant.now();
         if (stopping.get() || !session.connectionAllowed() || socket != webSocket) {
             webSocket.abort();
             return null;
         }
+        if (fragments.isEmpty()) frameReceivedAt = callbackAt;
         fragments.append(data);
         if (last) {
             String message = fragments.toString();
             fragments.setLength(0);
-            handle(webSocket, message);
+            handle(webSocket, message, frameReceivedAt);
         }
         webSocket.request(1);
         return null;
     }
 
     private void handle(WebSocket webSocket, String message) {
+        handle(webSocket, message, Instant.now());
+    }
+
+    private void handle(WebSocket webSocket, String message, Instant receivedAt) {
         diagnostics.messageReceived();
         try {
             if (message.startsWith("{")) {
@@ -236,12 +254,7 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
             diagnostics.ticksReceived(ticks.size());
             for (var tick : ticks) {
                 if (!session.accepts(tick)) continue;
-                try {
-                    market.onTick(tick);
-                } catch (RuntimeException error) {
-                    diagnostics.processingFailed(tick.stockCode(), rootMessage(error));
-                    log.warn("KIS realtime tick processing failed for {}: {}", tick.stockCode(), rootMessage(error));
-                }
+                processor.submit(tick, receivedAt);
             }
         } catch (RuntimeException error) {
             diagnostics.parseFailed(rootMessage(error));
@@ -287,6 +300,7 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
     @Override
     public CompletionStage<?> onClose(WebSocket webSocket, int status, String reason) {
         if (socket != webSocket) return null;
+        diagnostics.error("WebSocket close status: " + status);
         socket = null;
         if (!stopping.get()) {
             scheduleReconnect(new IllegalStateException("close " + status + ": " + reason));
@@ -310,6 +324,7 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
             current.sendClose(WebSocket.NORMAL_CLOSURE, "application shutdown");
         }
         scheduler.shutdownNow();
+        processor.close();
     }
 
     private String rootMessage(Throwable error) {

@@ -1,5 +1,9 @@
 # Database
 
+## Closing Paper Entry (V30)
+
+`closing_paper_entry`는 `(run_id, stock_code)` 기본키로 v9 후보별 가상 진입을 저장한다. 평가 완료/진입 마감/원천 발생/수신/가상 진입 시각과 가격·상태를 구분하며 PENDING만 ENTERED로 바뀐다. 상태·마감 인덱스로 대기 행을 조회한다. 선정/미선정 비교 관측이 같은 기록을 사용하며 기존 v8 성과를 소급 변경하지 않는다.
+
 ## Microstructure (V29)
 
 `closing_microstructure_minute`에 호가와 대량체결 1분 JSON을 저장한다. `(kind, symbol, start_time)` 기본키로 확정된 관측을 덮어쓰지 않으며 `(start_time, symbol)` 인덱스를 추가한다. [집계·시각·보관 정책](MICROSTRUCTURE.md).
@@ -11,6 +15,10 @@ Phase 2 수급은 기존 closing_context_observation의 JSON을 재사용한다.
 `closing_minute_feature`, `closing_context_observation`, `closing_trajectory_snapshot`을 추가한다. 기존 봉/추천 테이블은 유지한다. 입력 JSON text는 불변이고 오전 outcome만 갱신한다. [키·인덱스·보관 정책](CLOSING_TRAJECTORY.md)을 참고한다.
 
 ## Intraday (V27)
+
+Egress 절감: 마지막 커밋 성과 JSON을 프로세스 메모리에 보관하고 변경된 추천 ID만 읽어 저장한다. 불변 Snapshot을 매초 전체 재조회하지 않는다. 입력 원장과 변경 성과 쓰기는 동일 트랜잭션이며 메모리 비교 기준은 커밋 성공 후에만 갱신한다. 실패 시 엔진과 비교 기준을 함께 폐기한다. 이 메모리는 영구 저장소나 다중 서버 간 캐시가 아니며 일자 전환/복구 시 다시 구성한다. 스키마 변경은 없다.
+
+장중 입력 쓰기는 `IntradayInputWriter`의 JDBC 다중 행 INSERT(최대 250행/문장)를 사용한다. 1,000건 입력은 4문장이고 driver batch rewrite 설정에 의존하지 않는다. 기존 bigserial 키·JSON·시각은 유지하며 추천/성과와 동일한 Spring 트랜잭션을 공유한다. 후속 묶음 실패도 앞선 INSERT를 포함해 전체 롤백한다. JPA Repository는 읽기/재생에 유지한다. 스키마 변경은 없다.
 
 - `intraday_input`: 거래일·종목·수신/평가시각과 변경 불가 입력 JSON. 실험 당시 Feature와 설정을 함께 저장한다.
 - `intraday_recommendation`: UUID, 종목/Setup/추천시각 고유 제약, 변경 불가 추천 Snapshot, 별도 가변 성과 JSON, optimistic version 및 추적 완료 표식.

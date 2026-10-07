@@ -1,5 +1,20 @@
 # API Guide
 
+v9 마감 평가 기본 기준은 15:15이며 수신 유예는 0초다. 같은 거래일·전략의 FORWARD 수동/자동 요청은 하나의 실행을 공유한다. 다른 설정으로 중복 요청하면 409이며 과거 REPLAY는 별도 실행으로 보존한다. criteria.entryModel은 FRESH_OBSERVED_TICK_AFTER_COMPLETION이고 가상 진입은 15:20 이전 실관측만 사용한다.
+
+## 실시간 처리 진단
+
+`GET /api/v1/market/realtime/status`의 `realtime`에 `processingQueued`, `processingDropped`, `timings`를 추가했다. 각 timing은 프로세스 시작 이후 `count`, `averageMs`, `maxMs`, `lastMs`다.
+
+- `sourceToCallback`: 체결 원천시각부터 첫 수신 콜백까지(두 시계 차이 및 원천 초 단위 정밀도 포함).
+- `processingQueueWait`: 수신 후 파싱된 틱의 작업 큐 대기시간.
+- `tickTransaction`: 기존 필드명을 유지한 단일 틱 전체 처리시간. 일반 틱에는 DB 트랜잭션이 없으며 확정봉이 있는 경우의 커밋 비용은 포함한다.
+- `transactionBoundary`: 성공한 틱 전체 처리에서 메서드 본문을 제외한 호출 부가 비용. 현재 DB 시간 지표로 사용하지 않는다.
+- `candleTransaction`: 확정봉 저장·Scanner 평가와 커밋을 포함한 트랜잭션 시간.
+- `tickBody`, `redisWrite`, `quoteSse`, `performanceAndSse`, `candleScannerAndSse`, `candleRepository`: 본문 및 해당 처리 구간. 구간은 중첩되므로 합산하지 않는다. Repository 시간에는 커밋 시 지연 실행되는 SQL 전체가 포함되지 않는다.
+
+큐 분리 자체가 소비자 처리량을 높였다는 보장은 없다. 큐 대기 증가 시 위 시간을 확인하고 병목 단계를 개선한다. 기존 원장·추천을 재평가하거나 지연 기준을 완화하지 않는다.
+
 ## Phase 3 호가·대량체결
 
 - GET `/api/v1/closing-trajectory/microstructure/status`: 설정, 요청 오류, 관측 거절, 저장 오류 상태.
@@ -17,6 +32,8 @@
 `/api/v1/closing-trajectory` 아래 GET `/status`, `/minutes?symbol=...&date=...`, `/snapshots?date=...`, `/outcomes?date=...`, POST `/outcomes/track?date=...`를 제공한다. 기존 평가의 `dataReadiness.trajectory`에도 당시 사용 가능한 Snapshot을 연결한다. [설정·응답 의미](CLOSING_TRAJECTORY.md)를 참고한다.
 
 ## 장중 연구 API
+
+- `POST /api/v1/intraday/exit-comparison?date=YYYY-MM-DD`: 읽기 전용 비교. 기본은 동일 진입 청산 비교이고 variant.options에서 진입 확인·제외·재진입 조건을 켜면 동일 후보의 진입 변경 실험이다. 후보를 새로 생성하지 않는다. 최소 손절폭·명시적 가격 단위·부분 익절·추적 손절도 지원한다. [본문·비용·품질 의미](INTRADAY_EXIT_COMPARISON.md). Web 장중 추천 하단 ‘진입·청산 비교 실험’에서 실행한다.
 
 - `GET /api/v1/intraday/status`: 활성 여부, 비용 설정 여부, 큐/누락/오류, 현재 관찰 후보 단계·사유.
 - `GET /api/v1/intraday/recommendations?date=YYYY-MM-DD`: 한국 거래일의 Paper 추천. `signal`은 고정 Snapshot, `outcome`은 이후 관측·가상 체결이다. score 내림차순이며 현재가에는 관측시각이 포함된다. signal.risks에 COSTS_NOT_CONFIGURED가 있으면 plan.riskReward는 가격 기준이며 outcome.netReturn은 null이다. 이 추천은 Net 통계 표본에서 제외한다.

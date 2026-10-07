@@ -67,7 +67,7 @@ class ClosingCandidateObservationServiceTest {
         when(observations.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         var execution = new OvernightExecutionSimulator(new TradingCostProperties(null, null, null, null, null));
         var service = new ClosingCandidateObservationService(runs, observations, stocks, candles,
-                calendar, execution, mapper);
+                calendar, execution, mapper, mock(ClosingPaperEntryService.class));
 
         var report = service.track(7L, new BigDecimal("3"), new BigDecimal("-2"));
 

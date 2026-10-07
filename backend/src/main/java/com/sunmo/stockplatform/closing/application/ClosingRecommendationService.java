@@ -45,6 +45,7 @@ public class ClosingRecommendationService {
     private final ClosingPrecisionEvaluator precisionEvaluator;
     private final RealtimeDiagnostics realtime;
     private final RealtimeMarketProperties realtimeProperties;
+    private final ClosingPaperEntryService paperEntries;
 
     public ClosingRecommendationService(ScannerDetectionRepository detections,
             ClosingRecommendationRepository recommendations,
@@ -53,7 +54,8 @@ public class ClosingRecommendationService {
             ClosingTradingCalendar calendar,
             ClosingRecommendationProperties properties, ClosingRecommendationRunRepository runs,
             ClosingPrecisionEvaluator precisionEvaluator, RealtimeDiagnostics realtime,
-            RealtimeMarketProperties realtimeProperties) {
+            RealtimeMarketProperties realtimeProperties, ClosingPaperEntryService paperEntries) {
+        this.paperEntries = paperEntries;
         this.detections = detections;
         this.recommendations = recommendations;
         this.jdbc = jdbc;
@@ -87,14 +89,14 @@ public class ClosingRecommendationService {
         Instant entryDeadline = targetDate.atTime(properties.entryDeadline()).atZone(MARKET_ZONE).toInstant();
         boolean today = targetDate.equals(calendar.today());
         if (today && generatedAt.isBefore(inputReceiptDeadline))
-            throw invalid("15:00 기준 입력 수신 유예가 끝나기 전에는 후보 평가를 실행할 수 없습니다");
-        String mode = today && calendar.isTradingDay(targetDate) && !generatedAt.isAfter(entryDeadline)
+            throw invalid(properties.featureFreezeAt() + " 기준 입력 마감 전에는 후보 평가를 실행할 수 없습니다");
+        String mode = today && calendar.isTradingDay(targetDate) && generatedAt.isBefore(entryDeadline)
                 ? "FORWARD" : "REPLAY";
         if ("FORWARD".equals(mode)) {
             Instant lastTickAt = realtime.lastTickAt();
             if (lastTickAt == null || lastTickAt.isBefore(decisionAt.minus(realtimeProperties.staleTimeout())))
                 throw new ApplicationException(ErrorCode.MARKET_DATA_STALE, HttpStatus.SERVICE_UNAVAILABLE,
-                        "15:00 기준 실시간 시세가 최신 상태가 아닙니다. 소켓 수신 상태를 확인하세요");
+                        properties.featureFreezeAt() + " 기준 실시간 시세가 최신 상태가 아닙니다. 소켓 수신 상태를 확인하세요");
         }
         int safeLimit = Math.min(Math.max(limit, 1), 30);
         Map<String, Object> criteria = new TreeMap<>();
@@ -117,11 +119,12 @@ public class ClosingRecommendationService {
         criteria.put("inputReceiptDeadlineInstant", inputReceiptDeadline.toString());
         criteria.put("entryDeadline", properties.entryDeadline().toString());
         criteria.put("candleFinalizationGraceSeconds", properties.candleFinalizationGrace().toSeconds());
-        criteria.put("entryModel", "NEXT_FINAL_5M_OPEN");
+        criteria.put("entryModel", "FRESH_OBSERVED_TICK_AFTER_COMPLETION");
         criteria.put("calendarSource", "WEEKEND_CONFIGURED_AND_VERIFIED_SPECIAL_CLOSURES");
         String settings = serialize(criteria);
         String hash = sha256(settings);
-        String key = requestKey == null ? UUID.randomUUID().toString() : requestKey;
+        String key = "FORWARD".equals(mode) ? "official-" + targetDate + "-" + ClosingRecommendation.STRATEGY_VERSION
+                : requestKey == null ? UUID.randomUUID().toString() : requestKey;
         if (!key.matches("[A-Za-z0-9_-]{1,100}")) throw invalid("Invalid Idempotency-Key");
         // A transaction-scoped database lock also serializes retries across backend instances.
         jdbc.queryForObject("select 1 from pg_advisory_xact_lock(hashtextextended(?, 0))", Integer.class, key);
@@ -191,6 +194,7 @@ public class ClosingRecommendationService {
                 criteria, Map.copyOf(decisionReasons), evaluations, run.getId(), mode, calendar.now());
         run.recordDataVersion("snapshot-" + sha256(serialize(evaluations)).substring(0, 31));
         run.complete(serialize(response), response.completedAt());
+        if ("FORWARD".equals(mode)) paperEntries.prepare(run, evaluations.stream().map(CandidateEvaluationResponse::stockCode).toList());
         return response;
     }
 

@@ -90,7 +90,7 @@ class ClosingStrategyAnalyticsServiceTest {
                 .singleElement().extracting("recentRate").isEqualTo(new BigDecimal("100.000000"));
         assertThat(report.contextCoverage().marketRegimeAvailable()).isFalse();
         assertThat(report.contextCoverage().sectorHistoryAvailable()).isFalse();
-        assertThat(report.promotionGate().currentStrategy()).isEqualTo("RULE_BASED_V8_BASELINE");
+        assertThat(report.promotionGate().currentStrategy()).isEqualTo("RULE_BASED_V9_1515");
         assertThat(report.promotionGate().statisticalModelStatus()).isEqualTo("BLOCKED");
         assertThat(report.promotionGate().eventModelStatus()).isEqualTo("BLOCKED");
         assertThat(report.promotionGate().productionActivationAllowed()).isFalse();
@@ -103,6 +103,7 @@ class ClosingStrategyAnalyticsServiceTest {
         OvernightPerformance performance = mock(OvernightPerformance.class);
         ClosingRecommendation recommendation = mock(ClosingRecommendation.class);
         when(performance.getRecommendation()).thenReturn(recommendation);
+        when(recommendation.getStrategyVersion()).thenReturn(ClosingRecommendation.STRATEGY_VERSION);
         when(recommendation.getRecommendationScore()).thenReturn(bd(score));
         when(recommendation.getRecommendationDate()).thenReturn(date);
         when(recommendation.getFeatureSnapshot()).thenReturn("{\"vwapDistanceRate\":" + vwapDistance + "}");

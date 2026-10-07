@@ -13,6 +13,48 @@ public final class IntradayEngine {
     private final Map<String, Instant> evaluatedMinute = new HashMap<>();
     private final Map<String, Candidate> candidates = new TreeMap<>();
     private final Map<UUID, Result> results = new LinkedHashMap<>();
+    private final Map<String, String> recovery = new TreeMap<>();
+    public record State(Map<String, List<Input>> history, Map<String, Instant> evaluatedMinute,
+                        Map<String, Candidate> candidates, List<Result> results, Map<String, String> recovery) {}
+    public State checkpoint(com.fasterxml.jackson.databind.ObjectMapper mapper) {
+        Map<String, List<Input>> saved = new HashMap<>();
+        history.forEach((code, rows) -> saved.put(code, List.copyOf(rows)));
+        return new State(saved, Map.copyOf(evaluatedMinute), Map.copyOf(candidates), results.values().stream()
+                .map(r -> new Result(r.signal(), mapper.convertValue(r.outcome(), Outcome.class))).toList(), Map.copyOf(recovery));
+    }
+    public void restoreState(State state) {
+        history.clear(); state.history().forEach((code, rows) -> history.put(code, new ArrayDeque<>(rows)));
+        evaluatedMinute.clear(); evaluatedMinute.putAll(state.evaluatedMinute());
+        candidates.clear(); candidates.putAll(state.candidates()); results.clear(); state.results().forEach(this::restore);
+        recovery.clear(); recovery.putAll(state.recovery());
+    }
+    public Set<String> observedSymbols() { return Set.copyOf(history.keySet()); }
+    public Map<String, String> recoveryStatus() { return Map.copyOf(recovery); }
+    /** Conditional counter consistency, never a provider sequence-number guarantee. */
+    public boolean canContinue(Input input) {
+        var rows = history.get(input.observation().tick().stockCode());
+        if (rows == null || rows.isEmpty()) return false;
+        var before = rows.getLast().observation().tick(); var now = input.observation().tick();
+        if (!before.businessDate().equals(now.businessDate()) || now.occurredAt().isBefore(before.occurredAt())
+                || Duration.between(before.occurredAt(), now.occurredAt()).compareTo(input.policy().maxGap()) > 0
+                || now.occurredAt().isAfter(input.observation().receivedAt())
+                || input.observation().receivedAt().isAfter(input.evaluatedAt())
+                || Duration.between(now.occurredAt(), input.evaluatedAt()).compareTo(input.policy().maxDelay()) > 0
+                || now.tradingHalted() || before.tradingHalted() || now.tradeVolume() <= 0
+                || now.cumulativeVolume() - before.cumulativeVolume() != now.tradeVolume()
+                || before.cumulativeTradingValue() == null || now.cumulativeTradingValue() == null
+                || before.cumulativeBuyVolume() == null || now.cumulativeBuyVolume() == null
+                || before.cumulativeSellVolume() == null || now.cumulativeSellVolume() == null
+                || before.highPrice() == null || now.highPrice() == null || before.lowPrice() == null || now.lowPrice() == null)
+            return false;
+        long buy = now.cumulativeBuyVolume() - before.cumulativeBuyVolume();
+        long sell = now.cumulativeSellVolume() - before.cumulativeSellVolume();
+        return buy >= 0 && sell >= 0 && buy + sell == now.tradeVolume()
+                && now.cumulativeTradingValue().subtract(before.cumulativeTradingValue())
+                    .compareTo(now.price().multiply(java.math.BigDecimal.valueOf(now.tradeVolume()))) == 0
+                && now.highPrice().compareTo(before.highPrice().max(now.price())) == 0
+                && now.lowPrice().compareTo(before.lowPrice().min(now.price())) == 0;
+    }
     public IntradayEngine(ClosingTradingCalendar calendar) { this.calendar = calendar; }
     public Collection<Result> results() { return List.copyOf(results.values()); }
     public Collection<Candidate> candidates() { return List.copyOf(candidates.values()); }
@@ -24,13 +66,15 @@ public final class IntradayEngine {
         Instant evaluated = input.evaluatedAt(); var p = input.policy(); String code = tick.stockCode();
         if (at.isAfter(received) || received.isAfter(evaluated) || !calendar.isTradingDay(tick.businessDate())) return null;
         for (Result result : results.values()) IntradayTracker.observe(result, input);
+        boolean continued = input.recoveryContinuation() && canContinue(input);
+        if (input.dataLoss()) recovery.put(code, continued ? "COUNTERS_MATCH_HISTORY_REUSED" : "GAP_REQUIRES_NEW_WINDOW");
         Deque<Input> window = history.computeIfAbsent(code, ignored -> new ArrayDeque<>());
         Input previous = window.peekLast();
         if (previous != null) {
             var last = previous.observation().tick();
             if (at.isBefore(last.occurredAt()) || at.equals(last.occurredAt())
                     && tick.cumulativeVolume() <= last.cumulativeVolume()) return null;
-            if (!tick.businessDate().equals(last.businessDate()) || input.dataLoss()
+            if (!tick.businessDate().equals(last.businessDate()) || input.dataLoss() && !continued
                     || Duration.between(last.occurredAt(), at).compareTo(p.maxGap()) > 0
                     || tick.cumulativeVolume() < last.cumulativeVolume()
                     || tick.cumulativeTradingValue() != null && last.cumulativeTradingValue() != null
@@ -55,7 +99,7 @@ public final class IntradayEngine {
         if (p.version().equals("intraday-research-v1") && !p.costs().configured()) gate = "COSTS_NOT_CONFIGURED";
         else if (!input.eligible() || tick.tradingHalted()) gate = "UNIVERSE_EXCLUDED";
         else if (session == null) gate = "OUTSIDE_RECOMMENDATION_SESSION";
-        else if (Duration.between(at, evaluated).compareTo(p.maxDelay()) > 0 || input.dataLoss()) gate = "STALE_OR_LOST_INPUT";
+        else if (Duration.between(at, evaluated).compareTo(p.maxDelay()) > 0 || input.dataLoss() && !continued) gate = "STALE_OR_LOST_INPUT";
         else if (p.requireCompleteRiskData()) gate = "RISK_DATA_UNAVAILABLE";
         else if (IntradayFeatures.at(rows, at.minusSeconds(1800), p.maxGap()) == null) gate = "WARMUP_30M_REQUIRED";
         else if (!Double.isFinite(features.value("vwap"))) gate = "VWAP_UNAVAILABLE";
@@ -100,6 +144,11 @@ public final class IntradayEngine {
         double score = 50 * Math.min(2, Math.min(features.value("volumeRatio5m") / volumeFloor,
                 Math.min(features.value("valueRatio5m") / p.minValueRatio(), plan.riskReward() / p.minRiskReward())));
         Instant expires = evaluated.plusSeconds(p.expiryMinutes().get(detection.setup()) * 60L);
+        Map<String, Double> setupValues = new HashMap<>(features.values());
+        setupValues.put("setupSupport", detection.support());
+        setupValues.put("setupResistance", detection.resistance());
+        setupValues.put("setupRange", detection.range());
+        features = new Features(setupValues, features.vwapState(), features.marketRegime(), features.unavailable());
         Instant cutoff = tick.businessDate().atTime(15, 0).atZone(ZONE).toInstant();
         if (expires.isAfter(cutoff)) expires = cutoff;
         UUID id = UUID.nameUUIDFromBytes((code + "|" + evaluated + "|" + detection.setup() + "|" + p.version())

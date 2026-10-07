@@ -25,10 +25,12 @@ public class OvernightPerformanceService {
     private final ClosingTradingCalendar calendar;
     private final ObjectMapper mapper;
     private final OvernightExecutionSimulator execution;
+    private final ClosingPaperEntryService paperEntries;
 
     public OvernightPerformanceService(ClosingRecommendationRepository recommendations,
             OvernightPerformanceRepository performances, StockCandleRepository candles,
-            ClosingTradingCalendar calendar, ObjectMapper mapper, OvernightExecutionSimulator execution) {
+            ClosingTradingCalendar calendar, ObjectMapper mapper, OvernightExecutionSimulator execution, ClosingPaperEntryService paperEntries) {
+        this.paperEntries = paperEntries;
         this.recommendations = recommendations;
         this.performances = performances;
         this.candles = candles;
@@ -127,6 +129,12 @@ public class OvernightPerformanceService {
         ClosingRecommendationRun run = recommendation.getRun();
         if (run == null || !"FORWARD".equals(run.getExecutionMode()) || run.getCompletedAt() == null) {
             result.recordExecution(null, null, null, execution.costAssumption());
+            return;
+        }
+        if (ClosingPaperEntryService.usesObservedEntry(run)) {
+            var entry = paperEntries.find(run.getId(), recommendation.getStock().getStockCode());
+            result.recordExecution(entry.at(), entry.price(), entry.price() == null ? null
+                    : execution.targetOrStop(entry.price(), exitSeries, target, stop), execution.costAssumption());
             return;
         }
         Instant entryStart = ceilFiveMinutes(run.getCompletedAt());

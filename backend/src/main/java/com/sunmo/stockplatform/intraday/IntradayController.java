@@ -25,4 +25,7 @@ public class IntradayController {
     public Map<String, String> invalidRequest(IllegalArgumentException error) {
         return Map.of("detail", "Invalid intraday date or experiment configuration");
     }
+    @PostMapping("/exit-comparison") public Object compareExits(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestBody IntradayExitComparison.Request request) { return service.compareExits(date, request); }
 }

@@ -65,6 +65,7 @@ public class ScannerEngine {
 
     @Transactional
     public void evaluate(CandleSnapshot current) {
+        if (!current.finalCandle()) { observeIncomplete(current); return; }
         diagnostics.scannerEvaluated();
         Stock stock = stocks.findByStockCodeAndActiveTrue(current.stockCode()).orElse(null);
         if (stock == null || stock.isManaged() || stock.isTradingHalted())
@@ -109,6 +110,17 @@ public class ScannerEngine {
             rank(setting, stock, decision.score());
             events.publish("scanner." + eventName(setting.getType()) + ".detected",
                     detectionPayload(detection, eventId, stock, current, metrics, decision));
+        }
+    }
+
+    /** Preserve incomplete-window exit bookkeeping without querying rows that cannot qualify. */
+    public void observeIncomplete(CandleSnapshot current) {
+        diagnostics.scannerEvaluated();
+        String suffix = ":" + current.stockCode();
+        for (String state : inside) {
+            if (state.endsWith(suffix) && misses.merge(state, 1, Integer::sum) >= 2) {
+                inside.remove(state); misses.remove(state);
+            }
         }
     }
 

@@ -8,6 +8,10 @@ import static com.sunmo.stockplatform.intraday.IntradayFeatures.pct;
 public final class IntradayTracker {
     private IntradayTracker() {}
     public static void observe(Result result, Input input) {
+        observe(result, input, true, result.signal().policy().trailingAfterTarget());
+    }
+    /** Research entry gates still observe every tick for gaps, invalidation and expiry. */
+    static void observe(Result result, Input input, boolean allowEntry, boolean trailingAfterTarget) {
         Signal s = result.signal(); Outcome o = result.outcome();
         var tick = input.observation().tick();
         Instant at = tick.occurredAt();
@@ -49,7 +53,7 @@ public final class IntradayTracker {
         if (o.status.equals("ENTRY_READY")) {
             if (!receipt.isBefore(s.expiresAt())) o.status = "EXPIRED";
             else if (price <= s.plan().stop() || price > s.plan().chaseLimit()) o.status = "INVALIDATED";
-            else if (price >= s.plan().entryFrom() && price <= s.plan().entryTo()) {
+            else if (allowEntry && price >= s.plan().entryFrom() && price <= s.plan().entryTo()) {
                 double fill = s.policy().costs().configured() ? s.policy().costs().buy(price) : price;
                 if (fill <= s.plan().entryTo()) {
                     o.entryPrice = fill; o.entryReferencePrice = price; o.entryAt = receipt; o.status = "ENTERED";
@@ -63,7 +67,7 @@ public final class IntradayTracker {
             if (o.trailingStop != null && price <= o.trailingStop) exit(result, receipt, price, "TRAILING_EXIT");
             else if (price <= s.plan().stop()) exit(result, receipt, price, "STOPPED");
             else if (price >= s.plan().target1()) {
-                if (s.policy().trailingAfterTarget()) {
+                if (trailingAfterTarget) {
                     o.targetBeforeStop = true;
                     o.trailingStop = Math.max(o.trailingStop == null ? s.plan().stop() : o.trailingStop,
                             price - (s.plan().entryTo() - s.plan().stop()));
@@ -118,8 +122,10 @@ public final class IntradayTracker {
         o.status = status; o.exitAt = at; o.exitPrice = costs.configured() ? costs.sell(price) : price;
         o.grossReturn = pct(price, o.entryReferencePrice);
         o.netReturn = costs.configured() ? costs.net(o.entryPrice, o.exitPrice) : null;
-        if (o.targetBeforeStop == null)
-            o.targetBeforeStop = status.equals("TARGET_HIT") ? true : status.equals("STOPPED") ? false : null;
+        if (o.targetBeforeStop == null) {
+            if (status.equals("TARGET_HIT")) o.targetBeforeStop = Boolean.TRUE;
+            else if (status.equals("STOPPED")) o.targetBeforeStop = Boolean.FALSE;
+        }
         o.holdingMinutes = Duration.between(o.entryAt, at).toMillis() / 60000.0;
     }
 }

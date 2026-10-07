@@ -59,7 +59,7 @@ public final class MicrostructureAggregator {
         if (s == null) return;
         MarketTick previous = s.lastTick;
         if (previous != null && t.cumulativeVolume() <= previous.cumulativeVolume()) { rejected++; return; }
-        boolean continuous = previous != null && t.cumulativeVolume() - previous.cumulativeVolume() == t.tradeVolume()
+        boolean continuous = !event.dataLoss() && previous != null && t.cumulativeVolume() - previous.cumulativeVolume() == t.tradeVolume()
                 && Duration.between(previous.occurredAt(),t.occurredAt()).compareTo(policy.maxObservationGap()) <= 0;
         Bucket b = bucket(s,t.occurredAt(),event.receivedAt());
         b.complete &= continuous;

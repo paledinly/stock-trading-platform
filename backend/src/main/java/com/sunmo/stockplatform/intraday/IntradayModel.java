@@ -7,7 +7,12 @@ import java.util.*;
 public final class IntradayModel {
     private IntradayModel() {}
     public record Input(ObservedMarketTick observation, Instant evaluatedAt, String stockName,
-                        boolean eligible, boolean dataLoss, IntradayProperties policy) {}
+                        boolean eligible, boolean dataLoss, IntradayProperties policy, boolean recoveryContinuation) {
+        public Input(ObservedMarketTick observation, Instant evaluatedAt, String stockName,
+                     boolean eligible, boolean dataLoss, IntradayProperties policy) {
+            this(observation, evaluatedAt, stockName, eligible, dataLoss, policy, false);
+        }
+    }
     public record Features(Map<String, Double> values, String vwapState, String marketRegime,
                            List<String> unavailable) {
         public Features { values = Map.copyOf(values); unavailable = List.copyOf(unavailable); }

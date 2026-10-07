@@ -21,7 +21,7 @@ class IntradayMarketWiringTest {
         when(features.onTick(input.observation().tick())).thenReturn(input.observation().feature());
         var service = new MarketDataService(mock(QuoteStateStore.class), mock(StockRepository.class), mock(StockCandleRepository.class),
                 mock(MarketEventGateway.class), properties, mock(ScannerEngine.class), mock(DetectionPerformanceTracker.class),
-                mock(RealtimeDiagnostics.class), features, publisher);
+                mock(RealtimeDiagnostics.class), features, publisher, mock(org.springframework.transaction.PlatformTransactionManager.class));
         service.onTick(input.observation().tick());
         var capture = org.mockito.ArgumentCaptor.forClass(Object.class); verify(publisher).publishEvent(capture.capture());
         var event = (ObservedMarketTick) capture.getValue();

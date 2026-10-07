@@ -21,7 +21,7 @@ import static org.mockito.Mockito.*;
         "spring.datasource.driver-class-name=org.h2.Driver", "spring.datasource.username=sa", "spring.datasource.password=",
         "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration",
         "market.realtime.enabled=false",
-        "intraday.enabled=true", "intraday.flush-interval=1h", "watchlist.initial.enabled=false",
+        "intraday.enabled=true", "intraday.checkpoint.enabled=false", "intraday.flush-interval=1h", "watchlist.initial.enabled=false",
         "intraday.costs.buy-fee-percent=0.001", "intraday.costs.sell-fee-percent=0.001",
         "intraday.costs.sell-tax-percent=0.001", "intraday.costs.spread-percent=0.001",
         "intraday.costs.buy-slippage-percent=0.001", "intraday.costs.sell-slippage-percent=0.001"})
@@ -37,6 +37,7 @@ class IntradayPersistenceTest {
     @Test void committedSharedEventsReachScannerPersistFrozenSnapshotAndReplayWithoutMixingPaper() {
         LocalDate day = LocalDate.of(2026, 9, 29);
         when(calendar.today()).thenReturn(day);
+        when(calendar.close(day)).thenReturn(day.atTime(15, 30).atZone(IntradayEngine.ZONE).toInstant());
         when(calendar.previousTradingDay(day)).thenReturn(day.minusDays(1));
         when(calendar.isTradingDay(day)).thenReturn(true);
         when(calendar.now()).thenReturn(IntradayEngineTest.START);

@@ -5,4 +5,8 @@ import com.sunmo.stockplatform.market.feature.domain.MarketFeatureSnapshot;
 import java.time.Instant;
 
 /** Shared observation; source time and gateway receipt time have different meanings. */
-public record ObservedMarketTick(MarketTick tick, MarketFeatureSnapshot feature, Instant receivedAt) {}
+public record ObservedMarketTick(MarketTick tick, MarketFeatureSnapshot feature, Instant receivedAt, boolean dataLoss) {
+    public ObservedMarketTick(MarketTick tick, MarketFeatureSnapshot feature, Instant receivedAt) {
+        this(tick, feature, receivedAt, false);
+    }
+}

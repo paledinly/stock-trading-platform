@@ -32,6 +32,24 @@ import static org.mockito.Mockito.*;
 class ClosingRecommendationServiceTest {
     private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
 
+    @Test void new1515CutoffExcludesFutureSignalsAndManualAutomaticShareOneRun() {
+        LocalDate date = LocalDate.of(2026,9,22);
+        Instant freeze = date.atTime(15,15).atZone(SEOUL).toInstant();
+        var realtime = mock(com.sunmo.stockplatform.market.application.RealtimeDiagnostics.class);
+        when(realtime.lastTickAt()).thenReturn(freeze);
+        Fixture fixture = new Fixture(Clock.fixed(freeze.plusSeconds(30), ZoneOffset.UTC), realtime, LocalTime.of(15,15), Duration.ZERO);
+        var future = fixture.detection(fixture.stock(1L), freeze.plusSeconds(1));
+        when(fixture.detections.findBySessionDateAndDetectedAtGreaterThanEqualOrderByDetectedAtDesc(eq(date),any()))
+                .thenReturn(List.of(future));
+        var first = fixture.service.generate(date,10,bd("35"),bd("65"),"manual-click");
+        var second = fixture.service.generate(date,10,bd("35"),bd("65"),"official-"+date+"-"+ClosingRecommendation.STRATEGY_VERSION);
+        assertThat(first.evaluationEnd()).isEqualTo(freeze);
+        assertThat(first.criteria()).containsEntry("inputReceiptDeadlineInstant",freeze.toString());
+        assertThat(first.evaluations()).isEmpty();
+        assertThat(second.runId()).isEqualTo(first.runId());
+        verify(fixture.runs,times(1)).save(any());
+    }
+
     @Test
     void precisionCandidateWinsWhenSameStockAlsoHasBroadSnapshot() {
         Fixture fixture = new Fixture();
@@ -288,7 +306,7 @@ class ClosingRecommendationServiceTest {
         assertThat(response.executionMode()).isEqualTo("FORWARD");
         assertThat(response.evaluationEnd()).isEqualTo(decisionAt);
         assertThat(response.criteria()).containsEntry("entryDeadline", "15:20")
-                .containsEntry("entryModel", "NEXT_FINAL_5M_OPEN");
+                .containsEntry("entryModel", "FRESH_OBSERVED_TICK_AFTER_COMPLETION");
     }
 
     @Test
@@ -323,6 +341,10 @@ class ClosingRecommendationServiceTest {
         }
 
         Fixture(Clock clock, com.sunmo.stockplatform.market.application.RealtimeDiagnostics realtime) {
+            this(clock, realtime, LocalTime.of(15, 0), Duration.ofSeconds(10));
+        }
+
+        Fixture(Clock clock, com.sunmo.stockplatform.market.application.RealtimeDiagnostics realtime, LocalTime freeze, Duration grace) {
             var stored = new java.util.HashMap<String, com.sunmo.stockplatform.closing.domain.ClosingRecommendationRun>();
             when(runs.save(any())).thenAnswer(invocation -> {
                 com.sunmo.stockplatform.closing.domain.ClosingRecommendationRun run = invocation.getArgument(0);
@@ -351,7 +373,7 @@ class ClosingRecommendationServiceTest {
                         return values;
                     });
             ClosingRecommendationProperties properties = new ClosingRecommendationProperties(20, 4, bd("55"),
-                    LocalTime.of(14, 30), LocalTime.of(15, 0), LocalTime.of(15, 20), Duration.ofSeconds(10));
+                    LocalTime.of(14, 30), freeze, LocalTime.of(15, 20), grace);
             ClosingTradingCalendar calendar = new ClosingTradingCalendar(
                     new com.sunmo.stockplatform.market.config.MarketWideScheduleProperties(false, 0, 0, false,
                             null, null, null, null, null, List.of()), clock);
@@ -362,7 +384,7 @@ class ClosingRecommendationServiceTest {
                             properties, mapper, calendar), realtime,
                     new com.sunmo.stockplatform.market.config.RealtimeMarketProperties(false,
                             java.net.URI.create("ws://localhost"), Duration.ZERO, Duration.ofHours(1), 10, 41,
-                            Duration.ofMinutes(1)));
+                            Duration.ofMinutes(1)), mock(ClosingPaperEntryService.class));
         }
 
         List<StockCandle> finalCandles(Instant start) {

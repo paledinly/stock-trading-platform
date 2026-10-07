@@ -310,6 +310,8 @@ public class OvernightBacktestService {
     }
 
     private StockCandle entryCandle(ScannerDetection detection, LocalDate recommendationDate) {
+        // 15:15 strategy requires a captured post-completion tick; five-minute OHLC cannot reconstruct it.
+        if (!properties.featureFreezeAt().isBefore(LocalTime.of(15, 15))) return null;
         Instant expected = recommendationDate.atTime(properties.featureFreezeAt()).atZone(MARKET_ZONE).toInstant()
                 .plus(Duration.ofMinutes(5));
         Instant deadline = recommendationDate.atTime(properties.entryDeadline()).atZone(MARKET_ZONE).toInstant();

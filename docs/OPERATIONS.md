@@ -1,5 +1,21 @@
 # Operations Guide
 
+## 15:15 자동 마감 평가 (v9)
+
+`CLOSING_AUTOMATION_ENABLED=true`, `CLOSING_FEATURE_FREEZE_AT=15:15`, `CLOSING_CANDLE_FINALIZATION_GRACE=0s`, `CLOSING_ENTRY_DEADLINE=15:20`을 사용한다. .env의 명시값이 기본값보다 우선하며 백엔드 재시작 후 반영된다. 기본 30초 poll에서 15:15 이상·15:20 미만에 실행한다. 15:20 이후 재시작하면 당일 자동평가를 소급 실행하지 않는다.
+
+수동/자동 FORWARD 요청은 거래일·전략 버전의 동일 키와 DB 잠금을 공유한다. 설정이 다른 중복 요청은 충돌 응답을 반환하며 저장된 결과는 덮어쓰지 않는다. 롤백된 평가는 마감 전 다음 poll에서 재시도한다. 정상 실행은 재시작해도 반복하지 않는다.
+
+가상 진입은 5초 poll에서 평가 완료 후의 체결을 확인한다. 종목별 원천→진입 지연 10초 초과, 거래정지, 누락 표식, 미래 시각은 진입하지 않는다. 평가가 늦으면 EVALUATION_DEADLINE_MISSED, 유효 체결 없이 마감하면 NO_FRESH_TICK_BEFORE_DEADLINE을 closing_paper_entry에 기록한다. 중단 중 가격을 분봉으로 소급 채우지 않는다. 중단으로 남은 PENDING은 다음 활성 구간에서 만료되며 진입으로 간주하지 않는다. 실주문은 없다.
+
+## Supabase Egress 절감
+
+장중 연구는 입력이 없고 성과도 바뀌지 않으면 DB 트랜잭션/추천 조회를 생략한다. 입력이 없어도 만료·미청산 판정은 메모리에서 진행하며 실제 상태 전환은 저장한다. 종료된 거래도 종가 등 사후 관측이 아직 남았으면 필요한 변경은 계속 저장한다.
+
+정규장 종료 및 지연 유예 이후이고 당일 저장 성과의 추적이 모두 완료됐다면, 재시작 복구는 추천·성과만 읽고 당일 틱 원장 전체 재생을 생략한다. 장중 복구 및 명시적 `/replay`, `/exit-comparison`은 여전히 전체 입력을 읽는다. 대량 비교를 반복하면 Egress가 발생하며 이번 수정은 그 조회를 캐시하거나 제한하지 않는다.
+
+반영에는 백엔드 재시작이 필요하다. 장 종료 후 `intraday_recommendation WHERE id IN (...)` 쿼리 호출 증가가 멈추는지 DB 통계의 시간차로 확인하고, Supabase Shared Pooler/Database Egress 추이를 비교한다. 이미 발생한 사용량은 줄어들지 않는다. 이 최적화는 단일 실시간 수집 프로세스의 마지막 커밋 상태를 재사용하며 여러 수집 인스턴스의 소유권 조정은 제공하지 않는다.
+
 ## 실시간 수집 운영시간
 
 KIS WebSocket은 `ClosingTradingCalendar`의 거래일에만 기본 08:59부터 연결하고 15:31부터 종료한다. 기존 30초 health check에서 시간 경계를 확인하므로 연결/종료는 최대 한 주기 늦을 수 있다. 장외에는 승인키 발급·장애 재접속을 중지하고, 다음 거래일에 보존된 구독 목록으로 다시 연결한다. Broad 스캔의 15:20 종료시각과 분리하여 15:20~15:30 종가 체결을 받을 수 있게 한다.
@@ -49,6 +65,8 @@ Feature 기준은 15:00, 기본 입력 유예는 10초, 진입 마감은 15:20�
 Precision 후보 교체는 기본 14:35에 동결된다. 일봉 준비는 08:10 전체 준비와 14:25/14:35 Precision 보완으로 나뉜다. 완료된 Forward 평가의 `전체 후보 성과 추적`은 최종 추천과 미선정 후보를 같은 가상 실행 규칙으로 관측하지만 추천 결과 자체를 변경하지 않는다.
 
 ## 장애 확인
+
+실시간 처리 큐 분리 코드는 backend 재시작 후 적용된다. 재시작 전 메모리 큐를 영구 복구하지 않으므로 관측 공백을 숨기지 않는다. `/api/v1/market/realtime/status`의 `realtime.processingQueued`, `processingDropped`, `timings`를 확인한다. `sourceToCallback`은 수신 이전 지연, `processingQueueWait`는 서버 작업 대기, `tickTransaction`과 세부 구간은 처리 비용이다. 큐가 지속 증가하면 분리만으로 처리량 문제가 해결되지 않은 것이다. 누락 카운터가 증가하거나 장중추천의 `dropped`가 증가하면 해당 구간은 정상 연속 관측으로 취급하지 않는다. 상세 단위는 [API Guide](API.md)를 따른다.
 
 1. /actuator/health
 2. DB/Redis 연결

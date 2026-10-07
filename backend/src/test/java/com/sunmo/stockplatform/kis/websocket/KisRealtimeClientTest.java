@@ -22,6 +22,24 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 class KisRealtimeClientTest {
+    @Test void fragmentedFrameRetainsFirstCallbackTime() {
+        var parser = mock(KisRealtimeTickParser.class);
+        var market = mock(MarketDataService.class);
+        var session = acceptingSession(); when(session.connectionAllowed()).thenReturn(true);
+        var tick = new com.sunmo.stockplatform.market.domain.MarketTick("005930", LocalDate.of(2026,10,6),
+                Instant.parse("2026-10-06T00:00:00Z"), BigDecimal.TEN,1,1,BigDecimal.TEN,1);
+        when(parser.parseMany("payload",1)).thenReturn(List.of(tick));
+        var client = new KisRealtimeClient(mock(KisApprovalClient.class),parser,market,
+                mock(RealtimeSubscriptionRegistry.class),new RealtimeMarketProperties(true,URI.create("ws://localhost"),
+                Duration.ZERO,Duration.ofHours(1),10,41,Duration.ofSeconds(60)),new RealtimeDiagnostics(),new ObjectMapper(),session);
+        var socket = mock(WebSocket.class); client.onOpen(socket);
+        client.onText(socket,"0|H0STCNT0|1|",false);
+        Instant receipt = (Instant)ReflectionTestUtils.getField(client,"frameReceivedAt");
+        client.onText(socket,"payload",true);
+        client.shutdown();
+        verify(market).onTick(eq(tick),eq(receipt),eq(false));
+        verify(socket,times(3)).request(1);
+    }
     @Test
     void outsideSessionDoesNotIssueApprovalAndClosesExistingSocketWithoutRetry() {
         var approval = mock(KisApprovalClient.class);
@@ -108,7 +126,7 @@ class KisRealtimeClientTest {
                 Instant.parse("2026-09-23T06:00:00Z"), new BigDecimal("100"), 1, 1,
                 new BigDecimal("100"), 1);
         when(parser.parseMany("payload", 1)).thenReturn(List.of(tick));
-        doThrow(new IllegalStateException("storage unavailable")).when(market).onTick(tick);
+        doThrow(new IllegalStateException("storage unavailable")).when(market).onTick(eq(tick), any(), anyBoolean());
         KisRealtimeClient client = new KisRealtimeClient(mock(KisApprovalClient.class), parser, market,
                 mock(RealtimeSubscriptionRegistry.class),
                 new RealtimeMarketProperties(true, URI.create("ws://localhost"), Duration.ZERO,
@@ -116,6 +134,7 @@ class KisRealtimeClientTest {
                 diagnostics, new ObjectMapper(), acceptingSession());
 
         ReflectionTestUtils.invokeMethod(client, "handle", mock(WebSocket.class), "0|H0STCNT0|1|payload");
+        client.shutdown();
 
         assertThat(diagnostics.snapshot().parseErrors()).isZero();
         assertThat(diagnostics.snapshot().processingErrors()).isEqualTo(1);

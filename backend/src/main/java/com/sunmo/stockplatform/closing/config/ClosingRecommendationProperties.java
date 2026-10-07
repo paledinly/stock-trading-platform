@@ -29,10 +29,10 @@ public record ClosingRecommendationProperties(
         minimumFinalCandles = minimumFinalCandles <= 0 ? 4 : minimumFinalCandles;
         minimumFinalScore = minimumFinalScore == null ? new BigDecimal("55") : minimumFinalScore;
         evaluationStart = evaluationStart == null ? LocalTime.of(14, 30) : evaluationStart;
-        featureFreezeAt = featureFreezeAt == null ? LocalTime.of(15, 0) : featureFreezeAt;
+        featureFreezeAt = featureFreezeAt == null ? LocalTime.of(15, 15) : featureFreezeAt;
         entryDeadline = entryDeadline == null ? LocalTime.of(15, 20) : entryDeadline;
         candleFinalizationGrace = candleFinalizationGrace == null || candleFinalizationGrace.isNegative()
-                ? Duration.ofSeconds(10) : candleFinalizationGrace;
+                ? Duration.ZERO : candleFinalizationGrace;
         minimumDailyTradingValue = minimumDailyTradingValue == null ? new BigDecimal("1000000000") : minimumDailyTradingValue;
         minimumFiveMinuteTradingValue = minimumFiveMinuteTradingValue == null ? new BigDecimal("20000000") : minimumFiveMinuteTradingValue;
         if (minimumDailyTradingValue.signum() < 0 || minimumFiveMinuteTradingValue.signum() < 0)

@@ -39,7 +39,7 @@ class OvernightPerformanceServiceTest {
         when(performances.save(any())).thenAnswer(i -> i.getArgument(0));
         return new OvernightPerformanceService(recommendations, performances, candles, calendar, new ObjectMapper(),
                 new OvernightExecutionSimulator(new com.sunmo.stockplatform.closing.config.TradingCostProperties(
-                        BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO)));
+                        BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO)), mock(ClosingPaperEntryService.class));
     }
 
     @Test

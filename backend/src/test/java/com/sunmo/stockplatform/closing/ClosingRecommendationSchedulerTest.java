@@ -29,7 +29,7 @@ class ClosingRecommendationSchedulerTest {
 
     @Test
     void officialRunTracksPreviousSessionAndProtectsBothDates() {
-        ClosingRecommendationScheduler scheduler = scheduler(at(TUESDAY, 15, 5), true);
+        ClosingRecommendationScheduler scheduler = scheduler(at(TUESDAY, 15, 15), true);
         when(calendar.previousTradingDay(TUESDAY)).thenReturn(MONDAY);
         ClosingRecommendationRun previousRun = run(1L);
         ClosingRecommendationRun currentRun = run(2L);
@@ -43,7 +43,7 @@ class ClosingRecommendationSchedulerTest {
         scheduler.poll();
 
         verify(recommendations).generate(TUESDAY, 10, bd("35"), bd("65"),
-                "official-2026-09-22-closing-recommend-v8-1500");
+                "official-2026-09-22-closing-recommend-v9-1515");
         verify(performances).track(MONDAY, bd("3"), bd("-2"), 1L);
         verify(subscriptions, atLeastOnce()).add("005930", RealtimeSubscriptionRegistry.Source.OVERNIGHT);
         verify(subscriptions, atLeastOnce()).add("000660", RealtimeSubscriptionRegistry.Source.OVERNIGHT);
@@ -84,8 +84,22 @@ class ClosingRecommendationSchedulerTest {
         when(calendar.isTradingDay(date)).thenReturn(tradingDay);
         return new ClosingRecommendationScheduler(recommendations, performances, repository, runs, subscriptions, calendar,
                 new ClosingRecommendationProperties(20, 4, bd("55"), LocalTime.of(14, 30),
-                        LocalTime.of(15, 0), LocalTime.of(15, 20), Duration.ofSeconds(10)),
+                        LocalTime.of(15, 15), LocalTime.of(15, 20), Duration.ZERO),
                 new ClosingAutomationProperties(true, 10, bd("35"), bd("65"), bd("3"), bd("-2")));
+    }
+
+    @Test void noAutomaticRunBefore1515OrAt1520AndRestartDoesNotDuplicate() {
+        var scheduler = scheduler(at(TUESDAY, 15, 14), true);
+        when(calendar.previousTradingDay(TUESDAY)).thenReturn(MONDAY);
+        scheduler.poll();
+        when(calendar.now()).thenReturn(at(TUESDAY, 15, 20));
+        scheduler.poll();
+        verifyNoInteractions(recommendations);
+        var existing = run(2L);
+        when(runs.findByRequestKey(key(TUESDAY))).thenReturn(Optional.of(existing));
+        scheduler = scheduler(at(TUESDAY, 15, 16), true);
+        scheduler.poll();
+        verifyNoInteractions(recommendations);
     }
 
     private ClosingRecommendationRun run(Long id) {
@@ -95,7 +109,7 @@ class ClosingRecommendationSchedulerTest {
     }
 
     private String key(LocalDate date) {
-        return "official-" + date + "-closing-recommend-v8-1500";
+        return "official-" + date + "-closing-recommend-v9-1515";
     }
 
     private Instant at(LocalDate date, int hour, int minute) {

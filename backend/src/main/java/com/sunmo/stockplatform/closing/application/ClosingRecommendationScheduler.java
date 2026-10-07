@@ -60,8 +60,8 @@ public class ClosingRecommendationScheduler {
         syncSubscriptionsIfDue(today, time, now, false);
         if (!calendar.isTradingDay(today))
             return;
-        if (!time.isBefore(recommendationProperties.featureFreezeAt())
-                && !time.isAfter(recommendationProperties.entryDeadline())) {
+        if (!time.isBefore(recommendationProperties.featureFreezeAt().plus(recommendationProperties.candleFinalizationGrace()))
+                && time.isBefore(recommendationProperties.entryDeadline())) {
             if (generate(today))
                 syncSubscriptionsIfDue(today, time, now, true);
         }
@@ -90,7 +90,7 @@ public class ClosingRecommendationScheduler {
             return;
         lastPerformanceBucket = bucket;
         LocalDate recommendationDate = calendar.previousTradingDay(today);
-        ClosingRecommendationRun run = runs.findByRequestKey(officialKey(recommendationDate)).orElse(null);
+        ClosingRecommendationRun run = officialRun(recommendationDate);
         if (run == null)
             return;
         try {
@@ -127,7 +127,7 @@ public class ClosingRecommendationScheduler {
     }
 
     private void addCodes(Set<String> target, LocalDate date) {
-        ClosingRecommendationRun run = runs.findByRequestKey(officialKey(date)).orElse(null);
+        ClosingRecommendationRun run = officialRun(date);
         if (run == null)
             return;
         target.addAll(repository.findStockCodesByRunId(run.getId()));
@@ -135,6 +135,11 @@ public class ClosingRecommendationScheduler {
 
     private String officialKey(LocalDate date) {
         return "official-" + date + "-" + ClosingRecommendation.STRATEGY_VERSION;
+    }
+
+    private ClosingRecommendationRun officialRun(LocalDate date) {
+        return runs.findByRequestKey(officialKey(date)).or(() ->
+                runs.findFirstByRecommendationDateAndExecutionModeOrderByIdDesc(date, "FORWARD")).orElse(null);
     }
 
     private String rootMessage(Throwable error) {

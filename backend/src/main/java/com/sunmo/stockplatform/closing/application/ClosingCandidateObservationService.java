@@ -26,11 +26,13 @@ public class ClosingCandidateObservationService {
     private final ClosingTradingCalendar calendar;
     private final OvernightExecutionSimulator execution;
     private final ObjectMapper mapper;
+    private final ClosingPaperEntryService paperEntries;
 
     public ClosingCandidateObservationService(ClosingRecommendationRunRepository runs,
             ClosingCandidateObservationRepository observations, StockRepository stocks,
             StockCandleRepository candles, ClosingTradingCalendar calendar,
-            OvernightExecutionSimulator execution, ObjectMapper mapper) {
+            OvernightExecutionSimulator execution, ObjectMapper mapper, ClosingPaperEntryService paperEntries) {
+        this.paperEntries = paperEntries;
         this.runs = runs;
         this.observations = observations;
         this.stocks = stocks;
@@ -86,10 +88,13 @@ public class ClosingCandidateObservationService {
             BigDecimal target, BigDecimal stop) {
         Instant recommendationClose = calendar.close(run.getRecommendationDate());
         Instant entryStart = ceilFiveMinutes(run.getCompletedAt());
-        StockCandle entry = candles
+        StockCandle entry = ClosingPaperEntryService.usesObservedEntry(run) ? null : candles
                 .findByStockIdAndTimeframeAndStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(
                         row.getStock().getId(), "5M", entryStart, recommendationClose)
                 .stream().filter(StockCandle::isFinalCandle).filter(this::validPrices).findFirst().orElse(null);
+        var captured = ClosingPaperEntryService.usesObservedEntry(run) ? paperEntries.find(run.getId(), row.getStock().getStockCode()) : null;
+        BigDecimal entryPrice = captured != null ? captured.price() : entry == null ? null : entry.getOpen();
+        Instant entryAt = captured != null ? captured.at() : entry == null ? null : entry.getStartTime();
         Instant open = calendar.open(row.getExpectedSessionDate());
         Instant close = calendar.close(row.getExpectedSessionDate());
         List<StockCandle> exitSeries = candles
@@ -103,20 +108,19 @@ public class ClosingCandidateObservationService {
         List<String> missing = new ArrayList<>();
         for (Instant at = open; at.isBefore(close) && !at.plusSeconds(300).isAfter(now); at = at.plusSeconds(300))
             if (counts.getOrDefault(at, 0L) != 1) missing.add(at.toString());
-        if (entry == null) missing.add("ENTRY_AFTER_RUN_COMPLETION");
+        if (entryPrice == null) missing.add(captured == null ? "ENTRY_AFTER_RUN_COMPLETION" : captured.status());
         OvernightPerformanceStatus status = now.isBefore(open) ? OvernightPerformanceStatus.PENDING
                 : now.isBefore(close) ? OvernightPerformanceStatus.IN_PROGRESS
-                : entry == null || exitSeries.isEmpty() ? OvernightPerformanceStatus.DATA_MISSING
+                : entryPrice == null || exitSeries.isEmpty() ? OvernightPerformanceStatus.DATA_MISSING
                 : missing.isEmpty() ? OvernightPerformanceStatus.COMPLETED : OvernightPerformanceStatus.DATA_INCOMPLETE;
         OvernightExecutionSimulator.ExecutionResult result = status == OvernightPerformanceStatus.COMPLETED
-                ? execution.targetOrStop(entry.getOpen(), exitSeries, target, stop) : null;
+                ? execution.targetOrStop(entryPrice, exitSeries, target, stop) : null;
         ClosingCandidateObservation.OvernightExecutionResult stored = result == null ? null
                 : new ClosingCandidateObservation.OvernightExecutionResult(result.exitAt(),
                         result.exitReferencePrice(), result.grossReturnRate(),
                         result.costsApplied() ? result.netReturnRate() : null,
                         result.exitReason(), result.ambiguous(), result.costsApplied());
-        row.observe(now, status, json(missing), entry == null ? null : entry.getStartTime(),
-                entry == null ? null : entry.getOpen(), stored, execution.costAssumption());
+        row.observe(now, status, json(missing), entryAt, entryPrice, stored, execution.costAssumption());
     }
 
     private GenerateResponse snapshot(ClosingRecommendationRun run) {

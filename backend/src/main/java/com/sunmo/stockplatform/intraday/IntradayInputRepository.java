@@ -6,6 +6,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 public interface IntradayInputRepository extends JpaRepository<IntradayInputEntity, Long> {
+    java.util.Optional<IntradayInputEntity> findTopBySessionDateOrderByIdDesc(LocalDate date);
     List<IntradayInputEntity> findBySessionDateAndIdGreaterThanOrderById(LocalDate date, Long after, Pageable page);
     long countBySessionDate(LocalDate date);
 }

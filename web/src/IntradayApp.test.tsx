@@ -18,6 +18,35 @@ test('shows NO TRADE and missing evidence without fabricated win rates', async (
   fireEvent.click(screen.getByRole('button', { name: '선택일 재생' }))
   expect(await screen.findByText('수신 이력이 없어 백테스트할 수 없습니다.')).toBeInTheDocument()
 })
+
+test('submits a fixed-entry experiment without changing live policy', async () => {
+  const original = globalThis.fetch
+  globalThis.fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => url.includes('/exit-comparison')
+    ? Promise.resolve({ ok: true, json: async () => ({ commonCompletedCount: 0, comparisons: {} }) }) : original(url, init)) as typeof fetch
+  mount()
+  fireEvent.change(screen.getByLabelText('손절 거리 배수'), { target: { value: '1.5' } })
+  fireEvent.click(screen.getByRole('button', { name: '선택일 청산 비교' }))
+  expect(await screen.findByText(/공통 완료 표본: 0건/)).toBeInTheDocument()
+  const call = vi.mocked(fetch).mock.calls.find(([url]) => String(url).includes('/exit-comparison'))!
+  expect(call[1]?.method).toBe('POST')
+  expect(JSON.parse(call[1]?.body as string)).toEqual({ variants: [{ name: 'EXPERIMENT', stopDistanceMultiplier: 1.5,
+    targetDistanceMultiplier: 1, protectAtPercent: null, protectFloorPercent: null }] })
+})
+
+test('submits opt-in entry and partial-exit research settings', async () => {
+  const original = globalThis.fetch
+  globalThis.fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => url.includes('/exit-comparison')
+    ? Promise.resolve({ ok: true, json: async () => ({ mode: 'FIXED_CANDIDATE_ENTRY_EXIT_COMPARISON', commonCompletedCount: 0, comparisons: {} }) }) : original(url, init)) as typeof fetch
+  mount()
+  fireEvent.click(screen.getByLabelText('추가 실험 사용'))
+  fireEvent.change(screen.getByLabelText('돌파 진입 조건'), { target: { value: 'HOLD' } })
+  fireEvent.change(screen.getByLabelText('유지 시간 (초)'), { target: { value: '20' } })
+  fireEvent.change(screen.getByLabelText('부분 익절 시작 %'), { target: { value: '0.5' } })
+  fireEvent.click(screen.getByRole('button', { name: '선택일 청산 비교' }))
+  expect(await screen.findByText('후보 고정·진입 변경 실험')).toBeInTheDocument()
+  const call = vi.mocked(fetch).mock.calls.find(([url]) => String(url).includes('/exit-comparison'))!
+  expect(JSON.parse(call[1]?.body as string).variants[0].options).toMatchObject({ entryMode: 'HOLD', holdSeconds: 20, partialAtPercent: 0.5, partialFraction: 0.5 })
+})
 test('shows recommendation reasons, risk and stop-first result', async () => {
   const original = globalThis.fetch
   globalThis.fetch = vi.fn().mockImplementation((url: string) => url.includes('/recommendations') ? Promise.resolve({ ok: true, json: async () => [{

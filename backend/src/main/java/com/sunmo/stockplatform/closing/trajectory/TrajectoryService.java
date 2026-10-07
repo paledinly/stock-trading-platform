@@ -34,7 +34,7 @@ public class TrajectoryService {
         aggregator = new MinuteFeatureAggregator(policy.watermark()); transaction = new TransactionTemplate(transactions);
         this.microstructure = microstructure;
     }
-    @TransactionalEventListener
+    @TransactionalEventListener(fallbackExecution = true)
     public void receive(ObservedMarketTick event) {
         if (policy.enabled() && calendar.isTradingDay(event.tick().businessDate())) aggregator.accept(event);
     }

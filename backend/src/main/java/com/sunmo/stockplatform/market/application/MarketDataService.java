@@ -27,11 +27,14 @@ public class MarketDataService {
     private final RealtimeDiagnostics diagnostics;
     private final MarketFeatureEngine features;
     private final org.springframework.context.ApplicationEventPublisher publisher;
+    private final org.springframework.transaction.support.TransactionTemplate transaction;
 
     public MarketDataService(QuoteStateStore quotes, StockRepository stocks, StockCandleRepository candles,
             MarketEventGateway events, RealtimeMarketProperties properties, ScannerEngine scanner,
             DetectionPerformanceTracker performance, RealtimeDiagnostics diagnostics, MarketFeatureEngine features,
-            org.springframework.context.ApplicationEventPublisher publisher) {
+            org.springframework.context.ApplicationEventPublisher publisher,
+            org.springframework.transaction.PlatformTransactionManager transactions) {
+        this.transaction = new org.springframework.transaction.support.TransactionTemplate(transactions);
         this.quotes = quotes;
         this.stocks = stocks;
         this.candles = candles;
@@ -44,20 +47,35 @@ public class MarketDataService {
         this.publisher = publisher;
     }
 
-    @Transactional
     public void onTick(MarketTick tick) {
-        Instant receivedAt = Instant.now();
+        onTick(tick, Instant.now(), false);
+    }
+
+    public long onTick(MarketTick tick, Instant receivedAt, boolean dataLoss) {
+        long bodyStart = System.nanoTime();
+        try {
         var feature = features.onTick(tick);
-        quotes.put(tick);
+        long redisStart = System.nanoTime();
+        try { quotes.put(tick); } finally { diagnostics.timing("redisWrite", System.nanoTime() - redisStart); }
+        long sseStart = System.nanoTime();
+        try {
         events.publish("quote.updated",
                 Map.of("stockCode", tick.stockCode(), "price", tick.price().toPlainString(), "cumulativeVolume",
                         Long.toString(tick.cumulativeVolume()), "cumulativeTradingValue",
                         tick.cumulativeTradingValue() == null ? "0" : tick.cumulativeTradingValue().toPlainString(),
                         "occurredAt", tick.occurredAt().toString()));
-        for (CandleSnapshot candle : aggregator.accept(tick))
-            handle(candle);
-        performance.onTick(tick);
-        publisher.publishEvent(new ObservedMarketTick(tick, feature, receivedAt));
+        } finally { diagnostics.timing("quoteSse", System.nanoTime() - sseStart); }
+        var snapshots = aggregator.accept(tick);
+        if (snapshots.stream().anyMatch(CandleSnapshot::finalCandle)) {
+            long dbStart = System.nanoTime();
+            try { transaction.executeWithoutResult(status -> snapshots.forEach(this::handle)); }
+            finally { diagnostics.timing("candleTransaction", System.nanoTime() - dbStart); }
+        } else snapshots.forEach(this::handle);
+        long performanceStart = System.nanoTime();
+        try { performance.onTick(tick); } finally { diagnostics.timing("performanceAndSse", System.nanoTime() - performanceStart); }
+        publisher.publishEvent(new ObservedMarketTick(tick, feature, receivedAt, dataLoss));
+        return System.nanoTime() - bodyStart;
+        } finally { diagnostics.timing("tickBody", System.nanoTime() - bodyStart); }
     }
 
     @Scheduled(fixedDelay = 1000)
@@ -67,13 +85,19 @@ public class MarketDataService {
     }
 
     private void handle(CandleSnapshot snapshot) {
+        long start = System.nanoTime();
+        try {
         if (snapshot.finalCandle())
             persist(snapshot);
-        scanner.evaluate(snapshot);
+        if (snapshot.finalCandle()) scanner.evaluate(snapshot);
+        else scanner.observeIncomplete(snapshot);
         events.publish(snapshot.finalCandle() ? "candle.5m.closed" : "candle.5m.updated", payload(snapshot));
+        } finally { diagnostics.timing("candleScannerAndSse", System.nanoTime() - start); }
     }
 
     private void persist(CandleSnapshot c) {
+        long start = System.nanoTime();
+        try {
         var stock = stocks.findByStockCodeAndActiveTrue(c.stockCode()).orElse(null);
         if (stock == null)
             return;
@@ -83,6 +107,7 @@ public class MarketDataService {
         entity.revise(c.open(), c.high(), c.low(), c.close(), c.volume(), c.tradingValue(), true, c.revision());
         candles.save(entity);
         diagnostics.candlePersisted(c.startTime());
+        } finally { diagnostics.timing("candleRepository", System.nanoTime() - start); }
     }
 
     private Map<String, Object> payload(CandleSnapshot c) {

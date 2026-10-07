@@ -47,6 +47,85 @@ function Statistics({ data }: { data?: Analytics }) {
   </section>)}</>
 }
 
+type ExitReport = { mode: string; commonCompletedCount: number; comparisons: Record<string, {
+  missedBaselineWinners: number; cohorts: Record<string, number>; commonCompleted: { count: number; averageGrossReturn: number | null; targetHitRate: number | null; net: Stats }
+}> }
+function ExitComparison({ date }: { date: string }) {
+  const [stop, setStop] = useState('1')
+  const [target, setTarget] = useState('1')
+  const [protect, setProtect] = useState('')
+  const [floor, setFloor] = useState('0')
+  const [advanced, setAdvanced] = useState(false)
+  const [minimumStop, setMinimumStop] = useState('0')
+  const [narrowMode, setNarrowMode] = useState('WIDEN')
+  const [entryMode, setEntryMode] = useState('IMMEDIATE')
+  const [holdSeconds, setHoldSeconds] = useState('10')
+  const [retestTolerance, setRetestTolerance] = useState('0.1')
+  const [partialAt, setPartialAt] = useState('')
+  const [partialFraction, setPartialFraction] = useState('0.5')
+  const [trail, setTrail] = useState('')
+  const [stopLimit, setStopLimit] = useState('0')
+  const [freshStructure, setFreshStructure] = useState(false)
+  const [grid, setGrid] = useState('')
+  function experimentOptions() {
+    const tickSizes: Record<string, number> = {}
+    for (const item of grid.split(',').map(x => x.trim()).filter(Boolean)) {
+      const parts = item.split('=')
+      if (parts.length !== 2 || !/^[A-Za-z0-9]{6}$/.test(parts[0].trim()) || !Number.isFinite(Number(parts[1])) || Number(parts[1]) <= 0)
+        throw new Error('가격 단위는 종목코드=단위 형식으로 입력하세요. 예: 005930=100')
+      tickSizes[parts[0].trim()] = Number(parts[1])
+    }
+    return { tickSizes, minimumStopPercent: Number(minimumStop), narrowStopMode: narrowMode, entryMode,
+      holdSeconds: entryMode === 'HOLD' ? Number(holdSeconds) : 0,
+      retestTolerancePercent: entryMode === 'RETEST' ? Number(retestTolerance) : null,
+      maxStoppedPerSymbol: Number(stopLimit), requireFreshStructureAfterStop: freshStructure,
+      partialAtPercent: partialAt === '' ? null : Number(partialAt), partialFraction: partialAt === '' ? null : Number(partialFraction),
+      trailingDistancePercent: trail === '' ? null : Number(trail) }
+  }
+  const comparison = useMutation({ mutationFn: () => api<ExitReport>(`/api/v1/intraday/exit-comparison?date=${date}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ variants: [{
+      name: 'EXPERIMENT', stopDistanceMultiplier: Number(stop), targetDistanceMultiplier: Number(target),
+      protectAtPercent: protect === '' ? null : Number(protect), protectFloorPercent: protect === '' ? null : Number(floor),
+      ...(advanced ? { options: experimentOptions() } : {}),
+    }] }),
+  }) })
+  return <section><h2>진입·청산 비교 실험</h2>
+    <p>기본은 동일 진입 청산 비교이며, 진입 확인·제외 조건을 켜면 후보를 고정한 진입 변경 실험입니다. 배수 1은 기존 거리입니다. 운영 설정과 저장된 성과는 변경하지 않습니다.</p>
+    <form onSubmit={e => { e.preventDefault(); comparison.mutate() }}>
+      <label>손절 거리 배수 <input required type="number" min="0.01" step="any" value={stop} onChange={e => setStop(e.target.value)} /></label>{' '}
+      <label>목표 거리 배수 <input required type="number" min="0.01" step="any" value={target} onChange={e => setTarget(e.target.value)} /></label>{' '}
+      <label>수익 보호 시작 % (선택) <input type="number" min="0.01" step="any" value={protect} onChange={e => setProtect(e.target.value)} /></label>{' '}
+      <label>보호선 % <input required={protect !== ''} type="number" min="0" step="any" value={floor} onChange={e => setFloor(e.target.value)} /></label>{' '}
+      <p><label><input type="checkbox" checked={advanced} onChange={e => setAdvanced(e.target.checked)} /> 추가 실험 사용</label></p>
+      {advanced && <fieldset><legend>가격·진입·부분 청산·재진입 조건</legend>
+        <p><label>최소 손절폭 % <input required type="number" min="0" max="99" step="any" value={minimumStop} onChange={e => setMinimumStop(e.target.value)} /></label>{' '}
+          <label>좁은 손절 처리 <select value={narrowMode} onChange={e => setNarrowMode(e.target.value)}><option value="WIDEN">최소 폭까지 확대</option><option value="FILTER">후보 제외</option></select></label></p>
+        <p><label>돌파 진입 조건 <select value={entryMode} onChange={e => setEntryMode(e.target.value)}><option value="IMMEDIATE">기존 진입</option><option value="HOLD">돌파선 위 유지</option><option value="RETEST">돌파선 재접근 후 회복</option></select></label>{' '}
+          {entryMode === 'HOLD' && <label>유지 시간 (초) <input required type="number" min="1" max="3600" value={holdSeconds} onChange={e => setHoldSeconds(e.target.value)} /></label>}
+          {entryMode === 'RETEST' && <label>재접근 허용 폭 % <input required type="number" min="0.001" step="any" value={retestTolerance} onChange={e => setRetestTolerance(e.target.value)} /></label>}</p>
+        <p><label>부분 익절 시작 % <input type="number" min="0.001" step="any" value={partialAt} onChange={e => setPartialAt(e.target.value)} /></label>{' '}
+          <label>부분 청산 비율 (0~1) <input required={partialAt !== ''} type="number" min="0.001" max="0.999" step="any" value={partialFraction} onChange={e => setPartialFraction(e.target.value)} /></label>{' '}
+          <label>추적 손절 거리 % <input type="number" min="0.001" step="any" value={trail} onChange={e => setTrail(e.target.value)} /></label></p>
+        <p>추적 손절은 수익 보호 시작 또는 부분 익절 후 작동합니다. 부분 익절선은 최종 목표선보다 낮아야 합니다.</p>
+        <p><label>종목별 손절 횟수 제한 (0은 제한 없음) <input required type="number" min="0" max="100" value={stopLimit} onChange={e => setStopLimit(e.target.value)} /></label>{' '}
+          <label><input type="checkbox" checked={freshStructure} onChange={e => setFreshStructure(e.target.checked)} /> 손절 후 더 높은 돌파선·강한 거래량과 거래대금 확인</label></p>
+        <p><label>종목별 가격 단위 (선택) <input value={grid} placeholder="005930=100,000660=500" onChange={e => setGrid(e.target.value)} /></label></p>
+        <p>가격 단위는 직접 확인한 연구 가정입니다. 입력하면 미등록 종목은 판정 불가로 남습니다. 빈 값이면 가격 반올림을 적용하지 않습니다.</p>
+      </fieldset>}
+      <button disabled={comparison.isPending}>{comparison.isPending ? '비교 중…' : '선택일 청산 비교'}</button>
+    </form>
+    <p>당시 비용을 사용하며 미설정이면 Net은 자료 없음입니다. 보호선은 진입 fill 기준이며 다음 관측 체결에서 청산하므로 보호 수익을 보장하지 않습니다.</p>
+    {comparison.error && <p role="alert">{comparison.error.message}</p>}
+    {comparison.data && <><p>{comparison.data.mode === 'FIXED_CANDIDATE_ENTRY_EXIT_COMPARISON' ? '후보 고정·진입 변경 실험' : '동일 진입 청산 비교'}</p><p>모든 비교안에서 판정 가능한 공통 완료 표본: {comparison.data.commonCompletedCount}건 · 마지막 실행 결과</p>
+      <div className="intradayTable"><table><thead><tr><th>비교안</th><th>공통 표본</th><th>평균 Gross %</th><th>Net 표본</th><th>평균 Net %</th><th>잔여 물량 목표 먼저 %</th><th>판정 불가</th><th>진행 중</th><th>미진입</th><th>놓친 기존 수익 거래</th></tr></thead>
+        <tbody>{Object.entries(comparison.data.comparisons).map(([name, group]) => <tr key={name}>
+          <td>{name === 'BASELINE' ? '기존 청산' : '실험 청산'}</td><td>{group.commonCompleted.count}</td><td>{num(group.commonCompleted.averageGrossReturn)}</td>
+          <td>{group.commonCompleted.net.trades}</td><td>{num(group.commonCompleted.net.averageNetReturn)}</td><td>{num(group.commonCompleted.targetHitRate)}</td>
+          <td>{group.cohorts['quality:UNCERTAIN'] ?? 0}</td><td>{group.cohorts['quality:OPEN'] ?? 0}</td><td>{group.cohorts['quality:NO_ENTRY'] ?? 0}</td><td>{group.missedBaselineWinners ?? 0}</td></tr>)}</tbody></table></div>
+      <p>공통 표본에서 제외된 판정 불가·진행 중 거래까지 함께 확인해야 합니다. 이 결과는 수익성 검증이나 계좌 수익률이 아닙니다.</p></>}
+  </section>
+}
+
 export function IntradayPage({ back }: { back: () => void }) {
   const [date, setDate] = useState(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date()))
   const status = useQuery({ queryKey: ['intraday', 'status'], queryFn: () => api<Status>('/api/v1/intraday/status'), refetchInterval: 5000 })
@@ -79,5 +158,5 @@ export function IntradayPage({ back }: { back: () => void }) {
     <h2>실시간 Paper 통계</h2><p>비용 미설정 추천은 Net 통계 표본에서 제외합니다. 기대값은 평균 Net입니다. 낙폭은 동일 명목금액의 청산순 수익률 누적 낙폭(%p)이며 계좌 MDD가 아닙니다. 자료 없음은 0%가 아닙니다.</p><Statistics data={analytics.data} />
     <section><h2>수신 이력 재생</h2><p>당시 기록된 입력·설정·시각으로 동일 엔진을 실행합니다. Paper 표본과 합산하지 않습니다.</p><button disabled={replay.isPending} onClick={() => replay.mutate(date)}>{replay.isPending ? '재생 중…' : '선택일 재생'}</button>
       {replay.data && <><p>저장 입력 {replay.data.inputCount}건 · 재생 추천 {replay.data.results.length}건</p>{replay.data.inputCount === 0 && <p>수신 이력이 없어 백테스트할 수 없습니다.</p>}<Statistics data={replay.data.analytics} /></>}
-    </section></main></div>
+    </section><ExitComparison key={date} date={date} /></main></div>
 }

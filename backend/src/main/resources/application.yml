@@ -161,6 +161,7 @@ market:
     refresh-interval: ${MARKET_BACKFILL_REFRESH_INTERVAL:1m}
     max-requests-per-query: ${MARKET_BACKFILL_MAX_REQUESTS:14}
   realtime:
+    processing-queue-capacity: ${MARKET_REALTIME_PROCESSING_QUEUE_CAPACITY:20000}
     enabled: ${MARKET_REALTIME_ENABLED:false}
     session:
       connect-before-open: ${MARKET_REALTIME_CONNECT_BEFORE_OPEN:1m}
@@ -181,6 +182,10 @@ watchlist:
 
 intraday:
   enabled: ${INTRADAY_ENABLED:false}
+  checkpoint:
+    enabled: ${INTRADAY_CHECKPOINT_ENABLED:true}
+    directory: ${INTRADAY_CHECKPOINT_DIRECTORY:.intraday-checkpoints}
+    interval: ${INTRADAY_CHECKPOINT_INTERVAL:5m}
   costs:
     buy-fee-percent: ${INTRADAY_BUY_FEE_PERCENT:}
     sell-fee-percent: ${INTRADAY_SELL_FEE_PERCENT:}
@@ -219,7 +224,7 @@ closing:
     volume-comparison-windows: ${CLOSING_VOLUME_WINDOWS:5,15,30}
     turnover-comparison-windows: ${CLOSING_TURNOVER_WINDOWS:5,15,30}
   automation:
-    enabled: ${CLOSING_AUTOMATION_ENABLED:false}
+    enabled: ${CLOSING_AUTOMATION_ENABLED:true}
     poll-interval: ${CLOSING_AUTOMATION_POLL_INTERVAL:30s}
     limit: ${CLOSING_AUTOMATION_LIMIT:10}
     minimum-opportunity: ${CLOSING_AUTOMATION_MIN_OPPORTUNITY:35}
@@ -240,9 +245,9 @@ closing:
     minimum-final-candles: ${CLOSING_MIN_FINAL_CANDLES:4}
     minimum-final-score: ${CLOSING_MIN_FINAL_SCORE:55}
     evaluation-start: ${CLOSING_EVALUATION_START:14:30}
-    feature-freeze-at: ${CLOSING_FEATURE_FREEZE_AT:15:00}
+    feature-freeze-at: ${CLOSING_FEATURE_FREEZE_AT:15:15}
     entry-deadline: ${CLOSING_ENTRY_DEADLINE:15:20}
-    candle-finalization-grace: ${CLOSING_CANDLE_FINALIZATION_GRACE:10s}
+    candle-finalization-grace: ${CLOSING_CANDLE_FINALIZATION_GRACE:0s}
   execution-cost:
     buy-fee-percent: ${CLOSING_BUY_FEE_PERCENT:0}
     sell-fee-percent: ${CLOSING_SELL_FEE_PERCENT:0}

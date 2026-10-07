@@ -45,12 +45,14 @@ public class ClosingStrategyAnalyticsService {
             throw new ApplicationException(ErrorCode.INVALID_REQUEST, HttpStatus.BAD_REQUEST,
                     "분석 기간은 종료일 이전이며 최대 730일이어야 합니다");
         List<OvernightPerformance> rows = performances.findOfficialCompletedBetween(start, end,
-                OvernightPerformance.OBSERVATION_VERSION);
+                OvernightPerformance.OBSERVATION_VERSION).stream()
+                .filter(row -> ClosingRecommendation.STRATEGY_VERSION.equals(row.getRecommendation().getStrategyVersion())).toList();
         Set<BigDecimal> targetRates = rows.stream().map(OvernightPerformance::getTargetRate)
                 .filter(Objects::nonNull).map(BigDecimal::stripTrailingZeros)
                 .collect(Collectors.toCollection(TreeSet::new));
         List<String> warnings = new ArrayList<>();
         warnings.add("추천 점수는 상승 확률이 아니며 규칙 기반 우선순위입니다.");
+        warnings.add("현재 전략 " + ClosingRecommendation.STRATEGY_VERSION + " 표본만 포함합니다. 이전 평가 시각·진입 모델과 합산하지 않습니다.");
         List<OvernightPerformance> netRows = rows.stream().filter(row -> row.getNetReturnRate() != null).toList();
         if (netRows.isEmpty())
             warnings.add("검증된 비용 설정이 적용된 공식 가상체결 순수익 표본이 없습니다.");
@@ -86,7 +88,7 @@ public class ClosingStrategyAnalyticsService {
         boolean statisticalReady = checks.stream().filter(check -> !check.code().equals("TIMESTAMPED_EVENTS"))
                 .allMatch(ReadinessCheck::passed);
         boolean eventReady = checks.stream().allMatch(ReadinessCheck::passed);
-        return new StrategyPromotionGate("RULE_BASED_V8_BASELINE", "KEEP_BASELINE",
+        return new StrategyPromotionGate("RULE_BASED_V9_1515", "KEEP_BASELINE",
                 statisticalReady ? "READY_FOR_EXPERIMENT" : "BLOCKED",
                 eventReady ? "READY_FOR_EXPERIMENT" : "BLOCKED", false, List.copyOf(checks));
     }

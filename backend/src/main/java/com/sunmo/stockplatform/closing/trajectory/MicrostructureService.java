@@ -24,7 +24,7 @@ public class MicrostructureService {
         this.policy=policy;this.trajectory=trajectory;this.store=store;this.calendar=calendar;
         aggregator=new MicrostructureAggregator(policy);transaction=new TransactionTemplate(manager);
     }
-    @TransactionalEventListener
+    @TransactionalEventListener(fallbackExecution = true)
     public void receive(ObservedMarketTick event) {
         if(policy.enabled()&&trajectory.enabled()&&calendar.isTradingDay(event.tick().businessDate()))aggregator.tick(event);
     }

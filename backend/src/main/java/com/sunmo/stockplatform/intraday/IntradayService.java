@@ -22,6 +22,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public class IntradayService {
     private final IntradayProperties policy;
     private final IntradayInputRepository inputs;
+    private final IntradayInputWriter writer;
     private final IntradayRecommendationRepository recommendations;
     private final StockRepository stocks;
     private final ClosingTradingCalendar calendar;
@@ -31,24 +32,31 @@ public class IntradayService {
     private final ArrayBlockingQueue<ObservedMarketTick> queue;
     private final AtomicLong dropped = new AtomicLong();
     private long acknowledgedDrops;
-    private boolean recoveryBoundary = true;
+    private final Set<String> recoveryPending = new HashSet<>();
+    private final AtomicLong sourceLossEvents = new AtomicLong();
+    private final IntradayCheckpointStore checkpoints;
     private IntradayEngine engine;
     private LocalDate date;
     private String error;
+    // Only committed JSON belongs here; failed transactions invalidate this together with the engine.
+    private final Map<UUID, String> committedOutcomes = new HashMap<>();
 
     public IntradayService(IntradayProperties policy, IntradayInputRepository inputs,
                            IntradayRecommendationRepository recommendations, StockRepository stocks,
                            ClosingTradingCalendar calendar, ObjectMapper mapper, MarketEventGateway events,
-                           PlatformTransactionManager transactions) {
+                           PlatformTransactionManager transactions, IntradayInputWriter writer, IntradayCheckpointStore checkpoints) {
+        this.checkpoints = checkpoints;
+        this.writer = writer;
         this.policy = policy; this.inputs = inputs; this.recommendations = recommendations; this.stocks = stocks;
         this.calendar = calendar; this.mapper = mapper; this.events = events;
         this.queue = new ArrayBlockingQueue<>(policy.queueCapacity());
         this.transaction = new TransactionTemplate(transactions);
     }
 
-    /** Closing transaction commits first. Intraday IO and failures cannot roll it back or consume KIS slots. */
-    @TransactionalEventListener
+    /** Candle work commits before publication; transaction-free ticks can be observed immediately. */
+    @TransactionalEventListener(fallbackExecution = true)
     public void receive(ObservedMarketTick event) {
+        if (policy.enabled() && event.dataLoss()) sourceLossEvents.incrementAndGet();
         if (policy.enabled() && !queue.offer(event)) dropped.incrementAndGet();
     }
 
@@ -60,36 +68,56 @@ public class IntradayService {
             if (engine == null || !calendar.today().equals(date)) recover();
             queue.drainTo(batch, policy.batchSize());
             long dropCount = dropped.get();
-            boolean lost = recoveryBoundary || dropCount != acknowledgedDrops;
+            boolean lost = dropCount != acknowledgedDrops;
+            if (lost) recoveryPending.addAll(engine.observedSymbols());
             List<Signal> created = new ArrayList<>();
-            transaction.executeWithoutResult(ignored -> {
-                Map<String, Optional<Stock>> masters = new HashMap<>();
-                for (ObservedMarketTick event : batch) {
-                    if (!event.tick().businessDate().equals(date)) continue;
-                    var stock = masters.computeIfAbsent(event.tick().stockCode(), stocks::findByStockCodeAndActiveTrue).orElse(null);
-                    boolean eligible = stock != null && !stock.isManaged() && !stock.isTradingHalted()
-                            && stock.getMarketType() == com.sunmo.stockplatform.stock.domain.MarketType.STOCK;
-                    Input input = new Input(event, calendar.now(), stock == null ? event.tick().stockCode() : stock.getStockName(),
-                            eligible, lost, policy);
-                    inputs.save(new IntradayInputEntity(input, json(input)));
-                    Signal signal = engine.accept(input);
-                    if (signal != null) created.add(signal);
-                }
-                engine.advance(calendar.now());
-                persist(engine);
-            });
+            Map<String, Optional<Stock>> masters = new HashMap<>();
+            List<Input> recorded = new ArrayList<>();
+            for (ObservedMarketTick event : batch) {
+                if (!event.tick().businessDate().equals(date)) continue;
+                var stock = masters.computeIfAbsent(event.tick().stockCode(), stocks::findByStockCodeAndActiveTrue).orElse(null);
+                boolean eligible = stock != null && !stock.isManaged() && !stock.isTradingHalted()
+                        && stock.getMarketType() == com.sunmo.stockplatform.stock.domain.MarketType.STOCK;
+                boolean boundary = recoveryPending.remove(event.tick().stockCode()) || event.dataLoss();
+                Input input = new Input(event, calendar.now(), stock == null ? event.tick().stockCode() : stock.getStockName(),
+                        eligible, boundary || lost, policy);
+                // Overflow is not a reconnect: never waive its loss marker. Keep paper tracking conservative.
+                if (boundary && !lost && engine.canContinue(input)) input = new Input(event, input.evaluatedAt(),
+                        input.stockName(), eligible, true, policy, true);
+                recorded.add(input);
+                Signal signal = engine.accept(input);
+                if (signal != null) created.add(signal);
+            }
+            // Expiry still advances without ticks. Only actual changes require a database transaction.
+            engine.advance(calendar.now());
+            Map<UUID, String> changed = changedOutcomes(engine);
+            if (!recorded.isEmpty() || !changed.isEmpty()) {
+                transaction.executeWithoutResult(ignored -> {
+                    writer.save(recorded);
+                    persist(engine, changed);
+                });
+                committedOutcomes.putAll(changed);
+            }
             acknowledgedDrops = dropCount; error = null;
-            if (!batch.isEmpty()) recoveryBoundary = false;
+            if (!recorded.isEmpty() && checkpoints.due(calendar.now())) {
+                // A checkpoint is optional: its I/O failure must not invalidate an already committed batch.
+                try { inputs.findTopBySessionDateOrderByIdDesc(date)
+                        .ifPresent(anchor -> checkpoints.save(date, calendar.now(), anchor, engine)); }
+                catch (RuntimeException failure) {
+                    org.slf4j.LoggerFactory.getLogger(getClass()).warn("Intraday checkpoint skipped ({})", failure.getClass().getSimpleName());
+                }
+            }
             for (Signal signal : created) events.publish("intraday.entry-ready", Map.of("id", signal.id().toString(),
                     "stockCode", signal.stockCode(), "signal", signal));
         } catch (RuntimeException failure) {
             // Rolled-back in-memory state must never leak into the next committed outcome.
-            engine = null; recoveryBoundary = true; dropped.addAndGet(batch.size()); error = "INTRADAY_PROCESSING_FAILED";
+            engine = null; committedOutcomes.clear(); recoveryPending.clear(); dropped.addAndGet(batch.size()); error = "INTRADAY_PROCESSING_FAILED";
             org.slf4j.LoggerFactory.getLogger(getClass()).warn("Intraday batch failed ({})", failure.getClass().getSimpleName());
         }
     }
 
     private void recover() {
+        committedOutcomes.clear();
         LocalDate today = calendar.today();
         transaction.executeWithoutResult(ignored -> {
             // Finalize previous observed day without substituting a current quote for its missing close.
@@ -98,18 +126,44 @@ public class IntradayService {
                 entity.updateOutcome(json(r.outcome()), r.outcome().trackingComplete);
             }
         });
-        engine = replayEngine(today, null);
+        var saved = recommendations.findBySessionDateOrderByRecommendedAtAsc(today);
+        boolean finishedSession = calendar.now().isAfter(calendar.close(today).plus(policy.maxDelay()))
+                && saved.stream().map(this::result).allMatch(r -> r.outcome().trackingComplete);
+        // Completed paper outcomes are authoritative; no rolling setup history is needed after the session.
+        engine = new IntradayEngine(calendar);
+        if (!finishedSession) {
+            var checkpoint = checkpoints.load(today, calendar.now(), inputs);
+            long cursor = 0;
+            if (checkpoint.isPresent()) { engine.restoreState(checkpoint.get().state()); cursor = checkpoint.get().cursor(); }
+            replayInto(engine, today, null, cursor);
+        }
         // Signals/outcomes are the authoritative paper record, including expiry during periods with no ticks.
-        for (var row : recommendations.findBySessionDateOrderByRecommendedAtAsc(today)) engine.restore(result(row));
+        for (var row : saved) {
+            Result restored = result(row);
+            engine.restore(restored);
+            committedOutcomes.put(row.getId(), json(restored.outcome()));
+        }
         date = today;
+        recoveryPending.clear(); recoveryPending.addAll(engine.observedSymbols());
     }
 
-    private void persist(IntradayEngine target) {
-        Map<UUID, IntradayRecommendationEntity> existing = new HashMap<>();
-        recommendations.findAllById(target.results().stream().map(r -> r.signal().id()).toList())
-                .forEach(row -> existing.put(row.getId(), row));
+    private Map<UUID, String> changedOutcomes(IntradayEngine target) {
+        Map<UUID, String> changed = new HashMap<>();
         for (Result result : target.results()) {
             String outcome = json(result.outcome());
+            if (!outcome.equals(committedOutcomes.get(result.signal().id()))) changed.put(result.signal().id(), outcome);
+        }
+        return changed;
+    }
+
+    private void persist(IntradayEngine target, Map<UUID, String> changed) {
+        if (changed.isEmpty()) return;
+        Map<UUID, IntradayRecommendationEntity> existing = new HashMap<>();
+        recommendations.findAllById(changed.keySet())
+                .forEach(row -> existing.put(row.getId(), row));
+        for (Result result : target.results()) {
+            String outcome = changed.get(result.signal().id());
+            if (outcome == null) continue;
             var row = existing.get(result.signal().id());
             if (row == null) row = new IntradayRecommendationEntity(result.signal(), json(result.signal()), outcome);
             else if (row.getOutcome().equals(outcome)) continue;
@@ -122,6 +176,9 @@ public class IntradayService {
         status.put("enabled", policy.enabled()); status.put("costsConfigured", policy.costs().configured());
         status.put("version", policy.version()); status.put("queued", queue.size()); status.put("dropped", dropped.get());
         status.put("error", error); status.put("mode", "RESEARCH_PAPER");
+        status.put("sourceLossEvents", sourceLossEvents.get()); status.put("checkpoint", checkpoints.status());
+        status.put("recoveryPending", Set.copyOf(recoveryPending));
+        status.put("recovery", engine == null ? Map.of() : engine.recoveryStatus());
         status.put("candidates", engine == null ? List.of() : engine.candidates());
         status.put("unavailable", IntradayFeatures.UNAVAILABLE);
         return status;
@@ -150,16 +207,40 @@ public class IntradayService {
                 "limitations", List.of("CAPTURED_SUBSCRIBED_UNIVERSE_ONLY", "NO_HISTORICAL_TICK_BACKFILL",
                         "NO_OOS_PROFITABILITY_CLAIM", "DRAWDOWN_IS_EQUAL_NOTIONAL_RETURN_POINTS_NOT_ACCOUNT_NAV"));
     }
+    public Map<String, Object> compareExits(LocalDate date, IntradayExitComparison.Request request) {
+        Instant asOf = calendar.now();
+        if (date.isAfter(calendar.today())) throw new IllegalArgumentException("Future session is not replayable");
+        var comparison = new IntradayExitComparison(list(date).stream()
+                .filter(r -> !r.signal().recommendedAt().isAfter(asOf)).toList(), request);
+        // Bound the scan at request start, so a live ingestion stream cannot extend this research request.
+        long upper = inputs.findTopBySessionDateOrderByIdDesc(date).map(IntradayInputEntity::getId).orElse(0L);
+        long after = 0;
+        while (after < upper) {
+            var page = inputs.findBySessionDateAndIdGreaterThanOrderById(date, after, PageRequest.of(0, 2000));
+            if (page.isEmpty()) break;
+            for (var row : page) {
+                if (row.getId() > upper) break;
+                Input input = read(row.getPayload(), Input.class);
+                if (!input.evaluatedAt().isAfter(asOf)) comparison.accept(input);
+                after = row.getId();
+            }
+            if (page.getLast().getId() >= upper) break;
+        }
+        return comparison.finish(asOf);
+    }
     private IntradayEngine replayEngine(LocalDate day, IntradayProperties override) {
         IntradayEngine target = new IntradayEngine(calendar);
-        long after = 0;
+        replayInto(target, day, override, 0);
+        return target;
+    }
+    private void replayInto(IntradayEngine target, LocalDate day, IntradayProperties override, long after) {
         while (true) {
             var page = inputs.findBySessionDateAndIdGreaterThanOrderById(day, after, PageRequest.of(0, 2000));
-            if (page.isEmpty()) return target;
+            if (page.isEmpty()) return;
             for (var row : page) {
                 Input input = read(row.getPayload(), Input.class);
                 if (override != null) input = new Input(input.observation(), input.evaluatedAt(), input.stockName(),
-                        input.eligible(), input.dataLoss(), override);
+                        input.eligible(), input.dataLoss(), override, input.recoveryContinuation());
                 target.accept(input); after = row.getId();
             }
         }

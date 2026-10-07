@@ -47,8 +47,22 @@ public class RealtimeDiagnostics {
             Map<String, Integer> candleGaps,
             Map<String, BackfillStatus> backfills,
             java.util.List<String> recentErrors,
-            Map<String, SubscriptionStatus> subscriptions) {
+            Map<String, SubscriptionStatus> subscriptions,
+            Map<String, Timing> timings, int processingQueued, long processingDropped) {
     }
+
+    public record Timing(long count, double averageMs, double maxMs, double lastMs) {}
+    private static class Samples {
+        long count, total, max, last;
+        synchronized void add(long nanos) { count++; total += nanos; max = Math.max(max, nanos); last = nanos; }
+        synchronized Timing snapshot() { return new Timing(count, count == 0 ? 0 : total / (double) count / 1e6, max / 1e6, last / 1e6); }
+    }
+    private final Map<String, Samples> timings = new java.util.concurrent.ConcurrentHashMap<>();
+    private volatile java.util.function.IntSupplier queueSize = () -> 0;
+    private final AtomicLong processingDropped = new AtomicLong();
+    public void timing(String stage, long nanos) { timings.computeIfAbsent(stage, key -> new Samples()).add(Math.max(0, nanos)); }
+    public void processingQueue(java.util.function.IntSupplier size) { queueSize = size; }
+    public void droppedTick() { processingDropped.incrementAndGet(); }
 
     private final Map<String, SubscriptionStatus> subscriptions = new ConcurrentSkipListMap<>();
     private final AtomicLong receivedFrames = new AtomicLong();
@@ -209,6 +223,12 @@ public class RealtimeDiagnostics {
                 detections.get(), pendingPerformances, lastPerformanceFlushAt, lastPerformanceFlushSize,
                 lastFeatureAt, featureSnapshots.get(), featureTrackedStocks,
                 Map.copyOf(candleGaps), Map.copyOf(backfills), java.util.List.copyOf(recentErrors),
-                Map.copyOf(subscriptions));
+                Map.copyOf(subscriptions), timingSnapshot(), queueSize.getAsInt(), processingDropped.get());
+    }
+
+    private Map<String, Timing> timingSnapshot() {
+        Map<String, Timing> result = new java.util.TreeMap<>();
+        timings.forEach((name, samples) -> result.put(name, samples.snapshot()));
+        return Map.copyOf(result);
     }
 }

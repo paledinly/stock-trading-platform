@@ -33,7 +33,7 @@ public class MinuteFeatureAggregator {
                 || (previous != null && (tick.occurredAt().isBefore(previous.occurredAt())
                     || tick.cumulativeVolume() <= previous.cumulativeVolume()))) { rejected++; return; }
         Bucket bucket = state.buckets.computeIfAbsent(start, ignored -> new Bucket(tick, event.receivedAt()));
-        boolean continuous = previous != null
+        boolean continuous = !event.dataLoss() && previous != null
                 && Duration.between(previous.occurredAt(), tick.occurredAt()).compareTo(Duration.ofMinutes(1)) <= 0
                 && tick.cumulativeVolume() - previous.cumulativeVolume() == tick.tradeVolume();
         bucket.complete &= continuous;
