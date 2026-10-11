@@ -1,0 +1,18 @@
+{
+  "aggregation": {
+    "enabled": false,
+    "orderbookEnabled": false,
+    "trajectoryEnabled": true,
+    "rejectedObservations": 0,
+    "error": null,
+    "largeTradeThreshold": 100000000,
+    "pollIntervalSeconds": 5,
+    "maxSymbols": 2
+  },
+  "orderbook": {
+    "requestFailures": 0,
+    "lastResponseAt": null,
+    "sampling": "BOUNDED_REST",
+    "responseDoesNotGuaranteeFreshBook": true
+  }
+}

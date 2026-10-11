@@ -20,7 +20,8 @@ class IntradayEgressTest {
     private final IntradayInputRepository inputs = mock(IntradayInputRepository.class);
     private final IntradayInputWriter writer = mock(IntradayInputWriter.class);
     private final PlatformTransactionManager tx = mock(PlatformTransactionManager.class);
-    private final IntradayService service = new IntradayService(policy(), inputs, rows, mock(StockRepository.class),
+    private final StockRepository stocks = mock(StockRepository.class);
+    private final IntradayService service = new IntradayService(policy(), inputs, rows, stocks,
             clock, JSON, mock(MarketEventGateway.class), tx, writer, mock(IntradayCheckpointStore.class));
 
     @SuppressWarnings("unchecked") private Map<UUID, String> committed() {
@@ -37,6 +38,20 @@ class IntradayEgressTest {
         ReflectionTestUtils.setField(service, "date", day);
         committed().put(r.signal().id(), JSON.writeValueAsString(r.outcome()));
         return r;
+    }
+    @Test void statusExcludesCachedCandidateAfterMasterReclassifiesItAsEtfWithoutNewTicks() {
+        var engine = new IntradayEngine(calendar());
+        engine.accept(input(START, 10000, 1000000, policy()));
+        ReflectionTestUtils.setField(service, "engine", engine);
+        var stock = new com.sunmo.stockplatform.stock.domain.Stock("005930", null, "테스트 종목",
+                com.sunmo.stockplatform.stock.domain.Market.KOSPI,
+                com.sunmo.stockplatform.stock.domain.MarketType.STOCK, false, false, START);
+        when(stocks.findByStockCodeIn(List.of("005930"))).thenReturn(List.of(stock));
+        assertThat((List<?>) service.status().get("candidates")).hasSize(1);
+        stock.synchronize(null, "테스트 ETF", com.sunmo.stockplatform.stock.domain.Market.KOSPI,
+                com.sunmo.stockplatform.stock.domain.MarketType.ETF, false, false, START);
+        assertThat((List<?>) service.status().get("candidates")).isEmpty();
+        assertThat(engine.candidates()).hasSize(1);
     }
     @Test void unchangedTicksFreeBatchesNeverReadRecommendationsOrOpenTransactions() throws Exception {
         seed();

@@ -1,0 +1,6 @@
+﻿score_band,recommendations,entered,states,closed_valid,gross_win_rate,gross_mean,gross_PF,gross_avg_win,gross_avg_loss,net_samples,net_mean,MFE_mean,MFE_median,MAE_mean,MAE_median,max_loss_streak,first_hit_samples,target_first_rate,stop_first_rate
+0–59,10,10,"{""STOPPED"": 9, ""TARGET_HIT"": 1}",10,10.0,-0.3684861934667527,0.1339605266987376,0.5699810006333017,-0.47276032614453656,0,,0.10773764114990536,0.04761571641446194,-0.4254842935300829,-0.10774080360071436,8,10,10.0,90.0
+60–69,9,8,"{""STOPPED"": 6, ""UNRESOLVED"": 2, ""INVALIDATED"": 1}",6,0.0,-0.5880028815794339,0.0,,-0.5880028815794339,0,,0.1621031796455822,0.009038322487342487,-0.5880028815794339,-0.28166705385813673,6,6,0.0,100.0
+70–79,0,0,{},0,,,,,,0,,,,,,0,0,,
+80–89,0,0,{},0,,,,,,0,,,,,,0,0,,
+90–100,0,0,{},0,,,,,,0,,,,,,0,0,,

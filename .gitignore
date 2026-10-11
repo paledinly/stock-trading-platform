@@ -24,3 +24,8 @@ mobile/.flutter-plugins*
 Thumbs.db
 audit/**/classes/
 **/.intraday-checkpoints/
+# Local evidence exports; keep diagnosis, scripts, and derived summaries in Git.
+/audit/2026-10-08-intraday/*.tsv
+/audit/2026-10-08-intraday/input_bounds.txt
+/audit/2026-10-08-intraday/analysis-output.txt
+/audit/2026-10-08-intraday/__pycache__/

@@ -1,0 +1,8 @@
+{
+  "enabled": true,
+  "mode": "SHADOW",
+  "rejectedTicks": 2420,
+  "droppedContexts": 0,
+  "pendingContexts": 0,
+  "error": null
+}

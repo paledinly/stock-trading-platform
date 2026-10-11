@@ -1,0 +1,292 @@
+{
+  "realtime": {
+    "connected": true,
+    "connectedAt": "2026-10-08T02:05:22.727362100Z",
+    "disconnectedAt": null,
+    "lastMessageAt": "2026-10-08T04:57:49.536513300Z",
+    "lastPingAt": "2026-10-08T02:05:33.403370800Z",
+    "lastTickAt": "2026-10-08T04:57:49.536513300Z",
+    "receivedFrames": 290849,
+    "receivedTicks": 623860,
+    "parseErrors": 0,
+    "processingErrors": 0,
+    "subscriptionRequests": 37,
+    "subscriptionSuccesses": 37,
+    "subscriptionFailures": 0,
+    "lastCandleAt": "2026-10-08T04:50:00Z",
+    "lastScannerEvaluationAt": "2026-10-08T04:57:49.580342500Z",
+    "detections": 378,
+    "pendingPerformances": 508,
+    "lastPerformanceFlushAt": "2026-10-08T04:57:27.443275500Z",
+    "lastPerformanceFlushSize": 1,
+    "lastFeatureAt": "2026-10-08T04:57:49.579287500Z",
+    "featureSnapshots": 623860,
+    "featureTrackedStocks": 36,
+    "candleGaps": {
+      "005380": 51
+    },
+    "backfills": {
+      "005380": {
+        "stockCode": "005380",
+        "state": "FAILED",
+        "gaps": 51,
+        "saved": 0,
+        "message": "500 Internal Server Error: \"{\"rt_cd\":\"1\",\"msg1\":\"초당 거래건수를 초과하였습니다.\",\"msg_cd\":\"EGW00201\",\"message\":\"EGW00201\"}\"",
+        "updatedAt": "2026-10-08T04:49:29.318040700Z"
+      }
+    },
+    "recentErrors": [
+      "2026-10-08T04:49:29.319047300Z Backfill 005380: 500 Internal Server Error: \"{\"rt_cd\":\"1\",\"msg1\":\"초당 거래건수를 초과하였습니다.\",\"msg_cd\":\"EGW00201\",\"message\":\"EGW00201\"}\""
+    ],
+    "subscriptions": {
+      "373220": {
+        "stockCode": "373220",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-10-08T02:05:34.613506400Z"
+      },
+      "011330": {
+        "stockCode": "011330",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-10-08T02:05:40.627872700Z"
+      },
+      "452190": {
+        "stockCode": "452190",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-10-08T02:05:37.119449200Z"
+      },
+      "266690": {
+        "stockCode": "266690",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-10-08T04:05:37.305551500Z"
+      },
+      "036930": {
+        "stockCode": "036930",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-10-08T02:05:33.625528400Z"
+      },
+      "005930": {
+        "stockCode": "005930",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-10-08T02:05:41.123775900Z"
+      },
+      "034020": {
+        "stockCode": "034020",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-10-08T02:05:43.626747500Z"
+      },
+      "005160": {
+        "stockCode": "005160",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-10-08T02:05:38.625883600Z"
+      },
+      "009150": {
+        "stockCode": "009150",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-10-08T02:05:42.625493400Z"
+      },
+      "005935": {
+        "stockCode": "005935",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-10-08T02:05:42.118552300Z"
+      },
+      "012450": {
+        "stockCode": "012450",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-10-08T04:00:27.237653800Z"
+      },
+      "115450": {
+        "stockCode": "115450",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-10-08T02:25:18.296049700Z"
+      },
+      "267320": {
+        "stockCode": "267320",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-10-08T02:05:38.177302300Z"
+      },
+      "353200": {
+        "stockCode": "353200",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-10-08T02:05:35.118243600Z"
+      },
+      "006400": {
+        "stockCode": "006400",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-10-08T02:05:34.306145700Z"
+      },
+      "005380": {
+        "stockCode": "005380",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-10-08T04:49:28.344572300Z"
+      },
+      "196170": {
+        "stockCode": "196170",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-10-08T02:20:38.570551800Z"
+      },
+      "122350": {
+        "stockCode": "122350",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-10-08T02:05:36.612177900Z"
+      },
+      "307750": {
+        "stockCode": "307750",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-10-08T02:45:27.851083800Z"
+      },
+      "002720": {
+        "stockCode": "002720",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-10-08T02:05:41.656935800Z"
+      },
+      "009730": {
+        "stockCode": "009730",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-10-08T04:45:18.61982Z"
+      },
+      "032860": {
+        "stockCode": "032860",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-10-08T02:50:37.812943900Z"
+      },
+      "069540": {
+        "stockCode": "069540",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-10-08T02:05:44.118017Z"
+      },
+      "226340": {
+        "stockCode": "226340",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-10-08T02:05:37.623832300Z"
+      },
+      "402340": {
+        "stockCode": "402340",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-10-08T02:05:43.163882800Z"
+      },
+      "419050": {
+        "stockCode": "419050",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-10-08T02:05:36.124209100Z"
+      },
+      "098460": {
+        "stockCode": "098460",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-10-08T02:05:35.626233500Z"
+      },
+      "900110": {
+        "stockCode": "900110",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-10-08T04:10:17.378991600Z"
+      },
+      "000660": {
+        "stockCode": "000660",
+        "state": "SUBSCRIBED",
+        "message": "SUBSCRIBE SUCCESS",
+        "updatedAt": "2026-10-08T02:05:39.115992900Z"
+      }
+    },
+    "timings": {
+      "sourceToCallback": {
+        "count": 623860,
+        "averageMs": 1172.7429028249928,
+        "maxMs": 4025.0821,
+        "lastMs": 1536.5133
+      },
+      "tickBody": {
+        "count": 623860,
+        "averageMs": 1.7032843948962908,
+        "maxMs": 855.8577,
+        "lastMs": 1.4351
+      },
+      "performanceAndSse": {
+        "count": 623860,
+        "averageMs": 0.16226569935562465,
+        "maxMs": 853.7151,
+        "lastMs": 0.023
+      },
+      "candleScannerAndSse": {
+        "count": 622382,
+        "averageMs": 0.24257352301319768,
+        "maxMs": 305.5604,
+        "lastMs": 0.131
+      },
+      "quoteSse": {
+        "count": 623860,
+        "averageMs": 0.1478360075978585,
+        "maxMs": 14.9043,
+        "lastMs": 0.1512
+      },
+      "tickTransaction": {
+        "count": 623860,
+        "averageMs": 1.707754667553618,
+        "maxMs": 855.8718,
+        "lastMs": 1.4397
+      },
+      "candleTransaction": {
+        "count": 537,
+        "averageMs": 94.67997020484172,
+        "maxMs": 323.7324,
+        "lastMs": 72.0895
+      },
+      "processingQueueWait": {
+        "count": 623860,
+        "averageMs": 29.133494580194277,
+        "maxMs": 2228.2967,
+        "lastMs": 42.7146
+      },
+      "transactionBoundary": {
+        "count": 623860,
+        "averageMs": 0.00400269227070176,
+        "maxMs": 0.8241,
+        "lastMs": 0.004
+      },
+      "candleRepository": {
+        "count": 942,
+        "averageMs": 39.941592675159235,
+        "maxMs": 151.5315,
+        "lastMs": 32.5616
+      },
+      "redisWrite": {
+        "count": 623860,
+        "averageMs": 1.1440483733529958,
+        "maxMs": 284.5151,
+        "lastMs": 1.0788
+      }
+    },
+    "processingQueued": 0,
+    "processingDropped": 0
+  },
+  "redisStatus": "UP",
+  "subscriptionCount": 29,
+  "subscriptionLimit": 41,
+  "subscriptionRemaining": 12
+}

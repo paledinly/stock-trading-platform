@@ -22,7 +22,8 @@ public class KisMasterParser {
     public List<MasterStock> parse(byte[] content, Market market) {
         String text = new String(content, CP949);
         List<MasterStock> result = new ArrayList<>();
-        int suffixLength = market == Market.KOSPI ? 228 : 222;
+        // KIS sample lengths include LF; split below removes the line terminator.
+        int suffixLength = market == Market.KOSPI ? 227 : 221;
         int[] widths = market == Market.KOSPI ? KOSPI_WIDTHS : KOSDAQ_WIDTHS;
         for (String rawLine : text.split("\\R")) {
             if (rawLine.isBlank())

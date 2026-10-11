@@ -179,7 +179,15 @@ public class IntradayService {
         status.put("sourceLossEvents", sourceLossEvents.get()); status.put("checkpoint", checkpoints.status());
         status.put("recoveryPending", Set.copyOf(recoveryPending));
         status.put("recovery", engine == null ? Map.of() : engine.recoveryStatus());
-        status.put("candidates", engine == null ? List.of() : engine.candidates());
+        var candidates = engine == null ? List.<Candidate>of() : List.copyOf(engine.candidates());
+        Set<String> eligibleCodes = new HashSet<>();
+        if (!candidates.isEmpty()) stocks.findByStockCodeIn(candidates.stream().map(Candidate::stockCode).toList())
+                .stream().filter(stock -> stock.isActive() && !stock.isManaged() && !stock.isTradingHalted()
+                        && stock.getMarketType() == com.sunmo.stockplatform.stock.domain.MarketType.STOCK)
+                .forEach(stock -> eligibleCodes.add(stock.getStockCode()));
+        status.put("candidates", candidates.stream()
+                .filter(candidate -> eligibleCodes.contains(candidate.stockCode())
+                        && !"UNIVERSE_EXCLUDED".equals(candidate.reason())).toList());
         status.put("unavailable", IntradayFeatures.UNAVAILABLE);
         return status;
     }

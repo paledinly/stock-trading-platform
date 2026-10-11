@@ -1,0 +1,270 @@
+from pathlib import Path
+import json, pandas as pd, numpy as np
+P=Path(__file__).parent
+S=json.loads((P/'summary.json').read_text(encoding='utf-8'))
+R=pd.read_csv(P/'recommendations_full.csv',dtype={'code':str});L=pd.read_csv(P/'latency.csv');C=pd.read_csv(P/'correlations.csv');H=pd.read_csv(P/'history_daily.csv')
+def f(x,d=3):
+    if x is None or (isinstance(x,(float,np.floating)) and np.isnan(x)):return '결측'
+    if isinstance(x,(float,np.floating)):return f'{x:.{d}f}'
+    return str(x)
+def table(df,cols,names=None):
+    names=names or cols
+    lines=['| '+' | '.join(names)+' |','| '+' | '.join(['---']*len(cols))+' |']
+    for _,row in df.iterrows():lines.append('| '+' | '.join(f(row.get(c)).replace('|','/') for c in cols)+' |')
+    return '\n'.join(lines)
+valid=R[R.gross_return.notna() & ~R.uncertain.fillna(False)]
+stopped=R[R.status=='STOPPED'];today=S['today'];eq=S['equity_today'];etf=S['ETF_today']
+duration=stopped.holding_minutes
+recovery=R[R.post_stop_target_within30m.fillna(False)]
+short=R.stop_to_ATR.dropna()
+cross=R.first_breakout_cross_to_signal_s.dropna()
+cor=C[(C.feature=='score') & C.outcome.isin(['trade_MFE','trade_MAE','gross_return'])]
+flowcor=C[(C.feature=='volume_ratio_5m')&(C.outcome=='turnover_ratio_5m')]
+observed=R.day_return_pct.dropna()
+past=H[H.date!='2026-10-08']
+text=f'''# 오늘 장중 추천 전략 진단 — 2026-10-08
+
+## 범위와 먼저 제시하는 판단
+
+분석 기준은 읽기 전용 REPEATABLE READ 스냅샷 **{S['snapshot_at']} (UTC; 한국시간 {pd.Timestamp(S['snapshot_at']).tz_convert('Asia/Seoul')})**다. 이후 새 추천/체결은 이번 표본에 포함하지 않는다. 장중 스냅샷이므로 오늘 최종 결과가 아니다. 운영 코드·설정·추천·성과는 이 분석에서 수정하지 않았다. 현재 마스터의 ETF 분류는 사후 진단용 분리이며 과거 원장 적격성/공식 결과를 다시 쓰지 않았다.
+
+1. **오늘 결과:** {today['recommendations']}건, STOPPED {today['states'].get('STOPPED',0)}, TARGET_HIT {today['states'].get('TARGET_HIT',0)}, UNRESOLVED {today['states'].get('UNRESOLVED',0)}, INVALIDATED {today['states'].get('INVALIDATED',0)}. 모든 추천이 손절된 것은 아니다.
+2. **실패 패턴:** 모두 BREAKOUT. 실제 진입 후 손절 전에 생긴 유리한 움직임이 작은 사례와, 손절 후 목표까지 회복하는 사례가 섞여 있다. 아래 A/B/C/F/G/H 분류는 관측 경로 묘사이지 인과관계 확정이 아니다.
+3. **TOP 5:** 짧은 구조적 손절과 돌파 직후 즉시 진입의 결합; 실패 돌파 확인/재진입 제어 부족; ETF 오분류로 비교 Universe 오염; 시장·호가·비용 결측; Score가 강한 신호 품질 지표로 검증되지 않은 상태. 세부 증거와 한계는 아래에 구분한다.
+4. **종목 선정 vs 진입:** 선정 오류(ETF)는 확정이다. 일반 종목에서도 손절이 압도적이므로 ETF만 제거하면 해결된다는 결론은 성립하지 않는다. 진입·청산 구조의 우선 진단이 필요하다.
+5. **손절:** 고정 손절률이 아니다. 돌파선 아래 단기 range의 0.1배 buffer를 둔다. 좁은 손절 가능성은 실제 거리/ATR와 회복 경로로 검토하고, 전체 손절폭 확대는 보류한다.
+6. **시장 필터:** 추천의 marketRegime은 전부 UNAVAILABLE. 실제 지수 관측을 못 확보했으므로 오늘을 하락/급락 장세로 단정할 수 없다.
+7. **Score:** 52.20~66.67점. 고득점 실패라는 가정은 이번 표본과 다르다. 설정상 2/1.5 × 50 = 66.67점이 BREAKOUT의 상한이다.
+8. **결측:** 당시 지수/업종/테마/호가/VI/시장 breadth, 실제 fill, 추천 commit/UI 노출시각, 비용 모두 미확보 또는 미설정이다. 20분 수익률은 DB 틱에서 별도 복원했다.
+9. **수정 후보:** 마스터 적격성 검증·성과 코호트 구분, 실행 가능 가격/비용/latency 계측, 돌파 유지/재테스트 비교, 변동성 대비 손절/포지션 크기 비교, 시장 Regime SHADOW 수집.
+10. **수정 금지:** 기존 신호/진입/성과 소급 수정, 오늘 패자를 살리는 threshold 탐색, 확인 없는 시장 급락 태그, OOS 없이 점수 가중치·손절·목표 기본값 변경.
+
+## 오늘 장중 추천 전략 진단
+
+| 지표 | 값 | 분모·의미 |
+| --- | --- | --- |
+| 총 추천 | {today['recommendations']} | 미진입/판정불가 포함 |
+| 가상 진입 | {today['entered']} | 실제 주문/실거래 아님 |
+| 완료·불확실성 없는 Gross 표본 | {today['closed_valid']} | 확정 가상 청산 |
+| 손절 선도달 | {today['states'].get('STOPPED',0)} / {today['first_hit_samples']} = {f(today['stop_first_rate'],2)}% | 최초 도달 판정 가능 표본 |
+| 목표 선도달 | {today['states'].get('TARGET_HIT',0)} / {today['first_hit_samples']} = {f(today['target_first_rate'],2)}% | 후속 회복을 최초 목표 성공으로 바꾸지 않음 |
+| Gross 승률 | {f(today['gross_win_rate'],2)}% | 완료 유효 표본 |
+| 평균 Gross / Expectancy | {f(today['gross_mean'])}% | 동일 명목 1회 기준 기술통계 |
+| 평균 이익 / 평균 손실 | {f(today['gross_avg_win'])}% / {f(today['gross_avg_loss'])}% | 이익/손실별 표본 |
+| Gross PF | {f(today['gross_PF'])} | 양의 Gross 합 / 음의 Gross 절댓값 합 |
+| 보유 중 평균/중앙 MFE | {f(today['MFE_mean'])}% / {f(today['MFE_median'])}% | 진입부터 실제 가상 청산까지 |
+| 보유 중 평균/중앙 MAE | {f(today['MAE_mean'])}% / {f(today['MAE_median'])}% | 같은 관측 구간 |
+| 최대 연속 Gross 손실 | {today['max_loss_streak']} | 청산시각순; 동일 종목/동시 노출 상관 고려 안 됨 |
+| Net 표본 | {today['net_samples']} | 모든 추천 비용 미설정: Net 승률/PF/기대값 산출 불가 |
+| 추천 후 첫 유효체결 하락 | {S['immediate_decline_count']}/{S['immediate_decline_samples']} | 추천가 대비; 진입 여부와 별도 |
+| 추천 후 1분 하락 | {S['one_minute_decline_count']}/{S['one_minute_decline_samples']} | 1분 이후 10초 내 첫 유효체결 |
+| 5분 내 고점 형성 | {S['peak_within5m_count']}/{S['peak_within5m_complete30_samples']} | 30분 완전관측 최고가가 첫5분; 시그널가도 포함 |
+
+일반 종목 진단 코호트: 추천 {eq['recommendations']}, 손절 {eq['states'].get('STOPPED',0)}, 목표 {eq['states'].get('TARGET_HIT',0)}, 판정불가 {eq['states'].get('UNRESOLVED',0)}, 미진입 {eq['states'].get('INVALIDATED',0)}, 유효 최초 도달 표본 {eq['first_hit_samples']}, 손절률 {f(eq['stop_first_rate'],2)}%. ETF 코호트: 추천 {etf['recommendations']}, 손절 {etf['states'].get('STOPPED',0)}, 판정불가 {etf['states'].get('UNRESOLVED',0)}. 우선주(삼성전자우)는 보통주와 별도 노출 분류가 필요하지만 현재 STOCK 유형에 포함된다.
+
+## 전체 추천 시간순 복원
+
+금액은 원, 수익률·MFE/MAE는 %. Stop/Target은 고정 신호 Snapshot; 진입은 이후 관측 틱으로 만든 가상 fill. 추천 등급은 저장/정의되어 있지 않아 결측이다. 전체 80개 이상의 열은 [recommendations_full.csv](recommendations_full.csv), 창별 OHLC/거래량/대금은 [price_windows.csv](price_windows.csv), 시장/종목 수급은 [market_context.csv](market_context.csv)에 제공한다.
+
+{table(R,['time_KST','code','name','status','signal_price','entry_price','stop','target1','score','trade_MFE','trade_MAE'],['추천(KST)','코드','종목','결과','추천가','가상 진입가','손절가','Target1','점수','보유 MFE%','보유 MAE%'])}
+
+{table(R,['time_KST','name','return_5m','return_10m','return_20m','return_30m','category'],['추천(KST)','종목','5분%','10분%','20분%','30분%','관측 유형'])}
+
+## MFE / MAE, 손절 후 가격, 즉시 하락
+
+MFE = (진입 이후 관측 최고가 / 가상 진입 fill − 1) × 100, MAE = (진입 이후 관측 최저가 / fill − 1) × 100. 최초 진입가격도 포함하여 MFE는 최소 0, MAE는 최대 0이다. 보유 중 지표(trade_MFE/MAE)와 손절 이후를 포함하는 entry_post60_MFE/MAE를 분리했다. 추천 기준 signal_MFE_to_snapshot은 진입 기준 지표와 비교하지 않는다. 아직 60분이 지나지 않은 추천은 가용 범위만 관측한 우측 검열 표본이다.
+
+{table(R,['time_KST','name','holding_minutes','entry_post60_MFE','entry_post60_MAE','post_stop_target_within30m','post_stop_target_first_KST','post60_gap_events','category'],['추천','종목','보유분','진입 후 가용60분 MFE%','MAE%','손절 뒤30분 목표 관측','목표 재관측(KST)','구간 손실/지연 표식 수','유형'])}
+
+손절된 {len(stopped)}건의 보유시간 중앙값은 **{f(float(duration.median()),2)}분**, 1분 이내 손절은 **{int((duration<=1).sum())}건**이다. 손절 후 30분 내 목표가격이 실제 관측된 사례는 **{len(recovery)}건**이다. 그 중 완전 관측으로 분류된 구간은 {int(recovery.post_stop_window_complete.fillna(False).sum())}건이다. 관측된 재도달은 사실이지만 공백 중의 최대 하락/회복 순서는 알 수 없다. 사후 최대 이익을 원래 성과로 바꾸거나 계속 보유하면 이익이었다고 단정하지 않는다.
+
+분류 규칙: A는 보유 MFE=0인 손절; B는 보유 MFE>0이나 원목표보다 먼저 손절; C는 손절 후 30분 내 원목표 실제 재관측; D 후보는 첫 5분 최고가가 첫 1분 안에 있고 5분 수익률<0인 묘사적 태그(독립 원인 아님); E는 시장 동반 급락인데 지수 부재로 판정 보류; F는 UNRESOLVED; G는 미진입/무효; H는 원목표 선도달. D 후보 {int(R.D_candidate.fillna(False).sum())}건. 임의의 오늘 최적 threshold로 유형을 맞추지 않았다.
+
+## 실패 원인 TOP 5와 가장 심각한 문제
+
+1. **돌파 직후 체결 진입과 위험/목표 거리의 불균형 — 우선 검증 대상.** 진입 후 유효 평균 MFE {f(today['MFE_mean'])}%에 비해 손절이 빠르고, 손절 후 목표 재도달 사례가 있다. 일부 대형주는 손절거리가 0.05~0.35% 수준이지만 삼기·국제약품·HLB테라퓨틱스는 약 1.34~1.94%의 손절에도 실패했다. 이는 '모든 선정이 틀림'도 '모든 손절이 짧음'도 증명하지 않는다. 신호 발생과 좋은 진입을 같은 사건으로 간주하는 구조를 비교 실험해야 한다.
+2. **순간 돌파 후 유지/재테스트를 요구하지 않는 실시간 경로.** 선행 25분 고점 위 마지막 체결, 최근 5분 회복 거래량은 확인하지만 이후 돌파선 유지시간/재접근·회복을 확인한 뒤 진입하지 않는다. 연구용 HOLD/RETEST는 이미 있어 새 전략을 덧붙이기 전 재사용할 수 있다.
+3. **ETF 오분류 및 Universe 혼합 — 확정된 데이터 문제.** 현재 마스터로 {etf['recommendations']}/{today['recommendations']}건이 ETF다. 과거 적격성은 오분류된 상태였으며 미국 지수 ETF/국내 주식 단타를 같은 추천·통계로 묶었다. 수정/재동기화 이후와 이전 코호트를 분리해야 한다.
+4. **시장·호가·비용의 공백 — 구조적 판단 불능.** Index 관측 {S['indices_recorded']}건, 호가/대량체결 수집 비활성, 비용 전부 미설정이다. 시장 필터가 작동했다는 증거도, 시장이 손실을 설명했다는 증거도 없다. 실제 매수 가능한 가격·Net 기대값을 확인할 수 없다.
+5. **점수의 구조적 상한과 검증 부재.** 모든 BREAKOUT의 planned RR=2, 최소 RR=1.5이므로 점수 상한=66.67이다. 90점 추천과 70점 추천을 비교할 수 없으며 오늘 유일한 목표 추천도 낮은 점수 구간에 속한다. 점수를 수익 확률 또는 검증 등급으로 해석하면 안 된다.
+
+가장 심각한 문제는 '완료 OOS 없이, 시장/실행가격/비용 결측과 매우 짧은 돌파선 손절을 가진 연구 신호를 실행 가능한 매매 추천처럼 평가하는 것'이다. 단순 손절 확대는 이 결함을 해소하지 않는다.
+
+## 추천 로직·Feature 중복·고점 위치
+
+점수 = 50 × min(2, volumeRatio5m/sessionVolumeFloor, valueRatio5m/minValueRatio, RR/minRR). 가산 모델이 아니므로 거래량·거래대금·모멘텀을 세 번 더하는 구현은 없다. 그러나 거래량과 거래대금 비율은 같은 활동을 강하게 반영하여 독립 확인 증거로 취급하기 어렵다. 두 비율의 오늘 Pearson 상관은 {f(flowcor.iloc[0].pearson) if len(flowcor) else '결측'}이다. 체결강도 절대값/수급/테마/지수는 점수의 양의 가산 Feature가 아니다. strengthChange5m 감소 gate가 있고, 1/3분 strength 변화와 turnover acceleration은 현재 진입 hard gate가 아니다.
+
+{table(cor,['outcome','n','pearson'],['점수와의 상관 대상','표본','Pearson'])}
+
+상관은 관측·소표본·동일종목 중복에 대한 기술통계다. 음/양 상관 하나로 가중치를 바꾸거나 원인 기여도를 추정하지 않는다. [correlations.csv](correlations.csv)에 Feature별 전체 상관 및 중복 검사를 제공한다. 70~79/80~89/90~100점은 오늘 추천이 0건이다. [score_bands.csv](score_bands.csv).
+
+당일 등락률은 전일(10/7) 확정 종가가 신호 이전에 저장된 경우만 계산했다: 유효 {len(observed)}/{len(R)}건. +10~20% 과열 집중 여부는 이 가용 표본으로만 기술할 수 있고 결측을 당일 시가로 대체하지 않았다. highPosition과 고가 이격은 원장 당시 dayHigh/dayLow로 복원했다. 고가 근처 자체는 실패 사유가 아니다. VWAP 이격과 직전 돌파고점/지지선, 회복 volumeRatio/strength 방향을 함께 CSV에 제공한다.
+
+가용 당일등락 {len(observed)}건 중 +10% 이상은 {int((observed>=10).sum())}건이다. 삼기는 +16.20%였으나 알테오젠은 약 -5.3~-5.4%, 삼성전기는 -1.06%였다. '공통적으로 당일 +10~20% 종목을 추격했다'는 설명은 이번 가용 자료와 일치하지 않는다. 전일종가가 없어 계산 못 한 4건을 같은 결론으로 확장하지 않는다.
+
+{table(R,['time_KST','name','day_return_pct','high_position','distance_from_high_pct','vwap_distance_pct','pre_return_5m','strength_change_5m','volume_ratio_1m','volume_ratio_5m','turnover_ratio_1m'],['추천','종목','전일대비%','고저위치','고가이격%','VWAP이격%','직전5분%','5분 체결강도차','1분 거래량배수','5분 거래량배수','1분 대금배수'])}
+
+최근 1/3/5/10/20분의 거래량·대금과 동일 길이 직전창 배수를 계산했다. 누적값 차분은 틱 단위 거래량 합산과 구분한다. 100→300→600→250 같은 실제 시간순 형태는 [price_windows.csv](price_windows.csv)와 원장/확정분봉으로 검토해야 하며, 서로 다른 길이 누적창의 숫자를 바로 연속 1분 추세로 비교하면 안 된다. 호가 매수세 감소/매도잔량 소화는 데이터 부재로 판단 불가. RSI14/ATR14는 신호 이전 확정 1분봉의 단순 평균으로 별도 계산한 진단 Feature이고 원전략 입력이 아니다. 봉 공백·partial complete 표식과 공식 ATR/Wilder 평활법 차이를 검증 전 필터로 사용하지 않는다.
+
+직전 확정분봉 6개의 거래량/대금/시각을 CSV에 추가했다. 마지막 확정1분 거래량이 직전 확정1분보다 감소한 것은 {int(R.last_minute_volume_decelerating.fillna(False).sum())}/{int(R.last6_minutes_complete.sum())}건이다. 예: SK하이닉스 4,099→3,582→5,201→7,849→11,084→5,079, 삼성전자우 6,607→1,235→4,681→2,283→11,348→5,030. 반면 첫 대덕전자 추천은 마지막 확정분 거래량이 2,134→3,234→4,158로 증가했다. 거래량 피크 후 추천이 일부 존재하지만 공통 실패 원인 하나로 설명되지는 않는다. 확정분봉의 마지막 시각과 실제 추천시각 차이를 함께 보아 최근 진행중1분과 혼동하지 않는다.
+
+신호의 VWAP 이격 평균은 {f(float(R.vwap_distance_pct.mean()))}%, 최대 {f(float(R.vwap_distance_pct.max()))}%다. 오늘 전부 큰 VWAP 이격으로 실패한 것은 아니다. 체결강도 1/3/5분 차이는 일부 ETF에서 감소하지만 일반 종목 대부분은 감소하지 않았다. 체결강도 하락만으로 모든 손절을 설명하는 가설도 기각/보류해야 한다. 수급/호가/volume trend 조합의 기대 효과는 separate OOS 검증 대상이다.
+
+## 진입 타이밍과 실시간 처리
+
+신호 틱 원천→평가 평균 {f(S['source_to_eval_mean_s'])}초, p95 {f(S['source_to_eval_p95_s'])}초, 최대 {f(S['source_to_eval_max_s'])}초다. 원천초 단위 정밀도·시계차가 포함되어 순수 네트워크 시간으로 해석하지 않는다. 각 이벤트의 수신→평가도 [latency.csv](latency.csv)에 있다. 별도 DB commit/indicator 계산/Scanner 실행/후보생성/추천저장/UI 노출 타임스탬프가 없어 실제 사용자까지 총 latency를 계산할 수 없다. 일반 Scanner 상태 시각을 독립 Intraday 추천 시각으로 바꾸지 않았다.
+
+Engine은 종목별 평가를 분당 1회로 제한한다. 원천→평가가 짧아도 조건이 minute gate 직후 충족되면 다음 분까지 놓칠 수 있다. 마지막 5분의 원돌파선 첫 상향 교차→추천 간격 중앙값은 {f(float(cross.median()),2) if len(cross) else '결측'}초다. 이는 '최초 매매 가능한 완전 신호'의 지연이 아니다: 그 교차 때 모든 volume/setup 조건이 충족됐는지는 별도 재생으로 확인해야 한다. 이 차이를 네트워크 지연과 구분한다.
+
+최근 돌파선 재회복→추천 중앙값은 {f(float(R.last_reclaim_to_signal_s.median()),2)}초다. 첫 교차의 약 3분을 전부 minute gate 때문이라고 주장할 수 없다. 5분 회복창의 close>resistance는 몇 분 전에 이미 시작한 돌파도 추천할 수 있으므로 '새 돌파를 즉시 탐지'하는 알고리즘과 다르다. 재진입/유지 확인과 cadence를 독립적으로 비교한다.
+
+Web은 추천/상태를 5초 polling, 통계를 30초 polling한다. 정상 상황에서도 추천 commit 이후 다음 조회까지 대기할 수 있으며 HTTP/렌더 시간을 계측하지 않아 확정 최대값을 제시하지 않는다. 현재 프로세스 runtime timing은 [realtime-status.json](realtime-status.json)에 저장했지만 추천 당시의 각 거래에 소급 적용하지 않는다.
+
+{table(L,['time_KST','name','source_to_receipt_s','receipt_to_evaluation_s','source_to_evaluation_s','signal_to_entry_s'],['추천','종목','원천→수신초','수신→평가초','원천→평가초','평가→가상진입초'])}
+
+## 진입가, 손절/익절, Risk/Reward
+
+원신호 현재가 즉시 진입이 아니다. 추천 이후 새로운 체결이 entryFrom~entryTo에 있고, 매수 비용 fill도 entryTo 이하일 때 가상 진입한다. chaseLimit 초과/stop 이하/만료는 진입 무효다. 비용을 설정한 경우 Spread·Slippage·수수료·세금을 모델링하지만 오늘은 전부 미설정이라 마지막 체결 기반 가상 fill이다. 매수 1호가, 매도 호가, 깊이, 수량·가격충격을 확인하지 않아 실제 체결 가능성을 검증한 것은 아니다. 시장 주문 가격은 최근 체결가격과 달라질 수 있다. [SEC Trade Execution](https://www.sec.gov/investor/pubs/tradexec.htm).
+
+Stop = support − setupRange×0.1; setupRange는 최근 분할 5분 구간 세 개의 high-low 평균이며 ATR이 아니다. Entry 상단을 기준으로 Target1=entryTo+2×(entryTo−Stop), Target2는 참고값이다. 오늘 모두 BREAKOUT이며 원래 기본은 Target1에서 전량 청산한다. 이미 최소 RR 1.5 gate가 있다. 이를 '추가하자'는 개선은 중복이다. RR는 planned 가격 비율이지 승률을 반영한 Expected Value가 아니다. 비용 후 기대값은 미산정이다.
+
+실제 가상 fill이 entryTo보다 낮으면 원Stop은 더 가까워지고 원Target은 더 멀어진다. 오늘 실제 fill 기준 가격 RR 범위는 {f(float(R.actual_RR.min()),2)}~{f(float(R.actual_RR.max()),2)}로 신호의 2.0과 다르다. 높아 보이는 RR 자체는 좋은 진입 증거가 아니다. 삼기/국제약품/HLB테라퓨틱스의 목표 거리 약 5.03/5.12/5.52%도 단기 실제 MFE와 검증해야 한다. 포지션 위험 예산/실행가 기준 계획과 신호 당시 고정 계획을 명확히 구분하되 기존 기록은 바꾸지 않는다.
+
+유효 stop/1분 ATR 비교 {len(short)}건 중 {int((short<1).sum())}건이 1 ATR 미만이다. 이는 ATR 손절을 채택할 증거가 아니라 최소 손절폭/변동성/가격단위 실험이 필요한 진단 근거다. ATR 계산식·분봉 완전성·수신시각을 같게 고정한 뒤 동일 진입에서 비교하고, 손절폭 변화 때 수량을 줄인 동일 위험 예산 분석도 별도로 수행해야 한다.
+
+보유 중 MFE 중앙값 {f(today['MFE_median'])}%와 원목표가 차이를 볼 때 목표가가 멀어 보일 수 있지만, 손절이 먼저 발생하면 보유 MFE가 잘리는 종료 편향이 있다. 30/60분 고정 관측 MFE와 손절 이후 하락폭을 함께 비교해야 '익절을 낮추는 것이 낫다'고 판단할 수 있다. 가격공백·슬리피지 때문에 실제 가상 청산은 손절선보다 낮을 수 있다. 이를 손절폭 자체와 분리했다.
+
+평균 보유 MFE / 평균 MAE 절댓값 비율은 {f(today['MFE_mean']/abs(today['MAE_mean']))}이다. 이는 기대손익비나 성공 확률이 아니며 진입 후 관측 경로의 비대칭을 나타낸다. 마찬가지로 고정60분 관측은 빠른 청산과 다른 전략이므로 수익률을 원성과에 합산하지 않는다.
+
+## 시장 환경·Regime·No-Trade·테마
+
+오늘 저장 Context는 TURNOVER_RANK와 종목별 FOREIGN_NET_BUY/INSTITUTION_NET_BUY/PROGRAM_NET_BUY뿐이다. 종목 외국인/기관 가집계 SHARES와 프로그램 수급의 원천시각/단위를 CSV에 보존했다. 종목 수급을 시장 전체 외국인/기관 순매수로 합산하거나 당시 지수를 현재 값으로 채우지 않았다. KOSPI/KOSDAQ/KOSPI200, 지수 5/15분 방향, 상승/하락 수, 시장 거래대금, VI 수, 급락비중은 미확보다. 따라서 BULL/BEAR/SIDEWAYS/급락 분류와 E형 실패는 모두 보류한다.
+
+시장 Regime 필요성은 충분하지만 효과는 SHADOW로 먼저 검증해야 한다. BULL_TREND에는 기존 조건 후보를 관측, BULL_VOLATILE에는 체결·변동성 진단 강화 실험, SIDEWAYS에는 돌파 유지/재테스트 정책 비교, BEAR_TREND/BEAR_VOLATILE에는 신규 매수 중단 또는 수 제한 실험을 사전 명세한다. UNKNOWN은 정상 Regime으로 채우지 않고 따로 집계한다. 전환 기준은 오늘 차트를 보고 정하지 말고 과거 학습 구간에서 고정하고 OOS로 평가한다.
+
+즉시 의미가 명확한 No-Trade 사유는 종목 적격성 오류/실행가격 불명/필수 입력 손실/실험 비용 후 최소 RR 미충족이다. 지수 급락·breadth 급감·VI 과다·연속 실패 중단은 임계값과 최근구간 정의를 사전 등록하고 SHADOW→OOS로 검증한다. 실패 후 중단은 선택편향과 회복기 기회 누락이 있으므로 오늘 연패에 맞춰 추가하지 않는다. 시스템은 이미 조건 미충족 때 NO TRADE를 허용한다.
+
+대덕전자 3회, 알테오젠 2회처럼 동일 종목 중복이 있으며, 반도체 관련 노출도 의심할 수 있으나 당시 업종/테마 태그가 저장되지 않았다. 명칭으로 공식 테마를 단정하지 않는다. 동일 종목·업종/테마·시간대 cluster 단위로 표본을 묶고 portfolio 노출 제한을 실험할 필요가 있다. 단순 '오늘 19개가 많다'는 이유로 상한을 새 운영값으로 적용하지 않는다.
+
+## 과거 5/10/20거래일 비교
+
+실제 추천 저장 기간은 9/30부터이며 과거 추천이 있는 세션은 **5개**, 오늘 포함 **6개**다. 운영 달력상 10/20거래일 연속 표본은 확보되지 않아 해당 비교를 완료했다고 주장할 수 없다. 추천 없는 일자를 데이터 없음과 NO TRADE로 임의 구분하지 않았다. 동일 policy 문자열은 확보한 {len(H)}개 세션에서 한 종류지만, ETF 분류·구독 Universe·재시작/결측은 같지 않다.
+
+{table(H,['date','recommendations','closed_valid','gross_win_rate','gross_mean','gross_PF','MFE_mean','MAE_mean','max_loss_streak','stop_first_rate'],['날짜','추천','유효청산','Gross 승률%','평균Gross%','Gross PF','MFE%','MAE%','최대연패','손절선도달%'])}
+
+과거에도 손절 우세가 반복되므로 오늘만의 실패라고 단정할 수 없다. 다만 데이터 품질·비용·Universe 문제가 공통으로 존재하여 표본을 공식 수익성 검증으로 사용할 수 없다. Gross 통계는 비용 없는 체결 모델 진단이며 손익 예측이 아니다.
+
+## 실패 원인별 0~100 기여도 요청에 대한 판정
+
+오늘 관측만으로 원인별 인과 기여율을 식별할 수 없다. 아래 모두 0~100 숫자는 **추정 불가**다. 임의 숫자의 합을 100으로 맞추거나 증거 수준을 기여율로 바꿔 표시하지 않는다.
+
+| 항목 | 기여점수 | 증거/판정 |
+| --- | --- | --- |
+| 종목 선정 | N/A | ETF 오분류 확정; 일반 종목 실패도 존재 |
+| 진입 타이밍 | N/A | 즉시 돌파 진입·짧은 보유 손절·재회복; HOLD/RETEST 대조 필요 |
+| 시장 필터 | N/A | Regime/당시 지수 결측; 환경 원인 귀속 불가 |
+| 데이터 지연 | N/A | 신호 처리 지연은 계측; minute cadence/UI/commit 미계측 |
+| 손절 기준 | N/A | 거리·ATR·사후 회복 진단; 일괄 확대 효과는 미검증 |
+| 익절 기준 | N/A | 원목표 대비 MFE/검열 검토; target 변경 기대값 미검증 |
+| 점수 모델 | N/A | 구조상 상한 66.67 및 소표본; 확률로 검증되지 않음 |
+| 추격 매수 | N/A | 진입 범위/chaseLimit 존재; 돌파 후 고점/지연 표본 확인 필요 |
+| 시장 변동성 | N/A | 시장 지수 부재; 종목 ATR은 진단 가능한 일부 대체자료 |
+
+## 개선안별 기대 효과 및 우선순위
+
+### P0 — 적격성·코호트·관측 신뢰성
+
+- 개선안: 마스터 분류 검증과 추천 당시 Universe 버전/변경 경계 보존.
+- 현재 문제: ETF/주식·우선주·수집 변경 전후가 섞인다.
+- 변경 내용: 공식 그룹/ETP 파싱 회귀 검증, 새 추천의 적격성 검증, 기존 오염 이력은 별도 코호트 표식. 이미 적용한 마스터 수정/재동기화의 효과를 Forward에서 점검한다.
+- 필요 데이터: 원본 마스터, 동기화시각, 당시 적격성, 구독/설정 버전.
+- 예상 효과: 잘못된 Universe 유입 제거·비교 가능성 개선. 승률 향상 크기는 미검증.
+- 부작용: 기존보다 후보 감소; Universe 변경 전후 수익률 직접 비교 불가.
+- 검증 방법: ETF/ETN/STOCK fixture, 기존 이력 불변, 신규 추천 ETF 0건, 변경 전후 cohort 분리.
+
+- 개선안: 실제 실행 가능 가격·비용·실시간 단계 계측.
+- 현재 문제: Net 0표본, bid/ask와 추천 commit/UI 노출 미저장.
+- 변경 내용: 이벤트 ID에 원천/수신/평가/저장완료/publish/client 표시를 연결하고 수량·Spread·Slippage 비용을 명시한다. 당시 호가가 없는 재생은 실행가능성 미검증으로 남긴다.
+- 필요 데이터: 최우선 호가/깊이·신선도, 주문 가정 수량, 실제 수수료/세금 설정, 서버/클라이언트 monotonic timing.
+- 예상 효과: 낙관적인 실행·성과 표기의 제거와 latency 원인 식별. 수익 개선을 약속하지 않음.
+- 부작용: 저장/수집 부하, API/구독 슬롯 예산, 개인정보 아닌 credential 비노출 유지 필요.
+- 검증 방법: known latency fixture, 시간역전/결측 차단, Gross/Net 분리, 지연별 성과 cohort.
+
+### P1 — 진입과 위험 구조의 대조 실험
+
+- 개선안: 기존 연구용 HOLD/RETEST를 동일 후보 대조로 검증.
+- 현재 문제: 순간 마지막 체결 돌파를 좋은 진입 시점과 동일시.
+- 변경 내용: 유지/재테스트/회복 확인을 선택 실험으로 실행; 추격 제한/만료/stop 원규칙 유지. minute cadence 변경은 별도 실험.
+- 필요 데이터: 충분히 연속된 틱 원장, 원돌파선/추천정책, 실제 fill 가정.
+- 예상 효과: 가짜 돌파 유입 감소 가능.
+- 부작용: 진짜 빠른 돌파 놓침, 진입가 악화, 추천 감소만으로 승률 상승하는 선택편향.
+- 검증 방법: 동일 후보 전체 포함, missedBaselineWinners·미진입 비율·공통완료 cohort·Net 기대값·Target/Stop first를 함께 평가. 기존 API 재사용.
+
+- 개선안: 변동성·가격단위와 구조적 손절 거리 비교.
+- 현재 문제: 작은 support buffer가 정상 흔들림/가격 grid보다 짧을 가능성.
+- 변경 내용: 기존 동일 진입에서 최소 손절폭 FILTER와 WIDEN, ATR형 stop을 서로 독립적으로 비교. 원목표/비용 고정 실험과 같은 RR/위험금액 비교를 분리한다.
+- 필요 데이터: 확정·수신 가능한 분봉/틱, 공식 가격단위, 비용/진입 수량.
+- 예상 효과: 불필요한 초단기 손절 감소 가능; 단순 확대의 기대값 개선은 미확정.
+- 부작용: 평균 손실/보유시간/동시노출 증가, stop 완화로 더 큰 손실, FILTER로 표본/기회 감소.
+- 검증 방법: post-stop 계속하락/즉시회복/늦은회복을 분리하고 PF·Expectancy·손실꼬리·동일위험 portfolio를 OOS 비교.
+
+### P2 — Score 의미·가용성·노출 관리
+
+- 개선안: gate와 ranking 구분, 포화 점수 설명, 동일종목/테마 노출 리포트.
+- 현재 문제: RR 고정으로 score ceiling, volume/value 의존성, 독립 표본처럼 보이는 중복 추천.
+- 변경 내용: 우선 UI/문서에 점수가 조건 여유라는 의미와 관측 수를 표시. 점수 모델/노출 상한 수치는 OOS 전까지 변경하지 않는다.
+- 필요 데이터: 종목/테마의 당시 태그, 포트폴리오 가상 수량, 추천 동시성, Feature history.
+- 예상 효과: 해석 오류 감소·검증 설계 개선.
+- 부작용: 임의 상한은 기회만 줄일 수 있음; 테마 태그 변경/look-ahead 위험.
+- 검증 방법: 날짜/종목 cluster별 안정성, 같은 비용과 자금 예산, 상관/순위·calibration 별도 분석.
+
+### P3 — 시장 Regime·수급 acceleration·호가 확인
+
+- 개선안: KOSPI/KOSDAQ/KOSPI200·breadth·수급·VI SHADOW 동기화 및 Regime 정책 실험.
+- 현재 문제: 시장 상태가 UNAVAILABLE이고 강한 종목 움직임이 시장/테마와 독립인지 모른다.
+- 변경 내용: source/receipt별 contemporaneous index 5/15분·breadth를 저장; turnover/strength 1/3/5분 추세와 book 신선도를 별도 후보 Feature로 기록한다. 수집 뒤 한 요소씩 비교한다.
+- 필요 데이터: 공식 지수/시장폭/수급·VI, 업종/테마, 신선한 호가.
+- 예상 효과: 약세/노이즈 시장의 잘못된 신규 매수 감소 가능.
+- 부작용: 늦은 가집계/저빈도 호가로 오판, 호출/슬롯·저장 비용, 지나친 복합 gate로 기회 소실.
+- 검증 방법: 사전 고정 Regime 정의·UNKNOWN cohort, 각 환경별 추천수/NO TRADE·Net 기대값·손익분포, OOS.
+
+## 보류할 개선안 / 수정하면 안 되는 부분
+
+일괄 손절 확대, 원Target 축소, 오늘에 맞춘 상승률/VWAP/RSI/거래량배수 threshold, 점수 70점 이상 gate(현재 BREAKOUT 거의 전부 제거), 수급·테마를 결측 0/중립으로 채우기, 연패 후 중단을 오늘 결과에 최적화하기, 과거 틱·원장·추천/성과를 최신값으로 덮어쓰기, 원장 없는 날짜의 고해상도 fill/선도달 순서 생성은 보류한다. 실주문 API/자동 주문을 추가하지 않는다.
+
+## 검증 계획과 개선 전후 KPI
+
+오늘과 가용 과거 5세션은 진단/가설 정리에 사용한다. 아직 20+10세션 검증이 가능한 원장 기간이 없다. 추가 관측으로 최소 연구 20거래일과 별도 시간순 OOS 10거래일을 확보하되 후보 Universe·입력 가용시각·기본 비용·진입/청산 조건을 통제하고 한 요소씩 비교한다. OOS를 보고 다시 고른 설정은 새 OOS가 필요하다. 휴장일/다음 거래일은 ClosingTradingCalendar 정책을 따르며 정적 목록을 공식 자동 달력으로 표현하지 않는다.
+
+완전 관측·지연/누락·ETF오염·정책변경·진입불가 cohort를 분리한다. 동일 후보 연구에서는 기존 미진입과 놓친 승자도 포함한다. 실측 가격단위·수량/슬리피지/Spread·수수료·세금, 신호지연, 동시 다종목/테마 노출, VI·거래정지, look-ahead와 survivor bias를 반영한다.
+
+KPI: 추천횟수/NO TRADE, 진입/미진입·판정불가 수, Net 승률·평균 수익/손실·PF·Expectancy, 고정 시간창 및 보유기간 MFE/MAE, 최대연패·동일명목 낙폭과 실제 위험예산 portfolio 낙폭 분리, Target First Hit Rate/Stop First Hit Rate(분모는 유효 최초도달 표본), 즉시 하락률(첫 관측/1분을 구분), 추천 후 5분 내 고점 형성률(예: 고정30분 전체최고가 시각; 30분 완전관측만), 놓친 기존 승자/기회감소율. 비교 결과와 불확실성을 함께 기록한다.
+
+## 가장 중요한 8개 질문에 대한 답
+
+1. **오늘 시장만 나빴나?** 확인 불가. 지수 부재이며 과거에도 손절 우세다.
+2. **구조적 문제인가?** ETF 적격성·비용/시장/실행가 결측·score 포화는 구조적이다. 수익을 만드는 구체 gate 효과는 추가 검증이 필요하다.
+3. **추천은 맞고 진입만 늦었나?** 일부 회복 사례는 있지만 전부에 적용할 근거가 없다. 신호 틱 처리 latency와 최초 돌파→신호 minute cadence를 분리해야 한다.
+4. **손절이 정상 변동에도 짧나?** 일부는 지지된다. stop/ATR·가격단위·원장 완전성을 검토해야 하며 일괄 확대 결론은 아니다.
+5. **손절폭 확대 없이 실패율을 줄일 수 있나?** 적격성 교정·실행가/결측 gate·HOLD/RETEST 실험은 가능한 경로다. 실패율뿐 아니라 추천수·놓친 승자·Net 기대값으로 평가해야 한다.
+6. **가장 도움이 될 데이터는?** 당시 신선한 bid/ask·수량과 비용, 지수/breadth, 전체 latency/연속성, 해당 종목 변동성·당시 업종/테마 태그다.
+7. **숫자만 줄일 조건은?** 70점 이상(구조상 오늘 0건), 임의 RSI/VWAP/등락률 threshold, 검증 없는 테마상한·연패중단·복합 all-risk-complete gate다.
+8. **급등 추격 알고리즘인가?** 오늘은 모두 최근 25분 고점 BREAKOUT이지만 진입범위/chaseLimit가 있어 무제한 추격은 아니다. 다만 돌파가 지속되는지 확인한 진입이 아니어서 순간 고점/돌파 실패에 노출되어 있다. +10~20% 당일 급등을 주로 추격했다는 결론은 가용 당일등락 자료로 추가 확인해야 한다.
+
+## 최종 결론
+
+**오늘 유효 가상 청산의 대부분이 손절된 것은, 시장 급락이 확인되어서가 아니라 ETF가 섞인 미검증 Universe에서 순간 고점 돌파 직후 짧은 구조적 손절로 진입한 패턴이 반복됐기 때문으로 의심되며, 그 중 확정 사실은 ETF 오분류·손절 우세·짧은 보유시간·시장/비용 결측이고 진입·손절의 인과 기여는 OOS 대조로 검증해야 한다.**
+
+## 산출물과 재현
+
+- [추천 전체 표](recommendations_full.csv), [추천 전후 가격 창](price_windows.csv), [단계 지연](latency.csv), [시장/종목 수급](market_context.csv)
+- [과거 세션 비교](history_daily.csv), [점수 구간](score_bands.csv), [Feature 상관](correlations.csv), [요약](summary.json)
+- DB 읽기 전용 exporter: [ExportEvidence.java](ExportEvidence.java). 분석: [analyze.py](analyze.py), 보고서 생성: [report.py](report.py).
+- 추천/성과·시장맥락·분봉·tick 원본 TSV는 같은 폴더에 있으며 인증정보를 포함하지 않는다. DB 주소/키/비밀번호를 보고서·출력에 기록하지 않았다.
+- 자료량 때문에 전체 원장 일자 집계는 제한시간을 초과했고, 이후 오늘 추천 종목을 50,000 ID 단위로 읽었다. 최종 스냅샷의 날짜/추천/ID 상한을 고정했으며 날짜 간 원장을 섞지 않았다.
+- 분석 스크립트에는 MFE/MAE 공식 예제, 중복 ID, 추천 수 일치 검증이 있다. 이 검증은 전략 수익성 검증이 아니다.
+- 원장 {S['tick_rows']:,}건 중 source>receipt 또는 receipt>evaluation인 시간역전 입력 {S['invalid_clock_input_rows']:,}건은 live Engine과 같은 시간 경계로 분석에서 제외했다. 순서역전/동일시각 누적거래량 중복을 제외한 유효 순서 틱 {S['ordered_usable_tick_rows']:,}건을 사용했다. 이것은 gateway dropped 카운터와 다른 문제이며 수신 시계/원천 초 단위 정밀도와 날짜별 구간을 별도로 진단해야 한다.
+- 가상 청산 receipt가 한 멀티틱 frame의 여러 틱과 같을 수 있어 첫 threshold 도달의 ID 순서에서 보유 경로를 자른다. DB microsecond 반올림을 보정한 유효 청산 16건의 재계산 보유 MFE/MAE와 저장값 최대 차이는 각각 {f(S['holding_MFE_max_reconstruction_difference'],8)}, {f(S['holding_MAE_max_reconstruction_difference'],8)}%p다. 판정불가 상태의 이후 관측은 확정 포지션 성과에 포함하지 않았다.
+'''
+(P/'DIAGNOSIS.md').write_text(text,encoding='utf-8')
+print('DIAGNOSIS.md written:',len(text),'characters')
