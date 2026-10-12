@@ -123,6 +123,19 @@ public class ClosingCandidateObservationService {
         row.observe(now, status, json(missing), entryAt, entryPrice, stored, execution.costAssumption());
     }
 
+    /** SELECTED before WATCH, then higher final score; read from the immutable run snapshot. */
+    public List<String> subscriptionCandidates(ClosingRecommendationRun run, int limit) {
+        if (limit <= 0 || !"FORWARD".equals(run.getExecutionMode()) || run.getCompletedAt() == null) return List.of();
+        List<CandidateEvaluationResponse> evaluations = snapshot(run).evaluations();
+        if (evaluations == null) return List.of();
+        return evaluations.stream()
+                .filter(value -> "SELECTED".equals(value.disposition()) || "WATCH".equals(value.disposition()))
+                .sorted(Comparator.comparing((CandidateEvaluationResponse value) -> !"SELECTED".equals(value.disposition()))
+                        .thenComparing(CandidateEvaluationResponse::finalScore,
+                                Comparator.nullsLast(Comparator.reverseOrder())))
+                .map(CandidateEvaluationResponse::stockCode).distinct().limit(limit).toList();
+    }
+
     private GenerateResponse snapshot(ClosingRecommendationRun run) {
         try { return mapper.readValue(run.getResponseSnapshot(), GenerateResponse.class).withRun(run); }
         catch (Exception error) { throw new IllegalStateException("Failed to read recommendation audit", error); }

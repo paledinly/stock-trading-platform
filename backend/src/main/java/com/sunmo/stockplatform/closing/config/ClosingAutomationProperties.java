@@ -11,7 +11,8 @@ public record ClosingAutomationProperties(
         BigDecimal minimumOpportunity,
         BigDecimal maximumRisk,
         BigDecimal targetRate,
-        BigDecimal stopRate) {
+        BigDecimal stopRate,
+        Integer observationSubscriptionLimit) {
 
     public ClosingAutomationProperties {
         limit = limit <= 0 ? 10 : Math.min(limit, 30);
@@ -19,6 +20,10 @@ public record ClosingAutomationProperties(
         maximumRisk = maximumRisk == null ? new BigDecimal("65") : maximumRisk;
         targetRate = targetRate == null ? new BigDecimal("3") : targetRate;
         stopRate = stopRate == null ? new BigDecimal("-2") : stopRate;
+        // Unselected SELECTED/WATCH candidates kept on realtime for paper entry and next-session bars; 0 disables.
+        observationSubscriptionLimit = observationSubscriptionLimit == null ? 10 : observationSubscriptionLimit;
+        if (observationSubscriptionLimit < 0)
+            throw new IllegalArgumentException("Invalid closing observation subscription limit");
         if (minimumOpportunity.signum() < 0 || maximumRisk.signum() < 0
                 || targetRate.signum() <= 0 || stopRate.signum() >= 0)
             throw new IllegalArgumentException("Invalid closing automation thresholds");

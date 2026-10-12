@@ -20,6 +20,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
@@ -144,10 +145,19 @@ public class ClosingRecommendationScheduler {
         if (!force && bucket == lastSubscriptionBucket)
             return;
         lastSubscriptionBucket = bucket;
-        Set<String> desired = new HashSet<>();
+        // Official recommendations first; observation candidates only take slots that are still free.
+        Set<String> desired = new LinkedHashSet<>();
+        Set<String> observed = new LinkedHashSet<>();
+        List<ClosingRecommendationRun> protectedRuns = new java.util.ArrayList<>();
         if (!calendar.isTradingDay(today) || !time.isAfter(LocalTime.of(15, 30)))
-            addCodes(desired, calendar.previousTradingDay(today));
-        addCodes(desired, today);
+            protectedRuns.add(officialRun(calendar.previousTradingDay(today)));
+        protectedRuns.add(officialRun(today));
+        protectedRuns.removeIf(java.util.Objects::isNull);
+        for (ClosingRecommendationRun run : protectedRuns)
+            desired.addAll(repository.findStockCodesByRunId(run.getId()));
+        for (ClosingRecommendationRun run : protectedRuns)
+            addObservationCodes(observed, run);
+        observed.removeAll(desired);
 
         for (String code : desired) {
             try {
@@ -156,6 +166,18 @@ public class ClosingRecommendationScheduler {
                 log.warn("Unable to protect overnight subscription {}: {}", code, error.getMessage());
             }
         }
+        int skipped = 0;
+        for (String code : observed) {
+            if (!subscriptions.all().contains(code) && subscriptions.remaining() == 0) { skipped++; continue; }
+            try {
+                subscriptions.add(code, RealtimeSubscriptionRegistry.Source.OVERNIGHT);
+                desired.add(code);
+            } catch (IllegalStateException error) {
+                skipped++;
+            }
+        }
+        if (skipped > 0)
+            log.info("Closing observation subscriptions skipped for {} candidates: no free realtime slots", skipped);
         for (String code : new HashSet<>(protectedCodes)) {
             if (!desired.contains(code))
                 subscriptions.remove(code, RealtimeSubscriptionRegistry.Source.OVERNIGHT);
@@ -164,11 +186,15 @@ public class ClosingRecommendationScheduler {
         protectedCodes.addAll(desired);
     }
 
-    private void addCodes(Set<String> target, LocalDate date) {
-        ClosingRecommendationRun run = officialRun(date);
-        if (run == null)
+    private void addObservationCodes(Set<String> target, ClosingRecommendationRun run) {
+        int limit = automationProperties.observationSubscriptionLimit();
+        if (limit <= 0)
             return;
-        target.addAll(repository.findStockCodesByRunId(run.getId()));
+        try {
+            target.addAll(observations.subscriptionCandidates(run, limit));
+        } catch (RuntimeException error) {
+            log.warn("Closing observation subscription candidates unavailable for run {}: {}", run.getId(), rootMessage(error));
+        }
     }
 
     private String officialKey(LocalDate date) {

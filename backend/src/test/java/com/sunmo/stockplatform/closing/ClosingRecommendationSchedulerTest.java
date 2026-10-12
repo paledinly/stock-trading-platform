@@ -83,6 +83,10 @@ class ClosingRecommendationSchedulerTest {
     }
 
     private ClosingRecommendationScheduler scheduler(Instant now, boolean tradingDay) {
+        return scheduler(now, tradingDay, 2);
+    }
+
+    private ClosingRecommendationScheduler scheduler(Instant now, boolean tradingDay, int observationLimit) {
         when(calendar.now()).thenReturn(now);
         LocalDate date = now.atZone(ClosingTradingCalendar.ZONE).toLocalDate();
         when(calendar.isTradingDay(date)).thenReturn(tradingDay);
@@ -92,7 +96,7 @@ class ClosingRecommendationSchedulerTest {
                 repository, runs, subscriptions, calendar,
                 new ClosingRecommendationProperties(20, 4, bd("55"), LocalTime.of(14, 30),
                         LocalTime.of(15, 15), LocalTime.of(15, 20), Duration.ZERO),
-                new ClosingAutomationProperties(true, 10, bd("35"), bd("65"), bd("3"), bd("-2")));
+                new ClosingAutomationProperties(true, 10, bd("35"), bd("65"), bd("3"), bd("-2"), observationLimit));
     }
 
     @Test void noAutomaticRunBefore1515OrAt1520AndRestartDoesNotDuplicate() {
@@ -121,7 +125,7 @@ class ClosingRecommendationSchedulerTest {
                 .thenReturn(List.of(7L, 1L));
 
         scheduler.poll();
-        verifyNoInteractions(observations);
+        verify(observations, never()).track(anyLong(), any(), any());
 
         when(calendar.now()).thenReturn(at(TUESDAY, 15, 40));
         scheduler.poll();
@@ -132,7 +136,7 @@ class ClosingRecommendationSchedulerTest {
                 List.of(OvernightPerformanceStatus.PENDING, OvernightPerformanceStatus.IN_PROGRESS), TUESDAY);
         verify(observations).track(1L, bd("3"), bd("-2"));
         verify(observations).track(7L, bd("3"), bd("-2"));
-        verifyNoMoreInteractions(observations);
+        verify(observations, times(2)).track(anyLong(), any(), any());
     }
 
     @Test
@@ -159,6 +163,38 @@ class ClosingRecommendationSchedulerTest {
         scheduler.poll();
 
         verifyNoInteractions(observations, observationRows);
+    }
+
+    @Test
+    void observationCandidatesFillOnlyFreeSlotsAfterOfficialCodes() {
+        var scheduler = scheduler(at(TUESDAY, 15, 16), true);
+        when(calendar.previousTradingDay(TUESDAY)).thenReturn(MONDAY);
+        ClosingRecommendationRun currentRun = run(2L);
+        when(runs.findByRequestKey(key(TUESDAY))).thenReturn(Optional.of(currentRun));
+        when(repository.findStockCodesByRunId(2L)).thenReturn(List.of("005930"));
+        when(observations.subscriptionCandidates(currentRun, 2)).thenReturn(List.of("005930", "000660", "035420"));
+        when(subscriptions.remaining()).thenReturn(1, 0);
+
+        scheduler.poll();
+
+        var order = inOrder(subscriptions);
+        order.verify(subscriptions).add("005930", RealtimeSubscriptionRegistry.Source.OVERNIGHT);
+        order.verify(subscriptions).add("000660", RealtimeSubscriptionRegistry.Source.OVERNIGHT);
+        verify(subscriptions, never()).add(eq("035420"), any());
+    }
+
+    @Test
+    void zeroObservationLimitKeepsOnlyOfficialCodes() {
+        var scheduler = scheduler(at(TUESDAY, 15, 16), true, 0);
+        when(calendar.previousTradingDay(TUESDAY)).thenReturn(MONDAY);
+        ClosingRecommendationRun currentRun = run(2L);
+        when(runs.findByRequestKey(key(TUESDAY))).thenReturn(Optional.of(currentRun));
+        when(repository.findStockCodesByRunId(2L)).thenReturn(List.of("005930"));
+
+        scheduler.poll();
+
+        verify(observations, never()).subscriptionCandidates(any(), anyInt());
+        verify(subscriptions).add("005930", RealtimeSubscriptionRegistry.Source.OVERNIGHT);
     }
 
     private ClosingRecommendationRun run(Long id) {

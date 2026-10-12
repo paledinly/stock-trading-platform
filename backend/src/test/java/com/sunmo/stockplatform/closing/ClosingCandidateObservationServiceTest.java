@@ -79,6 +79,37 @@ class ClosingCandidateObservationServiceTest {
         assertThat(report.rows().getFirst().costStatus()).isEqualTo("ZERO_COSTS_UNVERIFIED");
     }
 
+    @Test
+    void subscriptionCandidatesPutSelectedFirstThenWatchByScoreAndSkipExcluded() throws Exception {
+        ObjectMapper mapper = new ObjectMapper().findAndRegisterModules();
+        LocalDate date = LocalDate.of(2026, 9, 29);
+        Instant completedAt = Instant.parse("2026-09-29T06:16:00Z");
+        GenerateResponse response = new GenerateResponse(date, completedAt.minusSeconds(10), 4, 0, 1, 2, 1,
+                Map.of(), "test-v1", List.of(), completedAt.minusSeconds(60), Map.of(), Map.of(),
+                List.of(evaluation("000001", "WATCH", "60"), evaluation("000002", "EXCLUDED", "99"),
+                        evaluation("000003", "SELECTED", "40"), evaluation("000004", "WATCH", "70"),
+                        evaluation("000005", "WATCH", null)),
+                null, "FORWARD", completedAt);
+        ClosingRecommendationRun run = new ClosingRecommendationRun(date, completedAt.minusSeconds(10), "test-v1",
+                "FORWARD", completedAt.minusSeconds(60), "{}", "hash", "key");
+        run.complete(mapper.writeValueAsString(response), completedAt);
+        var service = new ClosingCandidateObservationService(mock(ClosingRecommendationRunRepository.class),
+                mock(ClosingCandidateObservationRepository.class), mock(StockRepository.class),
+                mock(StockCandleRepository.class), mock(ClosingTradingCalendar.class),
+                new OvernightExecutionSimulator(new TradingCostProperties(null, null, null, null, null)),
+                mapper, mock(ClosingPaperEntryService.class));
+
+        assertThat(service.subscriptionCandidates(run, 3)).containsExactly("000003", "000004", "000001");
+        assertThat(service.subscriptionCandidates(run, 10)).containsExactly("000003", "000004", "000001", "000005");
+        assertThat(service.subscriptionCandidates(run, 0)).isEmpty();
+    }
+
+    private CandidateEvaluationResponse evaluation(String code, String disposition, String score) {
+        return new CandidateEvaluationResponse(code, code, "BROAD", null, Instant.parse("2026-09-29T06:14:00Z"),
+                new BigDecimal("100"), score == null ? null : new BigDecimal(score), null, null, "BROAD_B",
+                4, 20, List.of(), disposition, "REASON", "{}", "{}", null, Map.of());
+    }
+
     private StockCandle candle(Stock stock, Instant at) {
         return new StockCandle(stock, at, new BigDecimal("100"), new BigDecimal("101"),
                 new BigDecimal("99"), new BigDecimal("100"), 10, new BigDecimal("1000"), true, 1);
