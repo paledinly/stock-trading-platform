@@ -174,6 +174,7 @@ public class IntradayService {
     public synchronized Map<String, Object> status() {
         Map<String, Object> status = new LinkedHashMap<>();
         status.put("enabled", policy.enabled()); status.put("costsConfigured", policy.costs().configured());
+        status.put("costsForNetOnly", policy.costsForNetOnly());
         status.put("version", policy.version()); status.put("queued", queue.size()); status.put("dropped", dropped.get());
         status.put("error", error); status.put("mode", "RESEARCH_PAPER");
         status.put("sourceLossEvents", sourceLossEvents.get()); status.put("checkpoint", checkpoints.status());

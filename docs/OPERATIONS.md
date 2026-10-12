@@ -28,7 +28,7 @@ KIS WebSocket은 `ClosingTradingCalendar`의 거래일에만 기본 08:59부터 
 
 ## 장중 연구 기능
 
-기본값 `INTRADAY_ENABLED=false`를 유지한다. 연구 수집을 시작할 때 기존 실시간 구독이 작동하는 환경에서 활성화한다. 비용 환경변수는 `INTRADAY_BUY_FEE_PERCENT`, `INTRADAY_SELL_FEE_PERCENT`, `INTRADAY_SELL_TAX_PERCENT`, `INTRADAY_SPREAD_PERCENT`, `INTRADAY_BUY_SLIPPAGE_PERCENT`, `INTRADAY_SELL_SLIPPAGE_PERCENT`다. 모두 percent 단위이며 실제 적용 계좌/상품/일자의 확인된 가정을 입력한다. 빈 항목이 있어도 가격 기준 R:R로 추천하고 기준 체결가격의 Gross 성과를 추적한다. 비용 항목이 일부만 있으면 비용 전체를 미반영으로 표시하고 Net은 null로 남긴다. 여섯 항목이 모두 있을 때만 비용 포함 R:R·Net을 계산한다. 세금이나 수수료율을 코드에서 현행 제도로 추정하지 않는다.
+기본값 `INTRADAY_ENABLED=false`를 유지한다. 연구 수집을 시작할 때 기존 실시간 구독이 작동하는 환경에서 활성화한다. 비용 환경변수는 `INTRADAY_BUY_FEE_PERCENT`, `INTRADAY_SELL_FEE_PERCENT`, `INTRADAY_SELL_TAX_PERCENT`, `INTRADAY_SPREAD_PERCENT`, `INTRADAY_BUY_SLIPPAGE_PERCENT`, `INTRADAY_SELL_SLIPPAGE_PERCENT`다. 모두 percent 단위이며 실제 적용 계좌/상품/일자의 확인된 가정을 입력한다. 빈 항목이 있어도 가격 기준 R:R로 추천하고 기준 체결가격의 Gross 성과를 추적한다. 비용 항목이 일부만 있으면 비용 전체를 미반영으로 표시하고 Net은 null로 남긴다. 여섯 항목이 모두 있을 때만 비용 포함 R:R·Net을 계산한다. `INTRADAY_COSTS_FOR_NET_ONLY=true`이면 비용은 Net 계산에만 쓰고 추천 R:R과 진입 판단은 가격 기준으로 유지한다. 전략 동작을 바꾸지 않고 비용 반영 Net 표본을 쌓을 때 사용하며, `/api/v1/intraday/status`의 `costsForNetOnly`로 확인한다. 세금이나 수수료율을 코드에서 현행 제도로 추정하지 않는다.
 
 세부 실험값은 `IntradayProperties`의 `intraday.*` 설정을 사용한다. 모든 입력과 추천에 전체 설정이 보존된다. `require-complete-risk-data=true`이면 현재 미확보 지수/호가/VI/위험 메타데이터 때문에 NO TRADE가 된다. 기본 false는 미확보 항목을 위험정보로 표시하는 연구 설정이지 운영 안전성 승인이 아니다.
 

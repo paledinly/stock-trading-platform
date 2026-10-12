@@ -55,7 +55,7 @@ public final class IntradayTracker {
             else if (price <= s.plan().stop() || price > s.plan().chaseLimit()) o.status = "INVALIDATED";
             else if (allowEntry && price >= s.plan().entryFrom() && price <= s.plan().entryTo()) {
                 double fill = s.policy().costs().configured() ? s.policy().costs().buy(price) : price;
-                if (fill <= s.plan().entryTo()) {
+                if (!s.policy().costsGateEntry() || fill <= s.plan().entryTo()) {
                     o.entryPrice = fill; o.entryReferencePrice = price; o.entryAt = receipt; o.status = "ENTERED";
                     o.tradeMfe = 0.0; o.tradeMae = 0.0;
                     if (!s.policy().costs().configured()) o.quality("COSTS_NOT_CONFIGURED");

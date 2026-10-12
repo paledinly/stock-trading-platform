@@ -34,6 +34,8 @@ public record IntradayProperties(
         @DefaultValue("0.7") double pullbackVolumeFraction,
         @DefaultValue("10") double maxStrengthDrop,
         @DefaultValue("false") boolean requireCompleteRiskData,
+        // Costs still price fills and Net, but do not change which signals or entries exist. Absent in old snapshots = false.
+        @DefaultValue("false") boolean costsForNetOnly,
         Map<String, Integer> expiryMinutes,
         Map<String, Double> sessionVolumeMultipliers,
         @DefaultValue Costs costs) {
@@ -69,6 +71,9 @@ public record IntradayProperties(
         if (targetMode == null || !java.util.Set.of("RISK_MULTIPLE", "FIXED_1", "FIXED_2", "FIXED_3", "PRIOR_HIGH", "RANGE").contains(targetMode))
             throw new IllegalArgumentException("Unknown target mode");
     }
+
+    /** Whether configured costs may reject a plan or an entry fill; otherwise they only produce Net. */
+    public boolean costsGateEntry() { return costs.configured() && !costsForNetOnly; }
 
     public record Costs(Double buyFeePercent, Double sellFeePercent, Double sellTaxPercent,
                         Double spreadPercent, Double buySlippagePercent, Double sellSlippagePercent) {

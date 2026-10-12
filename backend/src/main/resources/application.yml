@@ -186,6 +186,7 @@ intraday:
     enabled: ${INTRADAY_CHECKPOINT_ENABLED:true}
     directory: ${INTRADAY_CHECKPOINT_DIRECTORY:.intraday-checkpoints}
     interval: ${INTRADAY_CHECKPOINT_INTERVAL:5m}
+  costs-for-net-only: ${INTRADAY_COSTS_FOR_NET_ONLY:false}
   costs:
     buy-fee-percent: ${INTRADAY_BUY_FEE_PERCENT:}
     sell-fee-percent: ${INTRADAY_SELL_FEE_PERCENT:}

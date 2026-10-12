@@ -14,7 +14,7 @@
 - PULLBACK: 15분 전부터의 5분 상승, 다음 5분 저거래량 조정/저점·VWAP 지지, 최근 5분 거래량 회복과 조정 고점 회복. 1차 고점 아래에서만 눌림으로 분류한다.
 - RE_BREAKOUT: 같은 순차 구조에서 선행 상승 고점을 다시 넘는 경우. 일반 돌파보다 먼저 분류한다.
 
-Entry 구간과 추격 제한은 관측된 구간 평균 가격범위에서 계산하고 Stop은 돌파선/눌림 저점 하단이다. 이 가격범위는 ATR이 아니다. 기본 Target은 위험배수이며 눌림은 선행 고점을 사용한다. `target-mode`는 RISK_MULTIPLE/FIXED_1/FIXED_2/FIXED_3/PRIOR_HIGH/RANGE를 비교할 수 있고 `trailing-after-target`은 Target 1 확인 후 최초 위험폭만큼의 추적 손절을 적용한다. Target 2는 참고 계획이며 기본 포지션은 Target 1에서 전량 청산한다. 비용 여섯 항목이 모두 설정되면 비용 포함 최악 진입가 R:R을, 아니면 비용 미반영 가격 기준 R:R을 검사한다. 기준 R:R이 부족하면 추천하지 않는다. 비용 미설정 추천에는 위험 표식을 남기고 Net은 산정하지 않는다. 실측 호가·주문 단위·체결가능 수량을 검증하지 않은 참고 가격이며 거래소 주문가격이 아니다.
+Entry 구간과 추격 제한은 관측된 구간 평균 가격범위에서 계산하고 Stop은 돌파선/눌림 저점 하단이다. 이 가격범위는 ATR이 아니다. 기본 Target은 위험배수이며 눌림은 선행 고점을 사용한다. `target-mode`는 RISK_MULTIPLE/FIXED_1/FIXED_2/FIXED_3/PRIOR_HIGH/RANGE를 비교할 수 있고 `trailing-after-target`은 Target 1 확인 후 최초 위험폭만큼의 추적 손절을 적용한다. Target 2는 참고 계획이며 기본 포지션은 Target 1에서 전량 청산한다. 비용 여섯 항목이 모두 설정되면 비용 포함 최악 진입가 R:R을, 아니면 비용 미반영 가격 기준 R:R을 검사한다. `intraday.costs-for-net-only=true`이면 비용은 가상 fill과 Net 계산에만 쓰고 R:R 검사와 진입 가능 여부는 비용 미반영 가격 기준을 유지한다. 이 경우 추천에 `COSTS_FOR_NET_ONLY` 위험 표식을 남긴다. 저장된 추천은 당시 정책 snapshot의 규칙으로 재생하며, 이 값이 없는 과거 snapshot은 false로 해석한다. 기준 R:R이 부족하면 추천하지 않는다. 비용 미설정 추천에는 위험 표식을 남기고 Net은 산정하지 않는다. 실측 호가·주문 단위·체결가능 수량을 검증하지 않은 참고 가격이며 거래소 주문가격이 아니다.
 
 점수는 거래량/거래대금/순 R:R의 최소 정규화 조건 여유를 50–100으로 표현하는 연구 순위다. Closing 가중치를 가져오지 않는다. Setup별 구조적 조건을 먼저 통과해야 하며 점수의 단조 성과 개선은 아직 확인되지 않았다. Historical Win Rate/Expected Return/MFE/MAE/Confidence를 추천 확률로 생성하지 않는다.
 

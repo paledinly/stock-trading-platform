@@ -8,7 +8,7 @@ type Outcome = { status: string; entryAt: string | null; entryPrice: number | nu
 type Result = { signal: Signal; outcome: Outcome }
 type Stats = { recommendations: number; trades: number; unresolved: number; winRate: number | null; averageNetReturn: number | null; medianNetReturn: number | null; profitFactor: number | null; mfe: number | null; mae: number | null; targetBeforeStopRate: number | null; equalNotionalDrawdown: number | null; consecutiveLosses: number; averageHoldingMinutes: number | null }
 type Analytics = Record<string, Record<string, Stats>>
-type Status = { enabled: boolean; costsConfigured: boolean; mode: string; queued: number; dropped: number; error: string | null; candidates: { stockCode: string; stockName: string; stage: string; reason: string; evaluatedAt: string }[] }
+type Status = { enabled: boolean; costsConfigured: boolean; costsForNetOnly?: boolean; mode: string; queued: number; dropped: number; error: string | null; candidates: { stockCode: string; stockName: string; stage: string; reason: string; evaluatedAt: string }[] }
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, init)
   if (!response.ok) throw new Error('장중 연구 데이터를 불러오지 못했습니다.')
@@ -22,7 +22,7 @@ const labels: Record<string, string> = {
   TIME_EXIT: '시간 청산', UNRESOLVED: '관측 부족·판정 불가', SCANNED: '스캔', WATCHLIST: '관찰', SETUP_FORMING: '패턴 형성 중',
   TRAILING_EXIT: '추적 손절 청산', RISK_DATA_UNAVAILABLE: '필수 위험정보 미확보', VWAP_UNAVAILABLE: '누적 VWAP 미확보',
   HISTORY_CAPACITY_WARMUP_RESET: '관측 버퍼 상한·워밍업 재시작', RECOMMENDED: '추천 생성',
-  COSTS_NOT_CONFIGURED: '비용 미반영 · Net 수익률·비용 포함 R:R 미산정', WARMUP_30M_REQUIRED: '연속 30분 관측 대기', LOW_LIQUIDITY: '유동성 부족',
+  COSTS_NOT_CONFIGURED: '비용 미반영 · Net 수익률·비용 포함 R:R 미산정', COSTS_FOR_NET_ONLY: '비용은 Net 계산에만 반영 · R:R·진입은 가격 기준', WARMUP_30M_REQUIRED: '연속 30분 관측 대기', LOW_LIQUIDITY: '유동성 부족',
   FLOW_CONFIRMATION_PENDING: '거래량·대금 확인 대기', ORDERED_SETUP_PENDING: '시간순 패턴 확인 대기',
   ACTIVE_OR_COOLDOWN: '기존 추천 진행·재추천 대기', NET_RISK_REWARD_INSUFFICIENT: '비용 포함 R:R 부족',
   CHASE_OR_ORDER_FLOW_REVERSAL: '추격·체결강도 반전 위험', OUTSIDE_RECOMMENDATION_SESSION: '추천 시간 밖',
@@ -136,14 +136,14 @@ export function IntradayPage({ back }: { back: () => void }) {
   const error = status.error ?? results.error ?? analytics.error ?? replay.error
   return <div className="intradayPage"><header><button onClick={back}>← 대시보드</button><h1>실시간 장중 추천</h1><p>독립 연구·가상매매 · 점수는 확률이 아닙니다 · 수익성 미검증</p></header>
     <main><section><label>거래일 (한국시간) <input type="date" value={date} onChange={e => { setDate(e.target.value); replay.reset() }} /></label>
-      <p>{status.data?.enabled ? '수집 활성' : '실험 비활성'} · {status.data?.costsConfigured ? '비용 설정됨' : '비용 미반영 · 추천 가능'} · 대기 {status.data?.queued ?? 0} · 누락 {status.data?.dropped ?? 0}</p>
+      <p>{status.data?.enabled ? '수집 활성' : '실험 비활성'} · {status.data?.costsConfigured ? (status.data.costsForNetOnly ? '비용 설정됨 · Net 전용' : '비용 설정됨') : '비용 미반영 · 추천 가능'} · 대기 {status.data?.queued ?? 0} · 누락 {status.data?.dropped ?? 0}</p>
       <p>기존 실시간 구독 종목만 평가합니다. 연속 30분 관측이 필요하며 09:05 직후 추천은 아직 지원하지 않습니다. 지수·호가·VI·투자위험 이력이 없어 운영 적합성은 미검증입니다.</p>
       {status.data?.error && <p role="alert">장중 처리 오류: {status.data.error}</p>}{error && <p role="alert">{error.message}</p>}
     </section>
     {results.isLoading && <p>추천을 불러오는 중…</p>}
     {!results.isLoading && !results.error && results.data?.length === 0 && <section><h2>NO TRADE</h2><p>진입 조건을 충족한 추천이 없습니다. 비활성·데이터 부족 여부와 관찰 후보 사유를 확인하세요.</p></section>}
     <section><h2>추천·가상 포지션</h2><p>추천 시각 최신순 · 5초마다 갱신</p><div className="intradayTable"><table><thead><tr><th>번호 / 종목</th><th>Setup / 추천 시각</th><th>추천가 / 최근 관측가</th><th>Entry / 추격 제한</th><th>Stop / Target 1·2</th><th>R:R / Score</th><th>상태</th></tr></thead>
-      <tbody>{sortedResults.map(({ signal: s, outcome: o }, index) => <tr key={s.id}><td>{index + 1}. {s.stockName}<small>{s.stockCode}</small></td><td>{label(s.setup)}<small>{time(s.recommendedAt)}</small></td><td>{num(s.price)} / {num(o.currentPrice)}<small>{time(o.currentPriceAt)}</small></td><td>{num(s.plan.entryFrom)}~{num(s.plan.entryTo)}<small>추격 제한 {num(s.plan.chaseLimit)}</small></td><td>{num(s.plan.stop)}<small>{num(s.plan.target1)} / {num(s.plan.target2)}</small></td><td>{num(s.plan.riskReward)} / {num(s.score)}<small>{s.risks.includes('COSTS_NOT_CONFIGURED') ? '가격 기준 · 비용 포함 R:R 미산정' : '비용 포함'}</small></td><td>{label(o.status)}</td></tr>)}</tbody></table></div></section>
+      <tbody>{sortedResults.map(({ signal: s, outcome: o }, index) => <tr key={s.id}><td>{index + 1}. {s.stockName}<small>{s.stockCode}</small></td><td>{label(s.setup)}<small>{time(s.recommendedAt)}</small></td><td>{num(s.price)} / {num(o.currentPrice)}<small>{time(o.currentPriceAt)}</small></td><td>{num(s.plan.entryFrom)}~{num(s.plan.entryTo)}<small>추격 제한 {num(s.plan.chaseLimit)}</small></td><td>{num(s.plan.stop)}<small>{num(s.plan.target1)} / {num(s.plan.target2)}</small></td><td>{num(s.plan.riskReward)} / {num(s.score)}<small>{s.risks.includes('COSTS_NOT_CONFIGURED') ? '가격 기준 · 비용 포함 R:R 미산정' : s.risks.includes('COSTS_FOR_NET_ONLY') ? '가격 기준 · 비용은 Net만' : '비용 포함'}</small></td><td>{label(o.status)}</td></tr>)}</tbody></table></div></section>
     {sortedResults.map(({ signal: s, outcome: o }) => <details key={s.id}><summary>{s.stockName} · 추천 근거·위험·성과</summary>
       <h3>추천 근거</h3><ul>{s.reasons.map(x => <li key={x}>{x}</li>)}</ul><h3>위험 요인</h3><ul>{s.risks.map(x => <li key={x}>{label(x)}</li>)}</ul>
       <p>유효기한 {time(s.expiresAt)} · 원천 {time(s.sourceAt)} · 수신 {time(s.receivedAt)}</p><p>{s.plan.invalidCondition}</p>

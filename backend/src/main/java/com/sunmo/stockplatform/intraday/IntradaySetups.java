@@ -65,7 +65,7 @@ public final class IntradaySetups {
         double rr = (target1 - to) / risk;
         if (rr < p.minRiskReward()) return null;
         // Cost-aware R:R at the most expensive allowed entry; spread and slippage are explicit assumptions.
-        if (p.costs().configured()) {
+        if (p.costsGateEntry()) {
             double netRisk = -p.costs().net(p.costs().buy(to), p.costs().sell(stop));
             double netReward = p.costs().net(p.costs().buy(to), p.costs().sell(target1));
             if (netRisk <= 0 || netReward / netRisk < p.minRiskReward()) return null;

@@ -134,11 +134,12 @@ public final class IntradayEngine {
         if (duplicate) { candidate(input, "WATCHLIST", "ACTIVE_OR_COOLDOWN", features); return null; }
         List<String> reasons = new ArrayList<>(detection.reasons());
         reasons.add(String.format(Locale.ROOT, "최근 5분 거래량 %.2f배 · 거래대금 %.2f배", features.value("volumeRatio5m"), features.value("valueRatio5m")));
-        reasons.add("누적 원천 VWAP 상회; " + (p.costs().configured() ? "비용 포함" : "비용 미반영 가격 기준")
+        reasons.add("누적 원천 VWAP 상회; " + (p.costsGateEntry() ? "비용 포함" : "비용 미반영 가격 기준")
                 + " 최악 진입 R:R " + String.format(Locale.ROOT, "%.2f", plan.riskReward()));
         List<String> risks = new ArrayList<>(features.unavailable());
         risks.add("UNVALIDATED_RESEARCH_SCORE"); risks.add("SPREAD_IS_COST_ASSUMPTION_NOT_OBSERVED");
         if (!p.costs().configured()) risks.add("COSTS_NOT_CONFIGURED");
+        else if (p.costsForNetOnly()) risks.add("COSTS_FOR_NET_ONLY");
         if (!Double.isFinite(features.value("strength"))) risks.add("ORDER_FLOW_UNAVAILABLE");
         // Equal bottleneck margins, not fitted weights or an estimated probability. Setup-specific structural gate above.
         double score = 50 * Math.min(2, Math.min(features.value("volumeRatio5m") / volumeFloor,

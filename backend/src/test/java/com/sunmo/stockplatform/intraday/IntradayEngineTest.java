@@ -55,6 +55,10 @@ class IntradayEngineTest {
         IntradayEngine engine = new IntradayEngine(calendar()); breakoutInputs().forEach(engine::accept);
         assertThat(engine.results()).hasSize(1); return engine.results().iterator().next();
     }
+    static Result signal(IntradayProperties p) {
+        IntradayEngine engine = run(p);
+        assertThat(engine.results()).hasSize(1); return engine.results().iterator().next();
+    }
     static Input after(Result r, long seconds, double price) {
         return input(r.signal().recommendedAt().plusSeconds(seconds), price, 10000000 + seconds * 1000, r.signal().policy());
     }
@@ -242,6 +246,60 @@ class IntradayEngineTest {
             assertThat(IntradayAnalytics.stats(List.of(r)).trades()).isZero();
             assertThat(IntradayAnalytics.stats(List.of(r)).averageNetReturn()).isNull();
         }
+    }
+    static Map<String, Object> realisticCosts(boolean netOnly) {
+        Map<String, Object> overrides = new HashMap<>(Map.of("intraday.costs-for-net-only", String.valueOf(netOnly),
+                "intraday.costs.buy-fee-percent", "0.015", "intraday.costs.sell-fee-percent", "0.015",
+                "intraday.costs.sell-tax-percent", "0.20", "intraday.costs.spread-percent", "0.10",
+                "intraday.costs.buy-slippage-percent", "0.03"));
+        overrides.put("intraday.costs.sell-slippage-percent", "0.03");
+        return overrides;
+    }
+    static IntradayEngine run(IntradayProperties p) {
+        var engine = new IntradayEngine(calendar());
+        breakoutInputs().forEach(x -> engine.accept(new Input(x.observation(), x.evaluatedAt(), x.stockName(), true, false, p)));
+        return engine;
+    }
+    @Test void gatingCostsRejectANarrowBreakoutThatNetOnlyCostsKeep() {
+        assertThat(run(policy(realisticCosts(false))).results()).isEmpty();
+        var p = policy(realisticCosts(true));
+        assertThat(p.costs().configured()).isTrue();
+        assertThat(p.costsGateEntry()).isFalse();
+        var engine = run(p);
+        assertThat(engine.results()).hasSize(1);
+        Result r = engine.results().iterator().next();
+        assertThat(r.signal().plan().riskReward()).isCloseTo(p.targetRiskMultiple(), within(0.000001));
+        assertThat(r.signal().risks()).contains("COSTS_FOR_NET_ONLY").doesNotContain("COSTS_NOT_CONFIGURED");
+    }
+    @Test void netOnlyCostsEnterOnRawPriceButStillProduceNet() {
+        Result r = signal(policy(realisticCosts(true)));
+        double top = r.signal().plan().entryTo();
+        assertThat(r.signal().policy().costs().buy(top)).isGreaterThan(top);
+        IntradayTracker.observe(r, after(r, 1, top));
+        assertThat(r.outcome().status).isEqualTo("ENTERED");
+        assertThat(r.outcome().entryReferencePrice).isEqualTo(top);
+        assertThat(r.outcome().entryPrice).isEqualTo(r.signal().policy().costs().buy(top));
+        IntradayTracker.observe(r, after(r, 2, r.signal().plan().target1() + 1));
+        assertThat(r.outcome().status).isEqualTo("TARGET_HIT");
+        assertThat(r.outcome().netReturn).isNotNull().isLessThan(r.outcome().grossReturn);
+    }
+    @Test void gatingCostsRefuseAnEntryWhoseCostedFillExceedsTheRange() {
+        Result r = signal(policy(realisticCosts(true)));
+        var gating = new IntradayProperties.Costs(0.015, 0.015, 0.20, 0.10, 0.03, 0.03);
+        var json = JSON.valueToTree(r.signal().policy());
+        ((com.fasterxml.jackson.databind.node.ObjectNode) json).put("costsForNetOnly", false);
+        var s = r.signal();
+        var gated = new Result(new Signal(s.id(), s.stockCode(), s.stockName(), s.setup(), s.session(), s.sourceAt(),
+                s.receivedAt(), s.recommendedAt(), s.expiresAt(), s.price(), s.plan(), s.score(), s.features(),
+                s.reasons(), s.risks(), JSON.convertValue(json, IntradayProperties.class)), new Outcome());
+        assertThat(gated.signal().policy().costs()).isEqualTo(gating);
+        IntradayTracker.observe(gated, after(gated, 1, s.plan().entryTo()));
+        assertThat(gated.outcome().status).isEqualTo("ENTRY_READY");
+    }
+    @Test void snapshotsWithoutTheNetOnlyFlagKeepTheirRecordedGatingRule() throws Exception {
+        var json = (com.fasterxml.jackson.databind.node.ObjectNode) JSON.valueToTree(policy());
+        json.remove("costsForNetOnly");
+        assertThat(JSON.treeToValue(json, IntradayProperties.class).costsForNetOnly()).isFalse();
     }
     @Test void missingCloseAndCounterResetCannotFabricateExit() {
         Result r = signal(); IntradayTracker.observe(r, after(r, 1, r.signal().price()));
