@@ -20,7 +20,7 @@
 
 KIS WebSocket은 `ClosingTradingCalendar`의 거래일에만 기본 08:59부터 연결하고 15:31부터 종료한다. 기존 30초 health check에서 시간 경계를 확인하므로 연결/종료는 최대 한 주기 늦을 수 있다. 장외에는 승인키 발급·장애 재접속을 중지하고, 다음 거래일에 보존된 구독 목록으로 다시 연결한다. Broad 스캔의 15:20 종료시각과 분리하여 15:20~15:30 종가 체결을 받을 수 있게 한다.
 
-수집할 체결의 원천시각은 당일 09:00~15:30(마지막 체결 포함)이다. 연결 준비/종료 유예 중 들어온 장외 체결을 정규장 데이터로 저장하지 않는다. 기본 여유시간은 `MARKET_REALTIME_CONNECT_BEFORE_OPEN=1m`, `MARKET_REALTIME_DISCONNECT_AFTER_CLOSE=1m`으로 조절한다. 달력은 정적 확인 휴장일과 설정 목록을 사용하며 자동 공식 달력이나 특별 개장시간을 보장하지 않는다.
+수집할 체결의 원천시각은 당일 09:00~15:30(마지막 체결 포함)이다. 연결 준비/종료 유예 중 들어온 장외 체결을 정규장 데이터로 저장하지 않는다. 기본 여유시간은 `MARKET_REALTIME_CONNECT_BEFORE_OPEN=1m`, `MARKET_REALTIME_DISCONNECT_AFTER_CLOSE=1m`으로 조절한다. 달력은 `CLOSING_CALENDAR_KIS_REFRESH_ENABLED=true`이면 KIS 국내휴장일조회(`chk-holiday`, `opnd_yn`)를 KST 기준 하루 한 번(기동 시 또는 `CLOSING_CALENDAR_KIS_REFRESH_CRON`, 기본 07:40) 받아 `trading_calendar_day`에 저장하고, 받은 날짜는 그 값을 우선한다. 받지 못한 날짜와 조회 실패 시에는 정적 확인 휴장일과 `MARKET_WIDE_HOLIDAYS`를 사용한다. 정적 목록과 다른 날짜는 로그에 남긴다. 상태는 `GET /api/v1/closing-recommendations/trading-calendar`로 확인한다. KIS 응답은 증권사 제공 값이며 거래소 공지와의 차이, 특별 개장시간(지연 개장 등)은 반영하지 않는다. 이미 저장된 추천·관측의 기대 거래일은 소급 수정하지 않는다.
 
 브라우저 SSE는 페이지가 열린 동안 대기 연결을 유지하지만 새 이벤트가 있을 때만 전송한다. 장외에 주기적으로 시세를 만들어 보내지 않는다. REST 조회·일봉 준비·성과 계산은 이 WebSocket 시간 제한과 별개다.
 

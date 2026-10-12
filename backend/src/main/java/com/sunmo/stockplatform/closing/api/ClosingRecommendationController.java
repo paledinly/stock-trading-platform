@@ -14,6 +14,7 @@ import com.sunmo.stockplatform.closing.application.OvernightPositionDecisionServ
 import com.sunmo.stockplatform.closing.application.AccountPerformanceCalculator;
 import com.sunmo.stockplatform.closing.application.ClosingStrategyAnalyticsService;
 import com.sunmo.stockplatform.closing.application.ClosingCandidateObservationService;
+import com.sunmo.stockplatform.closing.application.OfficialTradingDays;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.PositiveOrZero;
@@ -36,12 +37,13 @@ public class ClosingRecommendationController {
     private final AccountPerformanceCalculator accountPerformance;
     private final ClosingStrategyAnalyticsService strategyAnalytics;
     private final ClosingCandidateObservationService candidateObservations;
+    private final OfficialTradingDays officialTradingDays;
 
     public ClosingRecommendationController(ClosingRecommendationService service,
             OvernightPerformanceService performanceService, OvernightBacktestService backtestService,
             OvernightPositionDecisionService decisionService, AccountPerformanceCalculator accountPerformance,
             ClosingStrategyAnalyticsService strategyAnalytics,
-            ClosingCandidateObservationService candidateObservations) {
+            ClosingCandidateObservationService candidateObservations, OfficialTradingDays officialTradingDays) {
         this.service = service;
         this.performanceService = performanceService;
         this.backtestService = backtestService;
@@ -49,6 +51,12 @@ public class ClosingRecommendationController {
         this.accountPerformance = accountPerformance;
         this.strategyAnalytics = strategyAnalytics;
         this.candidateObservations = candidateObservations;
+        this.officialTradingDays = officialTradingDays;
+    }
+
+    @GetMapping("/trading-calendar")
+    public OfficialTradingDays.Status tradingCalendar() {
+        return officialTradingDays.status();
     }
 
     @PostMapping("/generate")

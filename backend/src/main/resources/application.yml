@@ -196,6 +196,9 @@ intraday:
     sell-slippage-percent: ${INTRADAY_SELL_SLIPPAGE_PERCENT:}
 
 closing:
+  calendar:
+    kis-refresh-enabled: ${CLOSING_CALENDAR_KIS_REFRESH_ENABLED:false}
+    kis-refresh-cron: ${CLOSING_CALENDAR_KIS_REFRESH_CRON:0 40 7 * * *}
   trajectory:
     microstructure:
       enabled: ${CLOSING_MICROSTRUCTURE_ENABLED:false}
