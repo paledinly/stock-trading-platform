@@ -54,4 +54,18 @@ class RealtimeDiagnosticsTest {
         diagnostics.disconnected();
         assertThat(diagnostics.isConnectionStale(Instant.now().plusSeconds(61), Duration.ofSeconds(60))).isFalse();
     }
+
+    @Test
+    void sourceAfterReceiptStaysVisibleAsNegativeMinimumWithoutSkewingAverages() {
+        RealtimeDiagnostics diagnostics = new RealtimeDiagnostics();
+        diagnostics.timing("sourceToCallback", -800_000_000L);
+        diagnostics.timing("sourceToCallback", 400_000_000L);
+
+        RealtimeDiagnostics.Timing timing = diagnostics.snapshot().timings().get("sourceToCallback");
+
+        assertThat(timing.minMs()).isEqualTo(-800);
+        assertThat(timing.negativeCount()).isEqualTo(1);
+        assertThat(timing.averageMs()).isEqualTo(200);
+        assertThat(timing.maxMs()).isEqualTo(400);
+    }
 }

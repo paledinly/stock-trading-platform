@@ -77,3 +77,20 @@ Precision 후보 교체는 기본 14:35에 동결된다. 일봉 준비는 08:10 
 7. 평가 API 제외 사유
 
 민감한 원문, 앱 키, 토큰, 계좌번호는 로그와 이슈에 남기지 않는다.
+
+## 호스트 시계 동기화
+
+KIS 원천 체결시각은 초 단위로 절사되므로 정상이라면 수신시각보다 늦을 수 없다. 수집 호스트 시계가 늦으면 `occurredAt > receivedAt` 틱이 생기고, 장중 엔진·Tracker·마감 가상 진입·분 집계는 시각 정책에 따라 이 틱을 버린다. 2026-10 운영 PC에서는 Windows Time 서비스가 꺼져 있어 하루 중 최대 약 1초까지 어긋났다([진단](../audit/2026-10-12-clock-skew/README.md)).
+
+- 확인: `/api/v1/market/realtime/status`의 `timings.sourceToCallback.negativeCount`가 0보다 크거나 `minMs`가 음수이면 호스트 시계가 원천보다 늦다.
+- Windows 조치(관리자 PowerShell):
+
+```powershell
+Set-Service w32time -StartupType Automatic
+Start-Service w32time
+w32tm /config /manualpeerlist:"time.windows.com,0x9" /syncfromflags:manual /update
+w32tm /resync
+w32tm /stripchart /computer:time.windows.com /samples:3 /dataonly
+```
+
+기본 동기화 주기가 길면 하루 중에도 수백 ms 단위로 흐를 수 있다. 장 시작 전 `w32tm /resync`와 stripchart 오프셋 확인을 운영 점검에 포함한다.
