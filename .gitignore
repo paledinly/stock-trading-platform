@@ -29,3 +29,4 @@ audit/**/classes/
 /audit/2026-10-08-intraday/input_bounds.txt
 /audit/2026-10-08-intraday/analysis-output.txt
 /audit/2026-10-08-intraday/__pycache__/
+/audit/2026-10-12-intraday-net/*.tsv
