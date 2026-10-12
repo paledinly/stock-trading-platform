@@ -3,6 +3,8 @@ package com.sunmo.stockplatform.closing;
 import com.sunmo.stockplatform.closing.application.*;
 import com.sunmo.stockplatform.closing.config.*;
 import com.sunmo.stockplatform.closing.domain.ClosingRecommendationRun;
+import com.sunmo.stockplatform.closing.domain.OvernightPerformanceStatus;
+import com.sunmo.stockplatform.closing.infrastructure.ClosingCandidateObservationRepository;
 import com.sunmo.stockplatform.closing.infrastructure.ClosingRecommendationRepository;
 import com.sunmo.stockplatform.closing.infrastructure.ClosingRecommendationRunRepository;
 import com.sunmo.stockplatform.market.application.RealtimeSubscriptionRegistry;
@@ -22,6 +24,8 @@ class ClosingRecommendationSchedulerTest {
 
     private final ClosingRecommendationService recommendations = mock(ClosingRecommendationService.class);
     private final OvernightPerformanceService performances = mock(OvernightPerformanceService.class);
+    private final ClosingCandidateObservationService observations = mock(ClosingCandidateObservationService.class);
+    private final ClosingCandidateObservationRepository observationRows = mock(ClosingCandidateObservationRepository.class);
     private final ClosingRecommendationRepository repository = mock(ClosingRecommendationRepository.class);
     private final ClosingRecommendationRunRepository runs = mock(ClosingRecommendationRunRepository.class);
     private final RealtimeSubscriptionRegistry subscriptions = mock(RealtimeSubscriptionRegistry.class);
@@ -82,7 +86,10 @@ class ClosingRecommendationSchedulerTest {
         when(calendar.now()).thenReturn(now);
         LocalDate date = now.atZone(ClosingTradingCalendar.ZONE).toLocalDate();
         when(calendar.isTradingDay(date)).thenReturn(tradingDay);
-        return new ClosingRecommendationScheduler(recommendations, performances, repository, runs, subscriptions, calendar,
+        doAnswer(invocation -> invocation.<LocalDate>getArgument(0)
+                .atTime(15, 30).atZone(ClosingTradingCalendar.ZONE).toInstant()).when(calendar).close(any());
+        return new ClosingRecommendationScheduler(recommendations, performances, observations, observationRows,
+                repository, runs, subscriptions, calendar,
                 new ClosingRecommendationProperties(20, 4, bd("55"), LocalTime.of(14, 30),
                         LocalTime.of(15, 15), LocalTime.of(15, 20), Duration.ZERO),
                 new ClosingAutomationProperties(true, 10, bd("35"), bd("65"), bd("3"), bd("-2")));
@@ -100,6 +107,58 @@ class ClosingRecommendationSchedulerTest {
         scheduler = scheduler(at(TUESDAY, 15, 16), true);
         scheduler.poll();
         verifyNoInteractions(recommendations);
+    }
+
+    @Test
+    void candidateObservationsWaitForTheCloseAndThenRunOncePerDay() {
+        var scheduler = scheduler(at(TUESDAY, 15, 39), true);
+        when(calendar.previousTradingDay(TUESDAY)).thenReturn(MONDAY);
+        ClosingRecommendationRun previousRun = run(1L);
+        when(runs.findByRequestKey(key(MONDAY))).thenReturn(Optional.of(previousRun));
+        ClosingRecommendationRun currentRun = run(2L);
+        when(runs.findByRequestKey(key(TUESDAY))).thenReturn(Optional.of(currentRun));
+        when(observationRows.findRunIdsByStatusInAndExpectedSessionDateOnOrBefore(anyCollection(), eq(TUESDAY)))
+                .thenReturn(List.of(7L, 1L));
+
+        scheduler.poll();
+        verifyNoInteractions(observations);
+
+        when(calendar.now()).thenReturn(at(TUESDAY, 15, 40));
+        scheduler.poll();
+        when(calendar.now()).thenReturn(at(TUESDAY, 16, 10));
+        scheduler.poll();
+
+        verify(observationRows).findRunIdsByStatusInAndExpectedSessionDateOnOrBefore(
+                List.of(OvernightPerformanceStatus.PENDING, OvernightPerformanceStatus.IN_PROGRESS), TUESDAY);
+        verify(observations).track(1L, bd("3"), bd("-2"));
+        verify(observations).track(7L, bd("3"), bd("-2"));
+        verifyNoMoreInteractions(observations);
+    }
+
+    @Test
+    void oneFailedObservationRunDoesNotBlockTheOthers() {
+        var scheduler = scheduler(at(TUESDAY, 16, 0), true);
+        when(calendar.previousTradingDay(TUESDAY)).thenReturn(MONDAY);
+        ClosingRecommendationRun currentRun = run(2L);
+        when(runs.findByRequestKey(key(TUESDAY))).thenReturn(Optional.of(currentRun));
+        when(observationRows.findRunIdsByStatusInAndExpectedSessionDateOnOrBefore(anyCollection(), eq(TUESDAY)))
+                .thenReturn(List.of(3L, 4L));
+        when(observations.track(eq(3L), any(), any())).thenThrow(new IllegalStateException("Only completed forward runs"));
+
+        scheduler.poll();
+
+        verify(observations).track(4L, bd("3"), bd("-2"));
+    }
+
+    @Test
+    void nonTradingDayDoesNotTrackCandidateObservations() {
+        LocalDate saturday = LocalDate.of(2026, 9, 26);
+        var scheduler = scheduler(at(saturday, 18, 0), false);
+        when(calendar.previousTradingDay(saturday)).thenReturn(LocalDate.of(2026, 9, 25));
+
+        scheduler.poll();
+
+        verifyNoInteractions(observations, observationRows);
     }
 
     private ClosingRecommendationRun run(Long id) {
