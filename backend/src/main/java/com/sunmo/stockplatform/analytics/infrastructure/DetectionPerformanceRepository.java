@@ -22,4 +22,6 @@ public interface DetectionPerformanceRepository extends JpaRepository<DetectionP
             @Param("from") java.time.Instant from, @Param("to") java.time.Instant to);
     @Query("select p from DetectionPerformance p join fetch p.detection d join fetch d.stock where p.status = :status")
     List<DetectionPerformance> findWithDetectionByStatus(@Param("status") PerformanceStatus status);
+    @Query("select p from DetectionPerformance p join fetch p.detection d join fetch d.stock where p.detectionId = :id")
+    Optional<DetectionPerformance> findWithDetectionById(@Param("id") Long id);
 }
