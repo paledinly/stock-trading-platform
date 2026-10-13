@@ -6,7 +6,7 @@ type Features = { values: Record<string, number>; vwapState: string; marketRegim
 type Signal = { id: string; stockCode: string; stockName: string; setup: string; session: string; sourceAt: string; receivedAt: string; recommendedAt: string; expiresAt: string; price: number; score: number; features: Features; reasons: string[]; risks: string[]; plan: { entryFrom: number; entryTo: number; chaseLimit: number; stop: number; target1: number; target2: number; riskReward: number; invalidCondition: string } }
 type Outcome = { status: string; entryAt: string | null; entryPrice: number | null; exitAt: string | null; exitPrice: number | null; grossReturn: number | null; netReturn: number | null; mfe: number; mae: number; tradeMfe: number | null; tradeMae: number | null; targetBeforeStop: boolean | null; currentPrice: number | null; currentPriceAt: string | null; closeReturn: number | null; quality: string[]; failureFactors: string[]; returns: Record<string, { returnPercent: number; observedAt: string }> }
 type Result = { signal: Signal; outcome: Outcome }
-type Stats = { recommendations: number; trades: number; unresolved: number; winRate: number | null; averageNetReturn: number | null; medianNetReturn: number | null; profitFactor: number | null; mfe: number | null; mae: number | null; targetBeforeStopRate: number | null; equalNotionalDrawdown: number | null; consecutiveLosses: number; averageHoldingMinutes: number | null }
+type Stats = { recommendations: number; trades: number; unresolved: number; winRate: number | null; averageNetReturn: number | null; medianNetReturn: number | null; profitFactor: number | null; mfe: number | null; mae: number | null; targetBeforeStopRate: number | null; randomBaselineTargetRate?: number | null; targetEdge?: number | null; equalNotionalDrawdown: number | null; consecutiveLosses: number; averageHoldingMinutes: number | null }
 type Analytics = Record<string, Record<string, Stats>>
 type Status = { enabled: boolean; costsConfigured: boolean; costsForNetOnly?: boolean; version?: string; mode: string; queued: number; dropped: number; error: string | null; candidates: { stockCode: string; stockName: string; stage: string; reason: string; evaluatedAt: string }[] }
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
@@ -55,8 +55,8 @@ function ValidationBanner({ version }: { version?: string }) {
 function Statistics({ data }: { data?: Analytics }) {
   return <>{['setup', 'timeBand', 'scoreBand', 'marketRegime'].map(group => <section key={group}>
     <h2>{{ setup: 'Setup별 성과', timeBand: '시간대별 성과', scoreBand: '점수 구간별 성과', marketRegime: '시장 국면별 성과' }[group]}</h2>
-    <div className="intradayTable"><table><thead><tr><th>구간</th><th>Net 표본/추천</th><th>승률 %</th><th>평균 Net %</th><th>중앙 Net %</th><th>PF</th><th>MFE / MAE %</th><th>보유 분</th><th>목표 먼저 %</th><th>낙폭 / 연패</th></tr></thead>
-      <tbody>{Object.entries(data?.[group] ?? {}).map(([key, s]) => <tr key={key}><td>{label(key)}</td><td>{s.trades}/{s.recommendations}</td><td>{num(s.winRate)}</td><td>{num(s.averageNetReturn)}</td><td>{num(s.medianNetReturn)}</td><td>{num(s.profitFactor)}</td><td>{num(s.mfe)} / {num(s.mae)}</td><td>{num(s.averageHoldingMinutes)}</td><td>{num(s.targetBeforeStopRate)}</td><td>{num(s.equalNotionalDrawdown)} / {s.consecutiveLosses}</td></tr>)}</tbody></table></div>
+    <div className="intradayTable"><table><thead><tr><th>구간</th><th>Net 표본/추천</th><th>승률 %</th><th>평균 Net %</th><th>중앙 Net %</th><th>PF</th><th>MFE / MAE %</th><th>보유 분</th><th>목표 먼저 % / 무작위 기준 % / 차이 %p</th><th>낙폭 / 연패</th></tr></thead>
+      <tbody>{Object.entries(data?.[group] ?? {}).map(([key, s]) => <tr key={key}><td>{label(key)}</td><td>{s.trades}/{s.recommendations}</td><td>{num(s.winRate)}</td><td>{num(s.averageNetReturn)}</td><td>{num(s.medianNetReturn)}</td><td>{num(s.profitFactor)}</td><td>{num(s.mfe)} / {num(s.mae)}</td><td>{num(s.averageHoldingMinutes)}</td><td>{num(s.targetBeforeStopRate)} / {num(s.randomBaselineTargetRate)} / {num(s.targetEdge)}</td><td>{num(s.equalNotionalDrawdown)} / {s.consecutiveLosses}</td></tr>)}</tbody></table></div>
   </section>)}</>
 }
 
@@ -173,7 +173,7 @@ export function IntradayPage({ back }: { back: () => void }) {
       <p>관측 품질: {o.quality.map(label).join(', ') || '현재까지 누락 표식 없음'} · 실패 설명: {o.failureFactors.map(label).join(', ') || '없음'}</p>
     </details>)}
     <section><h2>현재 관찰 후보</h2>{status.data?.candidates.map(c => <p key={c.stockCode}>{c.stockName} · {label(c.stage)} · {label(c.reason)} · {time(c.evaluatedAt)}</p>)}</section>
-    <h2>실시간 Paper 통계</h2><p>비용 미설정 추천은 Net 통계 표본에서 제외합니다. 기대값은 평균 Net입니다. 낙폭은 동일 명목금액의 청산순 수익률 누적 낙폭(%p)이며 계좌 MDD가 아닙니다. 자료 없음은 0%가 아닙니다.</p><Statistics data={analytics.data} />
+    <h2>실시간 Paper 통계</h2><p>비용 미설정 추천은 Net 통계 표본에서 제외합니다. 기대값은 평균 Net입니다. 낙폭은 동일 명목금액의 청산순 수익률 누적 낙폭(%p)이며 계좌 MDD가 아닙니다. 무작위 기준은 손절·목표 거리만으로 정해지는 목표 선도달 확률(손절폭 ÷ (손절폭 + 목표폭))의 평균이며, 차이가 0 이하이면 종목 선택의 우위가 관측되지 않은 것입니다. 자료 없음은 0%가 아닙니다.</p><Statistics data={analytics.data} />
     <section><h2>수신 이력 재생</h2><p>당시 기록된 입력·설정·시각으로 동일 엔진을 실행합니다. Paper 표본과 합산하지 않습니다.</p><button disabled={replay.isPending} onClick={() => replay.mutate(date)}>{replay.isPending ? '재생 중…' : '선택일 재생'}</button>
       {replay.data && <><p>저장 입력 {replay.data.inputCount}건 · 재생 추천 {replay.data.results.length}건</p>{replay.data.inputCount === 0 && <p>수신 이력이 없어 백테스트할 수 없습니다.</p>}<Statistics data={replay.data.analytics} /></>}
     </section><ExitComparison key={date} date={date} /></main></div>
