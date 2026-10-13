@@ -98,6 +98,7 @@ npm run build
 - [시장 데이터](docs/MARKET_DATA.md)
 - [데이터베이스](docs/DATABASE.md)
 - [API](docs/API.md)
+- [기능 목록과 상태](docs/FEATURES.md)
 - [거래 전략](docs/TRADING_STRATEGY.md)
 - [백테스트와 성과 검증](docs/BACKTESTING.md)
 - [로드맵](docs/ROADMAP.md)
