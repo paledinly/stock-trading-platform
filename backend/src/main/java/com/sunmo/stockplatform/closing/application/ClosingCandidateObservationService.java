@@ -102,15 +102,14 @@ public class ClosingCandidateObservationService {
                         row.getStock().getId(), "5M", open, close.plusSeconds(1))
                 .stream().filter(StockCandle::isFinalCandle).filter(this::validPrices)
                 .filter(value -> !value.getStartTime().isBefore(open) && value.getStartTime().isBefore(close))
+                .filter(value -> Duration.between(open, value.getStartTime()).getSeconds() % 300 == 0)
                 .sorted(Comparator.comparing(StockCandle::getStartTime)).toList();
-        Map<Instant, Long> counts = exitSeries.stream()
-                .collect(Collectors.groupingBy(StockCandle::getStartTime, Collectors.counting()));
-        List<String> missing = new ArrayList<>();
-        for (Instant at = open; at.isBefore(close) && !at.plusSeconds(300).isAfter(now); at = at.plusSeconds(300))
-            if (counts.getOrDefault(at, 0L) != 1) missing.add(at.toString());
+        // Same rule as OvernightPerformanceService: 09:00..15:15 plus the 15:25 closing-print bar.
+        List<String> missing = new ArrayList<>(NextSessionCoverage.missing(open, close, now, exitSeries).stream()
+                .map(Instant::toString).toList());
         if (entryPrice == null) missing.add(captured == null ? "ENTRY_AFTER_RUN_COMPLETION" : captured.status());
         OvernightPerformanceStatus status = now.isBefore(open) ? OvernightPerformanceStatus.PENDING
-                : now.isBefore(close) ? OvernightPerformanceStatus.IN_PROGRESS
+                : now.isBefore(NextSessionCoverage.settledAt(close)) ? OvernightPerformanceStatus.IN_PROGRESS
                 : entryPrice == null || exitSeries.isEmpty() ? OvernightPerformanceStatus.DATA_MISSING
                 : missing.isEmpty() ? OvernightPerformanceStatus.COMPLETED : OvernightPerformanceStatus.DATA_INCOMPLETE;
         OvernightExecutionSimulator.ExecutionResult result = status == OvernightPerformanceStatus.COMPLETED

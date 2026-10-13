@@ -96,14 +96,10 @@ public class OvernightPerformanceService {
                 .filter(c -> Duration.between(open, c.getStartTime()).getSeconds() % 300 == 0)
                 .filter(c -> !end(c.getStartTime(), close).isAfter(now))
                 .filter(this::validPrices).sorted(Comparator.comparing(StockCandle::getStartTime)).toList();
-        Map<Instant, Long> counts = series.stream().collect(Collectors.groupingBy(StockCandle::getStartTime, Collectors.counting()));
-        List<Instant> missing = new ArrayList<>();
-        // Regular five-minute candles start at 09:00 through 15:25. A 15:30 print is not a new candle.
-        for (Instant start = open; start.isBefore(close) && !end(start, close).isAfter(now); start = start.plusSeconds(300)) {
-            if (counts.getOrDefault(start, 0L) != 1) missing.add(start);
-        }
+        // 09:00..15:15 regular bars plus the 15:25 closing-print bar; the 15:20 closing-call bar is optional.
+        List<Instant> missing = NextSessionCoverage.missing(open, close, now, series);
         OvernightPerformanceStatus state = now.isBefore(open) ? OvernightPerformanceStatus.PENDING
-                : now.isBefore(close) ? OvernightPerformanceStatus.IN_PROGRESS
+                : now.isBefore(NextSessionCoverage.settledAt(close)) ? OvernightPerformanceStatus.IN_PROGRESS
                 : series.isEmpty() ? OvernightPerformanceStatus.DATA_MISSING
                 : !missing.isEmpty() ? OvernightPerformanceStatus.DATA_INCOMPLETE
                 : OvernightPerformanceStatus.COMPLETED;

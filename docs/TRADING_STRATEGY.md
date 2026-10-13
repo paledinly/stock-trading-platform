@@ -45,6 +45,17 @@ Scanner reason은 탐지 당시 조건 설명이다. VWAP_RECLAIM, PULLBACK_REBR
 
 v9의 계속·실거래 검토·중단 판단 기준과 사전 등록한 다음날 시가 청산 비교안은 [ADR-008](decisions/ADR-008-CLOSING-V9-DECISION-CRITERIA.md)을 따른다. 판단 기간 동안 v9 설정을 바꾸면 표본을 처음부터 다시 센다.
 
+### 다음 거래일 세션 완결성
+
+`OvernightPerformanceService`, `ClosingCandidateObservationService`, ADR-008 judge가 같은 규칙(`NextSessionCoverage`, `regular-0900-1515+closing-print-1525`)을 쓴다.
+
+- 필수: 09:00~15:15 시작 5분봉이 각각 정확히 1개(확정, 5분 정렬, 가격 정합), 그리고 15:25 종가 체결 봉이 정확히 1개이며 거래량 > 0.
+- 선택: 15:20 봉. 종가 단일가 접수 시간이라 정상적으로 체결이 없다.
+- 15:32(종가 체결 창 15:31 + 확정 여유 1분) 전에는 `IN_PROGRESS`로 둔다. 이후 필수 봉이 하나라도 없으면 `DATA_INCOMPLETE`이며 빠진 15:25는 missing 목록에 15:25 시작시각으로 남는다.
+- BASELINE(`targetOrStop`)의 TIME_EXIT는 마지막 봉 종가, 즉 15:25 봉에 담긴 15:30 종가 단일가 가격이다. `exitAt`은 청산 봉의 시작시각이다.
+- 일봉(1D) 종가로 빠진 종가 체결을 대체하지 않는다. 일봉 보충 시각과 출처가 다르고 저장 성과에 품질 표시 컬럼이 없어 섞이면 구분할 수 없기 때문이다.
+- 2026-10-13 규칙 변경 전 기준(09:00~15:25 전 봉)은 15:20 봉이 구조적으로 비어 어떤 표본도 완료될 수 없었다. 변경 시점에 `overnight-observation-v2` COMPLETED 행은 0건이었고, 저장된 결과 행은 일괄 수정하지 않는다. 기존 재평가 경로(COMPLETED가 아닌 공식 성과, PENDING/IN_PROGRESS 관측)만 새 규칙으로 다시 평가되며 과거 15:25 종가 체결 봉이 없으므로 결측으로 남는다.
+
 완료된 Forward 평가에서는 최종 추천뿐 아니라 관찰·제외 후보도 별도 관측할 수 있다. 동일한 평가 완료 후 진입, 다음 거래일 청산, 목표·손절, 비용 규칙을 적용하되 공식 추천 성과와 섞지 않는다. 진입 가능 가격이나 다음날 세션 데이터가 없으면 수익을 보정하지 않고 결측으로 남긴다. 마감 자동화가 켜져 있으면 거래일 정규장 종료 10분 후 하루 한 번 직전 공식 run과, 관측 세션이 지났지만 PENDING/IN_PROGRESS로 남은 과거 run을 자동 평가한다. 실시간 구독 밖 Broad 후보는 진입 체결이나 다음날 5분봉이 없어 DATA_MISSING이 많을 수 있으며 이는 결측 그대로의 결과다. 이를 줄이기 위해 공식 run의 SELECTED/WATCH 후보 중 SELECTED 우선·점수 상위 `closing.automation.observation-subscription-limit`개(기본 10)를 남는 실시간 슬롯에 OVERNIGHT로 구독해 평가 당일 15:20 진입과 다음 거래일 장 마감까지 유지한다. 슬롯이 없으면 구독하지 않으므로 관측 표본은 구독 가능 여부에 따라 선택된다.
 
 ## 제거된 장중 연구 전략

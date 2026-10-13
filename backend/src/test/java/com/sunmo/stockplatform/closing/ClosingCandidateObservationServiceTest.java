@@ -50,7 +50,8 @@ class ClosingCandidateObservationServiceTest {
         when(stocks.findByStockCodeIn(anyCollection())).thenReturn(List.of(stock));
         Instant nextOpen = Instant.parse("2026-09-30T00:00:00Z");
         StockCandle entry = candle(stock, Instant.parse("2026-09-29T06:05:00Z"));
-        List<StockCandle> exits = IntStream.range(0, 78)
+        // No 15:20 bar: the KRX closing single-price call has no executions; 15:25 holds the closing print.
+        List<StockCandle> exits = IntStream.range(0, 78).filter(index -> index != 76)
                 .mapToObj(index -> candle(stock, nextOpen.plusSeconds(index * 300L))).toList();
         var candles = mock(StockCandleRepository.class);
         when(candles.findByStockIdAndTimeframeAndStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(
@@ -60,7 +61,7 @@ class ClosingCandidateObservationServiceTest {
         when(calendar.close(recommendationDate)).thenReturn(Instant.parse("2026-09-29T06:20:00Z"));
         when(calendar.open(nextDate)).thenReturn(nextOpen);
         when(calendar.close(nextDate)).thenReturn(Instant.parse("2026-09-30T06:30:00Z"));
-        when(calendar.now()).thenReturn(Instant.parse("2026-09-30T06:31:00Z"));
+        when(calendar.now()).thenReturn(Instant.parse("2026-09-30T06:32:00Z"));
         var observations = mock(ClosingCandidateObservationRepository.class);
         when(observations.findByRunIdAndStockIdAndCandidateSource(7L, 1L, "PRECISION"))
                 .thenReturn(Optional.empty());

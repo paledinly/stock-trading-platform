@@ -84,6 +84,43 @@ class OvernightPerformanceServiceTest {
     }
 
     @Test
+    void emptyClosingCallBarIsNotRequiredButTheClosingPrintBarIs() {
+        var service = service(MONDAY, LocalTime.of(16, 0), List.of());
+        var noCallBar = new ArrayList<>(bars(MONDAY, 78));
+        noCallBar.remove(76); // 15:20: no executions during the KRX closing single-price call
+        when(noCallBar.get(76).getClose()).thenReturn(new BigDecimal("102"));
+        stubCandles(noCallBar);
+        var row = service.track(FRIDAY, null, null, null).performances().getFirst();
+        assertThat(row.status()).isEqualTo("COMPLETED");
+        assertThat(row.missingIntervals()).isEqualTo("[]");
+        assertThat(row.latestPrice()).isEqualByComparingTo("102");
+        assertThat(row.observedThrough()).isEqualTo(at(MONDAY, LocalTime.of(15, 30)));
+    }
+
+    @Test
+    void zeroVolumePadded1525BarIsNotAClosingPrint() {
+        var service = service(MONDAY, LocalTime.of(16, 0), List.of());
+        var rows = bars(MONDAY, 78);
+        when(rows.get(77).getVolume()).thenReturn(0L);
+        stubCandles(rows);
+        var row = service.track(FRIDAY, null, null, null).performances().getFirst();
+        assertThat(row.status()).isEqualTo("DATA_INCOMPLETE");
+        assertThat(row.missingIntervals()).isEqualTo("[\"" + at(MONDAY, LocalTime.of(15, 25)) + "\"]");
+    }
+
+    @Test
+    void closingPrintMayStillBeFormingUntilTheAuctionWindowSettles() {
+        var service = service(MONDAY, LocalTime.of(15, 31, 30), List.of());
+        stubCandles(bars(MONDAY, 76));
+        var row = service.track(FRIDAY, null, null, null).performances().getFirst();
+        assertThat(row.status()).isEqualTo("IN_PROGRESS");
+        assertThat(row.missingIntervals()).isEqualTo("[]");
+        service = service(MONDAY, LocalTime.of(15, 32), List.of());
+        row = service.track(FRIDAY, null, null, null).performances().getFirst();
+        assertThat(row.status()).isEqualTo("DATA_INCOMPLETE");
+    }
+
+    @Test
     void completedObservationAndLegacyRecordAreNeverRecalculated() {
         var service = service(MONDAY, LocalTime.of(16, 0), List.of());
         stubCandles(bars(MONDAY, 78));
@@ -155,6 +192,7 @@ class OvernightPerformanceServiceTest {
             when(candle.getClose()).thenReturn(new BigDecimal("101"));
             when(candle.getHigh()).thenReturn(new BigDecimal("104"));
             when(candle.getLow()).thenReturn(new BigDecimal("97"));
+            when(candle.getVolume()).thenReturn(10L);
             return candle;
         }).toList();
     }
