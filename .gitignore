@@ -34,3 +34,4 @@ audit/**/classes/
 /audit/2026-10-12-intraday-net/*.tsv
 /audit/closing-v9-judge/data/
 /audit/2026-10-13-closing-overnight-daily/data/
+/audit/2026-10-13-closing-zero-selected/data/
