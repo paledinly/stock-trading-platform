@@ -1,0 +1,18 @@
+{
+  "costs": {"buyFeePercent": 0.015, "sellFeePercent": 0.015, "sellTaxPercent": 0.20,
+            "spreadPercent": 0.10, "buySlippagePercent": 0.03, "sellSlippagePercent": 0.03},
+  "variants": [
+    {"name": "HOLD_10S", "stopDistanceMultiplier": 1, "targetDistanceMultiplier": 1,
+     "options": {"entryMode": "HOLD", "holdSeconds": 10}},
+    {"name": "HOLD_30S", "stopDistanceMultiplier": 1, "targetDistanceMultiplier": 1,
+     "options": {"entryMode": "HOLD", "holdSeconds": 30}},
+    {"name": "RETEST_0_1", "stopDistanceMultiplier": 1, "targetDistanceMultiplier": 1,
+     "options": {"entryMode": "RETEST", "retestTolerancePercent": 0.1}},
+    {"name": "FILTER_3TICK", "stopDistanceMultiplier": 1, "targetDistanceMultiplier": 1,
+     "options": {"krxTickSizes": true, "minimumStopTicks": 3, "narrowStopMode": "FILTER"}},
+    {"name": "FILTER_2XCOST", "stopDistanceMultiplier": 1, "targetDistanceMultiplier": 1,
+     "options": {"krxTickSizes": true, "minimumStopPercent": 0.78, "narrowStopMode": "FILTER"}},
+    {"name": "HOLD_30S_FILTER_3TICK", "stopDistanceMultiplier": 1, "targetDistanceMultiplier": 1,
+     "options": {"entryMode": "HOLD", "holdSeconds": 30, "krxTickSizes": true, "minimumStopTicks": 3, "narrowStopMode": "FILTER"}}
+  ]
+}
