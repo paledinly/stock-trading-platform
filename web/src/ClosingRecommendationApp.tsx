@@ -367,6 +367,49 @@ type EvaluationRun = {
   evaluatedAsOf: string | null; executionMode: string; strategyVersion: string
 }
 
+export type DailyHealth = {
+  tradeDate: string; verdict: 'COMPLETE' | 'DEGRADED' | 'MISSING'; reasons: string[]; recorded: boolean
+  runId: number | null; runCompletedAt: string | null; selectedCount: number | null; selectedEntered: number | null
+  observationStatuses: Record<string, number>; realtimeConnected: boolean | null
+  realtimeDroppedDelta: number | null; checkedAt: string | null
+}
+
+const healthVerdictLabels: Record<DailyHealth['verdict'], string> = { COMPLETE: '정상', DEGRADED: '불완전', MISSING: '누락' }
+const healthReasonLabels: Record<string, string> = {
+  NO_HEALTH_RECORD: '기록 없음(백엔드 중단 추정)',
+  OFFICIAL_RUN_MISSING: '공식 평가 없음',
+  OFFICIAL_RUN_INCOMPLETE: '공식 평가 미완료',
+  EVALUATION_AFTER_ENTRY_DEADLINE: '진입 마감 후 평가 완료',
+  SELECTED_ENTRY_MISSING: '추천 종목 가상 진입 누락',
+  REALTIME_UNOBSERVED: '15:15 전후 실시간 상태 미관측',
+  REALTIME_DISCONNECTED: '15:15 전후 실시간 연결 끊김',
+  REALTIME_TICKS_DROPPED: '15:15 전후 틱 처리 누락',
+  OBSERVATION_INCOMPLETE: '후보 관측 미완료·결측',
+}
+
+export function DailyHealthTable({ rows }: { rows: DailyHealth[] }) {
+  return (
+    <section className="menuGuide">
+      <h2>일별 수집 완결성</h2>
+      {rows.length === 0 ? <p>기록된 거래일이 없습니다.</p> : <table>
+        <thead><tr><th>거래일</th><th>판정</th><th>평가 완료</th><th>추천/진입</th><th>후보 관측</th><th>실시간</th><th>사유</th></tr></thead>
+        <tbody>{rows.map(row => {
+          const observed = Object.values(row.observationStatuses ?? {}).reduce((sum, count) => sum + count, 0)
+          return <tr key={row.tradeDate}>
+            <td>{row.tradeDate}</td>
+            <td>{healthVerdictLabels[row.verdict] ?? row.verdict}</td>
+            <td>{row.runCompletedAt ? new Date(row.runCompletedAt).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul' }) : '--'}</td>
+            <td>{row.selectedCount == null ? '--' : `${row.selectedEntered ?? 0}/${row.selectedCount}`}</td>
+            <td>{row.recorded ? `완료 ${row.observationStatuses?.COMPLETED ?? 0}/${observed}` : '--'}</td>
+            <td>{row.realtimeConnected == null ? '미관측' : row.realtimeConnected ? `연결 · 누락 ${row.realtimeDroppedDelta ?? 0}` : '끊김'}</td>
+            <td>{row.reasons.map(reason => healthReasonLabels[reason] ?? reason).join(', ') || '--'}</td>
+          </tr>
+        })}</tbody>
+      </table>}
+    </section>
+  )
+}
+
 type DailyPrepareResult = {
   recommendationDate: string; latestRequiredDate: string; candidateStocks: number
   attemptedStocks: number; savedCandles: number; readyStocks: number
@@ -665,6 +708,10 @@ export function ClosingRecommendationPage({ back, advanced = false }: { back: ()
     queryFn: () => api<StrategyAnalytics>('/api/v1/closing-recommendations/strategy-analytics'),
     enabled: advanced,
   })
+  const dailyHealth = useQuery({
+    queryKey: ['closing-daily-health'],
+    queryFn: () => api<DailyHealth[]>(`/api/v1/closing-recommendations/daily-health?from=${daysAgo(20)}&to=${today()}`),
+  })
   const generate = useMutation({
     mutationFn: (input: { date: string; limit: number; minOpportunity: number; maxRisk: number; key: string }) => api<GenerateResponse>(
       `/api/v1/closing-recommendations/generate?date=${input.date}&limit=${input.limit}&minOpportunity=${input.minOpportunity}&maxRisk=${input.maxRisk}`,
@@ -798,6 +845,8 @@ export function ClosingRecommendationPage({ back, advanced = false }: { back: ()
           <h2>사용 안내</h2>
           <p>시장 관측과 가상 체결은 분리됩니다. 가상 진입가는 추천 완료 후 첫 확정 5분봉 시가이며, 비용이 검증되지 않으면 순수익을 표시하지 않습니다.</p>
         </section>
+        {Array.isArray(dailyHealth.data) && <DailyHealthTable rows={dailyHealth.data.slice(0, 10)} />}
+        {dailyHealth.error && <div className="closingEmpty">수집 완결성 조회 실패: {dailyHealth.error.message}</div>}
         {generate.error && <div className="closingEmpty">{generate.error.message}</div>}
         {track.error && <div className="closingEmpty">{track.error.message}</div>}
         {trackCandidates.error && <div className="closingEmpty">전체 후보 성과 추적 실패: {trackCandidates.error.message}</div>}
