@@ -4,7 +4,7 @@ v9 마감 평가 기본 기준은 15:15이며 수신 유예는 0초다. 같은 �
 
 ## 실시간 처리 진단
 
-`GET /api/v1/market/realtime/status`의 `realtime`에 `processingQueued`, `processingDropped`, `timings`를 추가했다. 각 timing은 프로세스 시작 이후 `count`, `averageMs`, `maxMs`, `lastMs`다. 최상위 `sseClients`는 현재 SSE 연결 수, `sseSlowClientDisconnects`는 전송 큐가 넘쳐 끊은 느린 클라이언트 누적 수다.
+`GET /api/v1/market/realtime/status`의 `realtime`에 `processingQueued`, `processingDropped`, `timings`를 추가했다. 각 timing은 프로세스 시작 이후 `count`, `averageMs`, `maxMs`, `lastMs`다. 최상위 `sseClients`는 현재 SSE 연결 수, `sseSlowClientDisconnects`는 전송 큐가 넘쳐 끊은 느린 클라이언트 누적 수다. `outsideSessionTicks`/`lastOutsideSessionSourceAt`은 원천시각이 수집 창(09:00~15:31:00) 밖이라 버린 체결 수와 마지막 원천시각, `closingAuctionTicks`/`lastClosingAuctionSourceAt`은 15:30:00 이후 수락한 종가 단일가 체결 수와 마지막 원천시각이다.
 
 - `sourceToCallback`: 체결 원천시각부터 첫 수신 콜백까지(두 시계 차이 및 원천 초 단위 정밀도 포함).
 - `processingQueueWait`: 수신 후 파싱된 틱의 작업 큐 대기시간.

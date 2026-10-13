@@ -82,6 +82,60 @@ class FiveMinuteCandleAggregatorTest {
     }
 
     @Test
+    void randomEndClosingPrintAfterAnEmptyClosingCallBecomesTheFinal1525Bar() {
+        // Last continuous trade 15:19:59, no executions during the 15:20-15:30 call, print stamped 15:30:17.
+        aggregator.accept(tick("2026-08-18T06:19:59Z", "100", 5, 500, "50000", 1));
+        var print = aggregator.accept(tick("2026-08-18T06:30:17Z", "103", 40, 540, "54120", 2));
+
+        assertThat(print).hasSize(2);
+        assertThat(print.getFirst().finalCandle()).isTrue();
+        assertThat(print.getFirst().startTime()).isEqualTo(Instant.parse("2026-08-18T06:15:00Z"));
+        assertThat(print.get(1).startTime()).isEqualTo(Instant.parse("2026-08-18T06:25:00Z"));
+        assertThat(print.get(1).close()).isEqualByComparingTo("103");
+        assertThat(print.get(1).volume()).isEqualTo(40);
+        assertThat(aggregator.flush(Instant.parse("2026-08-18T06:30:30Z"))).isEmpty();
+        var closed = aggregator.flush(Instant.parse("2026-08-18T06:31:02Z"));
+        assertThat(closed).singleElement().satisfies(bar -> {
+            assertThat(bar.finalCandle()).isTrue();
+            assertThat(bar.startTime()).isEqualTo(Instant.parse("2026-08-18T06:25:00Z"));
+        });
+    }
+
+    @Test
+    void final1525BucketIsNotFinalizedBeforeTheClosingAuctionWindowEnds() {
+        aggregator.accept(tick("2026-08-18T06:25:10Z", "100", 1, 1, "100", 1));
+        assertThat(aggregator.flush(Instant.parse("2026-08-18T06:30:05Z"))).isEmpty();
+
+        var print = aggregator.accept(tick("2026-08-18T06:30:29Z", "99", 9, 10, "991", 2));
+
+        assertThat(print).singleElement().satisfies(bar -> {
+            assertThat(bar.startTime()).isEqualTo(Instant.parse("2026-08-18T06:25:00Z"));
+            assertThat(bar.close()).isEqualByComparingTo("99");
+            assertThat(bar.volume()).isEqualTo(10);
+        });
+        assertThat(aggregator.flush(Instant.parse("2026-08-18T06:31:02Z"))).hasSize(1);
+    }
+
+    @Test
+    void bucketsClosingAuctionWindowAndRejectsPostCloseTrades() {
+        assertThat(FiveMinuteCandleAggregator.bucketStart(Instant.parse("2026-08-18T06:20:00Z")))
+                .isEqualTo(Instant.parse("2026-08-18T06:20:00Z"));
+        assertThat(FiveMinuteCandleAggregator.bucketStart(Instant.parse("2026-08-18T06:29:59Z")))
+                .isEqualTo(Instant.parse("2026-08-18T06:25:00Z"));
+        assertThat(FiveMinuteCandleAggregator.bucketStart(Instant.parse("2026-08-18T06:30:00Z")))
+                .isEqualTo(Instant.parse("2026-08-18T06:25:00Z"));
+        assertThat(FiveMinuteCandleAggregator.bucketStart(Instant.parse("2026-08-18T06:30:30Z")))
+                .isEqualTo(Instant.parse("2026-08-18T06:25:00Z"));
+        assertThat(FiveMinuteCandleAggregator.bucketStart(Instant.parse("2026-08-18T06:31:00Z")))
+                .isEqualTo(Instant.parse("2026-08-18T06:25:00Z"));
+        assertThatThrownBy(() -> FiveMinuteCandleAggregator.bucketStart(Instant.parse("2026-08-18T06:31:01Z")))
+                .isInstanceOf(IllegalArgumentException.class);
+        // The after-hours closing-price session (15:40) is never regular-session data.
+        assertThatThrownBy(() -> aggregator.accept(tick("2026-08-18T06:40:00Z", "100", 1, 1, "100", 1)))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void rejectsPreMarketTick() {
         assertThatThrownBy(() -> aggregator.accept(tick("2026-08-17T23:59:59Z", "100", 1, 1, "100", 1)))
                 .isInstanceOf(IllegalArgumentException.class);

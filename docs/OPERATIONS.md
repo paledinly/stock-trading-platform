@@ -14,9 +14,9 @@
 
 ## 실시간 수집 운영시간
 
-KIS WebSocket은 `ClosingTradingCalendar`의 거래일에만 기본 08:59부터 연결하고 15:31부터 종료한다. 기존 30초 health check에서 시간 경계를 확인하므로 연결/종료는 최대 한 주기 늦을 수 있다. 장외에는 승인키 발급·장애 재접속을 중지하고, 다음 거래일에 보존된 구독 목록으로 다시 연결한다. Broad 스캔의 15:20 종료시각과 분리하여 15:20~15:30 종가 체결을 받을 수 있게 한다.
+KIS WebSocket은 `ClosingTradingCalendar`의 거래일에만 기본 08:59부터 연결하고 15:32부터 종료한다. 기존 30초 health check에서 시간 경계를 확인하므로 연결/종료는 최대 한 주기 늦을 수 있다. 장외에는 승인키 발급·장애 재접속을 중지하고, 다음 거래일에 보존된 구독 목록으로 다시 연결한다. Broad 스캔의 15:20 종료시각과 분리하여 15:30 종가 단일가 체결을 받을 수 있게 한다. 전일 공식 run의 추천·관측 종목 OVERNIGHT 구독은 15:31:00까지 유지하고 그 뒤 첫 5분 구독 동기화(15:35)에서 해제한다.
 
-수집할 체결의 원천시각은 당일 09:00~15:30(마지막 체결 포함)이다. 연결 준비/종료 유예 중 들어온 장외 체결을 정규장 데이터로 저장하지 않는다. 기본 여유시간은 `MARKET_REALTIME_CONNECT_BEFORE_OPEN=1m`, `MARKET_REALTIME_DISCONNECT_AFTER_CLOSE=1m`으로 조절한다. 달력은 `CLOSING_CALENDAR_KIS_REFRESH_ENABLED=true`이면 KIS 국내휴장일조회(`chk-holiday`, `opnd_yn`)를 KST 기준 하루 한 번(기동 시 또는 `CLOSING_CALENDAR_KIS_REFRESH_CRON`, 기본 07:40) 받아 `trading_calendar_day`에 저장하고, 받은 날짜는 그 값을 우선한다. 받지 못한 날짜와 조회 실패 시에는 정적 확인 휴장일과 `MARKET_WIDE_HOLIDAYS`를 사용한다. 정적 목록과 다른 날짜는 로그에 남긴다. 상태는 `GET /api/v1/closing-recommendations/trading-calendar`로 확인한다. KIS 응답은 증권사 제공 값이며 거래소 공지와의 차이, 특별 개장시간(지연 개장 등)은 반영하지 않는다. 이미 저장된 추천·관측의 기대 거래일은 소급 수정하지 않는다.
+수집할 체결의 원천시각은 당일 09:00~15:31:00이다. 15:30:00 이후는 랜덤엔드 종가 단일가 체결(15:30:00~15:30:30)만 해당하며 15:25 봉에 반영한다([종가 단일가와 마지막 5분봉](MARKET_DATA.md#종가-단일가와-마지막-5분봉)). 연결 준비/종료 유예 중 들어온 장외 체결을 정규장 데이터로 저장하지 않는다. 기본 여유시간은 `MARKET_REALTIME_CONNECT_BEFORE_OPEN=1m`, `MARKET_REALTIME_DISCONNECT_AFTER_CLOSE=2m`으로 조절한다. 종료 유예를 1분 이하로 줄이면 늦게 도착한 종가 체결을 놓칠 수 있다. 달력은 `CLOSING_CALENDAR_KIS_REFRESH_ENABLED=true`이면 KIS 국내휴장일조회(`chk-holiday`, `opnd_yn`)를 KST 기준 하루 한 번(기동 시 또는 `CLOSING_CALENDAR_KIS_REFRESH_CRON`, 기본 07:40) 받아 `trading_calendar_day`에 저장하고, 받은 날짜는 그 값을 우선한다. 받지 못한 날짜와 조회 실패 시에는 정적 확인 휴장일과 `MARKET_WIDE_HOLIDAYS`를 사용한다. 정적 목록과 다른 날짜는 로그에 남긴다. 상태는 `GET /api/v1/closing-recommendations/trading-calendar`로 확인한다. KIS 응답은 증권사 제공 값이며 거래소 공지와의 차이, 특별 개장시간(지연 개장 등)은 반영하지 않는다. 이미 저장된 추천·관측의 기대 거래일은 소급 수정하지 않는다.
 
 브라우저 SSE는 페이지가 열린 동안 대기 연결을 유지하지만 새 이벤트가 있을 때만 전송한다. 장외에 주기적으로 시세를 만들어 보내지 않는다. REST 조회·일봉 준비·성과 계산은 이 WebSocket 시간 제한과 별개다.
 

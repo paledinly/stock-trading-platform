@@ -48,7 +48,9 @@ public class RealtimeDiagnostics {
             Map<String, BackfillStatus> backfills,
             java.util.List<String> recentErrors,
             Map<String, SubscriptionStatus> subscriptions,
-            Map<String, Timing> timings, int processingQueued, long processingDropped) {
+            Map<String, Timing> timings, int processingQueued, long processingDropped,
+            long outsideSessionTicks, Instant lastOutsideSessionSourceAt,
+            long closingAuctionTicks, Instant lastClosingAuctionSourceAt) {
     }
 
     /** Averages stay clamped at zero; minMs/negativeCount keep raw values so host-vs-source clock skew stays visible. */
@@ -71,6 +73,14 @@ public class RealtimeDiagnostics {
     public void timing(String stage, long nanos) { timings.computeIfAbsent(stage, key -> new Samples()).add(nanos); }
     public void processingQueue(java.util.function.IntSupplier size) { queueSize = size; }
     public void droppedTick() { processingDropped.incrementAndGet(); }
+    private final AtomicLong outsideSessionTicks = new AtomicLong();
+    private final AtomicLong closingAuctionTicks = new AtomicLong();
+    private volatile Instant lastOutsideSessionSourceAt;
+    private volatile Instant lastClosingAuctionSourceAt;
+    /** Parsed ticks rejected by the session window (source time), so a missing closing print is observable. */
+    public void outsideSessionTick(Instant sourceAt) { outsideSessionTicks.incrementAndGet(); lastOutsideSessionSourceAt = sourceAt; }
+    /** Accepted closing auction prints stamped after 15:30:00 (random end). */
+    public void closingAuctionTick(Instant sourceAt) { closingAuctionTicks.incrementAndGet(); lastClosingAuctionSourceAt = sourceAt; }
 
     private final Map<String, SubscriptionStatus> subscriptions = new ConcurrentSkipListMap<>();
     private final AtomicLong receivedFrames = new AtomicLong();
@@ -231,7 +241,8 @@ public class RealtimeDiagnostics {
                 detections.get(), pendingPerformances, lastPerformanceFlushAt, lastPerformanceFlushSize,
                 lastFeatureAt, featureSnapshots.get(), featureTrackedStocks,
                 Map.copyOf(candleGaps), Map.copyOf(backfills), java.util.List.copyOf(recentErrors),
-                Map.copyOf(subscriptions), timingSnapshot(), queueSize.getAsInt(), processingDropped.get());
+                Map.copyOf(subscriptions), timingSnapshot(), queueSize.getAsInt(), processingDropped.get(),
+                outsideSessionTicks.get(), lastOutsideSessionSourceAt, closingAuctionTicks.get(), lastClosingAuctionSourceAt);
     }
 
     private Map<String, Timing> timingSnapshot() {
