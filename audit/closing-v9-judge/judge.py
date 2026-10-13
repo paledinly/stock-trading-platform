@@ -21,6 +21,11 @@ from decimal import Decimal, ROUND_HALF_UP
 KST = timezone(timedelta(hours=9))
 SESSION_OPEN = time(9, 0)
 SESSION_CLOSE = time(15, 30)
+# KRX closing call: 15:20-15:30 has no executions; the closing print (15:30:00..15:30:30, random end) is
+# bucketed into the 15:25 bar. Mirrors NextSessionCoverage / FiveMinuteCandleAggregator.CLOSING_AUCTION_WINDOW.
+CLOSING_CALL_START = time(15, 20)
+CLOSING_PRINT_BAR = time(15, 25)
+SETTLE_AFTER_CLOSE = timedelta(minutes=2)
 STRATEGY_VERSION = "closing-recommend-v9-1515"
 
 # ADR-008 constants. Changing any of these requires a new ADR.
@@ -102,7 +107,7 @@ def next_open(bars, session_open):
 
 
 # ---------------------------------------------------------------------------
-# Calendar and session coverage (mirrors OvernightPerformanceService.evaluate)
+# Calendar and session coverage (mirrors OvernightPerformanceService.evaluate / NextSessionCoverage)
 # ---------------------------------------------------------------------------
 class Calendar:
     def __init__(self, official=None, holidays=STATIC_HOLIDAYS):
@@ -130,8 +135,14 @@ def valid_prices(b):
 
 
 def session_series(bars, session_date, now):
-    """Returns (status, series, missing_starts)."""
+    """Returns (status, series, missing_starts).
+
+    Complete = every 09:00..15:15 bar exactly once + the 15:25 closing-print bar exactly once with volume > 0.
+    The 15:20 closing-call bar is optional (structurally empty). Before close + 2 min -> IN_PROGRESS.
+    """
     open_, close = kst_instant(session_date, SESSION_OPEN), kst_instant(session_date, SESSION_CLOSE)
+    call_start, print_start = kst_instant(session_date, CLOSING_CALL_START), kst_instant(session_date, CLOSING_PRINT_BAR)
+    settled = close + SETTLE_AFTER_CLOSE
 
     def end(start):
         e = start + timedelta(minutes=5)
@@ -146,13 +157,17 @@ def session_series(bars, session_date, now):
         counts[b["start"]] += 1
     missing = []
     s = open_
-    while s < close and not end(s) > now:
+    while s < call_start and not s + timedelta(minutes=5) > now:
         if counts.get(s, 0) != 1:
             missing.append(s)
         s += timedelta(minutes=5)
+    if now >= settled:
+        prints = [b for b in series if b["start"] == print_start]
+        if len(prints) != 1 or not (prints[0].get("volume") or 0) > 0:
+            missing.append(print_start)
     if now < open_:
         status = "PENDING"
-    elif now < close:
+    elif now < settled:
         status = "IN_PROGRESS"
     elif not series:
         status = "DATA_MISSING"
@@ -281,7 +296,8 @@ def load(data_dir):
     for r in read_tsv(os.path.join(data_dir, "bars.tsv")):
         bars[r["stock_code"]].append({
             "start": parse_ts(r["start_time"]), "open": dec(r["open"]), "high": dec(r["high"]),
-            "low": dec(r["low"]), "close": dec(r["close"]), "final": r["is_final"] in ("t", "true")})
+            "low": dec(r["low"]), "close": dec(r["close"]), "volume": int(r.get("volume") or 0),
+            "final": r["is_final"] in ("t", "true")})
     official = {date.fromisoformat(r["trade_date"]): r["market_open"] in ("t", "true")
                 for r in read_tsv(os.path.join(data_dir, "calendar.tsv"))}
     return meta, entries, bars, official
@@ -299,7 +315,7 @@ def evaluate(entries, bars, cal, now):
             disposition = "SELECTED"
         row = {"run_id": e["run_id"], "day": rec_date, "session": session, "stock_code": e["stock_code"],
                "disposition": disposition, "entry_status": e["entry_status"],
-               "is_etf": e.get("is_etf") in ("t", "true"), "session_done": now >= close}
+               "is_etf": e.get("is_etf") in ("t", "true"), "session_done": now >= close + SETTLE_AFTER_CLOSE}
         entry_price = dec(e.get("entry_price"))
         row["entry_price"] = entry_price
         if e["entry_status"] != "ENTERED" or entry_price is None:
@@ -308,10 +324,10 @@ def evaluate(entries, bars, cal, now):
             status, series, missing = session_series(bars.get(e["stock_code"], []), session, now)
             row["state"] = status
             row["missing_bars"] = len(missing)
-            # Diagnostics only (do not change the ADR rule): gaps limited to the 15:20/15:25 closing-auction
-            # bars, and whether the 09:00 bar needed by NEXT_OPEN exists.
+            # Diagnostics only: incomplete solely because the 15:25 closing print is missing, and whether the
+            # 09:00 bar needed by NEXT_OPEN exists.
             miss_kst = {m.astimezone(KST).time() for m in missing}
-            row["close_auction_only_gap"] = bool(missing) and miss_kst <= {time(15, 20), time(15, 25)}
+            row["closing_print_only_gap"] = bool(missing) and miss_kst <= {CLOSING_PRINT_BAR}
             row["has_open_bar"] = bool(series) and series[0]["start"] == kst_instant(session, SESSION_OPEN)
             if status == "COMPLETED":
                 for arm, res in (("BASELINE", target_or_stop(entry_price, series)),
@@ -375,7 +391,7 @@ def summarize(rows, label, decide=True, resamples=BOOTSTRAP_RESAMPLES):
         by_state[r["state"]] += 1
     out = {"sample": label, "rows": len(rows), "session_pending": len(pending),
            "session_done": len(done), "state_counts": dict(by_state),
-           "diag_close_auction_only_gap": sum(1 for r in done if r.get("close_auction_only_gap")),
+           "diag_closing_print_only_gap": sum(1 for r in done if r.get("closing_print_only_gap")),
            "diag_entered_with_0900_bar": sum(1 for r in done if r.get("has_open_bar")),
            "missing_ratio": (len(missing) / len(done)) if done else None, "arms": {}}
     for arm in ("BASELINE", "NEXT_OPEN"):
@@ -404,8 +420,8 @@ def render(s, decide=True):
              "대상 %d건 (다음 세션 미종료 %d건 제외), 세션 종료 %d건, 상태 %s" % (
                  s["rows"], s["session_pending"], s["session_done"], json.dumps(s["state_counts"], ensure_ascii=False)),
              "결측/판정불가 비율: %s" % ("-" if s["missing_ratio"] is None else "%.1f%%" % (s["missing_ratio"] * 100)),
-             "진단: 15:20/15:25 봉만 빠져 미완료 %d건, 09:00 봉 보유 진입 %d건 (판정 규칙은 변경하지 않음)" % (
-                 s["diag_close_auction_only_gap"], s["diag_entered_with_0900_bar"])]
+             "진단: 15:25 종가 체결 봉만 빠져 미완료 %d건, 09:00 봉 보유 진입 %d건" % (
+                 s["diag_closing_print_only_gap"], s["diag_entered_with_0900_bar"])]
     for arm, st in s["arms"].items():
         b, h = st["BASE"], st["HIGH"]
         lines.append("[%s] 완료 %d건 / %d거래일, 불확실(ambiguous/계산불가) %d건" % (
@@ -518,10 +534,18 @@ def selftest():
     # Session coverage: a full 78-bar session is COMPLETED, one gap -> DATA_INCOMPLETE, before close -> IN_PROGRESS.
     sd = date(2026, 1, 5)
     full = [{"start": kst_instant(sd, SESSION_OPEN) + timedelta(minutes=5 * i), "open": D(100), "high": D(101),
-             "low": D(99), "close": D(100), "final": True} for i in range(78)]
-    after = kst_instant(sd, SESSION_CLOSE) + timedelta(minutes=1)
+             "low": D(99), "close": D(100), "volume": 10, "final": True} for i in range(78)]
+    after = kst_instant(sd, SESSION_CLOSE) + timedelta(minutes=2)
     check("coverage complete", session_series(full, sd, after)[0] == "COMPLETED")
     check("coverage gap", session_series(full[:40] + full[41:], sd, after)[0] == "DATA_INCOMPLETE")
+    check("coverage 15:20 call bar optional", session_series(full[:76] + full[77:], sd, after)[0] == "COMPLETED")
+    no_print = session_series(full[:77], sd, after)
+    check("coverage requires 15:25 closing print", no_print[0] == "DATA_INCOMPLETE"
+          and no_print[2] == [kst_instant(sd, CLOSING_PRINT_BAR)])
+    padded = full[:77] + [dict(full[77], volume=0)]
+    check("coverage zero-volume 15:25 is not a print", session_series(padded, sd, after)[0] == "DATA_INCOMPLETE")
+    check("coverage settles 2 min after close",
+          session_series(full[:76], sd, kst_instant(sd, SESSION_CLOSE) + timedelta(seconds=90))[0] == "IN_PROGRESS")
     check("coverage in progress", session_series(full, sd, kst_instant(sd, time(12, 0)))[0] == "IN_PROGRESS")
     cal = Calendar({}, {date(2026, 10, 9)})
     check("calendar skips holiday+weekend", cal.next_trading_day(date(2026, 10, 8)) == date(2026, 10, 12))

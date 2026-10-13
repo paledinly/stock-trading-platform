@@ -253,7 +253,8 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
             var ticks = parser.parseMany(parts[3], count);
             diagnostics.ticksReceived(ticks.size());
             for (var tick : ticks) {
-                if (!session.accepts(tick)) continue;
+                if (!session.accepts(tick)) { diagnostics.outsideSessionTick(tick.occurredAt()); continue; }
+                if (session.closingAuctionPrint(tick)) diagnostics.closingAuctionTick(tick.occurredAt());
                 processor.submit(tick, receivedAt);
             }
         } catch (RuntimeException error) {

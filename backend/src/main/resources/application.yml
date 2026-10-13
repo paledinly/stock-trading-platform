@@ -165,7 +165,7 @@ market:
     enabled: ${MARKET_REALTIME_ENABLED:false}
     session:
       connect-before-open: ${MARKET_REALTIME_CONNECT_BEFORE_OPEN:1m}
-      disconnect-after-close: ${MARKET_REALTIME_DISCONNECT_AFTER_CLOSE:1m}
+      disconnect-after-close: ${MARKET_REALTIME_DISCONNECT_AFTER_CLOSE:2m}
     websocket-url: ${KIS_WEBSOCKET_URL:ws://ops.koreainvestment.com:21000}
     candle-watermark: ${MARKET_CANDLE_WATERMARK:2s}
     quote-ttl: ${MARKET_QUOTE_TTL:16h}

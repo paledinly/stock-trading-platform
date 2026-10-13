@@ -1,5 +1,6 @@
 package com.sunmo.stockplatform.closing.application;
 
+import com.sunmo.stockplatform.candle.application.FiveMinuteCandleAggregator;
 import com.sunmo.stockplatform.closing.config.ClosingAutomationProperties;
 import com.sunmo.stockplatform.closing.config.ClosingRecommendationProperties;
 import com.sunmo.stockplatform.closing.domain.ClosingRecommendation;
@@ -149,7 +150,10 @@ public class ClosingRecommendationScheduler {
         Set<String> desired = new LinkedHashSet<>();
         Set<String> observed = new LinkedHashSet<>();
         List<ClosingRecommendationRun> protectedRuns = new java.util.ArrayList<>();
-        if (!calendar.isTradingDay(today) || !time.isAfter(LocalTime.of(15, 30)))
+        // Keep the previous run's codes through the random-end closing auction print (15:30:00..15:31:00):
+        // that print is the session's final 5M bar for next-day performance.
+        if (!calendar.isTradingDay(today) || !now.isAfter(calendar.close(today)
+                .plus(FiveMinuteCandleAggregator.CLOSING_AUCTION_WINDOW)))
             protectedRuns.add(officialRun(calendar.previousTradingDay(today)));
         protectedRuns.add(officialRun(today));
         protectedRuns.removeIf(java.util.Objects::isNull);

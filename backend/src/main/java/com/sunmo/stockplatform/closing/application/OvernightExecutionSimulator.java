@@ -19,6 +19,10 @@ public class OvernightExecutionSimulator {
         this.costs = costs;
     }
 
+    /**
+     * Callers pass a series that is complete under {@link NextSessionCoverage}, so its last bar is the 15:25
+     * closing-print bar and TIME_EXIT uses the 15:30 closing auction price. exitAt is the exiting bar's start.
+     */
     public ExecutionResult targetOrStop(BigDecimal entryReference, List<StockCandle> candles,
             BigDecimal targetRate, BigDecimal stopRate) {
         if (entryReference == null || entryReference.signum() <= 0 || candles.isEmpty()) return null;

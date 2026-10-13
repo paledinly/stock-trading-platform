@@ -197,6 +197,25 @@ class ClosingRecommendationSchedulerTest {
         verify(subscriptions).add("005930", RealtimeSubscriptionRegistry.Source.OVERNIGHT);
     }
 
+    @Test
+    void previousRunStaysSubscribedThroughTheRandomEndClosingPrint() {
+        var scheduler = scheduler(at(TUESDAY, 15, 25), true);
+        when(calendar.previousTradingDay(TUESDAY)).thenReturn(MONDAY);
+        ClosingRecommendationRun previousRun = run(1L);
+        when(runs.findByRequestKey(key(MONDAY))).thenReturn(Optional.of(previousRun));
+        when(repository.findStockCodesByRunId(1L)).thenReturn(List.of("005930"));
+        scheduler.poll();
+
+        // First poll of the 15:30 bucket: the closing print (15:30:00..15:30:30) has not necessarily arrived.
+        when(calendar.now()).thenReturn(at(TUESDAY, 15, 30).plusSeconds(20));
+        scheduler.poll();
+        verify(subscriptions, never()).remove("005930", RealtimeSubscriptionRegistry.Source.OVERNIGHT);
+
+        when(calendar.now()).thenReturn(at(TUESDAY, 15, 35));
+        scheduler.poll();
+        verify(subscriptions).remove("005930", RealtimeSubscriptionRegistry.Source.OVERNIGHT);
+    }
+
     private ClosingRecommendationRun run(Long id) {
         ClosingRecommendationRun run = mock(ClosingRecommendationRun.class);
         when(run.getId()).thenReturn(id);

@@ -6,7 +6,7 @@ import java.time.Duration;
 
 @ConfigurationProperties("market.realtime.session")
 public record RealtimeSessionProperties(@DefaultValue("1m") Duration connectBeforeOpen,
-        @DefaultValue("1m") Duration disconnectAfterClose) {
+        @DefaultValue("2m") Duration disconnectAfterClose) {
     public RealtimeSessionProperties {
         if (connectBeforeOpen.isNegative() || disconnectAfterClose.isNegative()
                 || connectBeforeOpen.compareTo(Duration.ofHours(1)) > 0

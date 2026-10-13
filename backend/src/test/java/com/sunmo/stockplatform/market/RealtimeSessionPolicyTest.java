@@ -28,10 +28,17 @@ class RealtimeSessionPolicyTest {
         assertThat(at("2026-10-09T10:00:00").connectionAllowed()).isFalse();
         assertThat(at("2026-09-24T10:00:00").connectionAllowed()).isFalse();
     }
-    @Test void acceptsFinalClosingPrintButNotPremarketAfterHoursOrPreviousDay() {
-        var policy = at("2026-10-01T15:30:20");
+    @Test void acceptsRandomEndClosingPrintButNotPremarketAfterHoursOrPreviousDay() {
+        var policy = at("2026-10-01T15:30:40");
+        assertThat(policy.accepts(tick("2026-10-01T15:19:59"))).isTrue();
+        assertThat(policy.closingAuctionPrint(tick("2026-10-01T15:19:59"))).isFalse();
         assertThat(policy.accepts(tick("2026-10-01T15:30:00"))).isTrue();
-        assertThat(policy.accepts(tick("2026-10-01T15:30:01"))).isFalse();
+        assertThat(policy.accepts(tick("2026-10-01T15:30:01"))).isTrue();
+        assertThat(policy.accepts(tick("2026-10-01T15:30:30"))).isTrue();
+        assertThat(policy.closingAuctionPrint(tick("2026-10-01T15:30:30"))).isTrue();
+        assertThat(policy.accepts(tick("2026-10-01T15:31:00"))).isTrue();
+        assertThat(policy.accepts(tick("2026-10-01T15:31:01"))).isFalse();
+        assertThat(policy.accepts(tick("2026-10-01T15:40:00"))).isFalse();
         assertThat(policy.accepts(tick("2026-10-01T08:59:59"))).isFalse();
         assertThat(policy.accepts(tick("2026-09-30T15:30:00"))).isFalse();
     }

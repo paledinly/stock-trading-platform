@@ -9,6 +9,13 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class FiveMinuteCandleAggregator {
     private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
+    /**
+     * KRX closes with a 15:20-15:30 single-price call whose end is randomly extended by up to 30 seconds,
+     * so the one closing execution is stamped 15:30:00..15:30:30. This window (with margin) is the only
+     * post-15:30 time accepted as regular-session data; after-hours sessions start at 15:40.
+     */
+    public static final Duration CLOSING_AUCTION_WINDOW = Duration.ofSeconds(60);
+    private static final Duration BUCKET = Duration.ofMinutes(5);
     private final Duration watermark;
     private final Map<String, State> states = new ConcurrentHashMap<>();
     private final Map<String, Instant> finalizedThrough = new ConcurrentHashMap<>();
@@ -51,7 +58,7 @@ public class FiveMinuteCandleAggregator {
         Iterator<Map.Entry<String, State>> iterator = states.entrySet().iterator();
         while (iterator.hasNext()) {
             State state = iterator.next().getValue();
-            if (!now.isBefore(state.start.plus(Duration.ofMinutes(5)).plus(watermark))) {
+            if (!now.isBefore(bucketEnd(state.start).plus(watermark))) {
                 finalizedThrough.put(state.code, state.start);
                 closed.add(state.snapshot(true));
                 iterator.remove();
@@ -60,16 +67,24 @@ public class FiveMinuteCandleAggregator {
         return closed;
     }
 
-    static Instant bucketStart(Instant instant) {
+    /** Regular buckets start 09:00..15:25; the closing auction print (15:30:00 + window) belongs to 15:25. */
+    public static Instant bucketStart(Instant instant) {
         ZonedDateTime time = instant.atZone(SEOUL);
         ZonedDateTime open = time.toLocalDate().atTime(9, 0).atZone(SEOUL);
         ZonedDateTime close = open.plusMinutes(390);
-        if (time.isBefore(open) || time.isAfter(close))
+        if (time.isBefore(open) || time.isAfter(close.plus(CLOSING_AUCTION_WINDOW)))
             throw new IllegalArgumentException("Tick outside regular KRX session");
-        if (time.equals(close))
-            return close.minusMinutes(5).toInstant();
+        if (!time.isBefore(close))
+            return close.minus(BUCKET).toInstant();
         long minutes = ChronoUnit.MINUTES.between(open, time);
         return open.plusMinutes((minutes / 5) * 5).toInstant();
+    }
+
+    /** The final 15:25 bucket stays open until the closing auction window has passed. */
+    static Instant bucketEnd(Instant start) {
+        Instant end = start.plus(BUCKET);
+        ZonedDateTime local = end.atZone(SEOUL);
+        return local.toLocalTime().equals(LocalTime.of(15, 30)) ? end.plus(CLOSING_AUCTION_WINDOW) : end;
     }
 
     private static final class State {
