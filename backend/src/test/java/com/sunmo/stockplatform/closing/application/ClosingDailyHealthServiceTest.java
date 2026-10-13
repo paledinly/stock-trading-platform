@@ -52,7 +52,7 @@ class ClosingDailyHealthServiceTest {
     }
 
     Facts facts(Instant completed, int selected, int entered, Map<String, Integer> observations, RealtimeWindow realtime) {
-        return new Facts(7L, completed, DEADLINE, selected, entered, Map.of(), observations, realtime, 3);
+        return new Facts(7L, completed, DEADLINE, selected, entered, Map.of(), observations, realtime, 3, null);
     }
 
     @Test void completeOnlyWhenRunEntriesObservationsAndRealtimeAreAllWhole() {
@@ -63,7 +63,7 @@ class ClosingDailyHealthServiceTest {
     }
 
     @Test void missingWithoutACompletedOfficialRun() {
-        assertThat(ClosingDailyHealthService.judge(new Facts(null, null, DEADLINE, 0, 0, Map.of(), Map.of(), HEALTHY, 0)))
+        assertThat(ClosingDailyHealthService.judge(new Facts(null, null, DEADLINE, 0, 0, Map.of(), Map.of(), HEALTHY, 0, null)))
                 .isEqualTo(new Judgement(Verdict.MISSING, List.of("OFFICIAL_RUN_MISSING")));
         assertThat(ClosingDailyHealthService.judge(facts(null, 0, 0, Map.of(), HEALTHY)))
                 .isEqualTo(new Judgement(Verdict.MISSING, List.of("OFFICIAL_RUN_INCOMPLETE")));
@@ -81,9 +81,9 @@ class ClosingDailyHealthServiceTest {
 
     @Test void noScannerDetectionInTheEvaluationWindowIsDegraded() {
         assertThat(ClosingDailyHealthService.judge(new Facts(7L, COMPLETED, DEADLINE, 0, 0, Map.of(), Map.of(),
-                HEALTHY, 0))).isEqualTo(new Judgement(Verdict.DEGRADED, List.of("SCANNER_DETECTIONS_MISSING")));
+                HEALTHY, 0, null))).isEqualTo(new Judgement(Verdict.DEGRADED, List.of("SCANNER_DETECTIONS_MISSING")));
         assertThat(ClosingDailyHealthService.judge(new Facts(7L, COMPLETED, DEADLINE, 0, 0, Map.of(), Map.of(),
-                HEALTHY, null)).verdict()).as("not counted is not a gap").isEqualTo(Verdict.COMPLETE);
+                HEALTHY, null, null)).verdict()).as("not counted is not a gap").isEqualTo(Verdict.COMPLETE);
     }
 
     @Test void recordsTodayFromStoredRowsAndKeepsEarlierRealtimeAfterRestart() {
@@ -134,6 +134,22 @@ class ClosingDailyHealthServiceTest {
         assertThat(rows.get(1).reasons()).containsExactly("OFFICIAL_RUN_MISSING");
         assertThat(rows.get(1).checkedAt()).as("earlier days are never rewritten").isEqualTo(CHECK.minusSeconds(86400));
         assertThat(jdbc.queryForObject("select count(*) from closing_daily_health", Integer.class)).isEqualTo(2);
+    }
+
+    @Test void findsTheRunThatExecutedTodayAfterAVersionChange() {
+        jdbc.update("insert into closing_recommendation_run values (7, ?, ?, 'FORWARD', 'closing-recommend-v9-1515', "
+                + "'official-2026-10-02-closing-recommend-v9-1515')", FRIDAY, Timestamp.from(COMPLETED));
+        jdbc.update("insert into closing_recommendation_run values (8, ?, ?, 'FORWARD', 'closing-recommend-v9-1515', "
+                + "'manual-retry')", FRIDAY, Timestamp.from(COMPLETED.plusSeconds(30)));
+        jdbc.update("insert into closing_recommendation_run values (9, ?, ?, 'REPLAY', 'closing-recommend-v9_1-1515', null)",
+                FRIDAY, Timestamp.from(CHECK));
+
+        DailyHealth row = service(CHECK).recordToday(HEALTHY);
+
+        assertThat(row.runId()).as("the official key of the earlier version wins over a later non-official run")
+                .isEqualTo(7L);
+        assertThat(row.strategyVersion()).isEqualTo("closing-recommend-v9-1515");
+        assertThat(row.reasons()).doesNotContain("OFFICIAL_RUN_MISSING");
     }
 
     @Test void recordsMissingWhenNoOfficialRunExists() {

@@ -47,7 +47,7 @@ public class ClosingDailyHealthService {
 
     public record Facts(Long runId, Instant runCompletedAt, Instant entryDeadline, int selected, int selectedEntered,
             Map<String, Integer> paperEntryStatuses, Map<String, Integer> observationStatuses, RealtimeWindow realtime,
-            Integer scannerDetections) { }
+            Integer scannerDetections, String strategyVersion) { }
 
     public record Judgement(Verdict verdict, List<String> reasons) { }
 
@@ -115,7 +115,8 @@ public class ClosingDailyHealthService {
         Facts facts = facts(today, realtime);
         Judgement judgement = judge(facts);
         DailyHealth health = new DailyHealth(today, judgement.verdict(), judgement.reasons(), true,
-                ClosingRecommendation.STRATEGY_VERSION, facts.runId(), facts.runCompletedAt(), facts.selected(),
+                facts.strategyVersion() == null ? ClosingRecommendation.STRATEGY_VERSION : facts.strategyVersion(),
+                facts.runId(), facts.runCompletedAt(), facts.selected(),
                 facts.selectedEntered(), facts.paperEntryStatuses(), facts.observationStatuses(),
                 realtime.connected(), realtime.droppedDelta(), realtime.start(), realtime.end(), now);
         upsert(health);
@@ -163,17 +164,20 @@ public class ClosingDailyHealthService {
                   join closing_recommendation_run r on r.id = o.run_id
                  where o.expected_session_date = ? and r.execution_mode = 'FORWARD'
                  group by o.status""", today);
-        // The official request key wins; otherwise the latest FORWARD v9 run, as the scheduler resolves it.
-        RowMapper<RunRow> runRow = (rs, index) -> new RunRow(rs.getLong(1), instant(rs, 2));
-        List<RunRow> runs = jdbc.query("select id, completed_at from closing_recommendation_run where request_key = ?",
+        // The current version's official key wins. A restart after a version change must still find the run
+        // that actually executed today, so the fallback is the latest official or FORWARD run of any version.
+        RowMapper<RunRow> runRow = (rs, index) -> new RunRow(rs.getLong(1), instant(rs, 2), rs.getString(3));
+        List<RunRow> runs = jdbc.query(
+                "select id, completed_at, strategy_version from closing_recommendation_run where request_key = ?",
                 runRow, "official-" + today + "-" + ClosingRecommendation.STRATEGY_VERSION);
         if (runs.isEmpty())
             runs = jdbc.query("""
-                    select id, completed_at from closing_recommendation_run
-                     where recommendation_date = ? and execution_mode = 'FORWARD' and strategy_version = ?
-                     order by id desc""", runRow, today, ClosingRecommendation.STRATEGY_VERSION);
+                    select id, completed_at, strategy_version from closing_recommendation_run
+                     where recommendation_date = ? and execution_mode = 'FORWARD'
+                     order by case when request_key like ? then 0 else 1 end, id desc""",
+                    runRow, today, "official-" + today + "-%");
         if (runs.isEmpty())
-            return new Facts(null, null, deadline, 0, 0, Map.of(), observations, realtime, detections);
+            return new Facts(null, null, deadline, 0, 0, Map.of(), observations, realtime, detections, null);
         RunRow run = runs.getFirst();
         long runId = run.id();
         Integer selected = jdbc.queryForObject("select count(*) from closing_recommendation where run_id = ?",
@@ -186,10 +190,10 @@ public class ClosingDailyHealthService {
         Map<String, Integer> entries = counts(
                 "select status, count(*) from closing_paper_entry where run_id = ? group by status", runId);
         return new Facts(runId, run.completedAt(), deadline, selected == null ? 0 : selected,
-                entered == null ? 0 : entered, entries, observations, realtime, detections);
+                entered == null ? 0 : entered, entries, observations, realtime, detections, run.strategyVersion());
     }
 
-    private record RunRow(long id, Instant completedAt) { }
+    private record RunRow(long id, Instant completedAt, String strategyVersion) { }
 
     /** A restart after the freeze window loses the in-memory samples; keep what was observed earlier today. */
     private RealtimeWindow previousRealtime(LocalDate today) {
