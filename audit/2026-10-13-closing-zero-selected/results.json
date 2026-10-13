@@ -1,0 +1,4651 @@
+{
+ "boundaryBar": [
+  {
+   "date": "2026-09-22",
+   "bar": "14:55",
+   "bars": 42,
+   "availableAtCutoff": 41,
+   "v9FlaggedIfRunAt151515": 0,
+   "flaggedAtActualOfficialRun": 0,
+   "officialRunAt": "2026-09-22T06:02:53.014778Z"
+  },
+  {
+   "date": "2026-09-22",
+   "bar": "15:10",
+   "bars": 42,
+   "availableAtCutoff": 0,
+   "v9FlaggedIfRunAt151515": 41,
+   "flaggedAtActualOfficialRun": 0,
+   "officialRunAt": "2026-09-22T06:02:53.014778Z"
+  },
+  {
+   "date": "2026-09-23",
+   "bar": "14:55",
+   "bars": 43,
+   "availableAtCutoff": 0,
+   "v9FlaggedIfRunAt151515": 0,
+   "flaggedAtActualOfficialRun": 0,
+   "officialRunAt": "2026-09-23T06:00:23.163875Z"
+  },
+  {
+   "date": "2026-09-23",
+   "bar": "15:10",
+   "bars": 41,
+   "availableAtCutoff": 0,
+   "v9FlaggedIfRunAt151515": 41,
+   "flaggedAtActualOfficialRun": 0,
+   "officialRunAt": "2026-09-23T06:00:23.163875Z"
+  },
+  {
+   "date": "2026-09-28",
+   "bar": "14:55",
+   "bars": 41,
+   "availableAtCutoff": 2,
+   "v9FlaggedIfRunAt151515": 0,
+   "flaggedAtActualOfficialRun": 39,
+   "officialRunAt": "2026-09-28T06:00:30.710579Z"
+  },
+  {
+   "date": "2026-09-28",
+   "bar": "15:10",
+   "bars": 41,
+   "availableAtCutoff": 11,
+   "v9FlaggedIfRunAt151515": 30,
+   "flaggedAtActualOfficialRun": 0,
+   "officialRunAt": "2026-09-28T06:00:30.710579Z"
+  },
+  {
+   "date": "2026-09-29",
+   "bar": "14:55",
+   "bars": 41,
+   "availableAtCutoff": 41,
+   "v9FlaggedIfRunAt151515": 0,
+   "flaggedAtActualOfficialRun": 0,
+   "officialRunAt": "2026-09-29T06:00:15.664740Z"
+  },
+  {
+   "date": "2026-09-29",
+   "bar": "15:10",
+   "bars": 41,
+   "availableAtCutoff": 0,
+   "v9FlaggedIfRunAt151515": 41,
+   "flaggedAtActualOfficialRun": 0,
+   "officialRunAt": "2026-09-29T06:00:15.664740Z"
+  },
+  {
+   "date": "2026-09-30",
+   "bar": "14:55",
+   "bars": 24,
+   "availableAtCutoff": 23,
+   "v9FlaggedIfRunAt151515": 0,
+   "flaggedAtActualOfficialRun": 0,
+   "officialRunAt": "2026-09-30T06:00:27.250028Z"
+  },
+  {
+   "date": "2026-09-30",
+   "bar": "15:10",
+   "bars": 22,
+   "availableAtCutoff": 3,
+   "v9FlaggedIfRunAt151515": 18,
+   "flaggedAtActualOfficialRun": 0,
+   "officialRunAt": "2026-09-30T06:00:27.250028Z"
+  },
+  {
+   "date": "2026-10-01",
+   "bar": "14:55",
+   "bars": 29,
+   "availableAtCutoff": 13,
+   "v9FlaggedIfRunAt151515": 0,
+   "flaggedAtActualOfficialRun": 16,
+   "officialRunAt": "2026-10-01T06:00:30.421532Z"
+  },
+  {
+   "date": "2026-10-01",
+   "bar": "15:10",
+   "bars": 29,
+   "availableAtCutoff": 0,
+   "v9FlaggedIfRunAt151515": 29,
+   "flaggedAtActualOfficialRun": 0,
+   "officialRunAt": "2026-10-01T06:00:30.421532Z"
+  },
+  {
+   "date": "2026-10-02",
+   "bar": "14:55",
+   "bars": 26,
+   "availableAtCutoff": 26,
+   "v9FlaggedIfRunAt151515": 0,
+   "flaggedAtActualOfficialRun": 0,
+   "officialRunAt": "2026-10-02T06:00:35.788450Z"
+  },
+  {
+   "date": "2026-10-02",
+   "bar": "15:10",
+   "bars": 26,
+   "availableAtCutoff": 0,
+   "v9FlaggedIfRunAt151515": 26,
+   "flaggedAtActualOfficialRun": 0,
+   "officialRunAt": "2026-10-02T06:00:35.788450Z"
+  },
+  {
+   "date": "2026-10-06",
+   "bar": "14:55",
+   "bars": 28,
+   "availableAtCutoff": 28,
+   "v9FlaggedIfRunAt151515": 0,
+   "flaggedAtActualOfficialRun": 0,
+   "officialRunAt": "2026-10-06T06:00:24.160750Z"
+  },
+  {
+   "date": "2026-10-06",
+   "bar": "15:10",
+   "bars": 28,
+   "availableAtCutoff": 1,
+   "v9FlaggedIfRunAt151515": 27,
+   "flaggedAtActualOfficialRun": 0,
+   "officialRunAt": "2026-10-06T06:00:24.160750Z"
+  },
+  {
+   "date": "2026-10-07",
+   "bar": "14:55",
+   "bars": 26,
+   "availableAtCutoff": 26,
+   "v9FlaggedIfRunAt151515": 0,
+   "flaggedAtActualOfficialRun": 0,
+   "officialRunAt": "2026-10-07T06:00:18.801852Z"
+  },
+  {
+   "date": "2026-10-07",
+   "bar": "15:10",
+   "bars": 26,
+   "availableAtCutoff": 5,
+   "v9FlaggedIfRunAt151515": 21,
+   "flaggedAtActualOfficialRun": 0,
+   "officialRunAt": "2026-10-07T06:00:18.801852Z"
+  },
+  {
+   "date": "2026-10-08",
+   "bar": "15:10",
+   "bars": 31,
+   "availableAtCutoff": 1,
+   "v9FlaggedIfRunAt151515": 30,
+   "flaggedAtActualOfficialRun": 30,
+   "officialRunAt": "2026-10-08T06:15:14.550686Z"
+  },
+  {
+   "date": "2026-10-12",
+   "bar": "15:10",
+   "bars": 26,
+   "availableAtCutoff": 0,
+   "v9FlaggedIfRunAt151515": 26,
+   "flaggedAtActualOfficialRun": 26,
+   "officialRunAt": "2026-10-12T06:15:23.853881Z"
+  }
+ ],
+ "note": "Read-only re-derivation of stored closing run snapshots; no thresholds proposed.",
+ "runs": [
+  {
+   "runId": 1,
+   "date": "2026-09-15",
+   "version": "closing-recommend-v5-asof",
+   "mode": "LEGACY",
+   "featureFreezeAt": "15:20",
+   "graceSeconds": null,
+   "limitedModeMaxCandidates": null,
+   "sourceDetections": 287,
+   "broadSnapshots": 2819,
+   "precisionCandidates": 41,
+   "broadCandidates": 97,
+   "selectedStored": 0,
+   "dispositions": {
+    "PRECISION:EXCLUDED": 27,
+    "PRECISION:SELECTED": 9,
+    "PRECISION:WATCH": 5,
+    "BROAD:EXCLUDED": 77,
+    "BROAD:WATCH": 20
+   },
+   "precisionReasons": {
+    "OPPORTUNITY_OR_RISK_FILTERED": 27,
+    "QUALIFIED": 9,
+    "MISSING_REQUIRED_FEATURES": 5
+   },
+   "broadReasons": {
+    "OPPORTUNITY_OR_RISK_FILTERED": 39,
+    "INSUFFICIENT_BROAD_DATA": 38,
+    "BROAD_WATCH_ONLY": 20
+   },
+   "precisionScoreAtLeast55": 14,
+   "precisionPassOppRisk": 14
+  },
+  {
+   "runId": 2,
+   "date": "2026-09-16",
+   "version": "closing-recommend-v5-asof",
+   "mode": "LEGACY",
+   "featureFreezeAt": "15:20",
+   "graceSeconds": null,
+   "limitedModeMaxCandidates": null,
+   "sourceDetections": 194,
+   "broadSnapshots": 2921,
+   "precisionCandidates": 40,
+   "broadCandidates": 101,
+   "selectedStored": 0,
+   "dispositions": {
+    "PRECISION:EXCLUDED": 33,
+    "PRECISION:WATCH": 2,
+    "PRECISION:SELECTED": 5,
+    "BROAD:EXCLUDED": 75,
+    "BROAD:WATCH": 26
+   },
+   "precisionReasons": {
+    "OPPORTUNITY_OR_RISK_FILTERED": 31,
+    "QUALIFIED": 5,
+    "LOW_FINAL_SCORE": 2,
+    "MISSING_REQUIRED_FEATURES": 2
+   },
+   "broadReasons": {
+    "INSUFFICIENT_BROAD_DATA": 39,
+    "OPPORTUNITY_OR_RISK_FILTERED": 36,
+    "BROAD_WATCH_ONLY": 26
+   },
+   "precisionScoreAtLeast55": 6,
+   "precisionPassOppRisk": 9
+  },
+  {
+   "runId": 11,
+   "date": "2026-09-17",
+   "version": "closing-recommend-v6-readiness",
+   "mode": "REPLAY",
+   "featureFreezeAt": "15:20",
+   "graceSeconds": null,
+   "limitedModeMaxCandidates": null,
+   "sourceDetections": 91,
+   "broadSnapshots": 2729,
+   "precisionCandidates": 29,
+   "broadCandidates": 97,
+   "selectedStored": 0,
+   "dispositions": {
+    "PRECISION:EXCLUDED": 26,
+    "PRECISION:WATCH": 3,
+    "BROAD:EXCLUDED": 69,
+    "BROAD:WATCH": 28
+   },
+   "precisionReasons": {
+    "OPPORTUNITY_OR_RISK_FILTERED": 26,
+    "DAILY_DATA_MISSING": 3
+   },
+   "broadReasons": {
+    "INSUFFICIENT_BROAD_DATA": 39,
+    "OPPORTUNITY_OR_RISK_FILTERED": 30,
+    "BROAD_WATCH_ONLY": 28
+   },
+   "precisionScoreAtLeast55": 1,
+   "precisionPassOppRisk": 3,
+   "counterfactualUncapped": {
+    "actualQualified": 0,
+    "ignoreLateBarRevision": 0,
+    "ignoreAllDataGates": 1,
+    "ignoreDataAndSignalAge": 1,
+    "ignoreStrategyGates": 0
+   },
+   "counterfactualCapped": {
+    "actualQualified": 0,
+    "ignoreLateBarRevision": 0,
+    "ignoreAllDataGates": 1,
+    "ignoreDataAndSignalAge": 1,
+    "ignoreStrategyGates": 0
+   },
+   "anyFail": {
+    "DAILY_DATA_MISSING": 29,
+    "LOW_FINAL_SCORE": 28,
+    "OPPORTUNITY_LOW": 26,
+    "STALE_FEATURE": 3,
+    "CANDLE_GAP": 3
+   },
+   "soleStrategyBlocker": {
+    "LOW_FINAL_SCORE": 2
+   },
+   "strategyFailCountHistogram": {
+    "0": 1,
+    "1": 2,
+    "2": 26
+   },
+   "top10": [
+    {
+     "stock": "373220",
+     "scanner": "VWAP_RECLAIM",
+     "finalScore": 56.962,
+     "opportunity": 54.488,
+     "risk": 0.0,
+     "disposition": "WATCH",
+     "reportedReason": "DAILY_DATA_MISSING",
+     "detectedAtKst": "15:13:31",
+     "receivedAtKst": null,
+     "lastFinalCandleKst": "15:05:00",
+     "finalCandles": 8,
+     "allFailing": [
+      "DAILY_DATA_MISSING"
+     ]
+    },
+    {
+     "stock": "042660",
+     "scanner": "VOLUME_BREAKOUT",
+     "finalScore": 46.167,
+     "opportunity": 41.278,
+     "risk": 0.0,
+     "disposition": "WATCH",
+     "reportedReason": "DAILY_DATA_MISSING",
+     "detectedAtKst": "15:18:53",
+     "receivedAtKst": null,
+     "lastFinalCandleKst": "15:10:00",
+     "finalCandles": 9,
+     "allFailing": [
+      "DAILY_DATA_MISSING",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "055550",
+     "scanner": "PULLBACK_REBREAK",
+     "finalScore": 44.882,
+     "opportunity": 9.672,
+     "risk": 0.0,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "15:07:11",
+     "receivedAtKst": null,
+     "lastFinalCandleKst": "15:00:00",
+     "finalCandles": 7,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "DAILY_DATA_MISSING",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "000100",
+     "scanner": "VOLUME",
+     "finalScore": 41.663,
+     "opportunity": 34.395,
+     "risk": 0.0,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "15:19:33",
+     "receivedAtKst": null,
+     "lastFinalCandleKst": "15:10:00",
+     "finalCandles": 9,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "DAILY_DATA_MISSING",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "035720",
+     "scanner": "VOLUME",
+     "finalScore": 41.486,
+     "opportunity": 32.7,
+     "risk": 1.213,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "15:09:25",
+     "receivedAtKst": null,
+     "lastFinalCandleKst": "15:00:00",
+     "finalCandles": 7,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "DAILY_DATA_MISSING",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "086790",
+     "scanner": "PULLBACK_REBREAK",
+     "finalScore": 40.388,
+     "opportunity": 13.244,
+     "risk": 0.0,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "15:18:30",
+     "receivedAtKst": null,
+     "lastFinalCandleKst": "15:10:00",
+     "finalCandles": 9,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "DAILY_DATA_MISSING",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "042700",
+     "scanner": "PULLBACK_REBREAK",
+     "finalScore": 34.841,
+     "opportunity": 28.698,
+     "risk": 0.0,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "15:07:08",
+     "receivedAtKst": null,
+     "lastFinalCandleKst": "15:00:00",
+     "finalCandles": 7,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "DAILY_DATA_MISSING",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "105560",
+     "scanner": "PULLBACK_REBREAK",
+     "finalScore": 34.66,
+     "opportunity": 7.102,
+     "risk": 0.0,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "15:17:01",
+     "receivedAtKst": null,
+     "lastFinalCandleKst": "15:10:00",
+     "finalCandles": 9,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "DAILY_DATA_MISSING",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "329180",
+     "scanner": "VWAP_RECLAIM",
+     "finalScore": 33.987,
+     "opportunity": 27.671,
+     "risk": 0.0,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "15:19:57",
+     "receivedAtKst": null,
+     "lastFinalCandleKst": "15:10:00",
+     "finalCandles": 9,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "DAILY_DATA_MISSING",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "010140",
+     "scanner": "VWAP_RECLAIM",
+     "finalScore": 33.576,
+     "opportunity": 33.275,
+     "risk": 0.0,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "15:03:12",
+     "receivedAtKst": null,
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 6,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "DAILY_DATA_MISSING",
+      "LOW_FINAL_SCORE"
+     ]
+    }
+   ]
+  },
+  {
+   "runId": 14,
+   "date": "2026-09-18",
+   "version": "closing-recommend-v7-limited",
+   "mode": "REPLAY",
+   "featureFreezeAt": "15:20",
+   "graceSeconds": null,
+   "limitedModeMaxCandidates": 1,
+   "sourceDetections": 126,
+   "broadSnapshots": 2886,
+   "precisionCandidates": 34,
+   "broadCandidates": 105,
+   "selectedStored": 0,
+   "dispositions": {
+    "PRECISION:EXCLUDED": 30,
+    "PRECISION:WATCH": 4,
+    "BROAD:EXCLUDED": 78,
+    "BROAD:WATCH": 27
+   },
+   "precisionReasons": {
+    "OPPORTUNITY_OR_RISK_FILTERED": 30,
+    "RECEIVED_AFTER_EVALUATION": 2,
+    "STALE_FEATURE": 2
+   },
+   "broadReasons": {
+    "OPPORTUNITY_OR_RISK_FILTERED": 39,
+    "INSUFFICIENT_BROAD_DATA": 39,
+    "BROAD_WATCH_ONLY": 27
+   },
+   "precisionScoreAtLeast55": 1,
+   "precisionPassOppRisk": 4,
+   "counterfactualUncapped": {
+    "actualQualified": 0,
+    "ignoreLateBarRevision": 0,
+    "ignoreAllDataGates": 0,
+    "ignoreDataAndSignalAge": 0,
+    "ignoreStrategyGates": 0
+   },
+   "counterfactualCapped": {
+    "actualQualified": 0,
+    "ignoreLateBarRevision": 0,
+    "ignoreAllDataGates": 0,
+    "ignoreDataAndSignalAge": 0,
+    "ignoreStrategyGates": 0
+   },
+   "anyFail": {
+    "LATE_BAR_REVISION": 34,
+    "DAILY_DATA_MISSING": 34,
+    "DAILY_TREND_WEAK": 34,
+    "LOW_FINAL_SCORE": 33,
+    "OPPORTUNITY_LOW": 30,
+    "LOW_LIQUIDITY": 29,
+    "STALE_FEATURE": 7,
+    "CANDLE_GAP": 7
+   },
+   "soleStrategyBlocker": {},
+   "strategyFailCountHistogram": {
+    "2": 2,
+    "3": 6,
+    "4": 26
+   },
+   "top10": [
+    {
+     "stock": "009150",
+     "scanner": "VOLUME_BREAKOUT",
+     "finalScore": 57.529,
+     "opportunity": 40.446,
+     "risk": 0.0,
+     "disposition": "WATCH",
+     "reportedReason": "STALE_FEATURE",
+     "detectedAtKst": "14:39:18",
+     "receivedAtKst": "14:39:18",
+     "lastFinalCandleKst": "15:10:00",
+     "finalCandles": 1,
+     "allFailing": [
+      "STALE_FEATURE",
+      "LATE_BAR_REVISION",
+      "CANDLE_GAP",
+      "DAILY_DATA_MISSING",
+      "DAILY_TREND_WEAK",
+      "LOW_LIQUIDITY"
+     ]
+    },
+    {
+     "stock": "035720",
+     "scanner": "VOLUME",
+     "finalScore": 54.908,
+     "opportunity": 24.359,
+     "risk": 2.218,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "15:19:16",
+     "receivedAtKst": "15:19:16",
+     "lastFinalCandleKst": "15:10:00",
+     "finalCandles": 9,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "LATE_BAR_REVISION",
+      "DAILY_DATA_MISSING",
+      "DAILY_TREND_WEAK",
+      "LOW_LIQUIDITY",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "058470",
+     "scanner": "VWAP_RECLAIM",
+     "finalScore": 51.786,
+     "opportunity": 36.774,
+     "risk": 0.0,
+     "disposition": "WATCH",
+     "reportedReason": "STALE_FEATURE",
+     "detectedAtKst": "14:48:55",
+     "receivedAtKst": "14:48:55",
+     "lastFinalCandleKst": "15:10:00",
+     "finalCandles": 3,
+     "allFailing": [
+      "STALE_FEATURE",
+      "LATE_BAR_REVISION",
+      "CANDLE_GAP",
+      "DAILY_DATA_MISSING",
+      "DAILY_TREND_WEAK",
+      "LOW_LIQUIDITY",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "042700",
+     "scanner": "VWAP_BREAKOUT",
+     "finalScore": 50.868,
+     "opportunity": 39.151,
+     "risk": 0.0,
+     "disposition": "WATCH",
+     "reportedReason": "RECEIVED_AFTER_EVALUATION",
+     "detectedAtKst": "15:02:48",
+     "receivedAtKst": "15:02:48",
+     "lastFinalCandleKst": "15:10:00",
+     "finalCandles": 6,
+     "allFailing": [
+      "LATE_BAR_REVISION",
+      "DAILY_DATA_MISSING",
+      "DAILY_TREND_WEAK",
+      "LOW_LIQUIDITY",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "006400",
+     "scanner": "VOLUME",
+     "finalScore": 50.8,
+     "opportunity": 26.743,
+     "risk": 2.12,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:49:31",
+     "receivedAtKst": "14:49:31",
+     "lastFinalCandleKst": "15:10:00",
+     "finalCandles": 3,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "STALE_FEATURE",
+      "LATE_BAR_REVISION",
+      "CANDLE_GAP",
+      "DAILY_DATA_MISSING",
+      "DAILY_TREND_WEAK",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "000660",
+     "scanner": "VOLUME",
+     "finalScore": 50.33,
+     "opportunity": 43.516,
+     "risk": 0.0,
+     "disposition": "WATCH",
+     "reportedReason": "RECEIVED_AFTER_EVALUATION",
+     "detectedAtKst": "15:09:32",
+     "receivedAtKst": "15:09:32",
+     "lastFinalCandleKst": "15:10:00",
+     "finalCandles": 7,
+     "allFailing": [
+      "LATE_BAR_REVISION",
+      "DAILY_DATA_MISSING",
+      "DAILY_TREND_WEAK",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "051910",
+     "scanner": "VOLUME",
+     "finalScore": 48.367,
+     "opportunity": 23.382,
+     "risk": 0.0,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:53:09",
+     "receivedAtKst": "14:53:09",
+     "lastFinalCandleKst": "15:10:00",
+     "finalCandles": 4,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "LATE_BAR_REVISION",
+      "DAILY_DATA_MISSING",
+      "DAILY_TREND_WEAK",
+      "LOW_LIQUIDITY",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "005490",
+     "scanner": "VOLUME_BREAKOUT",
+     "finalScore": 39.476,
+     "opportunity": 25.164,
+     "risk": 2.35,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:49:38",
+     "receivedAtKst": "14:49:38",
+     "lastFinalCandleKst": "15:10:00",
+     "finalCandles": 3,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "STALE_FEATURE",
+      "LATE_BAR_REVISION",
+      "CANDLE_GAP",
+      "DAILY_DATA_MISSING",
+      "DAILY_TREND_WEAK",
+      "LOW_LIQUIDITY",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "068270",
+     "scanner": "PULLBACK_REBREAK",
+     "finalScore": 39.323,
+     "opportunity": 6.344,
+     "risk": 1.728,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "15:04:07",
+     "receivedAtKst": "15:04:07",
+     "lastFinalCandleKst": "15:10:00",
+     "finalCandles": 6,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "LATE_BAR_REVISION",
+      "DAILY_DATA_MISSING",
+      "DAILY_TREND_WEAK",
+      "LOW_LIQUIDITY",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "005380",
+     "scanner": "TURNOVER_BREAKOUT",
+     "finalScore": 35.64,
+     "opportunity": 28.39,
+     "risk": 0.0,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "15:13:17",
+     "receivedAtKst": "15:13:17",
+     "lastFinalCandleKst": "15:10:00",
+     "finalCandles": 8,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "LATE_BAR_REVISION",
+      "DAILY_DATA_MISSING",
+      "DAILY_TREND_WEAK",
+      "LOW_LIQUIDITY",
+      "LOW_FINAL_SCORE"
+     ]
+    }
+   ]
+  },
+  {
+   "runId": 15,
+   "date": "2026-09-21",
+   "version": "closing-recommend-v7-limited",
+   "mode": "REPLAY",
+   "featureFreezeAt": "15:20",
+   "graceSeconds": null,
+   "limitedModeMaxCandidates": 1,
+   "sourceDetections": 0,
+   "broadSnapshots": 2781,
+   "precisionCandidates": 0,
+   "broadCandidates": 99,
+   "selectedStored": 0,
+   "dispositions": {
+    "BROAD:EXCLUDED": 80,
+    "BROAD:WATCH": 19
+   },
+   "precisionReasons": {},
+   "broadReasons": {
+    "OPPORTUNITY_OR_RISK_FILTERED": 40,
+    "INSUFFICIENT_BROAD_DATA": 40,
+    "BROAD_WATCH_ONLY": 19
+   },
+   "precisionScoreAtLeast55": 0,
+   "precisionPassOppRisk": 0
+  },
+  {
+   "runId": 16,
+   "date": "2026-09-22",
+   "version": "closing-recommend-v8-1500",
+   "mode": "FORWARD",
+   "featureFreezeAt": "15:00",
+   "graceSeconds": null,
+   "limitedModeMaxCandidates": 1,
+   "sourceDetections": 73,
+   "broadSnapshots": 1742,
+   "precisionCandidates": 24,
+   "broadCandidates": 94,
+   "selectedStored": 0,
+   "dispositions": {
+    "PRECISION:EXCLUDED": 22,
+    "PRECISION:WATCH": 2,
+    "BROAD:WATCH": 18,
+    "BROAD:EXCLUDED": 76
+   },
+   "precisionReasons": {
+    "OPPORTUNITY_OR_RISK_FILTERED": 22,
+    "RECEIVED_AFTER_EVALUATION": 2
+   },
+   "broadReasons": {
+    "INSUFFICIENT_BROAD_DATA": 44,
+    "OPPORTUNITY_OR_RISK_FILTERED": 31,
+    "BROAD_WATCH_ONLY": 18,
+    "PRECISION_DUPLICATE": 1
+   },
+   "precisionScoreAtLeast55": 2,
+   "precisionPassOppRisk": 2,
+   "counterfactualUncapped": {
+    "actualQualified": 0,
+    "ignoreLateBarRevision": 0,
+    "ignoreAllDataGates": 0,
+    "ignoreDataAndSignalAge": 0,
+    "ignoreStrategyGates": 0
+   },
+   "counterfactualCapped": {
+    "actualQualified": 0,
+    "ignoreLateBarRevision": 0,
+    "ignoreAllDataGates": 0,
+    "ignoreDataAndSignalAge": 0,
+    "ignoreStrategyGates": 0
+   },
+   "anyFail": {
+    "LATE_BAR_REVISION": 24,
+    "OPPORTUNITY_LOW": 22,
+    "LOW_FINAL_SCORE": 22,
+    "DAILY_TREND_WEAK": 19,
+    "CANDLE_GAP": 14
+   },
+   "soleStrategyBlocker": {
+    "OPPORTUNITY_LOW": 2
+   },
+   "strategyFailCountHistogram": {
+    "1": 2,
+    "2": 5,
+    "3": 17
+   },
+   "top10": [
+    {
+     "stock": "055550",
+     "scanner": "VOLUME_BREAKOUT",
+     "finalScore": 68.783,
+     "opportunity": 29.751,
+     "risk": 24.693,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:54:12",
+     "receivedAtKst": "14:54:12",
+     "lastFinalCandleKst": "14:50:00",
+     "finalCandles": 4,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "LATE_BAR_REVISION"
+     ]
+    },
+    {
+     "stock": "052690",
+     "scanner": "VWAP_RECLAIM",
+     "finalScore": 65.422,
+     "opportunity": 26.052,
+     "risk": 5.818,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:41:23",
+     "receivedAtKst": "14:41:23",
+     "lastFinalCandleKst": "14:50:00",
+     "finalCandles": 2,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "LATE_BAR_REVISION",
+      "CANDLE_GAP"
+     ]
+    },
+    {
+     "stock": "003670",
+     "scanner": "VWAP_RECLAIM",
+     "finalScore": 54.523,
+     "opportunity": 34.039,
+     "risk": 0.0,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:52:21",
+     "receivedAtKst": "14:52:21",
+     "lastFinalCandleKst": "14:50:00",
+     "finalCandles": 4,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "LATE_BAR_REVISION",
+      "DAILY_TREND_WEAK",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "042700",
+     "scanner": "PULLBACK_REBREAK",
+     "finalScore": 51.498,
+     "opportunity": 8.18,
+     "risk": 3.185,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:51:49",
+     "receivedAtKst": "14:51:49",
+     "lastFinalCandleKst": "14:50:00",
+     "finalCandles": 4,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "LATE_BAR_REVISION",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "035720",
+     "scanner": "VOLUME_BREAKOUT",
+     "finalScore": 48.965,
+     "opportunity": 42.944,
+     "risk": 0.0,
+     "disposition": "WATCH",
+     "reportedReason": "RECEIVED_AFTER_EVALUATION",
+     "detectedAtKst": "14:39:26",
+     "receivedAtKst": "14:39:26",
+     "lastFinalCandleKst": "14:50:00",
+     "finalCandles": 1,
+     "allFailing": [
+      "LATE_BAR_REVISION",
+      "CANDLE_GAP",
+      "DAILY_TREND_WEAK",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "005930",
+     "scanner": "PULLBACK_REBREAK",
+     "finalScore": 40.916,
+     "opportunity": 7.712,
+     "risk": 0.0,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:56:18",
+     "receivedAtKst": "14:56:18",
+     "lastFinalCandleKst": "14:50:00",
+     "finalCandles": 5,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "LATE_BAR_REVISION",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "039030",
+     "scanner": "PULLBACK_REBREAK",
+     "finalScore": 31.436,
+     "opportunity": 2.513,
+     "risk": 9.485,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:52:49",
+     "receivedAtKst": "14:52:49",
+     "lastFinalCandleKst": "14:50:00",
+     "finalCandles": 4,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "LATE_BAR_REVISION",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "010140",
+     "scanner": "VOLUME_BREAKOUT",
+     "finalScore": 28.994,
+     "opportunity": 26.567,
+     "risk": 0.653,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:58:13",
+     "receivedAtKst": "14:58:13",
+     "lastFinalCandleKst": "14:50:00",
+     "finalCandles": 5,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "LATE_BAR_REVISION",
+      "DAILY_TREND_WEAK",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "066570",
+     "scanner": "VOLUME_BREAKOUT",
+     "finalScore": 21.788,
+     "opportunity": 41.458,
+     "risk": 21.205,
+     "disposition": "WATCH",
+     "reportedReason": "RECEIVED_AFTER_EVALUATION",
+     "detectedAtKst": "14:52:24",
+     "receivedAtKst": "14:52:24",
+     "lastFinalCandleKst": "14:50:00",
+     "finalCandles": 4,
+     "allFailing": [
+      "LATE_BAR_REVISION",
+      "DAILY_TREND_WEAK",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "005380",
+     "scanner": "VOLUME",
+     "finalScore": 20.41,
+     "opportunity": 29.867,
+     "risk": 1.824,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:47:37",
+     "receivedAtKst": "14:47:37",
+     "lastFinalCandleKst": "14:50:00",
+     "finalCandles": 3,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "LATE_BAR_REVISION",
+      "CANDLE_GAP",
+      "DAILY_TREND_WEAK",
+      "LOW_FINAL_SCORE"
+     ]
+    }
+   ]
+  },
+  {
+   "runId": 27,
+   "date": "2026-09-23",
+   "version": "closing-recommend-v8-1500",
+   "mode": "FORWARD",
+   "featureFreezeAt": "15:00",
+   "graceSeconds": 10,
+   "limitedModeMaxCandidates": 1,
+   "sourceDetections": 183,
+   "broadSnapshots": 1810,
+   "precisionCandidates": 40,
+   "broadCandidates": 99,
+   "selectedStored": 1,
+   "dispositions": {
+    "PRECISION:EXCLUDED": 36,
+    "PRECISION:WATCH": 3,
+    "PRECISION:SELECTED": 1,
+    "BROAD:WATCH": 19,
+    "BROAD:EXCLUDED": 80
+   },
+   "precisionReasons": {
+    "OPPORTUNITY_OR_RISK_FILTERED": 36,
+    "RECEIVED_AFTER_EVALUATION": 2,
+    "QUALIFIED": 1,
+    "CANDLE_GAP": 1
+   },
+   "broadReasons": {
+    "INSUFFICIENT_BROAD_DATA": 48,
+    "OPPORTUNITY_OR_RISK_FILTERED": 31,
+    "BROAD_WATCH_ONLY": 19,
+    "PRECISION_DUPLICATE": 1
+   },
+   "precisionScoreAtLeast55": 3,
+   "precisionPassOppRisk": 4,
+   "counterfactualUncapped": {
+    "actualQualified": 1,
+    "ignoreLateBarRevision": 2,
+    "ignoreAllDataGates": 2,
+    "ignoreDataAndSignalAge": 2,
+    "ignoreStrategyGates": 15
+   },
+   "counterfactualCapped": {
+    "actualQualified": 1,
+    "ignoreLateBarRevision": 2,
+    "ignoreAllDataGates": 2,
+    "ignoreDataAndSignalAge": 2,
+    "ignoreStrategyGates": 5
+   },
+   "anyFail": {
+    "LOW_FINAL_SCORE": 37,
+    "OPPORTUNITY_LOW": 36,
+    "LOW_LIQUIDITY": 32,
+    "DAILY_TREND_WEAK": 28,
+    "LATE_BAR_REVISION": 18,
+    "CANDLE_GAP": 16
+   },
+   "soleStrategyBlocker": {
+    "LOW_LIQUIDITY": 1
+   },
+   "strategyFailCountHistogram": {
+    "0": 2,
+    "1": 1,
+    "2": 6,
+    "3": 4,
+    "4": 27
+   },
+   "top10": [
+    {
+     "stock": "042700",
+     "scanner": "VOLUME",
+     "finalScore": 86.544,
+     "opportunity": 48.734,
+     "risk": 0.0,
+     "disposition": "SELECTED",
+     "reportedReason": "QUALIFIED",
+     "detectedAtKst": "14:52:24",
+     "receivedAtKst": "14:52:24",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 4,
+     "allFailing": []
+    },
+    {
+     "stock": "039030",
+     "scanner": "VOLUME",
+     "finalScore": 64.765,
+     "opportunity": 40.066,
+     "risk": 1.043,
+     "disposition": "WATCH",
+     "reportedReason": "RECEIVED_AFTER_EVALUATION",
+     "detectedAtKst": "14:44:34",
+     "receivedAtKst": "14:44:34",
+     "lastFinalCandleKst": "14:50:00",
+     "finalCandles": 2,
+     "allFailing": [
+      "LATE_BAR_REVISION",
+      "CANDLE_GAP",
+      "LOW_LIQUIDITY"
+     ]
+    },
+    {
+     "stock": "005930",
+     "scanner": "VOLUME",
+     "finalScore": 55.51,
+     "opportunity": 40.229,
+     "risk": 16.005,
+     "disposition": "WATCH",
+     "reportedReason": "RECEIVED_AFTER_EVALUATION",
+     "detectedAtKst": "14:57:49",
+     "receivedAtKst": "14:57:49",
+     "lastFinalCandleKst": "14:50:00",
+     "finalCandles": 5,
+     "allFailing": [
+      "LATE_BAR_REVISION"
+     ]
+    },
+    {
+     "stock": "105560",
+     "scanner": "VOLUME",
+     "finalScore": 39.7,
+     "opportunity": 15.032,
+     "risk": 7.335,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:59:03",
+     "receivedAtKst": "14:59:03",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 5,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "LOW_LIQUIDITY",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "000660",
+     "scanner": "PULLBACK_REBREAK",
+     "finalScore": 36.446,
+     "opportunity": 1.107,
+     "risk": 1.891,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:57:10",
+     "receivedAtKst": "14:57:10",
+     "lastFinalCandleKst": "14:50:00",
+     "finalCandles": 5,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "LATE_BAR_REVISION",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "009150",
+     "scanner": "PULLBACK_REBREAK",
+     "finalScore": 36.231,
+     "opportunity": 9.134,
+     "risk": 6.382,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:54:01",
+     "receivedAtKst": "14:54:01",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 4,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "006400",
+     "scanner": "VOLUME",
+     "finalScore": 30.499,
+     "opportunity": 20.355,
+     "risk": 12.443,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:59:09",
+     "receivedAtKst": "14:59:09",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 5,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "DAILY_TREND_WEAK",
+      "LOW_LIQUIDITY",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "178320",
+     "scanner": "VOLUME",
+     "finalScore": 30.275,
+     "opportunity": 35.273,
+     "risk": 0.0,
+     "disposition": "WATCH",
+     "reportedReason": "CANDLE_GAP",
+     "detectedAtKst": "14:49:52",
+     "receivedAtKst": "14:49:52",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 3,
+     "allFailing": [
+      "CANDLE_GAP",
+      "DAILY_TREND_WEAK",
+      "LOW_LIQUIDITY",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "267260",
+     "scanner": "VOLUME",
+     "finalScore": 24.8,
+     "opportunity": 33.069,
+     "risk": 1.065,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:55:37",
+     "receivedAtKst": "14:55:37",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 5,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "DAILY_TREND_WEAK",
+      "LOW_LIQUIDITY",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "000100",
+     "scanner": "VOLUME",
+     "finalScore": 24.344,
+     "opportunity": 28.875,
+     "risk": 0.0,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:49:00",
+     "receivedAtKst": "14:49:00",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 3,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "CANDLE_GAP",
+      "DAILY_TREND_WEAK",
+      "LOW_LIQUIDITY",
+      "LOW_FINAL_SCORE"
+     ]
+    }
+   ]
+  },
+  {
+   "runId": 31,
+   "date": "2026-09-28",
+   "version": "closing-recommend-v8-1500",
+   "mode": "FORWARD",
+   "featureFreezeAt": "15:00",
+   "graceSeconds": 10,
+   "limitedModeMaxCandidates": 1,
+   "sourceDetections": 182,
+   "broadSnapshots": 1947,
+   "precisionCandidates": 41,
+   "broadCandidates": 106,
+   "selectedStored": 0,
+   "dispositions": {
+    "PRECISION:WATCH": 13,
+    "PRECISION:EXCLUDED": 28,
+    "BROAD:WATCH": 21,
+    "BROAD:EXCLUDED": 85
+   },
+   "precisionReasons": {
+    "OPPORTUNITY_OR_RISK_FILTERED": 28,
+    "RECEIVED_AFTER_EVALUATION": 12,
+    "DAILY_DATA_STALE": 1
+   },
+   "broadReasons": {
+    "INSUFFICIENT_BROAD_DATA": 50,
+    "OPPORTUNITY_OR_RISK_FILTERED": 34,
+    "BROAD_WATCH_ONLY": 21,
+    "PRECISION_DUPLICATE": 1
+   },
+   "precisionScoreAtLeast55": 1,
+   "precisionPassOppRisk": 13,
+   "counterfactualUncapped": {
+    "actualQualified": 0,
+    "ignoreLateBarRevision": 0,
+    "ignoreAllDataGates": 0,
+    "ignoreDataAndSignalAge": 0,
+    "ignoreStrategyGates": 0
+   },
+   "counterfactualCapped": {
+    "actualQualified": 0,
+    "ignoreLateBarRevision": 0,
+    "ignoreAllDataGates": 0,
+    "ignoreDataAndSignalAge": 0,
+    "ignoreStrategyGates": 0
+   },
+   "anyFail": {
+    "DAILY_DATA_STALE": 41,
+    "LOW_FINAL_SCORE": 40,
+    "LATE_BAR_REVISION": 39,
+    "DAILY_TREND_WEAK": 33,
+    "OPPORTUNITY_LOW": 28,
+    "LOW_LIQUIDITY": 7,
+    "CANDLE_GAP": 6,
+    "OVEREXTENDED": 2
+   },
+   "soleStrategyBlocker": {
+    "DAILY_TREND_WEAK": 1
+   },
+   "strategyFailCountHistogram": {
+    "1": 1,
+    "2": 15,
+    "3": 21,
+    "4": 4
+   },
+   "top10": [
+    {
+     "stock": "055550",
+     "scanner": "VOLUME",
+     "finalScore": 56.11,
+     "opportunity": 39.554,
+     "risk": 13.171,
+     "disposition": "WATCH",
+     "reportedReason": "RECEIVED_AFTER_EVALUATION",
+     "detectedAtKst": "14:59:54",
+     "receivedAtKst": "14:59:54",
+     "lastFinalCandleKst": "14:50:00",
+     "finalCandles": 5,
+     "allFailing": [
+      "LATE_BAR_REVISION",
+      "DAILY_DATA_STALE",
+      "DAILY_TREND_WEAK"
+     ]
+    },
+    {
+     "stock": "086790",
+     "scanner": "VOLUME",
+     "finalScore": 44.923,
+     "opportunity": 36.8,
+     "risk": 22.393,
+     "disposition": "WATCH",
+     "reportedReason": "RECEIVED_AFTER_EVALUATION",
+     "detectedAtKst": "14:59:26",
+     "receivedAtKst": "14:59:26",
+     "lastFinalCandleKst": "14:50:00",
+     "finalCandles": 5,
+     "allFailing": [
+      "LATE_BAR_REVISION",
+      "DAILY_DATA_STALE",
+      "DAILY_TREND_WEAK",
+      "LOW_LIQUIDITY",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "006400",
+     "scanner": "VOLUME_BREAKOUT",
+     "finalScore": 40.999,
+     "opportunity": 43.21,
+     "risk": 12.189,
+     "disposition": "WATCH",
+     "reportedReason": "RECEIVED_AFTER_EVALUATION",
+     "detectedAtKst": "14:33:53",
+     "receivedAtKst": "14:33:53",
+     "lastFinalCandleKst": "14:50:00",
+     "finalCandles": 0,
+     "allFailing": [
+      "LATE_BAR_REVISION",
+      "CANDLE_GAP",
+      "DAILY_DATA_STALE",
+      "DAILY_TREND_WEAK",
+      "LOW_LIQUIDITY",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "003670",
+     "scanner": "VOLUME",
+     "finalScore": 40.935,
+     "opportunity": 49.026,
+     "risk": 11.287,
+     "disposition": "WATCH",
+     "reportedReason": "RECEIVED_AFTER_EVALUATION",
+     "detectedAtKst": "14:59:46",
+     "receivedAtKst": "14:59:46",
+     "lastFinalCandleKst": "14:50:00",
+     "finalCandles": 5,
+     "allFailing": [
+      "LATE_BAR_REVISION",
+      "DAILY_DATA_STALE",
+      "DAILY_TREND_WEAK",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "015760",
+     "scanner": "VOLUME_BREAKOUT",
+     "finalScore": 37.748,
+     "opportunity": 38.849,
+     "risk": 23.247,
+     "disposition": "WATCH",
+     "reportedReason": "RECEIVED_AFTER_EVALUATION",
+     "detectedAtKst": "14:49:30",
+     "receivedAtKst": "14:49:30",
+     "lastFinalCandleKst": "14:50:00",
+     "finalCandles": 3,
+     "allFailing": [
+      "LATE_BAR_REVISION",
+      "CANDLE_GAP",
+      "DAILY_DATA_STALE",
+      "DAILY_TREND_WEAK",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "086520",
+     "scanner": "VOLUME",
+     "finalScore": 37.174,
+     "opportunity": 46.715,
+     "risk": 0.0,
+     "disposition": "WATCH",
+     "reportedReason": "RECEIVED_AFTER_EVALUATION",
+     "detectedAtKst": "14:59:38",
+     "receivedAtKst": "14:59:38",
+     "lastFinalCandleKst": "14:50:00",
+     "finalCandles": 5,
+     "allFailing": [
+      "LATE_BAR_REVISION",
+      "DAILY_DATA_STALE",
+      "DAILY_TREND_WEAK",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "039030",
+     "scanner": "VOLUME",
+     "finalScore": 37.066,
+     "opportunity": 32.033,
+     "risk": 6.561,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:54:19",
+     "receivedAtKst": "14:54:19",
+     "lastFinalCandleKst": "14:50:00",
+     "finalCandles": 4,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "LATE_BAR_REVISION",
+      "DAILY_DATA_STALE",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "051910",
+     "scanner": "VOLUME",
+     "finalScore": 36.824,
+     "opportunity": 45.257,
+     "risk": 21.898,
+     "disposition": "WATCH",
+     "reportedReason": "RECEIVED_AFTER_EVALUATION",
+     "detectedAtKst": "14:59:26",
+     "receivedAtKst": "14:59:26",
+     "lastFinalCandleKst": "14:50:00",
+     "finalCandles": 5,
+     "allFailing": [
+      "LATE_BAR_REVISION",
+      "DAILY_DATA_STALE",
+      "DAILY_TREND_WEAK",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "035720",
+     "scanner": "VOLUME_BREAKOUT",
+     "finalScore": 35.069,
+     "opportunity": 40.164,
+     "risk": 0.0,
+     "disposition": "WATCH",
+     "reportedReason": "RECEIVED_AFTER_EVALUATION",
+     "detectedAtKst": "14:59:36",
+     "receivedAtKst": "14:59:36",
+     "lastFinalCandleKst": "14:50:00",
+     "finalCandles": 5,
+     "allFailing": [
+      "LATE_BAR_REVISION",
+      "DAILY_DATA_STALE",
+      "DAILY_TREND_WEAK",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "475150",
+     "scanner": "VOLUME",
+     "finalScore": 34.936,
+     "opportunity": 20.053,
+     "risk": 0.0,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:49:46",
+     "receivedAtKst": "14:49:46",
+     "lastFinalCandleKst": "14:50:00",
+     "finalCandles": 3,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "LATE_BAR_REVISION",
+      "CANDLE_GAP",
+      "DAILY_DATA_STALE",
+      "DAILY_TREND_WEAK",
+      "LOW_FINAL_SCORE"
+     ]
+    }
+   ]
+  },
+  {
+   "runId": 37,
+   "date": "2026-09-29",
+   "version": "closing-recommend-v8-1500",
+   "mode": "FORWARD",
+   "featureFreezeAt": "15:00",
+   "graceSeconds": 10,
+   "limitedModeMaxCandidates": 1,
+   "sourceDetections": 114,
+   "broadSnapshots": 1824,
+   "precisionCandidates": 28,
+   "broadCandidates": 99,
+   "selectedStored": 0,
+   "dispositions": {
+    "PRECISION:WATCH": 4,
+    "PRECISION:EXCLUDED": 24,
+    "BROAD:WATCH": 18,
+    "BROAD:EXCLUDED": 81
+   },
+   "precisionReasons": {
+    "OPPORTUNITY_OR_RISK_FILTERED": 24,
+    "DAILY_DATA_STALE": 4
+   },
+   "broadReasons": {
+    "INSUFFICIENT_BROAD_DATA": 47,
+    "OPPORTUNITY_OR_RISK_FILTERED": 34,
+    "BROAD_WATCH_ONLY": 18
+   },
+   "precisionScoreAtLeast55": 2,
+   "precisionPassOppRisk": 4,
+   "counterfactualUncapped": {
+    "actualQualified": 0,
+    "ignoreLateBarRevision": 0,
+    "ignoreAllDataGates": 1,
+    "ignoreDataAndSignalAge": 1,
+    "ignoreStrategyGates": 0
+   },
+   "counterfactualCapped": {
+    "actualQualified": 0,
+    "ignoreLateBarRevision": 0,
+    "ignoreAllDataGates": 1,
+    "ignoreDataAndSignalAge": 1,
+    "ignoreStrategyGates": 0
+   },
+   "anyFail": {
+    "DAILY_DATA_STALE": 28,
+    "LOW_FINAL_SCORE": 26,
+    "OPPORTUNITY_LOW": 24,
+    "DAILY_TREND_WEAK": 23,
+    "CANDLE_GAP": 10,
+    "OVEREXTENDED": 2
+   },
+   "soleStrategyBlocker": {
+    "OVEREXTENDED": 1
+   },
+   "strategyFailCountHistogram": {
+    "0": 1,
+    "1": 1,
+    "2": 4,
+    "3": 22
+   },
+   "top10": [
+    {
+     "stock": "039030",
+     "scanner": "VWAP_RECLAIM",
+     "finalScore": 85.882,
+     "opportunity": 45.926,
+     "risk": 0.0,
+     "disposition": "WATCH",
+     "reportedReason": "DAILY_DATA_STALE",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "15:00:03",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 6,
+     "allFailing": [
+      "DAILY_DATA_STALE",
+      "OVEREXTENDED"
+     ]
+    },
+    {
+     "stock": "042700",
+     "scanner": "VWAP_BREAKOUT",
+     "finalScore": 67.346,
+     "opportunity": 36.625,
+     "risk": 20.0,
+     "disposition": "WATCH",
+     "reportedReason": "DAILY_DATA_STALE",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "15:00:03",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 6,
+     "allFailing": [
+      "DAILY_DATA_STALE"
+     ]
+    },
+    {
+     "stock": "055550",
+     "scanner": "VOLUME",
+     "finalScore": 54.979,
+     "opportunity": 35.17,
+     "risk": 4.58,
+     "disposition": "WATCH",
+     "reportedReason": "DAILY_DATA_STALE",
+     "detectedAtKst": "14:55:00",
+     "receivedAtKst": "14:55:03",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 5,
+     "allFailing": [
+      "DAILY_DATA_STALE",
+      "DAILY_TREND_WEAK",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "000270",
+     "scanner": "VWAP_RECLAIM",
+     "finalScore": 49.071,
+     "opportunity": 33.494,
+     "risk": 0.0,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:55:00",
+     "receivedAtKst": "14:55:01",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 5,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "DAILY_DATA_STALE",
+      "DAILY_TREND_WEAK",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "420770",
+     "scanner": "VWAP_BREAKOUT",
+     "finalScore": 43.99,
+     "opportunity": 35.0,
+     "risk": 14.24,
+     "disposition": "WATCH",
+     "reportedReason": "DAILY_DATA_STALE",
+     "detectedAtKst": "14:55:00",
+     "receivedAtKst": "14:55:02",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 5,
+     "allFailing": [
+      "DAILY_DATA_STALE",
+      "OVEREXTENDED",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "000660",
+     "scanner": "PULLBACK_REBREAK",
+     "finalScore": 40.838,
+     "opportunity": 13.443,
+     "risk": 0.0,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "15:00:03",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 6,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "DAILY_DATA_STALE",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "017670",
+     "scanner": "TURNOVER_BREAKOUT",
+     "finalScore": 34.177,
+     "opportunity": 25.81,
+     "risk": 8.965,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "15:00:02",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 6,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "DAILY_DATA_STALE",
+      "DAILY_TREND_WEAK",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "267260",
+     "scanner": "PULLBACK_REBREAK",
+     "finalScore": 27.756,
+     "opportunity": 15.04,
+     "risk": 0.0,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:55:00",
+     "receivedAtKst": "14:55:03",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 5,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "DAILY_DATA_STALE",
+      "DAILY_TREND_WEAK",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "005380",
+     "scanner": "VOLUME",
+     "finalScore": 14.511,
+     "opportunity": 23.598,
+     "risk": 30.958,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:55:00",
+     "receivedAtKst": "14:55:00",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 5,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "DAILY_DATA_STALE",
+      "DAILY_TREND_WEAK",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "196170",
+     "scanner": "VWAP_BREAKOUT",
+     "finalScore": 12.591,
+     "opportunity": 21.915,
+     "risk": 1.976,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "15:00:03",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 6,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "DAILY_DATA_STALE",
+      "DAILY_TREND_WEAK",
+      "LOW_FINAL_SCORE"
+     ]
+    }
+   ]
+  },
+  {
+   "runId": 41,
+   "date": "2026-09-30",
+   "version": "closing-recommend-v8-1500",
+   "mode": "FORWARD",
+   "featureFreezeAt": "15:00",
+   "graceSeconds": 10,
+   "limitedModeMaxCandidates": 1,
+   "sourceDetections": 62,
+   "broadSnapshots": 1755,
+   "precisionCandidates": 16,
+   "broadCandidates": 96,
+   "selectedStored": 0,
+   "dispositions": {
+    "PRECISION:EXCLUDED": 15,
+    "PRECISION:WATCH": 1,
+    "BROAD:EXCLUDED": 92,
+    "BROAD:WATCH": 4
+   },
+   "precisionReasons": {
+    "OPPORTUNITY_OR_RISK_FILTERED": 13,
+    "DAILY_TREND_WEAK": 1,
+    "OVEREXTENDED": 1,
+    "CANDLE_GAP": 1
+   },
+   "broadReasons": {
+    "INSUFFICIENT_BROAD_DATA": 44,
+    "OPPORTUNITY_OR_RISK_FILTERED": 33,
+    "PRECISION_DUPLICATE": 15,
+    "BROAD_WATCH_ONLY": 4
+   },
+   "precisionScoreAtLeast55": 1,
+   "precisionPassOppRisk": 3,
+   "counterfactualUncapped": {
+    "actualQualified": 0,
+    "ignoreLateBarRevision": 0,
+    "ignoreAllDataGates": 0,
+    "ignoreDataAndSignalAge": 0,
+    "ignoreStrategyGates": 8
+   },
+   "counterfactualCapped": {
+    "actualQualified": 0,
+    "ignoreLateBarRevision": 0,
+    "ignoreAllDataGates": 0,
+    "ignoreDataAndSignalAge": 0,
+    "ignoreStrategyGates": 5
+   },
+   "anyFail": {
+    "LOW_FINAL_SCORE": 15,
+    "OPPORTUNITY_LOW": 13,
+    "DAILY_TREND_WEAK": 9,
+    "CANDLE_GAP": 8,
+    "OVEREXTENDED": 4,
+    "LOW_LIQUIDITY": 2
+   },
+   "soleStrategyBlocker": {
+    "OPPORTUNITY_LOW": 1
+   },
+   "strategyFailCountHistogram": {
+    "1": 1,
+    "2": 7,
+    "3": 5,
+    "4": 2,
+    "5": 1
+   },
+   "top10": [
+    {
+     "stock": "102110",
+     "scanner": "VOLUME",
+     "finalScore": 67.094,
+     "opportunity": 27.818,
+     "risk": 14.726,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:45:00",
+     "receivedAtKst": "14:44:59",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 3,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "CANDLE_GAP"
+     ]
+    },
+    {
+     "stock": "093370",
+     "scanner": "VWAP_RECLAIM",
+     "finalScore": 49.244,
+     "opportunity": 11.676,
+     "risk": 4.194,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:50:00",
+     "receivedAtKst": "14:50:01",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 4,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "232080",
+     "scanner": "TURNOVER_BREAKOUT",
+     "finalScore": 49.096,
+     "opportunity": 41.025,
+     "risk": 0.0,
+     "disposition": "WATCH",
+     "reportedReason": "CANDLE_GAP",
+     "detectedAtKst": "14:45:00",
+     "receivedAtKst": "14:45:03",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 3,
+     "allFailing": [
+      "CANDLE_GAP",
+      "DAILY_TREND_WEAK",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "008970",
+     "scanner": "VWAP_BREAKOUT",
+     "finalScore": 47.809,
+     "opportunity": 30.003,
+     "risk": 33.205,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:55:00",
+     "receivedAtKst": "14:55:02",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 5,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "DAILY_TREND_WEAK",
+      "OVEREXTENDED",
+      "LOW_LIQUIDITY",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "069500",
+     "scanner": "PULLBACK_REBREAK",
+     "finalScore": 46.014,
+     "opportunity": 21.664,
+     "risk": 18.88,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:35:00",
+     "receivedAtKst": "14:35:00",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 1,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "CANDLE_GAP",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "379810",
+     "scanner": "TURNOVER_BREAKOUT",
+     "finalScore": 42.049,
+     "opportunity": 33.819,
+     "risk": 0.367,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "14:59:59",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 6,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "005930",
+     "scanner": "PULLBACK_REBREAK",
+     "finalScore": 36.412,
+     "opportunity": 13.628,
+     "risk": 20.0,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:35:00",
+     "receivedAtKst": "14:34:59",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 1,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "CANDLE_GAP",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "052260",
+     "scanner": "HIGH_BREAKOUT",
+     "finalScore": 27.232,
+     "opportunity": 42.194,
+     "risk": 39.238,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OVEREXTENDED",
+     "detectedAtKst": "14:55:00",
+     "receivedAtKst": "14:55:01",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 5,
+     "allFailing": [
+      "OVEREXTENDED",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "072950",
+     "scanner": "HIGH_BREAKOUT",
+     "finalScore": 21.287,
+     "opportunity": 27.028,
+     "risk": 18.175,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:45:00",
+     "receivedAtKst": "14:45:00",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 3,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "CANDLE_GAP",
+      "OVEREXTENDED",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "439960",
+     "scanner": "TURNOVER_BREAKOUT",
+     "finalScore": 12.944,
+     "opportunity": 25.567,
+     "risk": 20.0,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:35:00",
+     "receivedAtKst": "14:35:10",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 1,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "CANDLE_GAP",
+      "DAILY_TREND_WEAK",
+      "LOW_FINAL_SCORE"
+     ]
+    }
+   ]
+  },
+  {
+   "runId": 45,
+   "date": "2026-10-01",
+   "version": "closing-recommend-v8-1500",
+   "mode": "FORWARD",
+   "featureFreezeAt": "15:00",
+   "graceSeconds": 10,
+   "limitedModeMaxCandidates": 1,
+   "sourceDetections": 179,
+   "broadSnapshots": 2002,
+   "precisionCandidates": 27,
+   "broadCandidates": 112,
+   "selectedStored": 1,
+   "dispositions": {
+    "PRECISION:SELECTED": 1,
+    "PRECISION:EXCLUDED": 19,
+    "PRECISION:WATCH": 7,
+    "BROAD:EXCLUDED": 99,
+    "BROAD:WATCH": 13
+   },
+   "precisionReasons": {
+    "OPPORTUNITY_OR_RISK_FILTERED": 15,
+    "RECEIVED_AFTER_EVALUATION": 5,
+    "OVEREXTENDED": 3,
+    "LIMITED_MODE_WATCH": 2,
+    "QUALIFIED": 1,
+    "LOW_FINAL_SCORE": 1
+   },
+   "broadReasons": {
+    "INSUFFICIENT_BROAD_DATA": 47,
+    "OPPORTUNITY_OR_RISK_FILTERED": 33,
+    "PRECISION_DUPLICATE": 19,
+    "BROAD_WATCH_ONLY": 13
+   },
+   "precisionScoreAtLeast55": 11,
+   "precisionPassOppRisk": 12,
+   "counterfactualUncapped": {
+    "actualQualified": 3,
+    "ignoreLateBarRevision": 3,
+    "ignoreAllDataGates": 5,
+    "ignoreDataAndSignalAge": 5,
+    "ignoreStrategyGates": 13
+   },
+   "counterfactualCapped": {
+    "actualQualified": 3,
+    "ignoreLateBarRevision": 3,
+    "ignoreAllDataGates": 5,
+    "ignoreDataAndSignalAge": 5,
+    "ignoreStrategyGates": 5
+   },
+   "anyFail": {
+    "LOW_FINAL_SCORE": 16,
+    "OPPORTUNITY_LOW": 15,
+    "LATE_BAR_REVISION": 14,
+    "CANDLE_GAP": 13,
+    "RECEIPT_AFTER_DEADLINE": 12,
+    "OVEREXTENDED": 11,
+    "DAILY_TREND_WEAK": 5,
+    "LOW_LIQUIDITY": 1
+   },
+   "soleStrategyBlocker": {
+    "OVEREXTENDED": 4,
+    "OPPORTUNITY_LOW": 2,
+    "LOW_FINAL_SCORE": 1
+   },
+   "strategyFailCountHistogram": {
+    "0": 5,
+    "1": 7,
+    "2": 4,
+    "3": 11
+   },
+   "top10": [
+    {
+     "stock": "240810",
+     "scanner": "VWAP_BREAKOUT",
+     "finalScore": 93.984,
+     "opportunity": 49.215,
+     "risk": 0.0,
+     "disposition": "WATCH",
+     "reportedReason": "RECEIVED_AFTER_EVALUATION",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "15:00:11",
+     "lastFinalCandleKst": "14:50:00",
+     "finalCandles": 0,
+     "allFailing": [
+      "LATE_BAR_REVISION",
+      "RECEIPT_AFTER_DEADLINE",
+      "CANDLE_GAP",
+      "OVEREXTENDED"
+     ]
+    },
+    {
+     "stock": "403870",
+     "scanner": "VOLUME",
+     "finalScore": 93.545,
+     "opportunity": 74.515,
+     "risk": 15.858,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OVEREXTENDED",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "15:00:04",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 6,
+     "allFailing": [
+      "OVEREXTENDED"
+     ]
+    },
+    {
+     "stock": "091160",
+     "scanner": "VWAP_BREAKOUT",
+     "finalScore": 88.37,
+     "opportunity": 38.598,
+     "risk": 0.0,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OVEREXTENDED",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "15:00:03",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 6,
+     "allFailing": [
+      "OVEREXTENDED"
+     ]
+    },
+    {
+     "stock": "379810",
+     "scanner": "VOLUME",
+     "finalScore": 84.616,
+     "opportunity": 47.894,
+     "risk": 0.0,
+     "disposition": "SELECTED",
+     "reportedReason": "QUALIFIED",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "15:00:06",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 6,
+     "allFailing": []
+    },
+    {
+     "stock": "229200",
+     "scanner": "VWAP_BREAKOUT",
+     "finalScore": 82.746,
+     "opportunity": 36.706,
+     "risk": 0.0,
+     "disposition": "WATCH",
+     "reportedReason": "RECEIVED_AFTER_EVALUATION",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "15:00:11",
+     "lastFinalCandleKst": "14:50:00",
+     "finalCandles": 0,
+     "allFailing": [
+      "LATE_BAR_REVISION",
+      "RECEIPT_AFTER_DEADLINE",
+      "CANDLE_GAP"
+     ]
+    },
+    {
+     "stock": "232080",
+     "scanner": "VWAP_BREAKOUT",
+     "finalScore": 81.777,
+     "opportunity": 35.741,
+     "risk": 3.038,
+     "disposition": "WATCH",
+     "reportedReason": "LIMITED_MODE_WATCH",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "15:00:07",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 6,
+     "allFailing": []
+    },
+    {
+     "stock": "080220",
+     "scanner": "VWAP_RECLAIM",
+     "finalScore": 79.273,
+     "opportunity": 53.285,
+     "risk": 17.865,
+     "disposition": "WATCH",
+     "reportedReason": "RECEIVED_AFTER_EVALUATION",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "15:00:10",
+     "lastFinalCandleKst": "14:50:00",
+     "finalCandles": 0,
+     "allFailing": [
+      "LATE_BAR_REVISION",
+      "RECEIPT_AFTER_DEADLINE",
+      "CANDLE_GAP",
+      "OVEREXTENDED"
+     ]
+    },
+    {
+     "stock": "133690",
+     "scanner": "TURNOVER_BREAKOUT",
+     "finalScore": 74.199,
+     "opportunity": 44.936,
+     "risk": 20.0,
+     "disposition": "WATCH",
+     "reportedReason": "LIMITED_MODE_WATCH",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "15:00:09",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 6,
+     "allFailing": []
+    },
+    {
+     "stock": "005930",
+     "scanner": "VWAP_BREAKOUT",
+     "finalScore": 71.421,
+     "opportunity": 37.315,
+     "risk": 0.908,
+     "disposition": "WATCH",
+     "reportedReason": "RECEIVED_AFTER_EVALUATION",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "15:00:10",
+     "lastFinalCandleKst": "14:50:00",
+     "finalCandles": 0,
+     "allFailing": [
+      "LATE_BAR_REVISION",
+      "RECEIPT_AFTER_DEADLINE",
+      "CANDLE_GAP"
+     ]
+    },
+    {
+     "stock": "009150",
+     "scanner": "VWAP_BREAKOUT",
+     "finalScore": 65.316,
+     "opportunity": 34.55,
+     "risk": 23.53,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "15:00:08",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 6,
+     "allFailing": [
+      "OPPORTUNITY_LOW"
+     ]
+    }
+   ]
+  },
+  {
+   "runId": 47,
+   "date": "2026-10-01",
+   "version": "closing-recommend-v8-1500",
+   "mode": "REPLAY",
+   "featureFreezeAt": "15:00",
+   "graceSeconds": 10,
+   "limitedModeMaxCandidates": 5,
+   "sourceDetections": 179,
+   "broadSnapshots": 2002,
+   "precisionCandidates": 27,
+   "broadCandidates": 112,
+   "selectedStored": 3,
+   "dispositions": {
+    "PRECISION:EXCLUDED": 19,
+    "PRECISION:WATCH": 5,
+    "PRECISION:SELECTED": 3,
+    "BROAD:EXCLUDED": 99,
+    "BROAD:WATCH": 13
+   },
+   "precisionReasons": {
+    "OPPORTUNITY_OR_RISK_FILTERED": 15,
+    "RECEIVED_AFTER_EVALUATION": 5,
+    "OVEREXTENDED": 3,
+    "QUALIFIED": 3,
+    "LOW_FINAL_SCORE": 1
+   },
+   "broadReasons": {
+    "INSUFFICIENT_BROAD_DATA": 46,
+    "OPPORTUNITY_OR_RISK_FILTERED": 34,
+    "PRECISION_DUPLICATE": 19,
+    "BROAD_WATCH_ONLY": 13
+   },
+   "precisionScoreAtLeast55": 11,
+   "precisionPassOppRisk": 12,
+   "counterfactualUncapped": {
+    "actualQualified": 3,
+    "ignoreLateBarRevision": 3,
+    "ignoreAllDataGates": 5,
+    "ignoreDataAndSignalAge": 5,
+    "ignoreStrategyGates": 13
+   },
+   "counterfactualCapped": {
+    "actualQualified": 3,
+    "ignoreLateBarRevision": 3,
+    "ignoreAllDataGates": 5,
+    "ignoreDataAndSignalAge": 5,
+    "ignoreStrategyGates": 5
+   },
+   "anyFail": {
+    "LOW_FINAL_SCORE": 16,
+    "OPPORTUNITY_LOW": 15,
+    "LATE_BAR_REVISION": 14,
+    "CANDLE_GAP": 13,
+    "RECEIPT_AFTER_DEADLINE": 12,
+    "OVEREXTENDED": 11,
+    "DAILY_TREND_WEAK": 5,
+    "LOW_LIQUIDITY": 1
+   },
+   "soleStrategyBlocker": {
+    "OVEREXTENDED": 4,
+    "OPPORTUNITY_LOW": 2,
+    "LOW_FINAL_SCORE": 1
+   },
+   "strategyFailCountHistogram": {
+    "0": 5,
+    "1": 7,
+    "2": 4,
+    "3": 11
+   },
+   "top10": [
+    {
+     "stock": "240810",
+     "scanner": "VWAP_BREAKOUT",
+     "finalScore": 93.984,
+     "opportunity": 49.215,
+     "risk": 0.0,
+     "disposition": "WATCH",
+     "reportedReason": "RECEIVED_AFTER_EVALUATION",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "15:00:11",
+     "lastFinalCandleKst": "14:50:00",
+     "finalCandles": 0,
+     "allFailing": [
+      "LATE_BAR_REVISION",
+      "RECEIPT_AFTER_DEADLINE",
+      "CANDLE_GAP",
+      "OVEREXTENDED"
+     ]
+    },
+    {
+     "stock": "403870",
+     "scanner": "VOLUME",
+     "finalScore": 93.545,
+     "opportunity": 74.515,
+     "risk": 15.858,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OVEREXTENDED",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "15:00:04",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 6,
+     "allFailing": [
+      "OVEREXTENDED"
+     ]
+    },
+    {
+     "stock": "091160",
+     "scanner": "VWAP_BREAKOUT",
+     "finalScore": 88.37,
+     "opportunity": 38.598,
+     "risk": 0.0,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OVEREXTENDED",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "15:00:03",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 6,
+     "allFailing": [
+      "OVEREXTENDED"
+     ]
+    },
+    {
+     "stock": "379810",
+     "scanner": "TURNOVER_BREAKOUT",
+     "finalScore": 84.616,
+     "opportunity": 47.894,
+     "risk": 0.0,
+     "disposition": "SELECTED",
+     "reportedReason": "QUALIFIED",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "15:00:05",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 6,
+     "allFailing": []
+    },
+    {
+     "stock": "229200",
+     "scanner": "VWAP_BREAKOUT",
+     "finalScore": 82.746,
+     "opportunity": 36.706,
+     "risk": 0.0,
+     "disposition": "WATCH",
+     "reportedReason": "RECEIVED_AFTER_EVALUATION",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "15:00:11",
+     "lastFinalCandleKst": "14:50:00",
+     "finalCandles": 0,
+     "allFailing": [
+      "LATE_BAR_REVISION",
+      "RECEIPT_AFTER_DEADLINE",
+      "CANDLE_GAP"
+     ]
+    },
+    {
+     "stock": "232080",
+     "scanner": "VWAP_BREAKOUT",
+     "finalScore": 81.777,
+     "opportunity": 35.741,
+     "risk": 3.038,
+     "disposition": "SELECTED",
+     "reportedReason": "QUALIFIED",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "15:00:07",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 6,
+     "allFailing": []
+    },
+    {
+     "stock": "080220",
+     "scanner": "VWAP_RECLAIM",
+     "finalScore": 79.273,
+     "opportunity": 53.285,
+     "risk": 17.865,
+     "disposition": "WATCH",
+     "reportedReason": "RECEIVED_AFTER_EVALUATION",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "15:00:10",
+     "lastFinalCandleKst": "14:50:00",
+     "finalCandles": 0,
+     "allFailing": [
+      "LATE_BAR_REVISION",
+      "RECEIPT_AFTER_DEADLINE",
+      "CANDLE_GAP",
+      "OVEREXTENDED"
+     ]
+    },
+    {
+     "stock": "133690",
+     "scanner": "TURNOVER_BREAKOUT",
+     "finalScore": 74.199,
+     "opportunity": 44.936,
+     "risk": 20.0,
+     "disposition": "SELECTED",
+     "reportedReason": "QUALIFIED",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "15:00:09",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 6,
+     "allFailing": []
+    },
+    {
+     "stock": "005930",
+     "scanner": "VWAP_BREAKOUT",
+     "finalScore": 71.421,
+     "opportunity": 37.315,
+     "risk": 0.908,
+     "disposition": "WATCH",
+     "reportedReason": "RECEIVED_AFTER_EVALUATION",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "15:00:10",
+     "lastFinalCandleKst": "14:50:00",
+     "finalCandles": 0,
+     "allFailing": [
+      "LATE_BAR_REVISION",
+      "RECEIPT_AFTER_DEADLINE",
+      "CANDLE_GAP"
+     ]
+    },
+    {
+     "stock": "009150",
+     "scanner": "VWAP_BREAKOUT",
+     "finalScore": 65.316,
+     "opportunity": 34.55,
+     "risk": 23.53,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "15:00:08",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 6,
+     "allFailing": [
+      "OPPORTUNITY_LOW"
+     ]
+    }
+   ]
+  },
+  {
+   "runId": 49,
+   "date": "2026-10-02",
+   "version": "closing-recommend-v8-1500",
+   "mode": "FORWARD",
+   "featureFreezeAt": "15:00",
+   "graceSeconds": 10,
+   "limitedModeMaxCandidates": 5,
+   "sourceDetections": 25,
+   "broadSnapshots": 2098,
+   "precisionCandidates": 9,
+   "broadCandidates": 118,
+   "selectedStored": 0,
+   "dispositions": {
+    "PRECISION:EXCLUDED": 9,
+    "BROAD:EXCLUDED": 103,
+    "BROAD:WATCH": 15
+   },
+   "precisionReasons": {
+    "OPPORTUNITY_OR_RISK_FILTERED": 8,
+    "OVEREXTENDED": 1
+   },
+   "broadReasons": {
+    "INSUFFICIENT_BROAD_DATA": 48,
+    "OPPORTUNITY_OR_RISK_FILTERED": 46,
+    "BROAD_WATCH_ONLY": 15,
+    "PRECISION_DUPLICATE": 9
+   },
+   "precisionScoreAtLeast55": 2,
+   "precisionPassOppRisk": 1,
+   "counterfactualUncapped": {
+    "actualQualified": 0,
+    "ignoreLateBarRevision": 0,
+    "ignoreAllDataGates": 0,
+    "ignoreDataAndSignalAge": 0,
+    "ignoreStrategyGates": 9
+   },
+   "counterfactualCapped": {
+    "actualQualified": 0,
+    "ignoreLateBarRevision": 0,
+    "ignoreAllDataGates": 0,
+    "ignoreDataAndSignalAge": 0,
+    "ignoreStrategyGates": 5
+   },
+   "anyFail": {
+    "OPPORTUNITY_LOW": 8,
+    "LOW_FINAL_SCORE": 7,
+    "OVEREXTENDED": 4,
+    "DAILY_TREND_WEAK": 1
+   },
+   "soleStrategyBlocker": {
+    "OVEREXTENDED": 1
+   },
+   "strategyFailCountHistogram": {
+    "1": 1,
+    "2": 5,
+    "3": 3
+   },
+   "top10": [
+    {
+     "stock": "069540",
+     "scanner": "VWAP_BREAKOUT",
+     "finalScore": 86.001,
+     "opportunity": 39.352,
+     "risk": 0.0,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OVEREXTENDED",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "15:00:03",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 6,
+     "allFailing": [
+      "OVEREXTENDED"
+     ]
+    },
+    {
+     "stock": "010170",
+     "scanner": "PULLBACK_REBREAK",
+     "finalScore": 62.322,
+     "opportunity": 33.415,
+     "risk": 3.129,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "15:00:04",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 6,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "OVEREXTENDED"
+     ]
+    },
+    {
+     "stock": "018880",
+     "scanner": "VWAP_RECLAIM",
+     "finalScore": 52.558,
+     "opportunity": 25.711,
+     "risk": 0.0,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "15:00:02",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 6,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "229200",
+     "scanner": "PULLBACK_REBREAK",
+     "finalScore": 50.675,
+     "opportunity": 8.698,
+     "risk": 0.981,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "15:00:04",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 6,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "232080",
+     "scanner": "PULLBACK_REBREAK",
+     "finalScore": 41.966,
+     "opportunity": 2.229,
+     "risk": 4.452,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "15:00:02",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 6,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "046970",
+     "scanner": "VWAP_BREAKOUT",
+     "finalScore": 41.347,
+     "opportunity": 14.097,
+     "risk": 29.653,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:55:00",
+     "receivedAtKst": "14:55:04",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 5,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "OVEREXTENDED",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "069500",
+     "scanner": "VOLUME",
+     "finalScore": 28.599,
+     "opportunity": 25.35,
+     "risk": 24.091,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:50:00",
+     "receivedAtKst": "14:50:03",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 4,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "080220",
+     "scanner": "VWAP_RECLAIM",
+     "finalScore": 27.167,
+     "opportunity": 11.497,
+     "risk": 6.754,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "15:00:03",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 6,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "OVEREXTENDED",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "001210",
+     "scanner": "VOLUME",
+     "finalScore": 0.0,
+     "opportunity": 20.712,
+     "risk": 50.457,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "15:00:03",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 6,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "DAILY_TREND_WEAK",
+      "LOW_FINAL_SCORE"
+     ]
+    }
+   ]
+  },
+  {
+   "runId": 53,
+   "date": "2026-10-06",
+   "version": "closing-recommend-v8-1500",
+   "mode": "FORWARD",
+   "featureFreezeAt": "15:00",
+   "graceSeconds": 10,
+   "limitedModeMaxCandidates": 5,
+   "sourceDetections": 117,
+   "broadSnapshots": 2077,
+   "precisionCandidates": 21,
+   "broadCandidates": 115,
+   "selectedStored": 0,
+   "dispositions": {
+    "PRECISION:WATCH": 6,
+    "PRECISION:EXCLUDED": 15,
+    "BROAD:WATCH": 17,
+    "BROAD:EXCLUDED": 98
+   },
+   "precisionReasons": {
+    "OPPORTUNITY_OR_RISK_FILTERED": 15,
+    "DAILY_DATA_STALE": 5,
+    "CANDLE_GAP": 1
+   },
+   "broadReasons": {
+    "INSUFFICIENT_BROAD_DATA": 44,
+    "OPPORTUNITY_OR_RISK_FILTERED": 36,
+    "PRECISION_DUPLICATE": 18,
+    "BROAD_WATCH_ONLY": 17
+   },
+   "precisionScoreAtLeast55": 4,
+   "precisionPassOppRisk": 6,
+   "counterfactualUncapped": {
+    "actualQualified": 0,
+    "ignoreLateBarRevision": 0,
+    "ignoreAllDataGates": 0,
+    "ignoreDataAndSignalAge": 0,
+    "ignoreStrategyGates": 0
+   },
+   "counterfactualCapped": {
+    "actualQualified": 0,
+    "ignoreLateBarRevision": 0,
+    "ignoreAllDataGates": 0,
+    "ignoreDataAndSignalAge": 0,
+    "ignoreStrategyGates": 0
+   },
+   "anyFail": {
+    "DAILY_DATA_STALE": 21,
+    "LOW_FINAL_SCORE": 17,
+    "OVEREXTENDED": 16,
+    "OPPORTUNITY_LOW": 15,
+    "DAILY_TREND_WEAK": 4,
+    "CANDLE_GAP": 4,
+    "LOW_LIQUIDITY": 2,
+    "LATEST_CANDLE_STALE": 1
+   },
+   "soleStrategyBlocker": {
+    "OVEREXTENDED": 2
+   },
+   "strategyFailCountHistogram": {
+    "1": 2,
+    "2": 5,
+    "3": 14
+   },
+   "top10": [
+    {
+     "stock": "011070",
+     "scanner": "VWAP_BREAKOUT",
+     "finalScore": 95.391,
+     "opportunity": 63.361,
+     "risk": 3.344,
+     "disposition": "WATCH",
+     "reportedReason": "DAILY_DATA_STALE",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "15:00:01",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 6,
+     "allFailing": [
+      "DAILY_DATA_STALE",
+      "OVEREXTENDED"
+     ]
+    },
+    {
+     "stock": "036930",
+     "scanner": "VWAP_RECLAIM",
+     "finalScore": 79.589,
+     "opportunity": 48.871,
+     "risk": 6.486,
+     "disposition": "WATCH",
+     "reportedReason": "DAILY_DATA_STALE",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "15:00:00",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 6,
+     "allFailing": [
+      "DAILY_DATA_STALE",
+      "OVEREXTENDED"
+     ]
+    },
+    {
+     "stock": "042510",
+     "scanner": "VWAP_BREAKOUT",
+     "finalScore": 59.697,
+     "opportunity": 33.083,
+     "risk": 42.968,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "15:00:03",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 6,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "DAILY_DATA_STALE",
+      "OVEREXTENDED",
+      "LOW_LIQUIDITY"
+     ]
+    },
+    {
+     "stock": "054920",
+     "scanner": "VWAP_BREAKOUT",
+     "finalScore": 55.172,
+     "opportunity": 22.854,
+     "risk": 27.096,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:55:00",
+     "receivedAtKst": "14:55:00",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 5,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "DAILY_DATA_STALE",
+      "OVEREXTENDED"
+     ]
+    },
+    {
+     "stock": "154040",
+     "scanner": "VWAP_BREAKOUT",
+     "finalScore": 54.182,
+     "opportunity": 35.864,
+     "risk": 9.968,
+     "disposition": "WATCH",
+     "reportedReason": "DAILY_DATA_STALE",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "15:00:03",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 6,
+     "allFailing": [
+      "DAILY_DATA_STALE",
+      "OVEREXTENDED",
+      "LOW_LIQUIDITY",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "006400",
+     "scanner": "VWAP_BREAKOUT",
+     "finalScore": 51.237,
+     "opportunity": 46.171,
+     "risk": 20.0,
+     "disposition": "WATCH",
+     "reportedReason": "DAILY_DATA_STALE",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "15:00:01",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 6,
+     "allFailing": [
+      "DAILY_DATA_STALE",
+      "DAILY_TREND_WEAK",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "000150",
+     "scanner": "VWAP_RECLAIM",
+     "finalScore": 49.602,
+     "opportunity": 21.033,
+     "risk": 0.396,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:55:00",
+     "receivedAtKst": "14:55:03",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 5,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "DAILY_DATA_STALE",
+      "DAILY_TREND_WEAK",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "069540",
+     "scanner": "VWAP_BREAKOUT",
+     "finalScore": 48.748,
+     "opportunity": 18.976,
+     "risk": 2.709,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "15:00:01",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 6,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "DAILY_DATA_STALE",
+      "OVEREXTENDED",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "066570",
+     "scanner": "TURNOVER_BREAKOUT",
+     "finalScore": 47.863,
+     "opportunity": 43.062,
+     "risk": 4.31,
+     "disposition": "WATCH",
+     "reportedReason": "DAILY_DATA_STALE",
+     "detectedAtKst": "14:55:00",
+     "receivedAtKst": "14:55:03",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 5,
+     "allFailing": [
+      "DAILY_DATA_STALE",
+      "OVEREXTENDED",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "403870",
+     "scanner": "VWAP_BREAKOUT",
+     "finalScore": 46.968,
+     "opportunity": 15.447,
+     "risk": 1.449,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:55:00",
+     "receivedAtKst": "14:55:02",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 5,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "DAILY_DATA_STALE",
+      "OVEREXTENDED",
+      "LOW_FINAL_SCORE"
+     ]
+    }
+   ]
+  },
+  {
+   "runId": 59,
+   "date": "2026-10-07",
+   "version": "closing-recommend-v8-1500",
+   "mode": "FORWARD",
+   "featureFreezeAt": "15:00",
+   "graceSeconds": 10,
+   "limitedModeMaxCandidates": 5,
+   "sourceDetections": 84,
+   "broadSnapshots": 2042,
+   "precisionCandidates": 17,
+   "broadCandidates": 116,
+   "selectedStored": 0,
+   "dispositions": {
+    "PRECISION:EXCLUDED": 17,
+    "BROAD:EXCLUDED": 105,
+    "BROAD:WATCH": 11
+   },
+   "precisionReasons": {
+    "OPPORTUNITY_OR_RISK_FILTERED": 14,
+    "OVEREXTENDED": 2,
+    "LOW_LIQUIDITY": 1
+   },
+   "broadReasons": {
+    "OPPORTUNITY_OR_RISK_FILTERED": 48,
+    "INSUFFICIENT_BROAD_DATA": 44,
+    "PRECISION_DUPLICATE": 13,
+    "BROAD_WATCH_ONLY": 11
+   },
+   "precisionScoreAtLeast55": 2,
+   "precisionPassOppRisk": 3,
+   "counterfactualUncapped": {
+    "actualQualified": 0,
+    "ignoreLateBarRevision": 0,
+    "ignoreAllDataGates": 0,
+    "ignoreDataAndSignalAge": 0,
+    "ignoreStrategyGates": 13
+   },
+   "counterfactualCapped": {
+    "actualQualified": 0,
+    "ignoreLateBarRevision": 0,
+    "ignoreAllDataGates": 0,
+    "ignoreDataAndSignalAge": 0,
+    "ignoreStrategyGates": 5
+   },
+   "anyFail": {
+    "LOW_FINAL_SCORE": 15,
+    "OPPORTUNITY_LOW": 14,
+    "OVEREXTENDED": 7,
+    "DAILY_TREND_WEAK": 4,
+    "CANDLE_GAP": 4,
+    "INTRADAY_REVERSAL": 1,
+    "LOW_LIQUIDITY": 1
+   },
+   "soleStrategyBlocker": {
+    "OVEREXTENDED": 1
+   },
+   "strategyFailCountHistogram": {
+    "1": 1,
+    "2": 8,
+    "3": 7,
+    "4": 1
+   },
+   "top10": [
+    {
+     "stock": "142280",
+     "scanner": "VOLUME",
+     "finalScore": 100.0,
+     "opportunity": 61.788,
+     "risk": 17.945,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OVEREXTENDED",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "15:00:00",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 6,
+     "allFailing": [
+      "OVEREXTENDED"
+     ]
+    },
+    {
+     "stock": "256840",
+     "scanner": "TURNOVER_BREAKOUT",
+     "finalScore": 63.191,
+     "opportunity": 31.248,
+     "risk": 11.674,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:50:00",
+     "receivedAtKst": "14:50:02",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 4,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "OVEREXTENDED"
+     ]
+    },
+    {
+     "stock": "379810",
+     "scanner": "VOLUME",
+     "finalScore": 46.03,
+     "opportunity": 33.739,
+     "risk": 0.0,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:30:00",
+     "receivedAtKst": "14:29:59",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 0,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "CANDLE_GAP",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "360750",
+     "scanner": "VOLUME",
+     "finalScore": 45.99,
+     "opportunity": 33.987,
+     "risk": 1.555,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:35:00",
+     "receivedAtKst": "14:34:59",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 1,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "CANDLE_GAP",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "002720",
+     "scanner": "VWAP_BREAKOUT",
+     "finalScore": 43.928,
+     "opportunity": 27.627,
+     "risk": 29.068,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:50:00",
+     "receivedAtKst": "14:50:03",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 4,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "OVEREXTENDED",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "005930",
+     "scanner": "PULLBACK_REBREAK",
+     "finalScore": 40.803,
+     "opportunity": 11.791,
+     "risk": 3.417,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:30:00",
+     "receivedAtKst": "14:30:00",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 0,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "CANDLE_GAP",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "229200",
+     "scanner": "TURNOVER_BREAKOUT",
+     "finalScore": 34.667,
+     "opportunity": 30.135,
+     "risk": 6.237,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:50:00",
+     "receivedAtKst": "14:50:00",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 4,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "062970",
+     "scanner": "PRICE_RISE",
+     "finalScore": 33.853,
+     "opportunity": 42.235,
+     "risk": 22.258,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OVEREXTENDED",
+     "detectedAtKst": "14:50:00",
+     "receivedAtKst": "14:50:03",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 4,
+     "allFailing": [
+      "OVEREXTENDED",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "379800",
+     "scanner": "VOLUME_BREAKOUT",
+     "finalScore": 31.647,
+     "opportunity": 32.296,
+     "risk": 2.927,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:35:00",
+     "receivedAtKst": "14:35:00",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 1,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "CANDLE_GAP",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "348080",
+     "scanner": "VOLUME",
+     "finalScore": 29.864,
+     "opportunity": 41.326,
+     "risk": 35.0,
+     "disposition": "EXCLUDED",
+     "reportedReason": "LOW_LIQUIDITY",
+     "detectedAtKst": "14:55:00",
+     "receivedAtKst": "14:55:02",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 5,
+     "allFailing": [
+      "LOW_LIQUIDITY",
+      "LOW_FINAL_SCORE"
+     ]
+    }
+   ]
+  },
+  {
+   "runId": 61,
+   "date": "2026-10-08",
+   "version": "closing-recommend-v9-1515",
+   "mode": "FORWARD",
+   "featureFreezeAt": "15:15",
+   "graceSeconds": 0,
+   "limitedModeMaxCandidates": 5,
+   "sourceDetections": 110,
+   "broadSnapshots": 944,
+   "precisionCandidates": 20,
+   "broadCandidates": 58,
+   "selectedStored": 0,
+   "dispositions": {
+    "PRECISION:WATCH": 6,
+    "PRECISION:EXCLUDED": 14,
+    "BROAD:EXCLUDED": 51,
+    "BROAD:WATCH": 7
+   },
+   "precisionReasons": {
+    "OPPORTUNITY_OR_RISK_FILTERED": 14,
+    "RECEIVED_AFTER_EVALUATION": 3,
+    "STALE_FEATURE": 3
+   },
+   "broadReasons": {
+    "OPPORTUNITY_OR_RISK_FILTERED": 35,
+    "PRECISION_DUPLICATE": 16,
+    "BROAD_WATCH_ONLY": 7
+   },
+   "precisionScoreAtLeast55": 4,
+   "precisionPassOppRisk": 6,
+   "counterfactualUncapped": {
+    "actualQualified": 0,
+    "ignoreLateBarRevision": 0,
+    "ignoreAllDataGates": 0,
+    "ignoreDataAndSignalAge": 0,
+    "ignoreStrategyGates": 0
+   },
+   "counterfactualCapped": {
+    "actualQualified": 0,
+    "ignoreLateBarRevision": 0,
+    "ignoreAllDataGates": 0,
+    "ignoreDataAndSignalAge": 0,
+    "ignoreStrategyGates": 0
+   },
+   "anyFail": {
+    "LATE_BAR_REVISION": 20,
+    "LATEST_CANDLE_STALE": 20,
+    "LOW_FINAL_SCORE": 16,
+    "OPPORTUNITY_LOW": 14,
+    "OVEREXTENDED": 11,
+    "DAILY_TREND_WEAK": 7,
+    "CANDLE_GAP": 7,
+    "LOW_LIQUIDITY": 5,
+    "STALE_FEATURE": 5,
+    "INTRADAY_REVERSAL": 3,
+    "DAILY_DATA_MISSING": 1
+   },
+   "soleStrategyBlocker": {
+    "OVEREXTENDED": 3
+   },
+   "strategyFailCountHistogram": {
+    "1": 3,
+    "2": 2,
+    "3": 11,
+    "4": 4
+   },
+   "top10": [
+    {
+     "stock": "373220",
+     "scanner": "VOLUME",
+     "finalScore": 61.83,
+     "opportunity": 36.957,
+     "risk": 2.56,
+     "disposition": "WATCH",
+     "reportedReason": "RECEIVED_AFTER_EVALUATION",
+     "detectedAtKst": "14:45:00",
+     "receivedAtKst": "14:45:02",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 3,
+     "allFailing": [
+      "LATE_BAR_REVISION",
+      "CANDLE_GAP",
+      "LATEST_CANDLE_STALE",
+      "OVEREXTENDED"
+     ]
+    },
+    {
+     "stock": "005160",
+     "scanner": "VWAP_BREAKOUT",
+     "finalScore": 57.138,
+     "opportunity": 57.961,
+     "risk": 25.86,
+     "disposition": "WATCH",
+     "reportedReason": "RECEIVED_AFTER_EVALUATION",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "15:11:47",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 6,
+     "allFailing": [
+      "LATE_BAR_REVISION",
+      "LATEST_CANDLE_STALE",
+      "OVEREXTENDED"
+     ]
+    },
+    {
+     "stock": "353200",
+     "scanner": "VWAP_RECLAIM",
+     "finalScore": 55.803,
+     "opportunity": 39.318,
+     "risk": 20.0,
+     "disposition": "WATCH",
+     "reportedReason": "STALE_FEATURE",
+     "detectedAtKst": "14:35:00",
+     "receivedAtKst": "14:35:03",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 1,
+     "allFailing": [
+      "STALE_FEATURE",
+      "LATE_BAR_REVISION",
+      "CANDLE_GAP",
+      "LATEST_CANDLE_STALE",
+      "OVEREXTENDED"
+     ]
+    },
+    {
+     "stock": "009730",
+     "scanner": "VWAP_BREAKOUT",
+     "finalScore": 55.179,
+     "opportunity": 47.113,
+     "risk": 2.539,
+     "disposition": "WATCH",
+     "reportedReason": "RECEIVED_AFTER_EVALUATION",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "15:11:46",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 6,
+     "allFailing": [
+      "LATE_BAR_REVISION",
+      "DAILY_TREND_WEAK",
+      "LATEST_CANDLE_STALE",
+      "LOW_LIQUIDITY"
+     ]
+    },
+    {
+     "stock": "419050",
+     "scanner": "VWAP_BREAKOUT",
+     "finalScore": 52.682,
+     "opportunity": 30.0,
+     "risk": 48.348,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "15:00:00",
+     "receivedAtKst": "15:11:46",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 6,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "LATE_BAR_REVISION",
+      "LATEST_CANDLE_STALE",
+      "OVEREXTENDED",
+      "LOW_LIQUIDITY",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "006400",
+     "scanner": "PULLBACK_REBREAK",
+     "finalScore": 48.12,
+     "opportunity": 23.389,
+     "risk": 0.0,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:30:00",
+     "receivedAtKst": "14:30:02",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 0,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "STALE_FEATURE",
+      "LATE_BAR_REVISION",
+      "CANDLE_GAP",
+      "LATEST_CANDLE_STALE",
+      "INTRADAY_REVERSAL",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "018880",
+     "scanner": "VWAP_BREAKOUT",
+     "finalScore": 44.756,
+     "opportunity": 19.7,
+     "risk": 6.165,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:55:00",
+     "receivedAtKst": "14:55:02",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 5,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "LATE_BAR_REVISION",
+      "LATEST_CANDLE_STALE",
+      "OVEREXTENDED",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "196170",
+     "scanner": "VWAP_BREAKOUT",
+     "finalScore": 37.601,
+     "opportunity": 13.335,
+     "risk": 2.71,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:55:00",
+     "receivedAtKst": "14:55:02",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 5,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "LATE_BAR_REVISION",
+      "DAILY_TREND_WEAK",
+      "LATEST_CANDLE_STALE",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "005930",
+     "scanner": "TURNOVER_BREAKOUT",
+     "finalScore": 26.183,
+     "opportunity": 17.396,
+     "risk": 7.981,
+     "disposition": "EXCLUDED",
+     "reportedReason": "OPPORTUNITY_OR_RISK_FILTERED",
+     "detectedAtKst": "14:50:00",
+     "receivedAtKst": "14:50:01",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 4,
+     "allFailing": [
+      "OPPORTUNITY_LOW",
+      "LATE_BAR_REVISION",
+      "LATEST_CANDLE_STALE",
+      "LOW_FINAL_SCORE"
+     ]
+    },
+    {
+     "stock": "115450",
+     "scanner": "VOLUME",
+     "finalScore": 24.077,
+     "opportunity": 45.936,
+     "risk": 35.93,
+     "disposition": "WATCH",
+     "reportedReason": "STALE_FEATURE",
+     "detectedAtKst": "14:35:00",
+     "receivedAtKst": "14:35:01",
+     "lastFinalCandleKst": "14:55:00",
+     "finalCandles": 1,
+     "allFailing": [
+      "STALE_FEATURE",
+      "LATE_BAR_REVISION",
+      "CANDLE_GAP",
+      "LATEST_CANDLE_STALE",
+      "INTRADAY_REVERSAL",
+      "OVEREXTENDED",
+      "LOW_FINAL_SCORE"
+     ]
+    }
+   ]
+  },
+  {
+   "runId": 62,
+   "date": "2026-10-12",
+   "version": "closing-recommend-v9-1515",
+   "mode": "FORWARD",
+   "featureFreezeAt": "15:15",
+   "graceSeconds": 0,
+   "limitedModeMaxCandidates": 5,
+   "sourceDetections": 0,
+   "broadSnapshots": 1105,
+   "precisionCandidates": 0,
+   "broadCandidates": 51,
+   "selectedStored": 0,
+   "dispositions": {
+    "BROAD:WATCH": 12,
+    "BROAD:EXCLUDED": 39
+   },
+   "precisionReasons": {},
+   "broadReasons": {
+    "OPPORTUNITY_OR_RISK_FILTERED": 39,
+    "BROAD_WATCH_ONLY": 12
+   },
+   "precisionScoreAtLeast55": 0,
+   "precisionPassOppRisk": 0
+  }
+ ],
+ "pooledFailingConditions": {
+  "other": {
+   "LOW_FINAL_SCORE": 77,
+   "OPPORTUNITY_LOW": 71,
+   "DAILY_DATA_MISSING": 63,
+   "LATE_BAR_REVISION": 48,
+   "DAILY_TREND_WEAK": 39,
+   "LOW_LIQUIDITY": 30,
+   "CANDLE_GAP": 23,
+   "RECEIPT_AFTER_DEADLINE": 12,
+   "OVEREXTENDED": 11,
+   "STALE_FEATURE": 10
+  },
+  "v8": {
+   "LOW_FINAL_SCORE": 195,
+   "OPPORTUNITY_LOW": 175,
+   "DAILY_TREND_WEAK": 126,
+   "LATE_BAR_REVISION": 95,
+   "DAILY_DATA_STALE": 90,
+   "CANDLE_GAP": 75,
+   "OVEREXTENDED": 46,
+   "LOW_LIQUIDITY": 45,
+   "RECEIPT_AFTER_DEADLINE": 12,
+   "LATEST_CANDLE_STALE": 1,
+   "INTRADAY_REVERSAL": 1
+  },
+  "v9": {
+   "LATE_BAR_REVISION": 20,
+   "LATEST_CANDLE_STALE": 20,
+   "LOW_FINAL_SCORE": 16,
+   "OPPORTUNITY_LOW": 14,
+   "OVEREXTENDED": 11,
+   "DAILY_TREND_WEAK": 7,
+   "CANDLE_GAP": 7,
+   "LOW_LIQUIDITY": 5,
+   "STALE_FEATURE": 5,
+   "INTRADAY_REVERSAL": 3,
+   "DAILY_DATA_MISSING": 1
+  }
+ },
+ "detectionSupply": [
+  {
+   "date": "2026-09-22",
+   "v8_1430_1500": {
+    "stocks": 24,
+    "fresh30m": 24,
+    "passOppRiskNonEtf": 2,
+    "freshAndPass": 2
+   },
+   "v9_1430_1515": {
+    "stocks": 39,
+    "fresh30m": 39,
+    "passOppRiskNonEtf": 1,
+    "freshAndPass": 1
+   },
+   "v9RepresentativeAt1515": 0,
+   "v9RepresentativeAt1515ReceivedAfterCutoff": 0,
+   "receiptLagSecondsP50": 0.0,
+   "receiptLagSecondsMax": 0.000532,
+   "lastDetectionKst": "15:20:13"
+  },
+  {
+   "date": "2026-09-23",
+   "v8_1430_1500": {
+    "stocks": 40,
+    "fresh30m": 40,
+    "passOppRiskNonEtf": 4,
+    "freshAndPass": 4
+   },
+   "v9_1430_1515": {
+    "stocks": 41,
+    "fresh30m": 41,
+    "passOppRiskNonEtf": 6,
+    "freshAndPass": 6
+   },
+   "v9RepresentativeAt1515": 0,
+   "v9RepresentativeAt1515ReceivedAfterCutoff": 0,
+   "receiptLagSecondsP50": 0.0,
+   "receiptLagSecondsMax": 0.000527,
+   "lastDetectionKst": "15:20:03"
+  },
+  {
+   "date": "2026-09-28",
+   "v8_1430_1500": {
+    "stocks": 41,
+    "fresh30m": 41,
+    "passOppRiskNonEtf": 13,
+    "freshAndPass": 13
+   },
+   "v9_1430_1515": {
+    "stocks": 41,
+    "fresh30m": 40,
+    "passOppRiskNonEtf": 11,
+    "freshAndPass": 11
+   },
+   "v9RepresentativeAt1515": 0,
+   "v9RepresentativeAt1515ReceivedAfterCutoff": 0,
+   "receiptLagSecondsP50": 0.0,
+   "receiptLagSecondsMax": 0.000999,
+   "lastDetectionKst": "15:20:04"
+  },
+  {
+   "date": "2026-09-29",
+   "v8_1430_1500": {
+    "stocks": 28,
+    "fresh30m": 28,
+    "passOppRiskNonEtf": 4,
+    "freshAndPass": 4
+   },
+   "v9_1430_1515": {
+    "stocks": 40,
+    "fresh30m": 40,
+    "passOppRiskNonEtf": 10,
+    "freshAndPass": 10
+   },
+   "v9RepresentativeAt1515": 32,
+   "v9RepresentativeAt1515ReceivedAfterCutoff": 32,
+   "receiptLagSecondsP50": 3.102304,
+   "receiptLagSecondsMax": 9.457208,
+   "lastDetectionKst": "15:20:00"
+  },
+  {
+   "date": "2026-09-30",
+   "v8_1430_1500": {
+    "stocks": 16,
+    "fresh30m": 16,
+    "passOppRiskNonEtf": 2,
+    "freshAndPass": 2
+   },
+   "v9_1430_1515": {
+    "stocks": 18,
+    "fresh30m": 15,
+    "passOppRiskNonEtf": 2,
+    "freshAndPass": 2
+   },
+   "v9RepresentativeAt1515": 7,
+   "v9RepresentativeAt1515ReceivedAfterCutoff": 6,
+   "receiptLagSecondsP50": 2.307753,
+   "receiptLagSecondsMax": 13.801371,
+   "lastDetectionKst": "15:20:00"
+  },
+  {
+   "date": "2026-10-01",
+   "v8_1430_1500": {
+    "stocks": 27,
+    "fresh30m": 27,
+    "passOppRiskNonEtf": 7,
+    "freshAndPass": 7
+   },
+   "v9_1430_1515": {
+    "stocks": 28,
+    "fresh30m": 28,
+    "passOppRiskNonEtf": 10,
+    "freshAndPass": 10
+   },
+   "v9RepresentativeAt1515": 6,
+   "v9RepresentativeAt1515ReceivedAfterCutoff": 6,
+   "receiptLagSecondsP50": 4.464156,
+   "receiptLagSecondsMax": 11.638759,
+   "lastDetectionKst": "15:20:00"
+  },
+  {
+   "date": "2026-10-02",
+   "v8_1430_1500": {
+    "stocks": 9,
+    "fresh30m": 9,
+    "passOppRiskNonEtf": 1,
+    "freshAndPass": 1
+   },
+   "v9_1430_1515": {
+    "stocks": 20,
+    "fresh30m": 20,
+    "passOppRiskNonEtf": 3,
+    "freshAndPass": 3
+   },
+   "v9RepresentativeAt1515": 12,
+   "v9RepresentativeAt1515ReceivedAfterCutoff": 12,
+   "receiptLagSecondsP50": 3.343217,
+   "receiptLagSecondsMax": 10.174676,
+   "lastDetectionKst": "15:20:00"
+  },
+  {
+   "date": "2026-10-06",
+   "v8_1430_1500": {
+    "stocks": 21,
+    "fresh30m": 21,
+    "passOppRiskNonEtf": 6,
+    "freshAndPass": 6
+   },
+   "v9_1430_1515": {
+    "stocks": 22,
+    "fresh30m": 19,
+    "passOppRiskNonEtf": 6,
+    "freshAndPass": 5
+   },
+   "v9RepresentativeAt1515": 8,
+   "v9RepresentativeAt1515ReceivedAfterCutoff": 8,
+   "receiptLagSecondsP50": 1.830259,
+   "receiptLagSecondsMax": 28.031125,
+   "lastDetectionKst": "15:20:00"
+  },
+  {
+   "date": "2026-10-07",
+   "v8_1430_1500": {
+    "stocks": 17,
+    "fresh30m": 17,
+    "passOppRiskNonEtf": 3,
+    "freshAndPass": 3
+   },
+   "v9_1430_1515": {
+    "stocks": 19,
+    "fresh30m": 17,
+    "passOppRiskNonEtf": 4,
+    "freshAndPass": 4
+   },
+   "v9RepresentativeAt1515": 4,
+   "v9RepresentativeAt1515ReceivedAfterCutoff": 4,
+   "receiptLagSecondsP50": 1.233363,
+   "receiptLagSecondsMax": 14.333851,
+   "lastDetectionKst": "15:20:00"
+  },
+  {
+   "date": "2026-10-08",
+   "v8_1430_1500": {
+    "stocks": 20,
+    "fresh30m": 20,
+    "passOppRiskNonEtf": 6,
+    "freshAndPass": 6
+   },
+   "v9_1430_1515": {
+    "stocks": 20,
+    "fresh30m": 15,
+    "passOppRiskNonEtf": 6,
+    "freshAndPass": 3
+   },
+   "v9RepresentativeAt1515": 0,
+   "v9RepresentativeAt1515ReceivedAfterCutoff": 0,
+   "receiptLagSecondsP50": 2.656468,
+   "receiptLagSecondsMax": 707.916592,
+   "lastDetectionKst": "15:00:00"
+  }
+ ],
+ "detectionsPerSessionDate": [
+  {
+   "market_session_date": "2026-09-15",
+   "n": "1568",
+   "stocks": "41",
+   "passing_opp_risk": "612"
+  },
+  {
+   "market_session_date": "2026-09-16",
+   "n": "1249",
+   "stocks": "41",
+   "passing_opp_risk": "270"
+  },
+  {
+   "market_session_date": "2026-09-17",
+   "n": "1187",
+   "stocks": "41",
+   "passing_opp_risk": "386"
+  },
+  {
+   "market_session_date": "2026-09-18",
+   "n": "1176",
+   "stocks": "41",
+   "passing_opp_risk": "134"
+  },
+  {
+   "market_session_date": "2026-09-21",
+   "n": "493",
+   "stocks": "41",
+   "passing_opp_risk": "176"
+  },
+  {
+   "market_session_date": "2026-09-22",
+   "n": "606",
+   "stocks": "41",
+   "passing_opp_risk": "111"
+  },
+  {
+   "market_session_date": "2026-09-23",
+   "n": "1450",
+   "stocks": "41",
+   "passing_opp_risk": "238"
+  },
+  {
+   "market_session_date": "2026-09-28",
+   "n": "1473",
+   "stocks": "43",
+   "passing_opp_risk": "581"
+  },
+  {
+   "market_session_date": "2026-09-29",
+   "n": "1060",
+   "stocks": "41",
+   "passing_opp_risk": "325"
+  },
+  {
+   "market_session_date": "2026-09-30",
+   "n": "470",
+   "stocks": "34",
+   "passing_opp_risk": "206"
+  },
+  {
+   "market_session_date": "2026-10-01",
+   "n": "1223",
+   "stocks": "35",
+   "passing_opp_risk": "737"
+  },
+  {
+   "market_session_date": "2026-10-02",
+   "n": "639",
+   "stocks": "49",
+   "passing_opp_risk": "323"
+  },
+  {
+   "market_session_date": "2026-10-06",
+   "n": "973",
+   "stocks": "42",
+   "passing_opp_risk": "632"
+  },
+  {
+   "market_session_date": "2026-10-07",
+   "n": "814",
+   "stocks": "31",
+   "passing_opp_risk": "430"
+  },
+  {
+   "market_session_date": "2026-10-08",
+   "n": "690",
+   "stocks": "39",
+   "passing_opp_risk": "371"
+  },
+  {
+   "market_session_date": "2026-10-13",
+   "n": "315",
+   "stocks": "27",
+   "passing_opp_risk": "129"
+  }
+ ],
+ "barAvailability": {
+  "2026-09-22": {
+   "14:50": {
+    "bars": 42,
+    "updatedBy1515": 41,
+    "updatedBy150010": 41,
+    "updatedLagP50s": 1.4
+   },
+   "14:55": {
+    "bars": 42,
+    "updatedBy1515": 41,
+    "updatedBy150010": 41,
+    "updatedLagP50s": 2.5
+   },
+   "15:00": {
+    "bars": 42,
+    "updatedBy1515": 41,
+    "updatedBy150010": 0,
+    "updatedLagP50s": 7.0
+   },
+   "15:05": {
+    "bars": 42,
+    "updatedBy1515": 41,
+    "updatedBy150010": 0,
+    "updatedLagP50s": 22.0
+   },
+   "15:10": {
+    "bars": 42,
+    "updatedBy1515": 0,
+    "updatedBy150010": 0,
+    "updatedLagP50s": 12.4
+   }
+  },
+  "2026-09-23": {
+   "14:50": {
+    "bars": 43,
+    "updatedBy1515": 43,
+    "updatedBy150010": 41,
+    "updatedLagP50s": 25.1
+   },
+   "14:55": {
+    "bars": 43,
+    "updatedBy1515": 43,
+    "updatedBy150010": 0,
+    "updatedLagP50s": 33.9
+   },
+   "15:00": {
+    "bars": 41,
+    "updatedBy1515": 41,
+    "updatedBy150010": 0,
+    "updatedLagP50s": 2.0
+   },
+   "15:05": {
+    "bars": 41,
+    "updatedBy1515": 41,
+    "updatedBy150010": 0,
+    "updatedLagP50s": 1.0
+   },
+   "15:10": {
+    "bars": 41,
+    "updatedBy1515": 0,
+    "updatedBy150010": 0,
+    "updatedLagP50s": 2.5
+   }
+  },
+  "2026-09-28": {
+   "14:50": {
+    "bars": 41,
+    "updatedBy1515": 41,
+    "updatedBy150010": 41,
+    "updatedLagP50s": 4.5
+   },
+   "14:55": {
+    "bars": 41,
+    "updatedBy1515": 41,
+    "updatedBy150010": 2,
+    "updatedLagP50s": 17.8
+   },
+   "15:00": {
+    "bars": 41,
+    "updatedBy1515": 41,
+    "updatedBy150010": 0,
+    "updatedLagP50s": 1.0
+   },
+   "15:05": {
+    "bars": 41,
+    "updatedBy1515": 41,
+    "updatedBy150010": 0,
+    "updatedLagP50s": 1.2
+   },
+   "15:10": {
+    "bars": 41,
+    "updatedBy1515": 11,
+    "updatedBy150010": 0,
+    "updatedLagP50s": 1.0
+   }
+  },
+  "2026-09-29": {
+   "14:50": {
+    "bars": 41,
+    "updatedBy1515": 41,
+    "updatedBy150010": 41,
+    "updatedLagP50s": 2.5
+   },
+   "14:55": {
+    "bars": 41,
+    "updatedBy1515": 41,
+    "updatedBy150010": 41,
+    "updatedLagP50s": 2.8
+   },
+   "15:00": {
+    "bars": 41,
+    "updatedBy1515": 41,
+    "updatedBy150010": 0,
+    "updatedLagP50s": 3.0
+   },
+   "15:05": {
+    "bars": 41,
+    "updatedBy1515": 41,
+    "updatedBy150010": 0,
+    "updatedLagP50s": 2.4
+   },
+   "15:10": {
+    "bars": 41,
+    "updatedBy1515": 0,
+    "updatedBy150010": 0,
+    "updatedLagP50s": 5.1
+   }
+  },
+  "2026-09-30": {
+   "14:50": {
+    "bars": 21,
+    "updatedBy1515": 20,
+    "updatedBy150010": 20,
+    "updatedLagP50s": 1.4
+   },
+   "14:55": {
+    "bars": 24,
+    "updatedBy1515": 23,
+    "updatedBy150010": 23,
+    "updatedLagP50s": 1.1
+   },
+   "15:00": {
+    "bars": 24,
+    "updatedBy1515": 23,
+    "updatedBy150010": 0,
+    "updatedLagP50s": 1.3
+   },
+   "15:05": {
+    "bars": 22,
+    "updatedBy1515": 21,
+    "updatedBy150010": 0,
+    "updatedLagP50s": 1.1
+   },
+   "15:10": {
+    "bars": 22,
+    "updatedBy1515": 3,
+    "updatedBy150010": 0,
+    "updatedLagP50s": 0.9
+   }
+  },
+  "2026-10-01": {
+   "14:50": {
+    "bars": 29,
+    "updatedBy1515": 29,
+    "updatedBy150010": 29,
+    "updatedLagP50s": 4.8
+   },
+   "14:55": {
+    "bars": 29,
+    "updatedBy1515": 29,
+    "updatedBy150010": 13,
+    "updatedLagP50s": 10.2
+   },
+   "15:00": {
+    "bars": 29,
+    "updatedBy1515": 29,
+    "updatedBy150010": 0,
+    "updatedLagP50s": 4.1
+   },
+   "15:05": {
+    "bars": 29,
+    "updatedBy1515": 29,
+    "updatedBy150010": 0,
+    "updatedLagP50s": 4.4
+   },
+   "15:10": {
+    "bars": 29,
+    "updatedBy1515": 0,
+    "updatedBy150010": 0,
+    "updatedLagP50s": 4.0
+   }
+  },
+  "2026-10-02": {
+   "14:50": {
+    "bars": 26,
+    "updatedBy1515": 26,
+    "updatedBy150010": 26,
+    "updatedLagP50s": 3.1
+   },
+   "14:55": {
+    "bars": 26,
+    "updatedBy1515": 26,
+    "updatedBy150010": 26,
+    "updatedLagP50s": 3.5
+   },
+   "15:00": {
+    "bars": 26,
+    "updatedBy1515": 26,
+    "updatedBy150010": 0,
+    "updatedLagP50s": 3.7
+   },
+   "15:05": {
+    "bars": 26,
+    "updatedBy1515": 26,
+    "updatedBy150010": 0,
+    "updatedLagP50s": 3.6
+   },
+   "15:10": {
+    "bars": 26,
+    "updatedBy1515": 0,
+    "updatedBy150010": 0,
+    "updatedLagP50s": 3.9
+   }
+  },
+  "2026-10-06": {
+   "14:50": {
+    "bars": 28,
+    "updatedBy1515": 28,
+    "updatedBy150010": 28,
+    "updatedLagP50s": 2.5
+   },
+   "14:55": {
+    "bars": 28,
+    "updatedBy1515": 28,
+    "updatedBy150010": 28,
+    "updatedLagP50s": 1.5
+   },
+   "15:00": {
+    "bars": 28,
+    "updatedBy1515": 28,
+    "updatedBy150010": 0,
+    "updatedLagP50s": 1.3
+   },
+   "15:05": {
+    "bars": 28,
+    "updatedBy1515": 28,
+    "updatedBy150010": 0,
+    "updatedLagP50s": 1.3
+   },
+   "15:10": {
+    "bars": 28,
+    "updatedBy1515": 1,
+    "updatedBy150010": 0,
+    "updatedLagP50s": 1.6
+   }
+  },
+  "2026-10-07": {
+   "14:50": {
+    "bars": 25,
+    "updatedBy1515": 25,
+    "updatedBy150010": 25,
+    "updatedLagP50s": 1.0
+   },
+   "14:55": {
+    "bars": 26,
+    "updatedBy1515": 26,
+    "updatedBy150010": 26,
+    "updatedLagP50s": 0.9
+   },
+   "15:00": {
+    "bars": 26,
+    "updatedBy1515": 26,
+    "updatedBy150010": 0,
+    "updatedLagP50s": 1.1
+   },
+   "15:05": {
+    "bars": 26,
+    "updatedBy1515": 26,
+    "updatedBy150010": 0,
+    "updatedLagP50s": 0.9
+   },
+   "15:10": {
+    "bars": 26,
+    "updatedBy1515": 5,
+    "updatedBy150010": 0,
+    "updatedLagP50s": 1.1
+   }
+  },
+  "2026-10-08": {
+   "14:50": {
+    "bars": 31,
+    "updatedBy1515": 29,
+    "updatedBy150010": 29,
+    "updatedLagP50s": 2.4
+   },
+   "14:55": {
+    "bars": 28,
+    "updatedBy1515": 26,
+    "updatedBy150010": 0,
+    "updatedLagP50s": 706.7
+   },
+   "15:00": {
+    "bars": 2,
+    "updatedBy1515": 0,
+    "updatedBy150010": 0,
+    "updatedLagP50s": 604.1
+   },
+   "15:05": {
+    "bars": 2,
+    "updatedBy1515": 0,
+    "updatedBy150010": 0,
+    "updatedLagP50s": 304.1
+   },
+   "15:10": {
+    "bars": 31,
+    "updatedBy1515": 1,
+    "updatedBy150010": 0,
+    "updatedLagP50s": 1.6
+   }
+  },
+  "2026-10-12": {
+   "14:50": {
+    "bars": 26,
+    "updatedBy1515": 26,
+    "updatedBy150010": 26,
+    "updatedLagP50s": 2.7
+   },
+   "14:55": {
+    "bars": 27,
+    "updatedBy1515": 27,
+    "updatedBy150010": 27,
+    "updatedLagP50s": 2.2
+   },
+   "15:00": {
+    "bars": 27,
+    "updatedBy1515": 27,
+    "updatedBy150010": 0,
+    "updatedLagP50s": 2.2
+   },
+   "15:05": {
+    "bars": 25,
+    "updatedBy1515": 25,
+    "updatedBy150010": 0,
+    "updatedLagP50s": 2.0
+   },
+   "15:10": {
+    "bars": 26,
+    "updatedBy1515": 0,
+    "updatedBy150010": 0,
+    "updatedLagP50s": 2.0
+   }
+  }
+ },
+ "officialRunInventory": [
+  {
+   "id": 1,
+   "date": "2026-09-15",
+   "version": "closing-recommend-v5-asof",
+   "mode": "LEGACY",
+   "selected": 0
+  },
+  {
+   "id": 2,
+   "date": "2026-09-16",
+   "version": "closing-recommend-v5-asof",
+   "mode": "LEGACY",
+   "selected": 0
+  },
+  {
+   "id": 3,
+   "date": "2026-09-16",
+   "version": "closing-recommend-v5-asof",
+   "mode": "LEGACY",
+   "selected": 0
+  },
+  {
+   "id": 4,
+   "date": "2026-09-16",
+   "version": "closing-recommend-v5-asof",
+   "mode": "LEGACY",
+   "selected": 5
+  },
+  {
+   "id": 5,
+   "date": "2026-09-09",
+   "version": "closing-recommend-v3-broad-precision",
+   "mode": "LEGACY",
+   "selected": 10
+  },
+  {
+   "id": 6,
+   "date": "2026-09-08",
+   "version": "closing-recommend-v3-broad-precision",
+   "mode": "LEGACY",
+   "selected": 1
+  },
+  {
+   "id": 7,
+   "date": "2026-09-15",
+   "version": "closing-recommend-v5-asof",
+   "mode": "LEGACY",
+   "selected": 9
+  },
+  {
+   "id": 8,
+   "date": "2026-09-04",
+   "version": "closing-recommendation-v2-ma",
+   "mode": "LEGACY",
+   "selected": 3
+  },
+  {
+   "id": 9,
+   "date": "2026-09-10",
+   "version": "closing-recommend-v4-conservative",
+   "mode": "LEGACY",
+   "selected": 10
+  },
+  {
+   "id": 10,
+   "date": "2026-09-11",
+   "version": "closing-recommend-v4-conservative",
+   "mode": "LEGACY",
+   "selected": 10
+  },
+  {
+   "id": 11,
+   "date": "2026-09-17",
+   "version": "closing-recommend-v6-readiness",
+   "mode": "REPLAY",
+   "selected": 0
+  },
+  {
+   "id": 12,
+   "date": "2026-09-17",
+   "version": "closing-recommend-v6-readiness",
+   "mode": "REPLAY",
+   "selected": 0
+  },
+  {
+   "id": 13,
+   "date": "2026-09-17",
+   "version": "closing-recommend-v6-readiness",
+   "mode": "REPLAY",
+   "selected": 0
+  },
+  {
+   "id": 14,
+   "date": "2026-09-18",
+   "version": "closing-recommend-v7-limited",
+   "mode": "REPLAY",
+   "selected": 0
+  },
+  {
+   "id": 15,
+   "date": "2026-09-21",
+   "version": "closing-recommend-v7-limited",
+   "mode": "REPLAY",
+   "selected": 0
+  },
+  {
+   "id": 16,
+   "date": "2026-09-22",
+   "version": "closing-recommend-v8-1500",
+   "mode": "FORWARD",
+   "selected": 0
+  },
+  {
+   "id": 17,
+   "date": "2026-09-22",
+   "version": "closing-recommend-v8-1500",
+   "mode": "REPLAY",
+   "selected": 0
+  },
+  {
+   "id": 18,
+   "date": "2026-09-22",
+   "version": "closing-recommend-v8-1500",
+   "mode": "REPLAY",
+   "selected": 0
+  },
+  {
+   "id": 19,
+   "date": "2026-09-22",
+   "version": "closing-recommend-v8-1500",
+   "mode": "REPLAY",
+   "selected": 0
+  },
+  {
+   "id": 20,
+   "date": "2026-09-22",
+   "version": "closing-recommend-v8-1500",
+   "mode": "REPLAY",
+   "selected": 0
+  },
+  {
+   "id": 21,
+   "date": "2026-09-22",
+   "version": "closing-recommend-v8-1500",
+   "mode": "REPLAY",
+   "selected": 0
+  },
+  {
+   "id": 22,
+   "date": "2026-09-22",
+   "version": "closing-recommend-v8-1500",
+   "mode": "REPLAY",
+   "selected": 0
+  },
+  {
+   "id": 23,
+   "date": "2026-09-22",
+   "version": "closing-recommend-v8-1500",
+   "mode": "REPLAY",
+   "selected": 0
+  },
+  {
+   "id": 24,
+   "date": "2026-09-22",
+   "version": "closing-recommend-v8-1500",
+   "mode": "REPLAY",
+   "selected": 0
+  },
+  {
+   "id": 25,
+   "date": "2026-09-22",
+   "version": "closing-recommend-v8-1500",
+   "mode": "REPLAY",
+   "selected": 0
+  },
+  {
+   "id": 26,
+   "date": "2026-09-22",
+   "version": "closing-recommend-v8-1500",
+   "mode": "REPLAY",
+   "selected": 0
+  },
+  {
+   "id": 27,
+   "date": "2026-09-23",
+   "version": "closing-recommend-v8-1500",
+   "mode": "FORWARD",
+   "selected": 1
+  },
+  {
+   "id": 28,
+   "date": "2026-09-23",
+   "version": "closing-recommend-v8-1500",
+   "mode": "REPLAY",
+   "selected": 0
+  },
+  {
+   "id": 29,
+   "date": "2026-09-23",
+   "version": "closing-recommend-v8-1500",
+   "mode": "REPLAY",
+   "selected": 0
+  },
+  {
+   "id": 30,
+   "date": "2026-09-23",
+   "version": "closing-recommend-v8-1500",
+   "mode": "REPLAY",
+   "selected": 0
+  },
+  {
+   "id": 31,
+   "date": "2026-09-28",
+   "version": "closing-recommend-v8-1500",
+   "mode": "FORWARD",
+   "selected": 0
+  },
+  {
+   "id": 32,
+   "date": "2026-09-28",
+   "version": "closing-recommend-v8-1500",
+   "mode": "REPLAY",
+   "selected": 0
+  },
+  {
+   "id": 33,
+   "date": "2026-09-28",
+   "version": "closing-recommend-v8-1500",
+   "mode": "REPLAY",
+   "selected": 0
+  },
+  {
+   "id": 34,
+   "date": "2026-09-28",
+   "version": "closing-recommend-v8-1500",
+   "mode": "REPLAY",
+   "selected": 0
+  },
+  {
+   "id": 35,
+   "date": "2026-09-28",
+   "version": "closing-recommend-v8-1500",
+   "mode": "REPLAY",
+   "selected": 0
+  },
+  {
+   "id": 36,
+   "date": "2026-09-28",
+   "version": "closing-recommend-v8-1500",
+   "mode": "REPLAY",
+   "selected": 0
+  },
+  {
+   "id": 37,
+   "date": "2026-09-29",
+   "version": "closing-recommend-v8-1500",
+   "mode": "FORWARD",
+   "selected": 0
+  },
+  {
+   "id": 38,
+   "date": "2026-09-29",
+   "version": "closing-recommend-v8-1500",
+   "mode": "FORWARD",
+   "selected": 0
+  },
+  {
+   "id": 39,
+   "date": "2026-09-29",
+   "version": "closing-recommend-v8-1500",
+   "mode": "FORWARD",
+   "selected": 0
+  },
+  {
+   "id": 40,
+   "date": "2026-09-29",
+   "version": "closing-recommend-v8-1500",
+   "mode": "REPLAY",
+   "selected": 0
+  },
+  {
+   "id": 41,
+   "date": "2026-09-30",
+   "version": "closing-recommend-v8-1500",
+   "mode": "FORWARD",
+   "selected": 0
+  },
+  {
+   "id": 42,
+   "date": "2026-09-30",
+   "version": "closing-recommend-v8-1500",
+   "mode": "FORWARD",
+   "selected": 0
+  },
+  {
+   "id": 43,
+   "date": "2026-09-30",
+   "version": "closing-recommend-v8-1500",
+   "mode": "FORWARD",
+   "selected": 0
+  },
+  {
+   "id": 44,
+   "date": "2026-09-30",
+   "version": "closing-recommend-v8-1500",
+   "mode": "REPLAY",
+   "selected": 0
+  },
+  {
+   "id": 45,
+   "date": "2026-10-01",
+   "version": "closing-recommend-v8-1500",
+   "mode": "FORWARD",
+   "selected": 1
+  },
+  {
+   "id": 46,
+   "date": "2026-10-01",
+   "version": "closing-recommend-v8-1500",
+   "mode": "FORWARD",
+   "selected": 1
+  },
+  {
+   "id": 47,
+   "date": "2026-10-01",
+   "version": "closing-recommend-v8-1500",
+   "mode": "REPLAY",
+   "selected": 3
+  },
+  {
+   "id": 48,
+   "date": "2026-10-01",
+   "version": "closing-recommend-v8-1500",
+   "mode": "REPLAY",
+   "selected": 3
+  },
+  {
+   "id": 49,
+   "date": "2026-10-02",
+   "version": "closing-recommend-v8-1500",
+   "mode": "FORWARD",
+   "selected": 0
+  },
+  {
+   "id": 50,
+   "date": "2026-10-02",
+   "version": "closing-recommend-v8-1500",
+   "mode": "FORWARD",
+   "selected": 0
+  },
+  {
+   "id": 51,
+   "date": "2026-10-02",
+   "version": "closing-recommend-v8-1500",
+   "mode": "REPLAY",
+   "selected": 0
+  },
+  {
+   "id": 52,
+   "date": "2026-10-02",
+   "version": "closing-recommend-v8-1500",
+   "mode": "REPLAY",
+   "selected": 0
+  },
+  {
+   "id": 53,
+   "date": "2026-10-06",
+   "version": "closing-recommend-v8-1500",
+   "mode": "FORWARD",
+   "selected": 0
+  },
+  {
+   "id": 54,
+   "date": "2026-10-06",
+   "version": "closing-recommend-v8-1500",
+   "mode": "FORWARD",
+   "selected": 0
+  },
+  {
+   "id": 55,
+   "date": "2026-10-06",
+   "version": "closing-recommend-v8-1500",
+   "mode": "FORWARD",
+   "selected": 0
+  },
+  {
+   "id": 56,
+   "date": "2026-10-06",
+   "version": "closing-recommend-v8-1500",
+   "mode": "FORWARD",
+   "selected": 0
+  },
+  {
+   "id": 57,
+   "date": "2026-10-06",
+   "version": "closing-recommend-v8-1500",
+   "mode": "REPLAY",
+   "selected": 0
+  },
+  {
+   "id": 58,
+   "date": "2026-10-06",
+   "version": "closing-recommend-v8-1500",
+   "mode": "REPLAY",
+   "selected": 0
+  },
+  {
+   "id": 59,
+   "date": "2026-10-07",
+   "version": "closing-recommend-v8-1500",
+   "mode": "FORWARD",
+   "selected": 0
+  },
+  {
+   "id": 60,
+   "date": "2026-10-07",
+   "version": "closing-recommend-v8-1500",
+   "mode": "FORWARD",
+   "selected": 0
+  },
+  {
+   "id": 61,
+   "date": "2026-10-08",
+   "version": "closing-recommend-v9-1515",
+   "mode": "FORWARD",
+   "selected": 0
+  },
+  {
+   "id": 62,
+   "date": "2026-10-12",
+   "version": "closing-recommend-v9-1515",
+   "mode": "FORWARD",
+   "selected": 0
+  }
+ ]
+}
