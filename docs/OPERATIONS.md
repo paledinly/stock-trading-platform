@@ -80,6 +80,10 @@ Windows Home 호스트 설정:
 
 실시간 상태는 프로세스 메모리 표본(15:14~15:15 직전, 15:20 이후 첫 poll)이므로 그 사이 재시작하면 미관측이다. 15:45 이후 재시작해 다시 기록할 때는 먼저 기록된 실시간 표본을 유지한다. 조회: `GET /api/v1/closing-recommendations/daily-health?from=&to=`, 마감 추천 화면의 ‘일별 수집 완결성’ 표(최근 10거래일). 이 판정은 수집 완결성이며 전략 성과나 표본 품질 승인이 아니다.
 
+## 수정주가 일봉 수집 (연구용)
+
+`MARKET_ADJUSTED_DAILY_ENABLED=true`이면 평일 18:30(`MARKET_ADJUSTED_DAILY_CRON`)에 ETF·ETN 제외 전 종목(약 2,900개)의 수정주가 일봉을 갱신한다. 첫 수집은 종목당 약 2회 호출(약 5,800회, 일봉 rate limiter 초당 5건 기준 20~35분), 이후 매일은 종목당 1회(약 10~17분)다. 장 마감 15분 후부터 다음 거래일 08:30 전까지만 실행되고, 그 시간에 걸리면 `SESSION_GUARD`로 멈춘 뒤 다음 실행에서 이어 간다. 수동 시작: `POST /api/v1/market-data/adjusted-daily/sweep`, 진행 확인: `GET /api/v1/market-data/adjusted-daily/status`.
+
 ## KIS 한도
 
 WebSocket 구독 기본 한도는 41개다. 관심종목 중 실시간 고정 종목, 정밀 후보, 예약 슬롯이 같은 한도를 사용한다. 관심종목 등록 수가 곧 실시간 구독 수는 아니며, 고정 구독은 기본 최대 10개다. REST 호출은 endpoint별 rate limiter가 적용된다.

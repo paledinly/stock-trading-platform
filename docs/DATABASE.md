@@ -1,5 +1,9 @@
 # Database
 
+## Adjusted Daily Candle (V33)
+
+`daily_adjusted_candle`은 ETF·ETN을 제외한 상장 종목 전체의 수정주가 일봉을 `(stock_id, trade_date)` 기본키로 저장한다. 연구용 시점 기준 Universe(각 날짜 이전 거래대금 순위 등)를 재구성하기 위한 테이블이다. 수정주가는 기업행사 후 과거 값이 다시 계산되므로 `stock_candle`과 달리 행을 갱신하며, `fetched_at`은 마지막 기록시각이다. 운영 이동평균이 쓰는 `stock_candle`의 `1D`(원주가)는 바뀌지 않는다. `daily_adjusted_sweep_state`는 종목별 수집 범위(`covered_from`~`covered_through`)로 중단된 수집을 이어 가고 최근 구간만 다시 읽게 한다.
+
 ## Closing Daily Health (V32)
 
 `closing_daily_health`는 `trade_date` 기본키로 마감 파이프라인 일별 완결성 판정을 저장한다. 당일 행만 갱신하고 지난 날짜는 다시 쓰지 않는다. 평가 완료시각(`run_completed_at`), 실시간 표본시각(`realtime_window_start/end`), 판정 기록시각(`checked_at`)을 구분한다. 가상 진입·후보 관측 상태별 수는 JSON 텍스트다. [판정 기준](OPERATIONS.md#마감-파이프라인-일별-완결성).

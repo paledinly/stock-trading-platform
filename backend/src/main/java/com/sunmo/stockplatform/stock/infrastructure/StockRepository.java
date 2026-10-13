@@ -46,6 +46,8 @@ public interface StockRepository extends JpaRepository<Stock, Long> {
       @Param("includeEtf") boolean includeEtf,
       Pageable pageable);
 
+  List<Stock> findByActiveTrueAndEtfFalseAndEtnFalseOrderByStockCodeAsc();
+
   long countByActiveTrue();
 
   long countByActiveTrueAndManagedFalseAndTradingHaltedFalse();

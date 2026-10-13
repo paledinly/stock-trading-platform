@@ -50,4 +50,32 @@ class KisDailyCandleClientTest {
         assertThat(result.getFirst().tradingValue()).isEqualByComparingTo("5050");
         server.verify();
     }
+
+    @Test
+    void adjustedRequestUsesAdjustedPricesAndSkipsRowsWithoutAPrice() {
+        RestClient.Builder builder = RestClient.builder().baseUrl("https://example.test");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        KisTokenManager tokens = mock(KisTokenManager.class);
+        when(tokens.getAccessToken()).thenReturn("token");
+        KisProperties properties = new KisProperties(true, URI.create("https://example.test"), "key", "secret",
+                Duration.ofMinutes(5), Duration.ofSeconds(3), Duration.ofSeconds(5),
+                new KisProperties.Master(false, "0 0 0 * * *", URI.create("https://example.test/kospi"),
+                        URI.create("https://example.test/kosdaq")));
+        server.expect(requestTo("https://example.test/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice"
+                + "?FID_COND_MRKT_DIV_CODE=J&FID_INPUT_ISCD=005930&FID_INPUT_DATE_1=20260601"
+                + "&FID_INPUT_DATE_2=20260916&FID_PERIOD_DIV_CODE=D&FID_ORG_ADJ_PRC=0"))
+                .andRespond(withSuccess("""
+                        {"rt_cd":"0","output2":[
+                          {"stck_bsop_date":"20260916","stck_oprc":"100","stck_hgpr":"103","stck_lwpr":"99","stck_clpr":"102","acml_vol":"50","acml_tr_pbmn":"5050"},
+                          {"stck_bsop_date":"20260915","stck_oprc":"0","stck_hgpr":"0","stck_lwpr":"0","stck_clpr":"98","acml_vol":"0","acml_tr_pbmn":"0"}
+                        ]}
+                        """, MediaType.APPLICATION_JSON));
+        var client = new KisDailyCandleClient(builder.build(), properties, tokens,
+                new KisRequestExecutor(new KisRequestProperties(Duration.ZERO, Duration.ZERO, Duration.ZERO, 0)));
+
+        var result = client.fetchAdjusted("005930", LocalDate.of(2026, 6, 1), LocalDate.of(2026, 9, 16));
+
+        assertThat(result).extracting(DailyCandle::date).containsExactly(LocalDate.of(2026, 9, 16));
+        server.verify();
+    }
 }

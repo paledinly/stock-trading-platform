@@ -34,9 +34,24 @@ public class KisDailyCandleClient {
         this.requests = requests;
     }
 
+    /** Original (unadjusted) prices; a malformed row fails the request. Used by the operational 1D candles. */
     @RateLimiter(name = "kisDailyCandle")
     @CircuitBreaker(name = "kisDailyCandle")
     public List<DailyCandle> fetch(String stockCode, LocalDate from, LocalDate through) {
+        return request(stockCode, from, through, false);
+    }
+
+    /**
+     * Adjusted (수정주가) prices for research. KIS returns at most 100 rows per call, newest first. Rows without a
+     * positive price (e.g. a halted day) are skipped instead of failing the whole stock.
+     */
+    @RateLimiter(name = "kisDailyCandle")
+    @CircuitBreaker(name = "kisDailyCandle")
+    public List<DailyCandle> fetchAdjusted(String stockCode, LocalDate from, LocalDate through) {
+        return request(stockCode, from, through, true);
+    }
+
+    private List<DailyCandle> request(String stockCode, LocalDate from, LocalDate through, boolean adjusted) {
         properties.requireCredentials();
         if (from.isAfter(through)) throw new IllegalArgumentException("Invalid daily candle date range");
         JsonNode body = requests.execute(false, () -> {
@@ -46,7 +61,8 @@ public class KisDailyCandleClient {
                     .queryParam("FID_INPUT_DATE_1", from.format(DATE))
                     .queryParam("FID_INPUT_DATE_2", through.format(DATE))
                     .queryParam("FID_PERIOD_DIV_CODE", "D")
-                    .queryParam("FID_ORG_ADJ_PRC", "1")
+                    // 0 = adjusted (수정주가), 1 = original (원주가).
+                    .queryParam("FID_ORG_ADJ_PRC", adjusted ? "0" : "1")
                     .build())
                     .header("authorization", "Bearer " + tokens.getAccessToken())
                     .header("appkey", properties.appKey())
@@ -67,6 +83,7 @@ public class KisDailyCandleClient {
             if (rawDate.length() != 8) continue;
             LocalDate date = LocalDate.parse(rawDate, DATE);
             if (date.isBefore(from) || date.isAfter(through)) continue;
+            if (adjusted && !allPositive(row)) continue;
             BigDecimal open = positive(row, "stck_oprc");
             BigDecimal high = positive(row, "stck_hgpr");
             BigDecimal low = positive(row, "stck_lwpr");
@@ -78,6 +95,12 @@ public class KisDailyCandleClient {
             rows.add(new DailyCandle(date, open, high, low, close, volume, value));
         }
         return List.copyOf(rows);
+    }
+
+    private boolean allPositive(JsonNode row) {
+        for (String field : List.of("stck_oprc", "stck_hgpr", "stck_lwpr", "stck_clpr"))
+            if (new BigDecimal(row.path(field).asText("0")).signum() <= 0) return false;
+        return true;
     }
 
     private BigDecimal positive(JsonNode row, String field) {

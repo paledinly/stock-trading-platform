@@ -64,6 +64,11 @@ API 변경 시 Controller, DTO, Web client와 테스트를 함께 수정한다. 
 
 관심종목 실시간 고정은 `PATCH /api/v1/watchlists/{id}/realtime`로 목록 저장과 별도로 변경한다. 전체 후보 관측은 마감 자동화 스케줄이 거래일 장 종료 10분 후 자동 계산하며, `POST /api/v1/closing-recommendations/candidate-observations/track`으로 수동 재계산할 수 있고 같은 경로의 GET 조회 API에서 확인한다. 이 결과는 공식 추천 성과와 별도 집계한다.
 
+## 수정주가 일봉 수집
+
+- `POST /api/v1/market-data/adjusted-daily/sweep`: ETF·ETN 제외 전 종목 수정주가 일봉 수집을 백그라운드로 시작한다. 시작하면 202, 이미 실행 중이거나 KIS 비활성 또는 장중 보호 시간(거래일 08:30~장 종료 15분 후)이면 409다. 본문은 현재 상태다.
+- `GET /api/v1/market-data/adjusted-daily/status`: `running`, `startedAt`/`finishedAt`(수집 실행시각), `latestSession`(수집 기준 마지막 완료 거래일), `universe`, `processed`, `upToDate`, `fullFetches`, `calls`, `savedRows`, `revisedRows`(가격이 다시 계산된 행), `failed`, `lastStockCode`, `stoppedReason`(`SESSION_GUARD` 등). 프로세스 메모리 값이며 재시작하면 초기화된다.
+
 ## 마감 파이프라인 일별 완결성
 
 `GET /api/v1/closing-recommendations/daily-health?from=YYYY-MM-DD&to=YYYY-MM-DD`: 기본 `to`는 오늘(KST), `from`은 `to` 13일 전이며 최대 366일, `from > to`는 400이다. 최신 거래일부터 반환한다. 기록이 없는 거래일(`ClosingTradingCalendar` 기준)은 `verdict=MISSING`, `reasons=["NO_HEALTH_RECORD"]`, `recorded=false`로 채운다. 휴장일·미래일과 장 종료 15분 전의 오늘은 포함하지 않는다.

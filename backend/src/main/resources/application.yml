@@ -156,6 +156,11 @@ market:
     freeze-at: ${MARKET_PRECISION_FREEZE_AT:14:35}
   performance:
     flush-interval: ${MARKET_PERFORMANCE_FLUSH_INTERVAL:1s}
+  adjusted-daily:
+    enabled: ${MARKET_ADJUSTED_DAILY_ENABLED:false}
+    lookback-days: ${MARKET_ADJUSTED_DAILY_LOOKBACK_DAYS:210}
+    refresh-days: ${MARKET_ADJUSTED_DAILY_REFRESH_DAYS:140}
+    cron: ${MARKET_ADJUSTED_DAILY_CRON:0 30 18 * * MON-FRI}
   backfill:
     enabled: ${MARKET_BACKFILL_ENABLED:true}
     refresh-interval: ${MARKET_BACKFILL_REFRESH_INTERVAL:1m}
