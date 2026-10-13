@@ -180,21 +180,6 @@ watchlist:
   realtime:
     max-pinned: ${WATCHLIST_REALTIME_MAX_PINNED:10}
 
-intraday:
-  enabled: ${INTRADAY_ENABLED:false}
-  checkpoint:
-    enabled: ${INTRADAY_CHECKPOINT_ENABLED:true}
-    directory: ${INTRADAY_CHECKPOINT_DIRECTORY:.intraday-checkpoints}
-    interval: ${INTRADAY_CHECKPOINT_INTERVAL:5m}
-  costs-for-net-only: ${INTRADAY_COSTS_FOR_NET_ONLY:false}
-  costs:
-    buy-fee-percent: ${INTRADAY_BUY_FEE_PERCENT:}
-    sell-fee-percent: ${INTRADAY_SELL_FEE_PERCENT:}
-    sell-tax-percent: ${INTRADAY_SELL_TAX_PERCENT:}
-    spread-percent: ${INTRADAY_SPREAD_PERCENT:}
-    buy-slippage-percent: ${INTRADAY_BUY_SLIPPAGE_PERCENT:}
-    sell-slippage-percent: ${INTRADAY_SELL_SLIPPAGE_PERCENT:}
-
 closing:
   calendar:
     kis-refresh-enabled: ${CLOSING_CALENDAR_KIS_REFRESH_ENABLED:false}
