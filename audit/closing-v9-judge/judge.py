@@ -315,6 +315,7 @@ def evaluate(entries, bars, cal, now):
             disposition = "SELECTED"
         row = {"run_id": e["run_id"], "day": rec_date, "session": session, "stock_code": e["stock_code"],
                "disposition": disposition, "entry_status": e["entry_status"],
+               "candidate_source": e.get("candidate_source") or "",
                "is_etf": e.get("is_etf") in ("t", "true"), "session_done": now >= close + SETTLE_AFTER_CLOSE}
         entry_price = dec(e.get("entry_price"))
         row["entry_price"] = entry_price
@@ -463,16 +464,20 @@ def run(args):
     now = parse_ts(args.now) if args.now else parse_ts(meta["exported_at"])
     cal = Calendar(official)
     rows = evaluate(entries, bars, cal, now)
-    primary = [r for r in rows if r["disposition"] == "SELECTED"]
-    secondary = [r for r in rows if r["disposition"] != "SELECTED"]
+    # ADR-010: every precision candidate (SELECTED, WATCH or EXCLUDED) is the primary sample. BROAD candidates
+    # have no realtime entry or next-session bars by construction and stay secondary.
+    primary = [r for r in rows if r["candidate_source"] == "PRECISION" or r["disposition"] == "SELECTED"]
+    secondary = [r for r in rows if r not in primary]
+    selected = [r for r in rows if r["disposition"] == "SELECTED"]
     checked, mismatches = cross_check(rows)
-    p = summarize(primary, "1차 표본: v9 FORWARD SELECTED 추천의 paper entry (ADR-008 판정 대상)")
-    s = summarize(secondary, "참고: v9 FORWARD 관측 후보(WATCH/EXCLUDED)의 paper entry (2차 표본, 판정 비합산)", decide=False)
+    p = summarize(primary, "1차 표본: FORWARD 정밀 후보 전체의 paper entry (ADR-010, ADR-008 판정 기준 적용)")
+    s = summarize(secondary, "참고: FORWARD BROAD 후보의 paper entry (2차 표본, 판정 비합산)", decide=False)
+    sel = summarize(selected, "참고: SELECTED 추천만 (1차 표본의 부분집합, 판정 비합산)", decide=False)
     text = ["ADR-008 closing v9 judge — export as-of %s (평가 기준 시각 %s)" % (meta.get("exported_at"), now.isoformat()),
             "비용 BASE 매수 %s%% / 매도 %s%%, HIGH 매수 %s%% / 매도 %s%%" % (
                 COSTS["BASE"]["buy"], COSTS["BASE"]["sell"], COSTS["HIGH"]["buy"], COSTS["HIGH"]["sell"]),
             "runs: %s" % ", ".join(sorted({"%s(run %s)" % (r["day"], r["run_id"]) for r in rows})),
-            "", render(p), "", render(s, decide=False), "",
+            "", render(p), "", render(s, decide=False), "", render(sel, decide=False), "",
             "공식 저장 성과 대조: %d건 확인, 불일치 %d건" % (checked, len(mismatches))]
     for m in mismatches:
         text.append("  MISMATCH %s" % json.dumps(m, ensure_ascii=False))
@@ -488,7 +493,7 @@ def run(args):
     output = "\n".join(text)
     print(output)
     summary = {"exported_at": meta.get("exported_at"), "evaluated_as_of": now, "strategy_version": meta.get("strategy_version"),
-               "costs": COSTS, "primary": p, "secondary": s,
+               "costs": COSTS, "primary": p, "secondary": s, "selected_only": sel,
                "official_cross_check": {"checked": checked, "mismatches": mismatches}}
     if args.json:
         with open(args.json, "w", encoding="utf-8") as f:

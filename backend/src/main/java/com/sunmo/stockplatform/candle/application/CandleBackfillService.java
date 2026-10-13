@@ -93,6 +93,14 @@ public class CandleBackfillService {
         Map<Instant, List<MinuteCandle>> buckets = new LinkedHashMap<>();
         for (MinuteCandle minute : sorted) {
             Instant bucket = CandleGapDetector.floorFiveMinutes(minute.startTime());
+            // The random-end closing auction print (15:30 minute) is the session's final 5M bar, as in realtime.
+            LocalTime minuteTime = minute.startTime().atZone(SEOUL).toLocalTime();
+            // Closing call minutes without trades are placeholders, not prices anyone traded at.
+            if (!minuteTime.isBefore(LocalTime.of(15, 20)) && minuteTime.isBefore(LocalTime.of(15, 30))
+                    && minute.volume() <= 0)
+                continue;
+            if (!minuteTime.isBefore(LocalTime.of(15, 30)))
+                bucket = minute.startTime().atZone(SEOUL).toLocalDate().atTime(15, 25).atZone(SEOUL).toInstant();
             buckets.computeIfAbsent(bucket, ignored -> new ArrayList<>()).add(minute);
         }
         List<FiveMinuteBackfill> result = new ArrayList<>();

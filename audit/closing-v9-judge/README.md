@@ -42,9 +42,10 @@ python -I judge.py --data data --details --save-dir ..\YYYY-MM-DD-closing-v9-che
 
 ### 표본
 
-- **1차 표본(판정 대상)**: v9 FORWARD run에서 SELECTED(=`closing_recommendation` 행이 있는) 후보의 paper entry. ADR-008이 "하루 최대 5건"을 전제하고 관측 후보를 2차 표본으로 분리하므로 이렇게 해석했다.
-- **2차 표본(참고)**: 같은 run의 WATCH/EXCLUDED 후보 paper entry. `ClosingRecommendationService`가 평가한 모든 후보에 paper entry를 만들기 때문에 존재한다. 통계는 출력하지만 판정에 합산하지 않는다.
-- 해석 주의: ADR 문구 "1차 표본: v9 공식 FORWARD run의 `closing_paper_entry` ENTERED 건"을 문자 그대로 읽으면 2차 표본도 포함된다. 판정 전에 ADR에서 어느 쪽인지 명시해야 한다. 이 도구는 두 표본을 분리해 둘 다 보여준다.
+- **1차 표본(판정 대상, [ADR-010](../../docs/decisions/ADR-010-CLOSING-PRIMARY-SAMPLE-ALL-PRECISION.md))**: FORWARD run의 정밀(PRECISION) 후보 전체 paper entry. SELECTED·WATCH·EXCLUDED 모두 포함한다. 기본 대상 버전은 v9.1이다.
+- **2차 표본(참고)**: 같은 run의 BROAD 후보 paper entry. 통계는 출력하지만 판정에 합산하지 않는다.
+- **SELECTED만(참고)**: 1차 표본의 부분집합. 선정 규칙의 효과를 따로 보기 위한 것이며 판정에 쓰지 않는다.
+- 2026-10-13까지의 v9 기록에서는 1차 표본을 SELECTED로 해석했다(아래 상태 기록 참조).
 
 ### 세션 완료와 결측 (OvernightPerformanceService와 동일)
 
