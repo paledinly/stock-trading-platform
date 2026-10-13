@@ -6,7 +6,6 @@ import { ScannerPage } from './Phase6App'
 import { AnalyticsPage } from './Phase7App'
 import { MarketWidePage } from './Phase8App'
 import { ClosingRecommendationPage } from './ClosingRecommendationApp'
-import { IntradayPage } from './IntradayApp'
 import './phase9.css'
 
 type Setting = { id: number; name: string }
@@ -178,7 +177,7 @@ function savedSelection<T extends string>(key: string, choices: readonly T[], fa
 }
 
 export function Phase9App() {
-  const [page, setPage] = useState(() => savedSelection('workspace.page', ['dashboard', 'journal', 'scanner', 'analytics', 'wide', 'backtest', 'closing', 'intraday'] as const, 'dashboard'))
+  const [page, setPage] = useState(() => savedSelection('workspace.page', ['dashboard', 'journal', 'scanner', 'analytics', 'wide', 'backtest', 'closing'] as const, 'dashboard'))
   const [mode, setMode] = useState(() => savedSelection('workspace.mode', ['beginner', 'advanced'] as const, 'beginner'))
   useEffect(() => {
     try {
@@ -193,7 +192,7 @@ export function Phase9App() {
 
   function changeMode(value: 'beginner' | 'advanced') {
     setMode(value)
-    if (value === 'beginner' && !['dashboard', 'journal', 'closing', 'intraday'].includes(page)) {
+    if (value === 'beginner' && !['dashboard', 'journal', 'closing'].includes(page)) {
       setPage('closing')
     }
   }
@@ -206,7 +205,6 @@ export function Phase9App() {
           <button className={mode === 'advanced' ? 'active' : ''} onClick={() => changeMode('advanced')}>고급</button>
         </span>
         <button className={`closingLaunch ${page === 'closing' ? 'active' : ''}`} onClick={() => setPage('closing')}>마감 추천</button>
-        <button className={page === 'intraday' ? 'active' : ''} onClick={() => setPage('intraday')}>장중 추천</button>
         {advanced && <button className={`backtestLaunch ${page === 'backtest' ? 'active' : ''}`} onClick={() => setPage('backtest')}>백테스트</button>}
         {advanced && <button className={`wideLaunch ${page === 'wide' ? 'active' : ''}`} onClick={() => setPage('wide')}>시장 전체</button>}
         {advanced && <button className={`analyticsLaunch ${page === 'analytics' ? 'active' : ''}`} onClick={() => setPage('analytics')}>성과 분석</button>}
@@ -223,7 +221,6 @@ export function Phase9App() {
       {page === 'wide' && <MarketWidePage back={goDashboard} />}
       {page === 'backtest' && <BacktestPage back={goDashboard} />}
       {page === 'closing' && <ClosingRecommendationPage back={goDashboard} advanced={advanced} />}
-      {page === 'intraday' && <IntradayPage back={goDashboard} />}
     </>
   )
 }

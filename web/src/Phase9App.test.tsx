@@ -28,26 +28,30 @@ beforeEach(() => {
           summaries: [],
           detections: [],
         }
-      : url.includes('/intraday/status')
-        ? { enabled: true, costsConfigured: false, queued: 0, dropped: 0, candidates: [] }
       : url.includes('closing-recommendations')
         ? []
       : [],
   })) as typeof fetch
 })
 
-test('restores intraday workspace after remount and keeps it on focus', async () => {
+test('restores closing workspace after remount and keeps it on focus', async () => {
   const app = () => <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><Phase9App /></QueryClientProvider>
   const first = render(app())
-  fireEvent.click(screen.getByRole('button', { name: '장중 추천' }))
-  expect(await screen.findByRole('heading', { name: 'NO TRADE' })).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: /마감 추천/ }))
+  expect(screen.getByRole('heading', { name: '오늘의 마감 추천' })).toBeInTheDocument()
   first.unmount()
   render(app())
-  expect(screen.getByRole('heading', { name: '실시간 장중 추천' })).toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: '오늘의 마감 추천' })).toBeInTheDocument()
   fireEvent(window, new Event('blur'))
   fireEvent(window, new Event('focus'))
-  expect(await screen.findByRole('heading', { name: 'NO TRADE' })).toBeInTheDocument()
-  expect(screen.getByRole('heading', { name: '실시간 장중 추천' })).toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: '오늘의 마감 추천' })).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: '장중 추천' })).not.toBeInTheDocument()
+})
+
+test('falls back to dashboard when a removed intraday page was saved', () => {
+  sessionStorage.setItem('workspace.page', 'intraday')
+  render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><Phase9App /></QueryClientProvider>)
+  expect(screen.getByRole('button', { name: '대시보드' })).toHaveClass('active')
 })
 
 test('opens backtesting workspace', async () => {
