@@ -60,3 +60,32 @@ test('prefers the official forward run over a newer replay', async () => {
 
   await waitFor(() => expect(screen.getByLabelText('평가 이력')).toHaveValue('27'))
 })
+
+test('shows the daily completeness table with Korean labels and missing days', async () => {
+  globalThis.fetch = vi.fn().mockImplementation((url: string) => Promise.resolve({
+    ok: true,
+    json: async () => url.includes('/daily-health?') ? [
+      { tradeDate: '2026-10-02', verdict: 'DEGRADED', reasons: ['SELECTED_ENTRY_MISSING'], recorded: true,
+        runId: 7, runCompletedAt: '2026-10-02T06:15:08Z', selectedCount: 2, selectedEntered: 1,
+        observationStatuses: { COMPLETED: 3 }, realtimeConnected: true, realtimeDroppedDelta: 0,
+        checkedAt: '2026-10-02T06:45:00Z' },
+      { tradeDate: '2026-10-01', verdict: 'MISSING', reasons: ['NO_HEALTH_RECORD'], recorded: false,
+        runId: null, runCompletedAt: null, selectedCount: null, selectedEntered: null,
+        observationStatuses: {}, realtimeConnected: null, realtimeDroppedDelta: null, checkedAt: null },
+    ] : [],
+  })) as typeof fetch
+
+  render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+    <ClosingRecommendationPage back={() => {}} />
+  </QueryClientProvider>)
+
+  expect(await screen.findByText('일별 수집 완결성')).toBeInTheDocument()
+  const degraded = screen.getByText('2026-10-02').closest('tr')!
+  expect(degraded).toHaveTextContent('불완전')
+  expect(degraded).toHaveTextContent('1/2')
+  expect(degraded).toHaveTextContent('추천 종목 가상 진입 누락')
+  const missing = screen.getByText('2026-10-01').closest('tr')!
+  expect(missing).toHaveTextContent('누락')
+  expect(missing).toHaveTextContent('기록 없음(백엔드 중단 추정)')
+  expect(missing).toHaveTextContent('미관측')
+})

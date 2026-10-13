@@ -22,6 +22,35 @@ KIS WebSocket은 `ClosingTradingCalendar`의 거래일에만 기본 08:59부터 
 
 장마감 추세 수집은 기본 비활성이다. `CLOSING_TRAJECTORY_ENABLED`, `CLOSING_TRAJECTORY_INDEX_ENABLED`, 기존 실시간/Broad/일봉 준비 및 [Trajectory 운영 절차](CLOSING_TRAJECTORY.md)를 확인한다. 새 점수는 공식 추천 가중치에 적용하지 않는다.
 
+## 백엔드 상시 실행 (Windows)
+
+거래일 누락은 표본 손실이므로 백엔드는 로그온 시 자동 시작하고 종료되면 재시작한다.
+
+- `scripts/run-backend.ps1`: `bootJar`를 한 번 빌드해 `.run/backend.jar`로 복사하고 `backend/`를 작업 디렉터리로 `java -jar` 실행한다. `spring.config.import`가 작업 디렉터리 기준 `.env`, `../.env`를 읽으므로 bootRun과 같은 `.env`가 적용된다. 종료 시 30초 후 재시작하며 시간당 6회를 넘으면 대기한다. 이미 8080 포트를 쓰는 프로세스(수동 bootRun 등)가 있으면 시작하지 않고 기다린다. 로그는 `.run/logs/`(git 제외)의 `runner.log`, `backend-<시각>.out.log/.err.log`이며 14일 후 삭제한다. 환경변수·인증정보는 출력하지 않는다. 대체 실행: `-UseBootRun`.
+- `scripts/register-backend-task.ps1`: 현재 사용자 로그온 시 실행되는 작업 `StockPlatformBackend`를 등록한다(실패 시 1분 간격 재시작, 실행 시간 제한 없음, 배터리에서도 시작·유지, 중복 실행 무시). 다시 실행하면 정의를 갱신한다. 로그온한 동안에만 실행되므로 재부팅 후 로그온이 필요하다.
+
+```powershell
+# 등록(수동 bootRun은 먼저 종료) / 즉시 시작
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\register-backend-task.ps1 -StartNow
+# 상태 확인
+Get-ScheduledTask -TaskName StockPlatformBackend | Get-ScheduledTaskInfo
+Get-Content .run\logs\runner.log -Tail 20
+Invoke-RestMethod http://localhost:8080/actuator/health
+# 코드 반영: 작업과 백엔드를 멈춘 뒤 다시 시작(시작 시 jar 재빌드)
+Stop-ScheduledTask -TaskName StockPlatformBackend; Stop-Process -Id (Get-Content .run\backend.pid) -Force
+Start-ScheduledTask -TaskName StockPlatformBackend
+# 해제(실행 중인 백엔드도 종료)
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\register-backend-task.ps1 -Unregister
+```
+
+작업만 중지하면 java 프로세스는 남는다. 다음 실행기는 `.run/backend.pid`의 백엔드를 이어받아 기다리고 두 번째 수집 프로세스를 띄우지 않는다.
+
+Windows Home 호스트 설정:
+
+- 절전 해제(AC): `powercfg /change standby-timeout-ac 0` (필요하면 `powercfg /change hibernate-timeout-ac 0`)
+- Windows Update 사용 시간: 설정 > Windows 업데이트 > 고급 옵션 > 사용 시간을 수동 08:00~18:00으로 지정해 장중 재부팅을 막는다. Home은 업데이트 연기 정책이 제한적이므로 장 마감 후 수동으로 업데이트·재시작한다.
+- 시간 동기화: `w32time`은 자동 시작·실행 상태여야 한다(`Get-Service w32time`). 설정은 [호스트 시계 동기화](#호스트-시계-동기화)를 따른다.
+
 ## 시작 순서
 
 1. .env의 DB, Redis, KIS 자격정보를 확인한다.
@@ -39,6 +68,17 @@ KIS WebSocket은 `ClosingTradingCalendar`의 거래일에만 기본 08:59부터 
 - 15시 평가의 기준시각, 입력 마감, 완료시각
 - 추천 제외 사유와 데이터 품질
 - 다음 거래일 관측 상태와 비용 설정
+- 마감 파이프라인 일별 완결성(아래)
+
+## 마감 파이프라인 일별 완결성
+
+`closing.automation.enabled=true`이면 거래일 장 종료 15분 후(15:45, 장 종료 10분 후 후보 관측 계산 이후) 당일 행을 `closing_daily_health`(V32)에 기록한다. 당일 행만 갱신하고 지난 날짜는 다시 쓰지 않는다. 판정:
+
+- MISSING: 당일 공식 FORWARD v9 실행이 없거나 미완료. 기록 자체가 없는 거래일(백엔드 중단)도 조회 시 MISSING(`NO_HEALTH_RECORD`)으로 채운다.
+- DEGRADED: 실행은 완료됐으나 진입 마감 후 완료, 추천 종목 가상 진입 누락, 15:14~15:20 실시간 미관측·연결 끊김·처리 누락(`processingDropped` 증가), 당일 관측 대상 후보의 미완료·결측 중 하나 이상.
+- COMPLETE: 위 사유가 없음. 추천 0건인 NO TRADE도 실행이 완료됐으면 COMPLETE다.
+
+실시간 상태는 프로세스 메모리 표본(15:14~15:15 직전, 15:20 이후 첫 poll)이므로 그 사이 재시작하면 미관측이다. 15:45 이후 재시작해 다시 기록할 때는 먼저 기록된 실시간 표본을 유지한다. 조회: `GET /api/v1/closing-recommendations/daily-health?from=&to=`, 마감 추천 화면의 ‘일별 수집 완결성’ 표(최근 10거래일). 이 판정은 수집 완결성이며 전략 성과나 표본 품질 승인이 아니다.
 
 ## KIS 한도
 
