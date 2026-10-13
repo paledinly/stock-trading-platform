@@ -1,4 +1,4 @@
-"""ADR-008 judge for closing-recommend-v9-1515 (BASELINE vs NEXT_OPEN).
+"""ADR-008 judge for closing-recommend-v9_1-1515 (BASELINE vs NEXT_OPEN).
 
 Reads the TSV files written by ExportClosingV9.java and applies the pre-registered
 decision rules of docs/decisions/ADR-008-CLOSING-V9-DECISION-CRITERIA.md.
@@ -26,7 +26,7 @@ SESSION_CLOSE = time(15, 30)
 CLOSING_CALL_START = time(15, 20)
 CLOSING_PRINT_BAR = time(15, 25)
 SETTLE_AFTER_CLOSE = timedelta(minutes=2)
-STRATEGY_VERSION = "closing-recommend-v9-1515"
+STRATEGY_VERSION = "closing-recommend-v9_1-1515"
 
 # ADR-008 constants. Changing any of these requires a new ADR.
 TARGET_RATE = Decimal("3")

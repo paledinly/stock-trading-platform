@@ -25,7 +25,7 @@ Broad는 호출 제한과 QUOTE_FAILED의 영향을 받고 Precision은 WebSocke
 
 ## Feature와 탐지
 
-현재 시장 Feature는 market-feature-v2, 신규 마감 추천 전략은 closing-recommend-v9-1515다. 점수·필터는 유지하고 평가 시각과 가상 진입 모델을 변경했다. 동일 조건의 비교 검증과 실제 장중 Forward 관측이 필요하다.
+현재 시장 Feature는 market-feature-v2, 신규 마감 추천 전략은 closing-recommend-v9_1-1515다. v9의 점수·필터·평가 시각·진입 모델을 그대로 두고, 입력 마감 이후 수신된 탐지와 입력 마감 시각에야 끝나는 봉을 늦은 수정이 아닌 미가용 입력으로 제외한다([ADR-009](decisions/ADR-009-CLOSING-V9_1-INPUT-AVAILABILITY.md)). 동일 조건의 비교 검증과 실제 장중 Forward 관측이 필요하다.
 
 Scanner reason은 탐지 당시 조건 설명이다. VWAP_RECLAIM, PULLBACK_REBREAK 같은 이름은 실제 확인하는 전환·순서와 일치해야 한다.
 

@@ -1,12 +1,12 @@
 # closing v9 ADR-008 판정 도구
 
-[ADR-008](../../docs/decisions/ADR-008-CLOSING-V9-DECISION-CRITERIA.md)에 사전 등록한 기준으로 `closing-recommend-v9-1515`의 두 비교안(BASELINE, NEXT_OPEN)을 반복 계산하는 도구다. 앱 코드와 DB를 수정하지 않는다. 이 폴더는 도구이고, 체크포인트 판정 결과는 날짜별 폴더 `audit/YYYY-MM-DD-closing-v9-checkpoint/`에 저장한다.
+[ADR-008](../../docs/decisions/ADR-008-CLOSING-V9-DECISION-CRITERIA.md)에 사전 등록한 기준으로 마감 추천의 두 비교안(BASELINE, NEXT_OPEN)을 반복 계산하는 도구다. 기본 대상은 [ADR-009](../../docs/decisions/ADR-009-CLOSING-V9_1-INPUT-AVAILABILITY.md)의 `closing-recommend-v9_1-1515`이고, export 세 번째 인자로 다른 버전을 지정할 수 있다. 앱 코드와 DB를 수정하지 않는다. 이 폴더는 도구이고, 체크포인트 판정 결과는 날짜별 폴더 `audit/YYYY-MM-DD-closing-v9-checkpoint/`에 저장한다.
 
 ## 구성
 
 | 파일 | 역할 |
 | --- | --- |
-| [ExportClosingV9.java](ExportClosingV9.java) | 읽기 전용 export. `strategy_version='closing-recommend-v9-1515'` 이고 `execution_mode='FORWARD'`인 run만 읽는다(LEGACY/REPLAY 제외). |
+| [ExportClosingV9.java](ExportClosingV9.java) | 읽기 전용 export. `strategy_version`(기본 `closing-recommend-v9_1-1515`)이 일치하고 `execution_mode='FORWARD'`인 run만 읽는다(LEGACY/REPLAY 제외). |
 | [judge.py](judge.py) | BASELINE/NEXT_OPEN 재계산, 통계, ADR 판정. 표준 라이브러리만 사용. `--selftest` 포함. |
 | `data/` | export 결과(TSV). gitignore 대상이며 커밋하지 않는다. |
 | [status-2026-10-13.json](status-2026-10-13.json) | 2026-10-13 12:17 KST 시점 상태 요약(체크포인트 판정 아님). |

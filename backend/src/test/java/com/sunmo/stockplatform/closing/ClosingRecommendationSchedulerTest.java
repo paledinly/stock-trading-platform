@@ -47,7 +47,7 @@ class ClosingRecommendationSchedulerTest {
         scheduler.poll();
 
         verify(recommendations).generate(TUESDAY, 10, bd("35"), bd("65"),
-                "official-2026-09-22-closing-recommend-v9-1515");
+                "official-2026-09-22-closing-recommend-v9_1-1515");
         verify(performances).track(MONDAY, bd("3"), bd("-2"), 1L);
         verify(subscriptions, atLeastOnce()).add("005930", RealtimeSubscriptionRegistry.Source.OVERNIGHT);
         verify(subscriptions, atLeastOnce()).add("000660", RealtimeSubscriptionRegistry.Source.OVERNIGHT);
@@ -223,7 +223,7 @@ class ClosingRecommendationSchedulerTest {
     }
 
     private String key(LocalDate date) {
-        return "official-" + date + "-closing-recommend-v9-1515";
+        return "official-" + date + "-closing-recommend-v9_1-1515";
     }
 
     private Instant at(LocalDate date, int hour, int minute) {

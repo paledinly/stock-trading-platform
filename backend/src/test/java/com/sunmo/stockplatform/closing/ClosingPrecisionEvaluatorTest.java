@@ -80,6 +80,45 @@ class ClosingPrecisionEvaluatorTest {
     }
 
     @Test
+    void boundaryBarAndDetectionUnavailableAtZeroGraceFreezeAreExcludedNotLate() {
+        Instant freeze = Instant.parse("2026-10-13T06:15:00Z");
+        ClosingPrecisionEvaluator zeroGrace = new ClosingPrecisionEvaluator(scorer, intraday, daily, candles,
+                new ClosingRecommendationProperties(20, 4, new BigDecimal("55"), LocalTime.of(14, 30),
+                        LocalTime.of(15, 15), LocalTime.of(15, 20), Duration.ZERO), new ObjectMapper(),
+                new ClosingTradingCalendar(new com.sunmo.stockplatform.market.config.MarketWideScheduleProperties(
+                        false, 0, 0, false, null, null, null, null, null, List.of())));
+        ScannerDetection clean = signal(freeze.minus(Duration.ofMinutes(5)));
+        when(clean.getReceivedAt()).thenReturn(freeze.minus(Duration.ofMinutes(5)).plusSeconds(2));
+        ScannerDetection boundary = signal(freeze);
+        when(boundary.getReceivedAt()).thenReturn(freeze.plusSeconds(2));
+        DailyMovingAverageFeature ready = dailyReady();
+        when(daily.calculate(clean, freeze)).thenReturn(ready);
+        when(scorer.score(eq(clean), any(), any())).thenReturn(new ScoreResult(new BigDecimal("70"), "{}", "{}"));
+        // 14:50..15:05 bars were stored seconds after they closed; the 15:10 bar closes at 15:15:00 and is stored 3s later.
+        List<StockCandle> stored = new java.util.ArrayList<>(java.util.stream.IntStream.range(0, 4)
+                .mapToObj(index -> {
+                    Instant start = freeze.minus(Duration.ofMinutes(25 - index * 5L));
+                    return candle(start, start.plus(Duration.ofMinutes(5)).plusSeconds(2));
+                }).toList());
+        stored.add(candle(freeze.minus(Duration.ofMinutes(5)), freeze.plusSeconds(3)));
+        when(candles.findByStockIdAndTimeframeAndStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(
+                eq(1L), eq("5M"), any(), any())).thenReturn(stored);
+
+        var representatives = zeroGrace.representatives(List.of(clean, boundary), freeze.minus(Duration.ofMinutes(45)),
+                freeze, BigDecimal.ZERO, new BigDecimal("100"));
+
+        assertThat(representatives).extracting(ClosingPrecisionEvaluator.Assessment::detection).containsExactly(clean);
+        assertThat(representatives.getFirst().reason()).isEqualTo("QUALIFIED");
+        assertThat(representatives.getFirst().dataReadiness()).containsEntry("lateCandleRevision", false)
+                .containsEntry("lastFinalCandleAt", freeze.minus(Duration.ofMinutes(10)).toString());
+
+        // A bar that closed before the freeze but was stored after it is still a late revision.
+        stored.set(3, candle(freeze.minus(Duration.ofMinutes(10)), freeze.plusSeconds(3)));
+        assertThat(zeroGrace.assess(clean, freeze.minus(Duration.ofMinutes(45)), freeze, BigDecimal.ZERO,
+                new BigDecimal("100")).reason()).isEqualTo("RECEIVED_AFTER_EVALUATION");
+    }
+
+    @Test
     void missingDailyHistoryAndLatestRejectedSignalCannotReuseOlderSignal() {
         ScannerDetection old = signal(AS_OF.minus(Duration.ofMinutes(10)));
         ScannerDetection latest = signal(AS_OF);

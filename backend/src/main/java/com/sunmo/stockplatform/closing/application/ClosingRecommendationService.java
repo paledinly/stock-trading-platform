@@ -120,6 +120,7 @@ public class ClosingRecommendationService {
         criteria.put("entryDeadline", properties.entryDeadline().toString());
         criteria.put("candleFinalizationGraceSeconds", properties.candleFinalizationGrace().toSeconds());
         criteria.put("entryModel", "FRESH_OBSERVED_TICK_AFTER_COMPLETION");
+        criteria.put("inputAvailability", "EXCLUDE_UNAVAILABLE_AT_RECEIPT_DEADLINE");
         criteria.put("calendarSource", "WEEKEND_CONFIGURED_AND_VERIFIED_SPECIAL_CLOSURES");
         String settings = serialize(criteria);
         String hash = sha256(settings);

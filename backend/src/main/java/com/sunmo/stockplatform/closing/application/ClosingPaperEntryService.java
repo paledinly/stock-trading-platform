@@ -25,7 +25,8 @@ public class ClosingPaperEntryService {
         this.jdbc = jdbc; this.calendar = calendar; this.policy = policy;
     }
     public static boolean usesObservedEntry(ClosingRecommendationRun run) {
-        return "closing-recommend-v9-1515".equals(run.getStrategyVersion());
+        return "closing-recommend-v9-1515".equals(run.getStrategyVersion())
+                || "closing-recommend-v9_1-1515".equals(run.getStrategyVersion());
     }
     public void prepare(ClosingRecommendationRun run, Collection<String> symbols) {
         Instant deadline = run.getRecommendationDate().atTime(policy.entryDeadline()).atZone(ClosingTradingCalendar.ZONE).toInstant();

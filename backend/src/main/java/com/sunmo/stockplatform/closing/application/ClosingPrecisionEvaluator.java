@@ -65,7 +65,11 @@ public class ClosingPrecisionEvaluator {
     private List<Assessment> representatives(List<ScannerDetection> source, Instant from, Instant asOf,
             BigDecimal minOpportunity, BigDecimal maxRisk, boolean applyMovingAverage) {
         Map<Long, Assessment> selected = new LinkedHashMap<>();
+        Instant availableBy = asOf.plus(properties.candleFinalizationGrace());
+        // v9.1: a detection received after the input deadline did not exist at evaluation, so it is excluded
+        // instead of hiding the stock's earlier detection that was available.
         source.stream().filter(row -> !row.getDetectedAt().isBefore(from) && !row.getDetectedAt().isAfter(asOf))
+                .filter(row -> row.getReceivedAt() == null || !row.getReceivedAt().isAfter(availableBy))
                 .sorted(Comparator.comparing(ScannerDetection::getDetectedAt).reversed())
                 .forEach(row -> selected.computeIfAbsent(row.getStock().getId(), ignored ->
                         assess(row, from, asOf, minOpportunity, maxRisk, applyMovingAverage)));
@@ -122,6 +126,10 @@ public class ClosingPrecisionEvaluator {
         StockCandle latest = null;
         for (StockCandle candle : session) {
             if (!candle.isFinalCandle() || candle.getStartTime().plus(Duration.ofMinutes(5)).isAfter(asOf))
+                continue;
+            // v9.1: a bar that only closes at the input deadline cannot be stored by then; it is not an input
+            // at evaluation and not a late revision.
+            if (!candle.getStartTime().plus(Duration.ofMinutes(5)).isBefore(availableBy))
                 continue;
             if (candle.getCreatedAt() == null || candle.getUpdatedAt() == null) {
                 missingCandleTimestamp = true;

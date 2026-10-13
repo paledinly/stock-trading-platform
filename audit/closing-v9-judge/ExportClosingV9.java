@@ -17,7 +17,7 @@ import java.util.*;
  * Output (TSV, header row): entries.tsv, bars.tsv, calendar.tsv, meta.tsv
  */
 public class ExportClosingV9 {
-    static final String DEFAULT_VERSION = "closing-recommend-v9-1515";
+    static final String DEFAULT_VERSION = "closing-recommend-v9_1-1515";
 
     public static void main(String[] a) throws Exception {
         if (a.length < 2) {
