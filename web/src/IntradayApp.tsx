@@ -80,6 +80,8 @@ function ExitComparison({ date }: { date: string }) {
   const [stopLimit, setStopLimit] = useState('0')
   const [freshStructure, setFreshStructure] = useState(false)
   const [grid, setGrid] = useState('')
+  const [krxGrid, setKrxGrid] = useState(true)
+  const [minimumStopTicks, setMinimumStopTicks] = useState('0')
   function experimentOptions() {
     const tickSizes: Record<string, number> = {}
     for (const item of grid.split(',').map(x => x.trim()).filter(Boolean)) {
@@ -88,7 +90,7 @@ function ExitComparison({ date }: { date: string }) {
         throw new Error('가격 단위는 종목코드=단위 형식으로 입력하세요. 예: 005930=100')
       tickSizes[parts[0].trim()] = Number(parts[1])
     }
-    return { tickSizes, minimumStopPercent: Number(minimumStop), narrowStopMode: narrowMode, entryMode,
+    return { tickSizes, krxTickSizes: krxGrid, minimumStopTicks: Number(minimumStopTicks), minimumStopPercent: Number(minimumStop), narrowStopMode: narrowMode, entryMode,
       holdSeconds: entryMode === 'HOLD' ? Number(holdSeconds) : 0,
       retestTolerancePercent: entryMode === 'RETEST' ? Number(retestTolerance) : null,
       maxStoppedPerSymbol: Number(stopLimit), requireFreshStructureAfterStop: freshStructure,
@@ -112,6 +114,7 @@ function ExitComparison({ date }: { date: string }) {
       <p><label><input type="checkbox" checked={advanced} onChange={e => setAdvanced(e.target.checked)} /> 추가 실험 사용</label></p>
       {advanced && <fieldset><legend>가격·진입·부분 청산·재진입 조건</legend>
         <p><label>최소 손절폭 % <input required type="number" min="0" max="99" step="any" value={minimumStop} onChange={e => setMinimumStop(e.target.value)} /></label>{' '}
+          <label>최소 손절 틱 수 <input required type="number" min="0" max="100" value={minimumStopTicks} onChange={e => setMinimumStopTicks(e.target.value)} /></label>{' '}
           <label>좁은 손절 처리 <select value={narrowMode} onChange={e => setNarrowMode(e.target.value)}><option value="WIDEN">최소 폭까지 확대</option><option value="FILTER">후보 제외</option></select></label></p>
         <p><label>돌파 진입 조건 <select value={entryMode} onChange={e => setEntryMode(e.target.value)}><option value="IMMEDIATE">기존 진입</option><option value="HOLD">돌파선 위 유지</option><option value="RETEST">돌파선 재접근 후 회복</option></select></label>{' '}
           {entryMode === 'HOLD' && <label>유지 시간 (초) <input required type="number" min="1" max="3600" value={holdSeconds} onChange={e => setHoldSeconds(e.target.value)} /></label>}
@@ -122,8 +125,9 @@ function ExitComparison({ date }: { date: string }) {
         <p>추적 손절은 수익 보호 시작 또는 부분 익절 후 작동합니다. 부분 익절선은 최종 목표선보다 낮아야 합니다.</p>
         <p><label>종목별 손절 횟수 제한 (0은 제한 없음) <input required type="number" min="0" max="100" value={stopLimit} onChange={e => setStopLimit(e.target.value)} /></label>{' '}
           <label><input type="checkbox" checked={freshStructure} onChange={e => setFreshStructure(e.target.checked)} /> 손절 후 더 높은 돌파선·강한 거래량과 거래대금 확인</label></p>
+        <p><label><input type="checkbox" checked={krxGrid} onChange={e => setKrxGrid(e.target.checked)} /> KRX 주식 호가 단위표 사용 (2023-01-25 이후 기준)</label></p>
         <p><label>종목별 가격 단위 (선택) <input value={grid} placeholder="005930=100,000660=500" onChange={e => setGrid(e.target.value)} /></label></p>
-        <p>가격 단위는 직접 확인한 연구 가정입니다. 입력하면 미등록 종목은 판정 불가로 남습니다. 빈 값이면 가격 반올림을 적용하지 않습니다.</p>
+        <p>종목별 가격 단위를 입력하면 그 종목은 입력값을 우선합니다. KRX 단위표를 끄고 종목별 단위도 비우면 가격 반올림을 적용하지 않으며, 이때 최소 손절 틱 수는 판정 불가가 됩니다. 손절폭은 % 기준과 틱 기준 중 큰 값을 씁니다.</p>
       </fieldset>}
       <button disabled={comparison.isPending}>{comparison.isPending ? '비교 중…' : '선택일 청산 비교'}</button>
     </form>

@@ -103,6 +103,22 @@ class IntradayExitComparisonTest {
         assertThat(result(report, "RESEARCH").outcome().status).isEqualTo("FILTERED");
         assertThat(result(report, "RESEARCH").outcome().entryAt).isNull();
     }
+    @Test void krxGridAndTickFloorWidenOrFilterNarrowStops() {
+        var p = paper();
+        var widened = result(replay(p, variant(Map.of("krxTickSizes", true, "minimumStopTicks", 3))).finish(START.plusSeconds(2)), "RESEARCH");
+        assertThat(widened.signal().plan().stop()).isEqualTo(97.);
+        var kept = result(replay(p, variant(Map.of("krxTickSizes", true, "minimumStopTicks", 1))).finish(START.plusSeconds(2)), "RESEARCH");
+        assertThat(kept.signal().plan().stop()).isEqualTo(99.);
+        var report = replay(p, variant(Map.of("krxTickSizes", true, "minimumStopTicks", 2, "narrowStopMode", "FILTER"))).finish(START.plusSeconds(2));
+        assertThat(report.get("mode")).isEqualTo("FIXED_CANDIDATE_ENTRY_EXIT_COMPARISON");
+        assertThat(result(report, "RESEARCH").outcome().status).isEqualTo("FILTERED");
+    }
+    @Test void tickFloorWithoutAnyGridIsUnknownNotAssumed() {
+        var p = paper();
+        var o = result(replay(p, variant(Map.of("minimumStopTicks", 2))).finish(START.plusSeconds(2)), "RESEARCH").outcome();
+        assertThat(o.quality).contains("PRICE_GRID_UNAVAILABLE");
+        assertThatThrownBy(() -> variant(Map.of("minimumStopTicks", -1))).isInstanceOf(IllegalArgumentException.class);
+    }
     @Test void holdEntryUsesContinuousPastObservationsAndKeepsBaselineEntry() {
         var p = paper(); var c = replay(p, variant(Map.of("entryMode", "HOLD", "holdSeconds", 10)));
         c.accept(input(START.plusSeconds(5), 100, 2000, p.signal().policy()));

@@ -46,7 +46,7 @@ test('submits opt-in entry and partial-exit research settings', async () => {
   fireEvent.click(screen.getByRole('button', { name: '선택일 청산 비교' }))
   expect(await screen.findByText('후보 고정·진입 변경 실험')).toBeInTheDocument()
   const call = vi.mocked(fetch).mock.calls.find(([url]) => String(url).includes('/exit-comparison'))!
-  expect(JSON.parse(call[1]?.body as string).variants[0].options).toMatchObject({ entryMode: 'HOLD', holdSeconds: 20, partialAtPercent: 0.5, partialFraction: 0.5 })
+  expect(JSON.parse(call[1]?.body as string).variants[0].options).toMatchObject({ entryMode: 'HOLD', holdSeconds: 20, partialAtPercent: 0.5, partialFraction: 0.5, krxTickSizes: true, minimumStopTicks: 0 })
 })
 test('shows recommendation reasons, risk and stop-first result', async () => {
   const original = globalThis.fetch

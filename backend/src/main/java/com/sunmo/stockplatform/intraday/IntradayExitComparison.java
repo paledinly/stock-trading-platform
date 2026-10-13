@@ -89,8 +89,11 @@ public final class IntradayExitComparison {
                     Signal s = paper.signal(); Plan p = s.plan(); double entry = o.entryPrice;
                     double stop = entry - (entry - p.stop()) * variant.stopDistanceMultiplier();
                     double target = entry + (p.target1() - entry) * variant.targetDistanceMultiplier();
-                    if (options.narrowStopMode().equals("WIDEN"))
-                        stop = Math.min(stop, entry * (1 - options.minimumStopPercent() / 100));
+                    if (options.narrowStopMode().equals("WIDEN") && options.minimumStopActive()) {
+                        double floor = options.minimumStopDistance(s.stockCode(), entry);
+                        if (!Double.isFinite(floor)) { invalid("PRICE_GRID_UNAVAILABLE"); return; }
+                        stop = Math.min(stop, entry - floor);
+                    }
                     stop = options.round(s.stockCode(), stop, false);
                     target = options.round(s.stockCode(), target, true);
                     if (!Double.isFinite(stop) || !Double.isFinite(target)) { invalid("PRICE_GRID_UNAVAILABLE"); return; }
@@ -127,7 +130,7 @@ public final class IntradayExitComparison {
                         * (1 - options.trailingDistancePercent() / 100), false);
                 o.trailingStop = Math.max(o.trailingStop == null ? replay.signal().plan().stop() : o.trailingStop, trail);
             }
-            if (o.trailingStop != null && !options.tickSizes().isEmpty())
+            if (o.trailingStop != null && options.gridEnabled())
                 o.trailingStop = options.round(paper.signal().stockCode(), o.trailingStop, false);
             if (partial != null && valid && partial.outcome().status.equals("ENTERED") && o.trailingStop != null)
                 partial.outcome().trailingStop = o.trailingStop;
@@ -147,12 +150,12 @@ public final class IntradayExitComparison {
             if (!valid || !replay.outcome().status.equals("ENTRY_READY")
                     || !input.evaluatedAt().isBefore(paper.signal().expiresAt())) return false;
             double price = input.observation().tick().price().doubleValue();
-            if (options.minimumStopPercent() > 0 && options.narrowStopMode().equals("FILTER")) {
+            if (options.minimumStopActive() && options.narrowStopMode().equals("FILTER")) {
                 var s = paper.signal(); double fill = s.policy().costs().configured() ? s.policy().costs().buy(price) : price;
                 double stop = options.round(s.stockCode(), fill - (fill - s.plan().stop()) * variant.stopDistanceMultiplier(), false);
-                if (!Double.isFinite(stop)) { invalid("PRICE_GRID_UNAVAILABLE"); return false; }
-                if (price >= s.plan().entryFrom() && price <= s.plan().entryTo()
-                        && (fill - stop) / fill * 100 < options.minimumStopPercent()) {
+                double floor = options.minimumStopDistance(s.stockCode(), fill);
+                if (!Double.isFinite(stop) || !Double.isFinite(floor)) { invalid("PRICE_GRID_UNAVAILABLE"); return false; }
+                if (price >= s.plan().entryFrom() && price <= s.plan().entryTo() && fill - stop < floor) {
                     skip("STOP_TOO_NARROW"); return false;
                 }
             }
@@ -276,7 +279,8 @@ public final class IntradayExitComparison {
         return Map.of("mode", candidateMode ? "FIXED_CANDIDATE_ENTRY_EXIT_COMPARISON" : "FIXED_ENTRY_EXIT_COMPARISON", "asOf", asOf, "request", request,
                 "paperCohorts", cohorts(paper), "commonCompletedCount", common.size(), "comparisons", comparisons,
                 "limitations", List.of("CAPTURED_UNIVERSE_ONLY", "NO_OOS_PROFITABILITY_CLAIM",
-                        "PRICE_GRID_IS_EXPLICIT_RESEARCH_ASSUMPTION", "FRACTIONAL_POSITION_NO_LOT_OR_CAPITAL_MODEL", "COST_OVERRIDE_IS_FIXED_RAW_FILL_SENSITIVITY",
+                        "PRICE_GRID_IS_EXPLICIT_RESEARCH_ASSUMPTION", "KRX_TICK_TABLE_IS_POST_2023_STOCK_BANDS",
+                        "FRACTIONAL_POSITION_NO_LOT_OR_CAPITAL_MODEL", "COST_OVERRIDE_IS_FIXED_RAW_FILL_SENSITIVITY",
                         "AFTER_EXIT_GAPS_DO_NOT_INVALIDATE_COMPLETED_TRADES"));
     }
     private static boolean complete(Result r) {
