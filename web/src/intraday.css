@@ -6,6 +6,8 @@
 .intradayPage p, .intradayPage li { line-height: 1.7; }
 .intradayPage button, .intradayPage input { border: 1px solid #bdcbdc; background: white; color: #18263d; border-radius: 6px; padding: 9px 14px; }
 .intradayPage button, .intradayPage summary { cursor: pointer; }
+.intradayPage .intradayValidation { border-color: #e0a3a3; background: #fff6f6; }
+.intradayPage .intradayValidation h2 { color: #a12a2a; }
 .intradayTable { overflow-x: auto; }
 .intradayTable table { border-collapse: collapse; width: 100%; white-space: nowrap; text-align: left; }
 .intradayTable th, .intradayTable td { padding: 12px; border-bottom: 1px solid #e5eaf1; font-size: 13px; }

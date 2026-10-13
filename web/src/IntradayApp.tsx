@@ -8,7 +8,7 @@ type Outcome = { status: string; entryAt: string | null; entryPrice: number | nu
 type Result = { signal: Signal; outcome: Outcome }
 type Stats = { recommendations: number; trades: number; unresolved: number; winRate: number | null; averageNetReturn: number | null; medianNetReturn: number | null; profitFactor: number | null; mfe: number | null; mae: number | null; targetBeforeStopRate: number | null; equalNotionalDrawdown: number | null; consecutiveLosses: number; averageHoldingMinutes: number | null }
 type Analytics = Record<string, Record<string, Stats>>
-type Status = { enabled: boolean; costsConfigured: boolean; costsForNetOnly?: boolean; mode: string; queued: number; dropped: number; error: string | null; candidates: { stockCode: string; stockName: string; stage: string; reason: string; evaluatedAt: string }[] }
+type Status = { enabled: boolean; costsConfigured: boolean; costsForNetOnly?: boolean; version?: string; mode: string; queued: number; dropped: number; error: string | null; candidates: { stockCode: string; stockName: string; stage: string; reason: string; evaluatedAt: string }[] }
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, init)
   if (!response.ok) throw new Error('장중 연구 데이터를 불러오지 못했습니다.')
@@ -38,6 +38,19 @@ const labels: Record<string, string> = {
   FAKE_BREAKOUT: '돌파 후 손절선 이탈', SUPPORT_LOSS: '지지선 이탈', VWAP_LOSS: 'VWAP 이탈', ORDER_FLOW_REVERSAL: '체결강도 반전',
 }
 const label = (s: string) => labels[s] ?? s
+// Recorded verdicts per policy version. A new version starts unvalidated until its own comparison is recorded.
+const validation: Record<string, { verdict: string; evidence: string }> = {
+  'intraday-research-v1': { verdict: '검증 실패', evidence: '2026-09-30~10-12 보통주 확정 109건 · 비용 반영 평균 Net -0.68% · 7세션 모두 음수 (audit/2026-10-12-intraday-net)' },
+  'intraday-research-v2-optional-costs': { verdict: '검증 실패', evidence: '2026-09-30~10-12 보통주 확정 109건 · 비용 반영 평균 Net -0.68% · 7세션 모두 음수 (audit/2026-10-12-intraday-net)' },
+}
+function ValidationBanner({ version }: { version?: string }) {
+  const known = version ? validation[version] : undefined
+  return <section className="intradayValidation" role="note">
+    <h2>기준선 정책 · {known?.verdict ?? '미검증'}</h2>
+    <p>{known ? known.evidence : '이 정책 버전의 비용 반영 비교 검증 기록이 없습니다.'}</p>
+    <p>추천은 연구용 기준선이며 매매 신호가 아닙니다. 개선안은 같은 후보·진입·청산·비용 조건의 비교 검증 후에만 기본값이 됩니다.</p>
+  </section>
+}
 
 function Statistics({ data }: { data?: Analytics }) {
   return <>{['setup', 'timeBand', 'scoreBand', 'marketRegime'].map(group => <section key={group}>
@@ -140,6 +153,7 @@ export function IntradayPage({ back }: { back: () => void }) {
       <p>기존 실시간 구독 종목만 평가합니다. 연속 30분 관측이 필요하며 09:05 직후 추천은 아직 지원하지 않습니다. 지수·호가·VI·투자위험 이력이 없어 운영 적합성은 미검증입니다.</p>
       {status.data?.error && <p role="alert">장중 처리 오류: {status.data.error}</p>}{error && <p role="alert">{error.message}</p>}
     </section>
+    {status.data && <ValidationBanner version={status.data.version} />}
     {results.isLoading && <p>추천을 불러오는 중…</p>}
     {!results.isLoading && !results.error && results.data?.length === 0 && <section><h2>NO TRADE</h2><p>진입 조건을 충족한 추천이 없습니다. 비활성·데이터 부족 여부와 관찰 후보 사유를 확인하세요.</p></section>}
     <section><h2>추천·가상 포지션</h2><p>추천 시각 최신순 · 5초마다 갱신</p><div className="intradayTable"><table><thead><tr><th>번호 / 종목</th><th>Setup / 추천 시각</th><th>추천가 / 최근 관측가</th><th>Entry / 추격 제한</th><th>Stop / Target 1·2</th><th>R:R / Score</th><th>상태</th></tr></thead>

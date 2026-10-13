@@ -15,6 +15,7 @@ test('shows NO TRADE and missing evidence without fabricated win rates', async (
   expect(await screen.findByRole('heading', { name: 'NO TRADE' })).toBeInTheDocument()
   expect(screen.getByText(/비용 미반영 · 추천 가능/)).toBeInTheDocument()
   expect(screen.getByText(/점수는 확률이 아닙니다/)).toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: '기준선 정책 · 미검증' })).toBeInTheDocument()
   fireEvent.click(screen.getByRole('button', { name: '선택일 재생' }))
   expect(await screen.findByText('수신 이력이 없어 백테스트할 수 없습니다.')).toBeInTheDocument()
 })
@@ -65,4 +66,15 @@ test('shows recommendation reasons, risk and stop-first result', async () => {
   expect(screen.getByText(/목표\/손절 순서: 손절 먼저/)).toBeInTheDocument()
   expect(screen.getByText('가격 기준 · 비용 포함 R:R 미산정')).toBeInTheDocument()
   expect(screen.getByText(/Net 미산정 \(비용 미설정\)/)).toBeInTheDocument()
+})
+
+test('labels a policy version with a recorded failed validation', async () => {
+  const original = globalThis.fetch
+  globalThis.fetch = vi.fn().mockImplementation((url: string) => url.includes('/status') ? Promise.resolve({ ok: true, json: async () => ({
+    enabled: true, costsConfigured: true, costsForNetOnly: true, version: 'intraday-research-v2-optional-costs', queued: 0, dropped: 0, candidates: [] }) })
+    : original(url)) as typeof fetch
+  mount()
+  expect(await screen.findByRole('heading', { name: '기준선 정책 · 검증 실패' })).toBeInTheDocument()
+  expect(screen.getByText(/평균 Net -0.68%/)).toBeInTheDocument()
+  expect(screen.getByText(/매매 신호가 아닙니다/)).toBeInTheDocument()
 })
