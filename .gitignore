@@ -16,6 +16,8 @@ mobile/.dart_tool/
 mobile/build/
 mobile/.flutter-plugins*
 *.log
+# Backend runner output (scripts/run-backend.ps1): logs, copied jar, pid file.
+/.run/
 *.tmp
 *.bak
 *.old
