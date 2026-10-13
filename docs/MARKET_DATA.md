@@ -40,7 +40,7 @@ KRX 접속매매는 15:20에 끝나고 15:20~15:30은 종가 단일가 호가접
 
 - 수락: 원천시각 09:00:00~15:31:00(`FiveMinuteCandleAggregator.CLOSING_AUCTION_WINDOW` = 15:30 + 60초). 15:30:00 이후 체결은 종가 단일가 체결로만 본다. 장후 시간외 종가(15:40~)와 시간외 단일가는 받지 않는다.
 - bucket: 15:30:00~15:31:00 체결은 15:25 봉에 넣는다. 15:25 봉은 15:31:00 + watermark(기본 2초) 이후 확정한다. 15:20 봉은 정상적으로 체결이 없어 만들어지지 않는다.
-- 진단: `GET /api/v1/market/realtime/status`의 `closingAuctionTicks`/`lastClosingAuctionSourceAt`(15:30:00 이후 수락된 종가 체결), `outsideSessionTicks`/`lastOutsideSessionSourceAt`(세션 창 밖이라 버린 체결)로 종가 체결 수신 여부를 확인한다. 메모리 값이며 재시작하면 초기화된다.
+- 진단: `GET /api/v1/market/realtime/status`의 `closingAuctionTicks`/`lastClosingAuctionSourceAt`(15:30:00 이후 수락된 종가 체결), `outsideSessionTicks`/`lastOutsideSessionSourceAt`(세션 창 밖이라 버린 체결)로 종가 체결 수신 여부를 확인한다. `scannerCooldownFallbacks`/`lastScannerCooldownFallbackAt`은 Redis 쿨다운 대신 프로세스 내부 쿨다운으로 탐지를 저장한 횟수다. 메모리 값이며 재시작하면 초기화된다.
 - 2026-10-13 이전: 세션 필터가 원천시각 15:30:00 초과 체결을 조용히 버렸고(카운터 없음), 전일 추천 종목의 OVERNIGHT 구독도 15:30 이후 첫 poll(15:30:00~15:30:30)에 해제됐다. 그래서 실시간 15:20/15:25 봉이 한 번도 저장되지 않았다(09-28~09-30의 15:20/15:25 봉은 모두 거래량 0인 KIS 분봉 보충 `BACKFILL` 봉이며 종가가 아니다).
 - KIS 분봉 보충의 15:20~15:29 행은 거래량 0의 평탄 봉으로 장중 마지막 가격을 담는다. 종가 체결 봉으로 인정하지 않는다.
 

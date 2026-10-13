@@ -46,7 +46,8 @@ public class ClosingDailyHealthService {
     }
 
     public record Facts(Long runId, Instant runCompletedAt, Instant entryDeadline, int selected, int selectedEntered,
-            Map<String, Integer> paperEntryStatuses, Map<String, Integer> observationStatuses, RealtimeWindow realtime) { }
+            Map<String, Integer> paperEntryStatuses, Map<String, Integer> observationStatuses, RealtimeWindow realtime,
+            Integer scannerDetections) { }
 
     public record Judgement(Verdict verdict, List<String> reasons) { }
 
@@ -97,6 +98,9 @@ public class ClosingDailyHealthService {
             reasons.add("REALTIME_DISCONNECTED");
         if (realtime.droppedDelta() != null && realtime.droppedDelta() > 0)
             reasons.add("REALTIME_TICKS_DROPPED");
+        // No scanner detection between the evaluation start and the freeze means no precision candidate could exist.
+        if (facts.scannerDetections() != null && facts.scannerDetections() == 0)
+            reasons.add("SCANNER_DETECTIONS_MISSING");
         if (facts.observationStatuses().entrySet().stream()
                 .anyMatch(entry -> !"COMPLETED".equals(entry.getKey()) && entry.getValue() > 0))
             reasons.add("OBSERVATION_INCOMPLETE");
@@ -149,6 +153,11 @@ public class ClosingDailyHealthService {
 
     private Facts facts(LocalDate today, RealtimeWindow realtime) {
         Instant deadline = today.atTime(policy.entryDeadline()).atZone(ClosingTradingCalendar.ZONE).toInstant();
+        Integer detections = jdbc.queryForObject("""
+                select count(*) from scanner_detection
+                 where market_session_date = ? and detected_at >= ? and detected_at <= ?""", Integer.class, today,
+                Timestamp.from(today.atTime(policy.evaluationStart()).atZone(ClosingTradingCalendar.ZONE).toInstant()),
+                Timestamp.from(today.atTime(policy.featureFreezeAt()).atZone(ClosingTradingCalendar.ZONE).toInstant()));
         Map<String, Integer> observations = counts("""
                 select o.status, count(*) from closing_candidate_observation o
                   join closing_recommendation_run r on r.id = o.run_id
@@ -164,7 +173,7 @@ public class ClosingDailyHealthService {
                      where recommendation_date = ? and execution_mode = 'FORWARD' and strategy_version = ?
                      order by id desc""", runRow, today, ClosingRecommendation.STRATEGY_VERSION);
         if (runs.isEmpty())
-            return new Facts(null, null, deadline, 0, 0, Map.of(), observations, realtime);
+            return new Facts(null, null, deadline, 0, 0, Map.of(), observations, realtime, detections);
         RunRow run = runs.getFirst();
         long runId = run.id();
         Integer selected = jdbc.queryForObject("select count(*) from closing_recommendation where run_id = ?",
@@ -177,7 +186,7 @@ public class ClosingDailyHealthService {
         Map<String, Integer> entries = counts(
                 "select status, count(*) from closing_paper_entry where run_id = ? group by status", runId);
         return new Facts(runId, run.completedAt(), deadline, selected == null ? 0 : selected,
-                entered == null ? 0 : entered, entries, observations, realtime);
+                entered == null ? 0 : entered, entries, observations, realtime, detections);
     }
 
     private record RunRow(long id, Instant completedAt) { }

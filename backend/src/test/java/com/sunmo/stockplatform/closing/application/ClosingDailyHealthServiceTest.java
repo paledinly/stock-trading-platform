@@ -35,6 +35,8 @@ class ClosingDailyHealthServiceTest {
                 + "completed_at timestamp with time zone, execution_mode varchar(20), strategy_version varchar(40), "
                 + "request_key varchar(100))");
         jdbc.execute("create table stock(id bigint primary key, stock_code varchar(12))");
+        jdbc.execute("create table scanner_detection(id bigint primary key, market_session_date date, "
+                + "detected_at timestamp with time zone)");
         jdbc.execute("create table closing_recommendation(id bigint primary key, run_id bigint, stock_id bigint)");
         jdbc.execute("create table closing_candidate_observation(id bigint primary key, run_id bigint, "
                 + "expected_session_date date, status varchar(20))");
@@ -50,7 +52,7 @@ class ClosingDailyHealthServiceTest {
     }
 
     Facts facts(Instant completed, int selected, int entered, Map<String, Integer> observations, RealtimeWindow realtime) {
-        return new Facts(7L, completed, DEADLINE, selected, entered, Map.of(), observations, realtime);
+        return new Facts(7L, completed, DEADLINE, selected, entered, Map.of(), observations, realtime, 3);
     }
 
     @Test void completeOnlyWhenRunEntriesObservationsAndRealtimeAreAllWhole() {
@@ -61,7 +63,7 @@ class ClosingDailyHealthServiceTest {
     }
 
     @Test void missingWithoutACompletedOfficialRun() {
-        assertThat(ClosingDailyHealthService.judge(new Facts(null, null, DEADLINE, 0, 0, Map.of(), Map.of(), HEALTHY)))
+        assertThat(ClosingDailyHealthService.judge(new Facts(null, null, DEADLINE, 0, 0, Map.of(), Map.of(), HEALTHY, 0)))
                 .isEqualTo(new Judgement(Verdict.MISSING, List.of("OFFICIAL_RUN_MISSING")));
         assertThat(ClosingDailyHealthService.judge(facts(null, 0, 0, Map.of(), HEALTHY)))
                 .isEqualTo(new Judgement(Verdict.MISSING, List.of("OFFICIAL_RUN_INCOMPLETE")));
@@ -77,12 +79,25 @@ class ClosingDailyHealthServiceTest {
                 .containsExactly("REALTIME_DISCONNECTED", "REALTIME_TICKS_DROPPED", "OBSERVATION_INCOMPLETE");
     }
 
+    @Test void noScannerDetectionInTheEvaluationWindowIsDegraded() {
+        assertThat(ClosingDailyHealthService.judge(new Facts(7L, COMPLETED, DEADLINE, 0, 0, Map.of(), Map.of(),
+                HEALTHY, 0))).isEqualTo(new Judgement(Verdict.DEGRADED, List.of("SCANNER_DETECTIONS_MISSING")));
+        assertThat(ClosingDailyHealthService.judge(new Facts(7L, COMPLETED, DEADLINE, 0, 0, Map.of(), Map.of(),
+                HEALTHY, null)).verdict()).as("not counted is not a gap").isEqualTo(Verdict.COMPLETE);
+    }
+
     @Test void recordsTodayFromStoredRowsAndKeepsEarlierRealtimeAfterRestart() {
-        jdbc.update("insert into closing_recommendation_run values (6, ?, ?, 'FORWARD', 'closing-recommend-v9-1515', "
-                + "'official-2026-10-01-closing-recommend-v9-1515')", FRIDAY.minusDays(1), Timestamp.from(COMPLETED.minusSeconds(86400)));
-        jdbc.update("insert into closing_recommendation_run values (7, ?, ?, 'FORWARD', 'closing-recommend-v9-1515', "
-                + "'official-2026-10-02-closing-recommend-v9-1515')", FRIDAY, Timestamp.from(COMPLETED));
-        jdbc.update("insert into closing_recommendation_run values (8, ?, ?, 'REPLAY', 'closing-recommend-v9-1515', null)",
+        // 14:29:59 is before the evaluation start, 14:40 and 15:15:00 are inside it, 15:15:01 is after the freeze.
+        jdbc.update("insert into scanner_detection values (1, ?, ?), (2, ?, ?), (3, ?, ?), (4, ?, ?)",
+                FRIDAY, Timestamp.from(Instant.parse("2026-10-02T05:29:59Z")),
+                FRIDAY, Timestamp.from(Instant.parse("2026-10-02T05:40:00Z")),
+                FRIDAY, Timestamp.from(Instant.parse("2026-10-02T06:15:00Z")),
+                FRIDAY, Timestamp.from(Instant.parse("2026-10-02T06:15:01Z")));
+        jdbc.update("insert into closing_recommendation_run values (6, ?, ?, 'FORWARD', 'closing-recommend-v9_1-1515', "
+                + "'official-2026-10-01-closing-recommend-v9_1-1515')", FRIDAY.minusDays(1), Timestamp.from(COMPLETED.minusSeconds(86400)));
+        jdbc.update("insert into closing_recommendation_run values (7, ?, ?, 'FORWARD', 'closing-recommend-v9_1-1515', "
+                + "'official-2026-10-02-closing-recommend-v9_1-1515')", FRIDAY, Timestamp.from(COMPLETED));
+        jdbc.update("insert into closing_recommendation_run values (8, ?, ?, 'REPLAY', 'closing-recommend-v9_1-1515', null)",
                 FRIDAY, Timestamp.from(CHECK));
         jdbc.update("insert into stock values (1, '005930'), (2, '000660'), (3, '035720')");
         jdbc.update("insert into closing_recommendation values (1, 7, 1), (2, 7, 2)");
@@ -93,7 +108,7 @@ class ClosingDailyHealthServiceTest {
         jdbc.update("insert into closing_candidate_observation values (1, 6, ?, 'COMPLETED'), (2, 6, ?, 'COMPLETED'), "
                 + "(3, 8, ?, 'PENDING')", FRIDAY, FRIDAY, FRIDAY);
         jdbc.update("insert into closing_daily_health(trade_date, verdict, reasons, strategy_version, checked_at) "
-                + "values (?, 'MISSING', 'OFFICIAL_RUN_MISSING', 'closing-recommend-v9-1515', ?)",
+                + "values (?, 'MISSING', 'OFFICIAL_RUN_MISSING', 'closing-recommend-v9_1-1515', ?)",
                 FRIDAY.minusDays(1), Timestamp.from(CHECK.minusSeconds(86400)));
 
         DailyHealth first = service(CHECK).recordToday(HEALTHY);
@@ -124,13 +139,15 @@ class ClosingDailyHealthServiceTest {
     @Test void recordsMissingWhenNoOfficialRunExists() {
         DailyHealth row = service(CHECK).recordToday(HEALTHY);
         assertThat(row.verdict()).isEqualTo(Verdict.MISSING);
+        assertThat(row.reasons()).as("a missing run is not also reported as missing detections")
+                .doesNotContain("SCANNER_DETECTIONS_MISSING");
         assertThat(row.reasons()).containsExactly("OFFICIAL_RUN_MISSING");
         assertThat(row.selectedCount()).isZero();
     }
 
     @Test void tradingDaysWithoutARowAreMissingAndClosuresWeekendsAndUncheckedTodayAreOmitted() {
         jdbc.update("insert into closing_daily_health(trade_date, verdict, reasons, strategy_version, run_id, checked_at) "
-                + "values (?, 'COMPLETE', '', 'closing-recommend-v9-1515', 5, ?)", LocalDate.of(2026, 9, 30),
+                + "values (?, 'COMPLETE', '', 'closing-recommend-v9_1-1515', 5, ?)", LocalDate.of(2026, 9, 30),
                 Timestamp.from(CHECK.minusSeconds(2 * 86400)));
 
         List<DailyHealth> rows = service(CHECK).list(LocalDate.of(2026, 9, 23), LocalDate.of(2026, 10, 5));

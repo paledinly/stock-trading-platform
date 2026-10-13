@@ -385,6 +385,7 @@ const healthReasonLabels: Record<string, string> = {
   REALTIME_DISCONNECTED: '15:15 전후 실시간 연결 끊김',
   REALTIME_TICKS_DROPPED: '15:15 전후 틱 처리 누락',
   OBSERVATION_INCOMPLETE: '후보 관측 미완료·결측',
+  SCANNER_DETECTIONS_MISSING: '14:30~15:15 스캐너 탐지 0건',
 }
 
 export function DailyHealthTable({ rows }: { rows: DailyHealth[] }) {

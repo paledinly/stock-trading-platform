@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -41,6 +42,7 @@ public class ScannerEngine {
     private final OpportunityRiskScorer scorer;
     private final Map<String, Integer> misses = new ConcurrentHashMap<>();
     private final Set<String> inside = ConcurrentHashMap.newKeySet();
+    private final Map<String, Instant> localCooldowns = new ConcurrentHashMap<>();
 
     public ScannerEngine(ScannerSettingRepository settings, ScannerDetectionRepository detections,
             StockRepository stocks, StockCandleRepository candles, QuoteStateStore quotes,
@@ -172,17 +174,31 @@ public class ScannerEngine {
         }
     }
 
-    private boolean acquire(ScannerSetting setting, String code, UUID event) {
-        if (redis == null)
-            return false;
-        try {
-            Boolean ok = redis.opsForValue().setIfAbsent(
-                    "scanner:" + setting.getType() + ":cooldown:" + setting.getId() + ":" + code,
-                    event.toString(), Duration.ofSeconds(setting.getCooldownSeconds()));
-            return Boolean.TRUE.equals(ok);
-        } catch (RuntimeException error) {
-            return false;
+    /**
+     * Redis cooldown is the normal path. When Redis is missing or fails, a process-local cooldown keeps
+     * detections flowing instead of silently dropping every detection (2026-10-12 had none all day).
+     */
+    boolean acquire(ScannerSetting setting, String code, UUID event) {
+        String key = "scanner:" + setting.getType() + ":cooldown:" + setting.getId() + ":" + code;
+        Duration cooldown = Duration.ofSeconds(setting.getCooldownSeconds());
+        if (redis != null) {
+            try {
+                Boolean ok = redis.opsForValue().setIfAbsent(key, event.toString(), cooldown);
+                if (ok != null)
+                    return ok;
+                diagnostics.scannerCooldownFallback("Redis cooldown returned no result");
+            } catch (RuntimeException error) {
+                diagnostics.scannerCooldownFallback("Redis cooldown failed: " + error.getClass().getSimpleName());
+            }
+        } else {
+            diagnostics.scannerCooldownFallback("Redis unavailable");
         }
+        Instant now = Instant.now();
+        Instant previous = localCooldowns.get(key);
+        if (previous != null && now.isBefore(previous))
+            return false;
+        localCooldowns.put(key, now.plus(cooldown));
+        return true;
     }
 
     private String eventName(ScannerType type) {

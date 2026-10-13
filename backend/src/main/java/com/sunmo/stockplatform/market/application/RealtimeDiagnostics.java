@@ -50,7 +50,8 @@ public class RealtimeDiagnostics {
             Map<String, SubscriptionStatus> subscriptions,
             Map<String, Timing> timings, int processingQueued, long processingDropped,
             long outsideSessionTicks, Instant lastOutsideSessionSourceAt,
-            long closingAuctionTicks, Instant lastClosingAuctionSourceAt) {
+            long closingAuctionTicks, Instant lastClosingAuctionSourceAt,
+            long scannerCooldownFallbacks, Instant lastScannerCooldownFallbackAt) {
     }
 
     /** Averages stay clamped at zero; minMs/negativeCount keep raw values so host-vs-source clock skew stays visible. */
@@ -81,6 +82,17 @@ public class RealtimeDiagnostics {
     public void outsideSessionTick(Instant sourceAt) { outsideSessionTicks.incrementAndGet(); lastOutsideSessionSourceAt = sourceAt; }
     /** Accepted closing auction prints stamped after 15:30:00 (random end). */
     public void closingAuctionTick(Instant sourceAt) { closingAuctionTicks.incrementAndGet(); lastClosingAuctionSourceAt = sourceAt; }
+    private final AtomicLong scannerCooldownFallbacks = new AtomicLong();
+    private volatile Instant lastScannerCooldownFallbackAt;
+    /** Scanner cooldown fell back to process memory; the error list gets at most one entry per minute. */
+    public void scannerCooldownFallback(String reason) {
+        scannerCooldownFallbacks.incrementAndGet();
+        Instant now = Instant.now();
+        Instant previous = lastScannerCooldownFallbackAt;
+        lastScannerCooldownFallbackAt = now;
+        if (previous == null || !now.isBefore(previous.plus(Duration.ofMinutes(1))))
+            error("Scanner cooldown fallback: " + reason);
+    }
 
     private final Map<String, SubscriptionStatus> subscriptions = new ConcurrentSkipListMap<>();
     private final AtomicLong receivedFrames = new AtomicLong();
@@ -242,7 +254,8 @@ public class RealtimeDiagnostics {
                 lastFeatureAt, featureSnapshots.get(), featureTrackedStocks,
                 Map.copyOf(candleGaps), Map.copyOf(backfills), java.util.List.copyOf(recentErrors),
                 Map.copyOf(subscriptions), timingSnapshot(), queueSize.getAsInt(), processingDropped.get(),
-                outsideSessionTicks.get(), lastOutsideSessionSourceAt, closingAuctionTicks.get(), lastClosingAuctionSourceAt);
+                outsideSessionTicks.get(), lastOutsideSessionSourceAt, closingAuctionTicks.get(), lastClosingAuctionSourceAt,
+                scannerCooldownFallbacks.get(), lastScannerCooldownFallbackAt);
     }
 
     private Map<String, Timing> timingSnapshot() {
