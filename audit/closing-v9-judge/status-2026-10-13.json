@@ -1,0 +1,147 @@
+{
+  "exported_at": "2026-10-13T03:17:58.482931Z",
+  "evaluated_as_of": "2026-10-13T03:17:58.482931+00:00",
+  "strategy_version": "closing-recommend-v9-1515",
+  "costs": {
+    "BASE": {
+      "buy": "0.095",
+      "sell": "0.295"
+    },
+    "HIGH": {
+      "buy": "0.165",
+      "sell": "0.365"
+    }
+  },
+  "primary": {
+    "sample": "1차 표본: v9 FORWARD SELECTED 추천의 paper entry (ADR-008 판정 대상)",
+    "rows": 0,
+    "session_pending": 0,
+    "session_done": 0,
+    "state_counts": {},
+    "diag_close_auction_only_gap": 0,
+    "diag_entered_with_0900_bar": 0,
+    "missing_ratio": null,
+    "arms": {
+      "BASELINE": {
+        "completed": 0,
+        "trading_days": 0,
+        "BASE": {
+          "mean_net": null,
+          "net_pf": null,
+          "win_rate": null,
+          "ci95": [
+            null,
+            null
+          ],
+          "mean_without_top3_days": null
+        },
+        "HIGH": {
+          "mean_net": null,
+          "net_pf": null,
+          "win_rate": null
+        },
+        "day_means_BASE": {},
+        "uncertain": 0,
+        "uncertain_ratio": null,
+        "verdict": {
+          "checkpoint": null,
+          "label": "체크포인트 미도달",
+          "interim_stop": false,
+          "interim": "중단 조건 미해당 (0건, 기준 >= 30건이고 95% 상한 < 0)"
+        }
+      },
+      "NEXT_OPEN": {
+        "completed": 0,
+        "trading_days": 0,
+        "BASE": {
+          "mean_net": null,
+          "net_pf": null,
+          "win_rate": null,
+          "ci95": [
+            null,
+            null
+          ],
+          "mean_without_top3_days": null
+        },
+        "HIGH": {
+          "mean_net": null,
+          "net_pf": null,
+          "win_rate": null
+        },
+        "day_means_BASE": {},
+        "uncertain": 0,
+        "uncertain_ratio": null,
+        "verdict": {
+          "checkpoint": null,
+          "label": "체크포인트 미도달",
+          "interim_stop": false,
+          "interim": "중단 조건 미해당 (0건, 기준 >= 30건이고 95% 상한 < 0)"
+        }
+      }
+    }
+  },
+  "secondary": {
+    "sample": "참고: v9 FORWARD 관측 후보(WATCH/EXCLUDED)의 paper entry (2차 표본, 판정 비합산)",
+    "rows": 113,
+    "session_pending": 51,
+    "session_done": 62,
+    "state_counts": {
+      "NO_ENTRY": 35,
+      "DATA_MISSING": 16,
+      "DATA_INCOMPLETE": 11
+    },
+    "diag_close_auction_only_gap": 2,
+    "diag_entered_with_0900_bar": 4,
+    "missing_ratio": 1.0,
+    "arms": {
+      "BASELINE": {
+        "completed": 0,
+        "trading_days": 0,
+        "BASE": {
+          "mean_net": null,
+          "net_pf": null,
+          "win_rate": null,
+          "ci95": [
+            null,
+            null
+          ],
+          "mean_without_top3_days": null
+        },
+        "HIGH": {
+          "mean_net": null,
+          "net_pf": null,
+          "win_rate": null
+        },
+        "day_means_BASE": {},
+        "uncertain": 0,
+        "uncertain_ratio": null
+      },
+      "NEXT_OPEN": {
+        "completed": 0,
+        "trading_days": 0,
+        "BASE": {
+          "mean_net": null,
+          "net_pf": null,
+          "win_rate": null,
+          "ci95": [
+            null,
+            null
+          ],
+          "mean_without_top3_days": null
+        },
+        "HIGH": {
+          "mean_net": null,
+          "net_pf": null,
+          "win_rate": null
+        },
+        "day_means_BASE": {},
+        "uncertain": 0,
+        "uncertain_ratio": null
+      }
+    }
+  },
+  "official_cross_check": {
+    "checked": 0,
+    "mismatches": []
+  }
+}
