@@ -8,13 +8,9 @@
 
 가상 진입은 5초 poll에서 평가 완료 후의 체결을 확인한다. 종목별 원천→진입 지연 10초 초과, 거래정지, 누락 표식, 미래 시각은 진입하지 않는다. 평가가 늦으면 EVALUATION_DEADLINE_MISSED, 유효 체결 없이 마감하면 NO_FRESH_TICK_BEFORE_DEADLINE을 closing_paper_entry에 기록한다. 중단 중 가격을 분봉으로 소급 채우지 않는다. 중단으로 남은 PENDING은 다음 활성 구간에서 만료되며 진입으로 간주하지 않는다. 실주문은 없다.
 
-## Supabase Egress 절감
+## 제거된 장중 연구 기능
 
-장중 연구는 입력이 없고 성과도 바뀌지 않으면 DB 트랜잭션/추천 조회를 생략한다. 입력이 없어도 만료·미청산 판정은 메모리에서 진행하며 실제 상태 전환은 저장한다. 종료된 거래도 종가 등 사후 관측이 아직 남았으면 필요한 변경은 계속 저장한다.
-
-정규장 종료 및 지연 유예 이후이고 당일 저장 성과의 추적이 모두 완료됐다면, 재시작 복구는 추천·성과만 읽고 당일 틱 원장 전체 재생을 생략한다. 장중 복구 및 명시적 `/replay`, `/exit-comparison`은 여전히 전체 입력을 읽는다. 대량 비교를 반복하면 Egress가 발생하며 이번 수정은 그 조회를 캐시하거나 제한하지 않는다.
-
-반영에는 백엔드 재시작이 필요하다. 장 종료 후 `intraday_recommendation WHERE id IN (...)` 쿼리 호출 증가가 멈추는지 DB 통계의 시간차로 확인하고, Supabase Shared Pooler/Database Egress 추이를 비교한다. 이미 발생한 사용량은 줄어들지 않는다. 이 최적화는 단일 실시간 수집 프로세스의 마지막 커밋 상태를 재사용하며 여러 수집 인스턴스의 소유권 조정은 제공하지 않는다.
+장중 추천 모듈은 2026-10-13 제거했다([실패 분석](../audit/2026-10-13-intraday-failure-analysis/README.md)). `INTRADAY_*` 환경변수와 `intraday.*` 설정은 더 이상 읽지 않으므로 기존 `.env`에 남아 있어도 무시된다. 장 종료 후 `intraday_recommendation` 조회로 생기던 Supabase Egress도 백엔드 재시작 후 사라진다. 기존 `intraday_input`·`intraday_recommendation` 테이블과 로컬 `.intraday-checkpoints/` 디렉터리는 자동 삭제하지 않으며, 보관·삭제는 사용자 확인 후 별도로 진행한다.
 
 ## 실시간 수집 운영시간
 
@@ -25,16 +21,6 @@ KIS WebSocket은 `ClosingTradingCalendar`의 거래일에만 기본 08:59부터 
 브라우저 SSE는 페이지가 열린 동안 대기 연결을 유지하지만 새 이벤트가 있을 때만 전송한다. 장외에 주기적으로 시세를 만들어 보내지 않는다. REST 조회·일봉 준비·성과 계산은 이 WebSocket 시간 제한과 별개다.
 
 장마감 추세 수집은 기본 비활성이다. `CLOSING_TRAJECTORY_ENABLED`, `CLOSING_TRAJECTORY_INDEX_ENABLED`, 기존 실시간/Broad/일봉 준비 및 [Trajectory 운영 절차](CLOSING_TRAJECTORY.md)를 확인한다. 새 점수는 공식 추천 가중치에 적용하지 않는다.
-
-## 장중 연구 기능
-
-기본값 `INTRADAY_ENABLED=false`를 유지한다. 연구 수집을 시작할 때 기존 실시간 구독이 작동하는 환경에서 활성화한다. 비용 환경변수는 `INTRADAY_BUY_FEE_PERCENT`, `INTRADAY_SELL_FEE_PERCENT`, `INTRADAY_SELL_TAX_PERCENT`, `INTRADAY_SPREAD_PERCENT`, `INTRADAY_BUY_SLIPPAGE_PERCENT`, `INTRADAY_SELL_SLIPPAGE_PERCENT`다. 모두 percent 단위이며 실제 적용 계좌/상품/일자의 확인된 가정을 입력한다. 빈 항목이 있어도 가격 기준 R:R로 추천하고 기준 체결가격의 Gross 성과를 추적한다. 비용 항목이 일부만 있으면 비용 전체를 미반영으로 표시하고 Net은 null로 남긴다. 여섯 항목이 모두 있을 때만 비용 포함 R:R·Net을 계산한다. `INTRADAY_COSTS_FOR_NET_ONLY=true`이면 비용은 Net 계산에만 쓰고 추천 R:R과 진입 판단은 가격 기준으로 유지한다. 전략 동작을 바꾸지 않고 비용 반영 Net 표본을 쌓을 때 사용하며, `/api/v1/intraday/status`의 `costsForNetOnly`로 확인한다. 세금이나 수수료율을 코드에서 현행 제도로 추정하지 않는다.
-
-세부 실험값은 `IntradayProperties`의 `intraday.*` 설정을 사용한다. 모든 입력과 추천에 전체 설정이 보존된다. `require-complete-risk-data=true`이면 현재 미확보 지수/호가/VI/위험 메타데이터 때문에 NO TRADE가 된다. 기본 false는 미확보 항목을 위험정보로 표시하는 연구 설정이지 운영 안전성 승인이 아니다.
-
-`/api/v1/intraday/status`에서 enabled/costsConfigured/error/queued/dropped와 후보 사유를 확인한다. 30분 연속 워밍업을 기다린다. 큐 적체, DB 장애, 지연/누락은 먼저 해소하고 미확정 성과를 정상 표본으로 바꾸지 않는다. 추천 화면의 최근 관측시각을 확인한다. SSE는 화면 알림용이며 메시지 서비스로 발송하지 않는다.
-
-V27은 앱 시작 시 Flyway로 적용한다. 기존 Closing 테이블은 변경하지 않는다. 원장 보관 용량·기간과 단일 backend 인스턴스 운영을 전제로 한다. 멀티 인스턴스 중복 수집/leader 선출은 지원하지 않는다. 실제 운영 DB 적용 및 장중 KIS Forward 연결 검증은 로컬 합성 테스트와 별개다.
 
 ## 시작 순서
 
@@ -66,7 +52,7 @@ Precision 후보 교체는 기본 14:35에 동결된다. 일봉 준비는 08:10 
 
 ## 장애 확인
 
-실시간 처리 큐 분리 코드는 backend 재시작 후 적용된다. 재시작 전 메모리 큐를 영구 복구하지 않으므로 관측 공백을 숨기지 않는다. `/api/v1/market/realtime/status`의 `realtime.processingQueued`, `processingDropped`, `timings`를 확인한다. `sourceToCallback`은 수신 이전 지연, `processingQueueWait`는 서버 작업 대기, `tickTransaction`과 세부 구간은 처리 비용이다. 큐가 지속 증가하면 분리만으로 처리량 문제가 해결되지 않은 것이다. `sseSlowClientDisconnects`가 늘면 화면 탭/프록시가 이벤트를 따라가지 못하는 것이며 틱 처리에는 영향이 없어야 한다. 누락 카운터가 증가하거나 장중추천의 `dropped`가 증가하면 해당 구간은 정상 연속 관측으로 취급하지 않는다. 상세 단위는 [API Guide](API.md)를 따른다.
+실시간 처리 큐 분리 코드는 backend 재시작 후 적용된다. 재시작 전 메모리 큐를 영구 복구하지 않으므로 관측 공백을 숨기지 않는다. `/api/v1/market/realtime/status`의 `realtime.processingQueued`, `processingDropped`, `timings`를 확인한다. `sourceToCallback`은 수신 이전 지연, `processingQueueWait`는 서버 작업 대기, `tickTransaction`과 세부 구간은 처리 비용이다. 큐가 지속 증가하면 분리만으로 처리량 문제가 해결되지 않은 것이다. `sseSlowClientDisconnects`가 늘면 화면 탭/프록시가 이벤트를 따라가지 못하는 것이며 틱 처리에는 영향이 없어야 한다. 누락 카운터가 증가하면 해당 구간은 정상 연속 관측으로 취급하지 않는다. 상세 단위는 [API Guide](API.md)를 따른다.
 
 1. /actuator/health
 2. DB/Redis 연결
@@ -80,7 +66,7 @@ Precision 후보 교체는 기본 14:35에 동결된다. 일봉 준비는 08:10 
 
 ## 호스트 시계 동기화
 
-KIS 원천 체결시각은 초 단위로 절사되므로 정상이라면 수신시각보다 늦을 수 없다. 수집 호스트 시계가 늦으면 `occurredAt > receivedAt` 틱이 생기고, 장중 엔진·Tracker·마감 가상 진입·분 집계는 시각 정책에 따라 이 틱을 버린다. 2026-10 운영 PC에서는 Windows Time 서비스가 꺼져 있어 하루 중 최대 약 1초까지 어긋났다([진단](../audit/2026-10-12-clock-skew/README.md)).
+KIS 원천 체결시각은 초 단위로 절사되므로 정상이라면 수신시각보다 늦을 수 없다. 수집 호스트 시계가 늦으면 `occurredAt > receivedAt` 틱이 생기고, 마감 가상 진입·분 집계는 시각 정책에 따라 이 틱을 버린다. 2026-10 운영 PC에서는 Windows Time 서비스가 꺼져 있어 하루 중 최대 약 1초까지 어긋났다([진단](../audit/2026-10-12-clock-skew/README.md)).
 
 - 확인: `/api/v1/market/realtime/status`의 `timings.sourceToCallback.negativeCount`가 0보다 크거나 `minMs`가 음수이면 호스트 시계가 원천보다 늦다.
 - Windows 조치(관리자 PowerShell):

@@ -14,16 +14,13 @@ Phase 2 수급은 기존 closing_context_observation의 JSON을 재사용한다.
 
 `closing_minute_feature`, `closing_context_observation`, `closing_trajectory_snapshot`을 추가한다. 기존 봉/추천 테이블은 유지한다. 입력 JSON text는 불변이고 오전 outcome만 갱신한다. [키·인덱스·보관 정책](CLOSING_TRAJECTORY.md)을 참고한다.
 
-## Intraday (V27)
+## Intraday (V27, 미사용)
 
-Egress 절감: 마지막 커밋 성과 JSON을 프로세스 메모리에 보관하고 변경된 추천 ID만 읽어 저장한다. 불변 Snapshot을 매초 전체 재조회하지 않는다. 입력 원장과 변경 성과 쓰기는 동일 트랜잭션이며 메모리 비교 기준은 커밋 성공 후에만 갱신한다. 실패 시 엔진과 비교 기준을 함께 폐기한다. 이 메모리는 영구 저장소나 다중 서버 간 캐시가 아니며 일자 전환/복구 시 다시 구성한다. 스키마 변경은 없다.
+장중 추천 모듈은 2026-10-13 제거했다([실패 분석](../audit/2026-10-13-intraday-failure-analysis/README.md)). V27 migration과 테이블은 그대로 남아 있고 Flyway 이력도 변경하지 않았다. `spring.jpa.hibernate.ddl-auto=validate`이므로 엔티티 제거로 스키마가 바뀌지 않는다.
 
-장중 입력 쓰기는 `IntradayInputWriter`의 JDBC 다중 행 INSERT(최대 250행/문장)를 사용한다. 1,000건 입력은 4문장이고 driver batch rewrite 설정에 의존하지 않는다. 기존 bigserial 키·JSON·시각은 유지하며 추천/성과와 동일한 Spring 트랜잭션을 공유한다. 후속 묶음 실패도 앞선 INSERT를 포함해 전체 롤백한다. JPA Repository는 읽기/재생에 유지한다. 스키마 변경은 없다.
-
-- `intraday_input`: 거래일·종목·수신/평가시각과 변경 불가 입력 JSON. 실험 당시 Feature와 설정을 함께 저장한다.
-- `intraday_recommendation`: UUID, 종목/Setup/추천시각 고유 제약, 변경 불가 추천 Snapshot, 별도 가변 성과 JSON, optimistic version 및 추적 완료 표식.
-- 두 테이블 모두 기존 Closing/Scanner 성과 FK나 집계에 연결하지 않는다. Backtest는 원장을 읽어 별도 응답을 만들며 Paper 테이블에 추가하지 않는다.
-- 틱 원장은 데이터량이 크다. 활성화 전 보관 용량과 기간을 정해야 하며 자동 삭제를 수행하지 않는다. 입력 원장을 제거하면 해당 기간 재생 가능성도 사라진다.
+- `intraday_input`: 거래일·종목·수신/평가시각과 변경 불가 입력 JSON. 더 이상 쓰지 않는다.
+- `intraday_recommendation`: 장중 추천 Snapshot과 Paper 성과 JSON. 더 이상 쓰거나 읽지 않는다.
+- 두 테이블 모두 Closing/Scanner 성과 FK나 집계에 연결되지 않았다. 데이터 보관·삭제(테이블 drop 포함)는 사용자 확인 후 별도 migration으로 진행한다.
 
 ## 역할
 

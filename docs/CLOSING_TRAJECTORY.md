@@ -17,7 +17,7 @@
 | 일봉 | DailyCandleBackfillService, 기본 120일 조회/종목 예산 | 연속 20거래일 Feature 재사용 |
 | 성과 | 추천/관찰 후보 익일 관측·비용 포함 가상 체결 | 종가 기준 오전 학습 Target 추가 |
 | 백테스트 | Scanner 재생, Closing 비교/가용시각 검사 | 과거 1분 이력 역생성 안 함 |
-| Scheduler | 봉 확정, Broad, 일봉, Closing 자동화, Intraday 큐 | 전용 집계/맥락 scheduler |
+| Scheduler | 봉 확정, Broad, 일봉, Closing 자동화 | 전용 집계/맥락 scheduler |
 | 뉴스/공시/수급/업종/테마 | 검증된 수집·시계열 경로 없음 | 미수집 명시, 원인 추측 안 함 |
 
 ## 2. 발견한 문제
@@ -30,7 +30,7 @@
 
 ## 3. 추가한 데이터
 
-`ObservedMarketTick` 커밋 후 → 메모리 1분 집계 → 별도 scheduler → DB. 이 경로는 Tick을 영구 저장하지 않는다. 기존 선택적 Intraday 틱 원장 정책은 유지한다.
+`ObservedMarketTick` 커밋 후 → 메모리 1분 집계 → 별도 scheduler → DB. 이 경로는 Tick을 영구 저장하지 않는다.
 
 - 1분 OHLC/체결량/거래대금, 당일 누적량/대금, 일중 O/H/L, 분말 체결강도, 매수/매도 체결량 증분.
 - 분 시작, 마지막 발생/수신, 확정 요청 시각을 분리한다.

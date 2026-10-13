@@ -1,29 +1,5 @@
 # Trading Strategy
 
-## 별도 장중 연구 전략 (intraday-research-v2-optional-costs)
-
-손절·목표·진입 확인·부분 익절·재진입 제한의 변경은 별도 [비교 실험](INTRADAY_EXIT_COMPARISON.md)에서만 선택적으로 적용한다. 실시간 정책 기본값은 유지하며 신규 추천 Feature에 구조적 지지/저항/관측 범위를 추가해 후속 재생의 기준선을 보존한다.
-
-마감추천을 대체하지 않는다. 모든 수치 설정은 미검증 가설이며 기본 비활성이다. 동일 조건 OOS/Forward 비교 없이 운영 전략으로 승인하지 않는다.
-
-장중 신규 입력은 종목 마스터의 보통주 분류로 ETF/ETN을 제외한다. 관찰 후보 목록에서도 UNIVERSE_EXCLUDED 후보를 제외한다. 기존 저장 추천과 당시 적격성을 기록한 입력 원장의 재생 결과는 소급 수정하지 않는다. 마스터 파서 수정 후 기존 오분류는 Backend 재시작과 종목 마스터 재동기화로 갱신해야 한다.
-
-추천 시간은 09:05 이상 15:00 미만이고 OPENING/MID_SESSION/LATE_SESSION의 거래량 확인 배수는 별도 설정이다. 현재 Setup은 연속 30분 워밍업이 필요하므로 개장 직후 09:05 추천은 지원하지 않으며 가장 이른 평가는 09:30 이후다. 종목 마스터의 보통주/활성/관리/정지 상태와 유동성을 hard gate로 사용한다. 실측하지 못한 위험 메타데이터는 위험정보로 표시한다.
-
-- BREAKOUT: 선행 구간 고점 상회, 최근 5분 거래량/대금 증가, VWAP 상회 및 윗꼬리·과열 제한. 마지막 체결이 돌파선 위에 있는지 확인한다.
-- PULLBACK: 15분 전부터의 5분 상승, 다음 5분 저거래량 조정/저점·VWAP 지지, 최근 5분 거래량 회복과 조정 고점 회복. 1차 고점 아래에서만 눌림으로 분류한다.
-- RE_BREAKOUT: 같은 순차 구조에서 선행 상승 고점을 다시 넘는 경우. 일반 돌파보다 먼저 분류한다.
-
-Entry 구간과 추격 제한은 관측된 구간 평균 가격범위에서 계산하고 Stop은 돌파선/눌림 저점 하단이다. 이 가격범위는 ATR이 아니다. 기본 Target은 위험배수이며 눌림은 선행 고점을 사용한다. `target-mode`는 RISK_MULTIPLE/FIXED_1/FIXED_2/FIXED_3/PRIOR_HIGH/RANGE를 비교할 수 있고 `trailing-after-target`은 Target 1 확인 후 최초 위험폭만큼의 추적 손절을 적용한다. Target 2는 참고 계획이며 기본 포지션은 Target 1에서 전량 청산한다. 비용 여섯 항목이 모두 설정되면 비용 포함 최악 진입가 R:R을, 아니면 비용 미반영 가격 기준 R:R을 검사한다. `intraday.costs-for-net-only=true`이면 비용은 가상 fill과 Net 계산에만 쓰고 R:R 검사와 진입 가능 여부는 비용 미반영 가격 기준을 유지한다. 이 경우 추천에 `COSTS_FOR_NET_ONLY` 위험 표식을 남긴다. 저장된 추천은 당시 정책 snapshot의 규칙으로 재생하며, 이 값이 없는 과거 snapshot은 false로 해석한다. 기준 R:R이 부족하면 추천하지 않는다. 비용 미설정 추천에는 위험 표식을 남기고 Net은 산정하지 않는다. 실측 호가·주문 단위·체결가능 수량을 검증하지 않은 참고 가격이며 거래소 주문가격이 아니다.
-
-점수는 거래량/거래대금/순 R:R의 최소 정규화 조건 여유를 50–100으로 표현하는 연구 순위다. Closing 가중치를 가져오지 않는다. Setup별 구조적 조건을 먼저 통과해야 하며 점수의 단조 성과 개선은 아직 확인되지 않았다. Historical Win Rate/Expected Return/MFE/MAE/Confidence를 추천 확률로 생성하지 않는다.
-
-SCANNED → WATCHLIST → SETUP_FORMING → ENTRY_READY 이후 추천을 고정한다. 가상 진입은 추천 이후 새 체결이 관심구간에 있고 매수 Spread/Slippage 반영 가격도 Entry To 이내일 때만 허용한다. 진입 유효시간 종료는 EXPIRED, 손절선/추격 제한 위반은 INVALIDATED다. 동일 종목의 활성 포지션과 동일 Setup cooldown 동안 중복 추천하지 않는다. cooldown 이후 새로운 조건 충족은 재추천할 수 있다.
-
-가상 포지션은 STOPPED/TARGET_HIT/TRAILING_EXIT/TIME_EXIT로 종료한다. 기본 최대 보유 60분 또는 15:29 이후 관측 체결에서 당일 청산한다. 종료 가능한 틱이 없으면 UNRESOLVED이며 익일 가격을 당일 종가로 쓰지 않는다. 과열/VWAP 괴리/거래량 Climax/체결강도 하락/윗꼬리는 차단 사유다. 실패 태그는 관측 가능한 구조적 지지/돌파 실패·VWAP 이탈·체결강도 반전 설명이며 인과관계 증명이 아니다.
-
-장중 통계의 `targetBeforeStopRate`는 손절·목표 거리만으로도 크게 달라진다. 그래서 `randomBaselineTargetRate`(무작위 보행에서 목표가 먼저 닿을 확률 = 손절폭 ÷ (손절폭 + 목표폭), 원 진입가 기준 평균)와 그 차이 `targetEdge`(%p)를 함께 보고한다. 손절률 자체가 아니라 `targetEdge`와 평균 Net이 종목 선택 개선의 판단 지표다. 기준선은 추세·변동성 군집을 무시한 근사다.
-
 ## 목표
 
 당일 15:15까지 실제 수신·확정된 정보로 후보를 평가하고, 평가 완료 후 15:20 전에 신선한 체결을 관측한 경우 가상 진입해 다음 거래일 성과를 측정한다. v9는 시간과 진입 모델을 변경한 미검증 전략이다. 이전 v8 결과와 합쳐 수익성을 주장하지 않는다.
@@ -70,3 +46,7 @@ Scanner reason은 탐지 당시 조건 설명이다. VWAP_RECLAIM, PULLBACK_REBR
 v9의 계속·실거래 검토·중단 판단 기준과 사전 등록한 다음날 시가 청산 비교안은 [ADR-008](decisions/ADR-008-CLOSING-V9-DECISION-CRITERIA.md)을 따른다. 판단 기간 동안 v9 설정을 바꾸면 표본을 처음부터 다시 센다.
 
 완료된 Forward 평가에서는 최종 추천뿐 아니라 관찰·제외 후보도 별도 관측할 수 있다. 동일한 평가 완료 후 진입, 다음 거래일 청산, 목표·손절, 비용 규칙을 적용하되 공식 추천 성과와 섞지 않는다. 진입 가능 가격이나 다음날 세션 데이터가 없으면 수익을 보정하지 않고 결측으로 남긴다. 마감 자동화가 켜져 있으면 거래일 정규장 종료 10분 후 하루 한 번 직전 공식 run과, 관측 세션이 지났지만 PENDING/IN_PROGRESS로 남은 과거 run을 자동 평가한다. 실시간 구독 밖 Broad 후보는 진입 체결이나 다음날 5분봉이 없어 DATA_MISSING이 많을 수 있으며 이는 결측 그대로의 결과다. 이를 줄이기 위해 공식 run의 SELECTED/WATCH 후보 중 SELECTED 우선·점수 상위 `closing.automation.observation-subscription-limit`개(기본 10)를 남는 실시간 슬롯에 OVERNIGHT로 구독해 평가 당일 15:20 진입과 다음 거래일 장 마감까지 유지한다. 슬롯이 없으면 구독하지 않으므로 관측 표본은 구독 가능 여부에 따라 선택된다.
+
+## 제거된 장중 연구 전략
+
+별도 장중 추천 전략(intraday-research-v2-optional-costs)은 2026-10-13 7세션 비교에서 비용 후 기대값이 양수가 되지 않고 목표 선도달률이 무작위 기준선보다 낮아 코드와 화면을 제거했다([진입 비교](../audit/2026-10-13-intraday-entry-comparison/README.md), [실패 분석](../audit/2026-10-13-intraday-failure-analysis/README.md)). 이 프로젝트의 추천 전략은 마감 추천 하나다. 마감 추천의 장중 이동평균(`IntradayMovingAverageService`)과 `INTRADAY_REVERSAL` 등 사유는 마감 전략 Feature이며 제거 대상이 아니다.

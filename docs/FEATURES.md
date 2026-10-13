@@ -35,9 +35,6 @@
 | --- | --- | --- | --- | --- | --- |
 | 마감 추천 v9 자동 실행·가상 진입·성과 | `CLOSING_AUTOMATION_ENABLED` | 켜짐 | 켜짐 | 실험 ([ADR-008](decisions/ADR-008-CLOSING-V9-DECISION-CRITERIA.md) 판단 대기) | [TRADING_STRATEGY](TRADING_STRATEGY.md) |
 | 마감 후보 관측 (탈락 후보 동일 규칙 평가) | 자동화에 포함, `CLOSING_OBSERVATION_SUBSCRIPTION_LIMIT` | 켜짐, 10 | 켜짐, 10 | 실험 | [TRADING_STRATEGY](TRADING_STRATEGY.md) |
-| 장중 추천 | `INTRADAY_ENABLED` | 꺼짐 | 켜짐 | 실험 (기준선 검증 실패) | [TRADING_STRATEGY](TRADING_STRATEGY.md) |
-| 장중 비용 Net 전용 | `INTRADAY_COSTS_FOR_NET_ONLY` | 꺼짐 | 켜짐 | 실험 | [TRADING_STRATEGY](TRADING_STRATEGY.md) |
-| 장중 진입·청산 비교 실험 | API·화면에서 실행 | — | — | 실험 | [INTRADAY_EXIT_COMPARISON](INTRADAY_EXIT_COMPARISON.md) |
 | 신호 성과 분석 (Scanner 탐지 성과) | 실시간 수집에 포함 | — | 켜짐 | 실험 | [BACKTESTING](BACKTESTING.md) |
 | 전략 재생·백테스트 | API·화면에서 실행 | — | — | 실험 | [BACKTESTING](BACKTESTING.md) |
 
@@ -62,13 +59,16 @@
 | 시장 전체 스캐너 | `Phase8App` | 운영 | [API](API.md) |
 | 전략 재생 | `Phase9App` | 실험 | [BACKTESTING](BACKTESTING.md) |
 | 오늘의 마감 추천 | `ClosingRecommendationApp` | 실험 | [TRADING_STRATEGY](TRADING_STRATEGY.md) |
-| 실시간 장중 추천 | `IntradayApp` | 실험 | [TRADING_STRATEGY](TRADING_STRATEGY.md) |
+
+### 제거됨 (2026-10-13)
+
+장중 추천(`INTRADAY_ENABLED`), 장중 비용 Net 전용(`INTRADAY_COSTS_FOR_NET_ONLY`), 장중 진입·청산 비교 실험, 실시간 장중 추천 화면(`IntradayApp`)을 기준선 검증 실패로 제거했다([진입 비교](../audit/2026-10-13-intraday-entry-comparison/README.md), [실패 분석](../audit/2026-10-13-intraday-failure-analysis/README.md)). `intraday_input`·`intraday_recommendation` 테이블은 DB에 남아 있으며 처리 방법은 사용자 확인 후 정한다.
 
 현재 "폐기 후보"는 없다. 동결 기능 중 3개월 동안 재개 계획이 없는 것은 폐기 후보로 옮겨 사용자에게 묻는다.
 
 ## 신규 기능 추가 규칙
 
-마감 v9의 1차 체크포인트([ADR-008](decisions/ADR-008-CLOSING-V9-DECISION-CRITERIA.md))와 장중 개선 비교 결과가 나올 때까지 다음을 지킨다.
+마감 v9의 1차 체크포인트([ADR-008](decisions/ADR-008-CLOSING-V9-DECISION-CRITERIA.md))가 나올 때까지 다음을 지킨다.
 
 - 새 데이터 수집, 새 전략, 새 화면은 추가하지 않는다. 측정 신뢰성 수정, 버그 수정, 이미 등록된 비교 실험은 예외다.
 - 새 실험 옵션은 기존 옵션 하나를 정리하거나, 결과가 나온 실험이 있을 때만 추가한다.

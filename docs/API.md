@@ -31,17 +31,9 @@ v9 마감 평가 기본 기준은 15:15이며 수신 유예는 0초다. 같은 �
 
 `/api/v1/closing-trajectory` 아래 GET `/status`, `/minutes?symbol=...&date=...`, `/snapshots?date=...`, `/outcomes?date=...`, POST `/outcomes/track?date=...`를 제공한다. 기존 평가의 `dataReadiness.trajectory`에도 당시 사용 가능한 Snapshot을 연결한다. [설정·응답 의미](CLOSING_TRAJECTORY.md)를 참고한다.
 
-## 장중 연구 API
+## 제거된 장중 연구 API
 
-- `POST /api/v1/intraday/exit-comparison?date=YYYY-MM-DD`: 읽기 전용 비교. 기본은 동일 진입 청산 비교이고 variant.options에서 진입 확인·제외·재진입 조건을 켜면 동일 후보의 진입 변경 실험이다. 후보를 새로 생성하지 않는다. 최소 손절폭·명시적 가격 단위·부분 익절·추적 손절도 지원한다. [본문·비용·품질 의미](INTRADAY_EXIT_COMPARISON.md). Web 장중 추천 하단 ‘진입·청산 비교 실험’에서 실행한다.
-
-- `GET /api/v1/intraday/status`: 활성 여부, 비용 설정 여부, 큐/누락/오류, 현재 관찰 후보 단계·사유.
-- `GET /api/v1/intraday/recommendations?date=YYYY-MM-DD`: 한국 거래일의 Paper 추천. `signal`은 고정 Snapshot, `outcome`은 이후 관측·가상 체결이다. score 내림차순이며 현재가에는 관측시각이 포함된다. signal.risks에 COSTS_NOT_CONFIGURED가 있으면 plan.riskReward는 가격 기준이며 outcome.netReturn은 null이다. 이 추천은 Net 통계 표본에서 제외한다.
-- `GET /api/v1/intraday/analytics?date=YYYY-MM-DD`: 독립 Paper의 Setup/시간대/점수구간/시장 맥락/정책별 통계. 자료가 없으면 null이다.
-- `POST /api/v1/intraday/replay?date=YYYY-MM-DD`: 본문이 없으면 당시 설정·수신 순서로 재생한다. 전체 `IntradayProperties` JSON 본문을 전달하면 동일 관측 Universe/입력의 반사실 실험이다. Paper 성과에 합산하지 않는다. 비교 시 비용/진입/청산 설정은 동일하게 유지해야 한다.
-- SSE `intraday.entry-ready`: 새 추천의 id·종목·Setup·계획·점수·이유 Snapshot. cooldown/활성 포지션으로 반복 발행을 제한한다. 외부 메신저 발송이나 주문 API는 추가하지 않는다.
-
-0건 추천은 정상 NO TRADE이며 비활성·자료 부족·유동성·Setup 미충족 등 원인은 status에서 구분한다. Confidence는 UNVALIDATED이며 score는 확률이 아니다.
+`/api/v1/intraday/*` endpoint와 SSE `intraday.entry-ready`는 2026-10-13 장중 추천 모듈 제거와 함께 삭제됐다([실패 분석](../audit/2026-10-13-intraday-failure-analysis/README.md)). 호출하면 404가 반환된다.
 
 Backend의 REST/SSE endpoint는 Controller mapping이 기준이다. 이 문서는 영역과 사용 원칙만 설명하며 정확한 request/response 필드는 DTO와 Web 호출 코드를 함께 확인한다.
 
