@@ -66,7 +66,7 @@ Precision 후보 교체는 기본 14:35에 동결된다. 일봉 준비는 08:10 
 
 ## 장애 확인
 
-실시간 처리 큐 분리 코드는 backend 재시작 후 적용된다. 재시작 전 메모리 큐를 영구 복구하지 않으므로 관측 공백을 숨기지 않는다. `/api/v1/market/realtime/status`의 `realtime.processingQueued`, `processingDropped`, `timings`를 확인한다. `sourceToCallback`은 수신 이전 지연, `processingQueueWait`는 서버 작업 대기, `tickTransaction`과 세부 구간은 처리 비용이다. 큐가 지속 증가하면 분리만으로 처리량 문제가 해결되지 않은 것이다. 누락 카운터가 증가하거나 장중추천의 `dropped`가 증가하면 해당 구간은 정상 연속 관측으로 취급하지 않는다. 상세 단위는 [API Guide](API.md)를 따른다.
+실시간 처리 큐 분리 코드는 backend 재시작 후 적용된다. 재시작 전 메모리 큐를 영구 복구하지 않으므로 관측 공백을 숨기지 않는다. `/api/v1/market/realtime/status`의 `realtime.processingQueued`, `processingDropped`, `timings`를 확인한다. `sourceToCallback`은 수신 이전 지연, `processingQueueWait`는 서버 작업 대기, `tickTransaction`과 세부 구간은 처리 비용이다. 큐가 지속 증가하면 분리만으로 처리량 문제가 해결되지 않은 것이다. `sseSlowClientDisconnects`가 늘면 화면 탭/프록시가 이벤트를 따라가지 못하는 것이며 틱 처리에는 영향이 없어야 한다. 누락 카운터가 증가하거나 장중추천의 `dropped`가 증가하면 해당 구간은 정상 연속 관측으로 취급하지 않는다. 상세 단위는 [API Guide](API.md)를 따른다.
 
 1. /actuator/health
 2. DB/Redis 연결
