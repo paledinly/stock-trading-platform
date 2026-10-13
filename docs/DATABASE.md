@@ -1,5 +1,9 @@
 # Database
 
+## Closing Daily Health (V32)
+
+`closing_daily_health`는 `trade_date` 기본키로 마감 파이프라인 일별 완결성 판정을 저장한다. 당일 행만 갱신하고 지난 날짜는 다시 쓰지 않는다. 평가 완료시각(`run_completed_at`), 실시간 표본시각(`realtime_window_start/end`), 판정 기록시각(`checked_at`)을 구분한다. 가상 진입·후보 관측 상태별 수는 JSON 텍스트다. [판정 기준](OPERATIONS.md#마감-파이프라인-일별-완결성).
+
 ## Closing Paper Entry (V30)
 
 `closing_paper_entry`는 `(run_id, stock_code)` 기본키로 v9 후보별 가상 진입을 저장한다. 평가 완료/진입 마감/원천 발생/수신/가상 진입 시각과 가격·상태를 구분하며 PENDING만 ENTERED로 바뀐다. 상태·마감 인덱스로 대기 행을 조회한다. 선정/미선정 비교 관측이 같은 기록을 사용하며 기존 v8 성과를 소급 변경하지 않는다.

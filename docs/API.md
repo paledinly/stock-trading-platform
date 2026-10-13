@@ -71,3 +71,15 @@ Backend의 REST/SSE endpoint는 Controller mapping이 기준이다. 이 문서�
 API 변경 시 Controller, DTO, Web client와 테스트를 함께 수정한다. 사용자에게 보이는 enum/영문 reason은 서버 원본을 보존하되 UI 번역 mapping으로 표시한다.
 
 관심종목 실시간 고정은 `PATCH /api/v1/watchlists/{id}/realtime`로 목록 저장과 별도로 변경한다. 전체 후보 관측은 마감 자동화 스케줄이 거래일 장 종료 10분 후 자동 계산하며, `POST /api/v1/closing-recommendations/candidate-observations/track`으로 수동 재계산할 수 있고 같은 경로의 GET 조회 API에서 확인한다. 이 결과는 공식 추천 성과와 별도 집계한다.
+
+## 마감 파이프라인 일별 완결성
+
+`GET /api/v1/closing-recommendations/daily-health?from=YYYY-MM-DD&to=YYYY-MM-DD`: 기본 `to`는 오늘(KST), `from`은 `to` 13일 전이며 최대 366일, `from > to`는 400이다. 최신 거래일부터 반환한다. 기록이 없는 거래일(`ClosingTradingCalendar` 기준)은 `verdict=MISSING`, `reasons=["NO_HEALTH_RECORD"]`, `recorded=false`로 채운다. 휴장일·미래일과 장 종료 15분 전의 오늘은 포함하지 않는다.
+
+- `verdict`: `COMPLETE`/`DEGRADED`/`MISSING`, `reasons`: 판정 사유 코드 목록
+- `runId`, `runCompletedAt`: 공식 FORWARD v9 평가와 평가 완료시각(체결·원천시각 아님)
+- `selectedCount`, `selectedEntered`: 최종 추천 수와 그중 `ENTERED` 가상 진입 수
+- `paperEntryStatuses`: 해당 실행의 전체 후보 `closing_paper_entry` 상태별 수(미진입 사유 포함)
+- `observationStatuses`: 당일이 관측 세션인 FORWARD 후보 관측의 상태별 수
+- `realtimeConnected`, `realtimeDroppedDelta`, `realtimeWindowStart/End`: 15:15 직전~15:20 이후 호스트 표본시각 사이 연결 유지 여부와 `processingDropped` 증가량. 미관측이면 null
+- `checkedAt`: 판정 기록시각
