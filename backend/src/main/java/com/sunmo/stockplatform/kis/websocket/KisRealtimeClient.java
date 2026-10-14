@@ -223,14 +223,13 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
     /**
      * 종목 하나의 구독 또는 해지 요청을 예약해요. 요청끼리 최소 0.5초 간격이 되도록 보낼 시각을 정해요.
      * 받는 것: 종목코드, 구독 여부(true 구독, false 해지). 돌려주는 것: 없음.
-     * 연결이 없으면 보내지 않고 "대기 중"으로만 표시해요(재연결 때 전체 목록을 다시 구독해요).
+     * 연결이 없으면 보내지 않아요. 구독이면 "대기 중"으로 표시하고(재연결 때 전체 목록을 다시 구독해요),
+     * 해지면 재연결 때 다시 구독되지 않으므로 진단의 구독 상태 항목을 지워요.
      */
     private void send(String code, boolean subscribe) {
         WebSocket current = socket;
-        // ⚠️ 확인 필요: 해지(subscribe=false) 요청도 여기서 diagnostics.queued(code)를 호출해요.
-        // 연결이 없을 때 해지된 종목이 진단 화면에 "대기 중" 상태로 다시 생겨 남을 수 있어요(sendSubscription도 동일).
         if (current == null || current.isOutputClosed() || approvalKey == null) {
-            diagnostics.queued(code);
+            markUnsent(code, subscribe);
             return;
         }
         long now = System.currentTimeMillis();
@@ -250,7 +249,7 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
      */
     private void sendSubscription(WebSocket expected, String code, boolean subscribe) {
         if (stopping.get() || !session.connectionAllowed() || socket != expected || expected.isOutputClosed()) {
-            diagnostics.queued(code);
+            markUnsent(code, subscribe);
             return;
         }
         // 메시지에는 접속키가 들어 있으니 로그에 그대로 남기지 않아요. tr_type 1은 구독, 2는 해지예요.
@@ -268,6 +267,18 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
                 log.warn("Failed to send KIS subscription for {}: {}", code, rootMessage(error));
             }
         });
+    }
+
+    /**
+     * 연결이 없어 보내지 못한 요청의 진단 상태를 정리해요.
+     * 받는 것: 종목코드, 구독 여부. 구독이면 QUEUED로 표시하고, 해지면 구독 상태 항목을 지워요
+     * (해지된 종목은 구독 목록에 없어서 재연결 때 다시 구독되지 않으니 "대기 중"으로 남기면 안 돼요).
+     */
+    private void markUnsent(String code, boolean subscribe) {
+        if (subscribe)
+            diagnostics.queued(code);
+        else
+            diagnostics.subscriptionDropped(code);
     }
 
     /**

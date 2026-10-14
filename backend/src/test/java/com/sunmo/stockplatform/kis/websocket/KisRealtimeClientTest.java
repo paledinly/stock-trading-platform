@@ -181,6 +181,26 @@ class KisRealtimeClientTest {
         client.shutdown();
     }
 
+    /**
+     * 연결이 없을 때 해지 요청은 종목을 "대기 중"으로 되살리지 않고 구독 상태에서 지우는지 확인해요.
+     * 준비: 소켓 없이 005930 구독 요청과 000660 구독 요청을 보내고, 000660만 해지 요청을 보내요.
+     * 기대: 005930은 QUEUED로 남고 000660은 상태 목록에서 사라져요.
+     */
+    @Test
+    void unsubscribeWithoutSocketRemovesStatusInsteadOfQueueing() {
+        RealtimeDiagnostics diagnostics = new RealtimeDiagnostics();
+        KisRealtimeClient client = client(diagnostics, mock(RealtimeSessionPolicy.class));
+        try {
+            ReflectionTestUtils.invokeMethod(client, "send", "005930", true);
+            ReflectionTestUtils.invokeMethod(client, "send", "000660", true);
+            ReflectionTestUtils.invokeMethod(client, "send", "000660", false);
+
+            var statuses = diagnostics.snapshot().subscriptions();
+            assertThat(statuses).containsOnlyKeys("005930");
+            assertThat(statuses.get("005930").state()).isEqualTo(RealtimeDiagnostics.SubscriptionState.QUEUED);
+        } finally { client.shutdown(); }
+    }
+
     /** 모든 틱을 받아들이는 세션 정책 목을 만드는 도우미예요. */
     private RealtimeSessionPolicy acceptingSession() {
         var session = mock(RealtimeSessionPolicy.class);

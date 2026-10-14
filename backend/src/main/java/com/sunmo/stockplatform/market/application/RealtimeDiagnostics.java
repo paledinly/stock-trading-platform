@@ -68,7 +68,8 @@ public class RealtimeDiagnostics {
             Map<String, Timing> timings, int processingQueued, long processingDropped,
             long outsideSessionTicks, Instant lastOutsideSessionSourceAt,
             long closingAuctionTicks, Instant lastClosingAuctionSourceAt,
-            long scannerCooldownFallbacks, Instant lastScannerCooldownFallbackAt) {
+            long scannerCooldownFallbacks, Instant lastScannerCooldownFallbackAt,
+            long scannerRankFailures, Instant lastScannerRankFailureAt) {
     }
 
     /**
@@ -129,6 +130,21 @@ public class RealtimeDiagnostics {
         lastScannerCooldownFallbackAt = now;
         if (previous == null || !now.isBefore(previous.plus(Duration.ofMinutes(1))))
             error("Scanner cooldown fallback: " + reason);
+    }
+
+    private final AtomicLong scannerRankFailures = new AtomicLong();
+    private volatile Instant lastScannerRankFailureAt;
+    /**
+     * 하는 일: Scanner 점수 랭킹을 Redis에 쓰다 실패한 횟수를 세요.
+     * 오류 목록이 넘치지 않게 오류 메시지는 1분에 한 번만 남겨요. 받는 것: 실패 사유(예외 이름).
+     */
+    public void scannerRankFailed(String reason) {
+        scannerRankFailures.incrementAndGet();
+        Instant now = Instant.now();
+        Instant previous = lastScannerRankFailureAt;
+        lastScannerRankFailureAt = now;
+        if (previous == null || !now.isBefore(previous.plus(Duration.ofMinutes(1))))
+            error("Scanner rank write failed: " + reason);
     }
 
     private final Map<String, SubscriptionStatus> subscriptions = new ConcurrentSkipListMap<>();
@@ -261,6 +277,14 @@ public class RealtimeDiagnostics {
             subscriptionAcknowledged(stockCode, false, message);
     }
 
+    /**
+     * 하는 일: 연결이 없어 해지 요청을 보내지 못했을 때 그 종목의 구독 상태 항목을 지워요.
+     * 해지된 종목은 재연결 때 다시 구독되지 않으므로 QUEUED로 남기지 않아요. 받는 것: 종목코드.
+     */
+    public void subscriptionDropped(String stockCode) {
+        subscriptions.remove(stockCode);
+    }
+
     /** 하는 일: 마지막으로 저장한 확정봉의 시작시각을 남겨요. */
     public void candlePersisted(Instant startTime) {
         lastCandleAt = startTime;
@@ -336,7 +360,8 @@ public class RealtimeDiagnostics {
                 Map.copyOf(candleGaps), Map.copyOf(backfills), java.util.List.copyOf(recentErrors),
                 Map.copyOf(subscriptions), timingSnapshot(), queueSize.getAsInt(), processingDropped.get(),
                 outsideSessionTicks.get(), lastOutsideSessionSourceAt, closingAuctionTicks.get(), lastClosingAuctionSourceAt,
-                scannerCooldownFallbacks.get(), lastScannerCooldownFallbackAt);
+                scannerCooldownFallbacks.get(), lastScannerCooldownFallbackAt,
+                scannerRankFailures.get(), lastScannerRankFailureAt);
     }
 
     /** 하는 일: 단계별 시간 통계를 모아 바꿀 수 없는 복사본으로 돌려줘요(Map.copyOf라 이름 순서는 보장되지 않아요). */

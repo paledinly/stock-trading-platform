@@ -56,8 +56,9 @@ public class ScannerEngine {
     // 지금 조건 안에 들어와 있는 설정+종목 상태예요. 이미 안에 있으면 다시 감지하지 않아요.
     private final Set<String> inside = ConcurrentHashMap.newKeySet();
     // Redis(빠른 메모리 저장소)를 못 쓸 때 쓰는, 이 서버 안의 쿨다운 만료 시각이에요.
-    // ⚠️ 확인 필요: 만료된 항목을 지우는 곳이 없어 설정×종목 수만큼 계속 쌓여요(메모리 증가 가능).
+    // 만료된 항목은 조회할 때 지우고, 항목이 LOCAL_COOLDOWN_SWEEP_THRESHOLD개를 넘으면 만료된 것을 한꺼번에 쓸어 내요.
     private final Map<String, Instant> localCooldowns = new ConcurrentHashMap<>();
+    static final int LOCAL_COOLDOWN_SWEEP_THRESHOLD = 1000;
 
     /**
      * 하는 일: 필요한 저장소와 도구를 받아 보관해요.
@@ -225,16 +226,17 @@ public class ScannerEngine {
      * 받는 것: setting, stock, score(점수, null이면 건너뛰어요).
      * 돌려주는 것: 없음. 실패해도 감지 흐름은 멈추지 않아요.
      */
-    private void rank(ScannerSetting setting, Stock stock, BigDecimal score) {
-        if (score == null)
+    void rank(ScannerSetting setting, Stock stock, BigDecimal score) {
+        // Redis가 없으면 랭킹을 둘 곳이 없으니 바로 끝내요(Redis 없음은 쿨다운 대체 진단에 이미 남아요).
+        if (score == null || redis == null)
             return;
         try {
             String key = "scanner:" + setting.getType() + ":rank:" + setting.getId();
             redis.opsForZSet().add(key, stock.getStockCode(), score.doubleValue());
             redis.expire(key, Duration.ofMinutes(10));
-        } catch (RuntimeException ignored) {
-            // ⚠️ 확인 필요: Redis가 없으면 redis가 null이라 NullPointerException이 나고 여기서 조용히 무시돼요.
-            // 랭킹이 빠졌다는 사실이 진단에 남지 않아요.
+        } catch (RuntimeException error) {
+            // Redis 오류로 랭킹이 빠지면 감지 흐름은 계속하되, 그 횟수를 진단(scannerRankFailures)에 남겨요.
+            diagnostics.scannerRankFailed(error.getClass().getSimpleName());
         }
     }
 
@@ -247,6 +249,15 @@ public class ScannerEngine {
      * Redis setIfAbsent(키가 없을 때만 저장)가 기본 경로이고, 실패하면 이 서버 메모리로 대신해요.
      */
     boolean acquire(ScannerSetting setting, String code, UUID event) {
+        return acquire(setting, code, event, Instant.now());
+    }
+
+    /**
+     * 하는 일: acquire 본체예요(기준 시각을 받을 수 있어 테스트하기 쉬워요). 메모리 대체 경로에서만 now를 써요.
+     * 받는 것: setting, code(종목코드), event(이번 감지 id), now(기준 시각).
+     * 돌려주는 것: 쿨다운을 잡으면 true, 이미 쿨다운 중이면 false.
+     */
+    boolean acquire(ScannerSetting setting, String code, UUID event, Instant now) {
         String key = "scanner:" + setting.getType() + ":cooldown:" + setting.getId() + ":" + code;
         Duration cooldown = Duration.ofSeconds(setting.getCooldownSeconds());
         if (redis != null) {
@@ -262,12 +273,19 @@ public class ScannerEngine {
             diagnostics.scannerCooldownFallback("Redis unavailable");
         }
         // 대체 경로: 서버 메모리에 '언제까지 쉬는지'를 적어 같은 효과를 내요. 서버가 여러 대면 서로 공유되지 않아요.
-        Instant now = Instant.now();
+        // 만료된 항목은 '없는 것'과 같아서, 지워도 쿨다운 판단은 달라지지 않아요.
         Instant previous = localCooldowns.get(key);
         if (previous != null && now.isBefore(previous))
             return false;
+        if (localCooldowns.size() > LOCAL_COOLDOWN_SWEEP_THRESHOLD)
+            localCooldowns.values().removeIf(until -> !now.isBefore(until));
         localCooldowns.put(key, now.plus(cooldown));
         return true;
+    }
+
+    /** 하는 일: 메모리 쿨다운 항목 수를 돌려줘요(테스트·진단용). */
+    int localCooldownCount() {
+        return localCooldowns.size();
     }
 
     /**

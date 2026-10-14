@@ -72,6 +72,51 @@ class ScannerEngineCooldownTest {
         assertThat(diagnostics.snapshot().scannerCooldownFallbacks()).isEqualTo(1);
     }
 
+    /**
+     * 메모리 쿨다운 항목이 기준 개수를 넘으면 만료된 항목을 쓸어 내고, 만료 전 항목과 판단은 그대로인지 확인해요.
+     * 준비: Redis 없이 기준(1000)+1개 종목을 t0에 잡고, 대기 300초가 지난 뒤 새 종목 하나를 잡아요.
+     * 기대: 쓸기 뒤 항목은 새 종목 1개만 남고, 만료 전(t0+299초)에는 같은 종목이 막혀요.
+     */
+    @Test
+    void sweepsExpiredLocalCooldownsWhenTheMapGrows() {
+        ScannerEngine engine = engine(null);
+        ScannerSetting setting = setting();
+        java.time.Instant t0 = java.time.Instant.parse("2026-10-06T01:00:00Z");
+        for (int i = 0; i <= ScannerEngine.LOCAL_COOLDOWN_SWEEP_THRESHOLD; i++)
+            assertThat(engine.acquire(setting, "C" + i, UUID.randomUUID(), t0)).isTrue();
+        assertThat(engine.localCooldownCount()).isEqualTo(ScannerEngine.LOCAL_COOLDOWN_SWEEP_THRESHOLD + 1);
+        assertThat(engine.acquire(setting, "C0", UUID.randomUUID(), t0.plusSeconds(299))).isFalse();
+
+        assertThat(engine.acquire(setting, "NEW", UUID.randomUUID(), t0.plusSeconds(300))).isTrue();
+
+        assertThat(engine.localCooldownCount()).isEqualTo(1);
+        assertThat(engine.acquire(setting, "C0", UUID.randomUUID(), t0.plusSeconds(300))).isTrue();
+    }
+
+    /**
+     * Redis가 없으면 랭킹 기록을 조용히 건너뛰고(예외 없음), Redis 오류는 진단에 세는지 확인해요.
+     */
+    @Test
+    void rankSkipsMissingRedisAndCountsRedisFailures() {
+        ScannerSetting setting = setting();
+        com.sunmo.stockplatform.stock.domain.Stock stock = mock(com.sunmo.stockplatform.stock.domain.Stock.class);
+        when(stock.getStockCode()).thenReturn("005930");
+
+        engine(null).rank(setting, stock, java.math.BigDecimal.ONE);
+        assertThat(diagnostics.snapshot().scannerRankFailures()).isZero();
+
+        StringRedisTemplate redis = mock(StringRedisTemplate.class);
+        when(redis.opsForZSet()).thenThrow(new RedisConnectionFailureException("down"));
+        engine(redis).rank(setting, stock, java.math.BigDecimal.ONE);
+        engine(redis).rank(setting, stock, java.math.BigDecimal.ONE);
+
+        RealtimeDiagnostics.Snapshot snapshot = diagnostics.snapshot();
+        assertThat(snapshot.scannerRankFailures()).isEqualTo(2);
+        assertThat(snapshot.lastScannerRankFailureAt()).isNotNull();
+        assertThat(snapshot.recentErrors()).as("one error entry per minute").hasSize(1)
+                .first().asString().contains("RedisConnectionFailureException");
+    }
+
     /** 대기 처리에 필요한 의존성만 넣고 나머지는 null로 둔 스캐너 엔진을 만드는 도우미예요. */
     private ScannerEngine engine(StringRedisTemplate redis) {
         @SuppressWarnings("unchecked") ObjectProvider<StringRedisTemplate> provider = mock(ObjectProvider.class);
