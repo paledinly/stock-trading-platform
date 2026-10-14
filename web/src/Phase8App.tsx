@@ -1,8 +1,16 @@
+/**
+ * 시장 전체 스캐너 화면 파일이에요. 시장 전체를 넓게 훑어 후보를 추리고(광역, Broad), 고른 종목만 실시간 정밀 구독(Precision)으로 넘겨요.
+ * 자동 스캔 상태, KIS(한국투자증권 API) 수집 품질, 후보 보강 작업, 출처별 다음날 성과(Coverage)도 함께 보여 줘요.
+ * Phase9App(전체 화면 껍데기)이 고급 모드의 "시장 전체" 메뉴에서 MarketWidePage를 보여 줘요.
+ */
 import { FormEvent, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import "./phase8.css";
 
+// 아래 타입(데이터 모양 정의)들은 /api/v1/market-wide API 응답 모양이에요.
+/** 시장 필터 값이에요. 빈 글자는 전체 시장이에요. */
 type Market = "" | "KOSPI" | "KOSDAQ";
+/** 광역 스캔 후보 한 종목이에요. broadScore는 광역 점수(상승 확률 아님), precisionEligible은 정밀 구독 가능 여부예요. */
 type Candidate = {
   stockCode: string;
   stockName: string;
@@ -17,6 +25,7 @@ type Candidate = {
   quotedAt: string;
   quoteSource?: string;
 };
+/** 광역 스캔 한 번의 결과(후보, 랭킹 출처, 정밀 구독 할당, 구독 여유, 시장 상태)예요. */
 type Scan = {
   collection?: CollectionSummary;
   scannedAt: string;
@@ -50,6 +59,7 @@ type Scan = {
   };
   candidates: Candidate[];
 };
+/** 자동 스캔 작업과 비동기 후보 보강 작업의 상태예요. */
 type MarketWideStatus = {
   enrichment?: {
     enabled: boolean; capacity: number; retainedJobs: number; states: Record<string, number>;
@@ -72,10 +82,12 @@ type MarketWideStatus = {
   lastFallback: boolean;
   rankingSources: Array<{ type: string; success: boolean; candidateCount: number; error?: string; attempts?: number; successes?: number }>;
 };
+/** KIS 수집 품질 요약(상세 REST 조회 수·실패, 데이터 출처, 데이터 경과 시간, KIS 요청 수)이에요. */
 type CollectionSummary = {
   detailQuoteBudget: number; restLookups: number; restFailures: number; insufficientCount: number;
   dataSources: Record<string, number>; maxDataAgeSeconds: number; kisRequests: Record<string, number>;
 };
+/** 광역/정밀 출처별 추천의 다음날 성과 집계예요. */
 type SourcePerformance = {
   source: "BROAD" | "PRECISION";
   recommendations: number;
@@ -89,6 +101,7 @@ type SourcePerformance = {
   targetHitRate: number | null;
   stopHitRate: number | null;
 };
+/** 하루 단위 수집 범위(Coverage)와 후보 처리 결과, 통계 주의사항이에요. */
 type Coverage = {
   sessionDate: string;
   activeUniverse: number;
@@ -112,6 +125,10 @@ type Coverage = {
   limitations: string[];
 };
 
+/**
+ * fetch(브라우저 내장 HTTP 요청 함수)로 JSON API를 부르는 비동기(async) 도우미예요.
+ * 받는 것: url, init(요청 옵션). 돌려주는 것: 응답 JSON, 204(내용 없음)이면 undefined. 실패하면 오류를 던져요.
+ */
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     headers: { "Content-Type": "application/json" },
@@ -122,14 +139,17 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
   return response.status === 204 ? (undefined as T) : response.json();
 }
 
+/** 숫자를 "+1.23%" 같은 부호 있는 퍼센트 글자로 바꿔요. 값이 없으면 "--". */
 function pct(value?: number | null) {
   return value == null ? "--" : `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
 }
 
+/** 금액을 반올림해 천 단위 구분 글자로 바꿔요. 값이 없으면 "--". */
 function money(value?: number | null) {
   return value == null ? "--" : Math.round(value).toLocaleString("ko-KR");
 }
 
+/** 시장 상태 코드(RISK_ON 등)를 한국어로 바꿔요. 모르면 "판단 대기"예요. */
 function regimeLabel(value?: string) {
   if (value === "RISK_ON") return "위험 선호";
   if (value === "RISK_OFF") return "위험 회피";
@@ -138,12 +158,14 @@ function regimeLabel(value?: string) {
   return "판단 대기";
 }
 
+/** 후보 이유 코드(PRICE_STRENGTH 등)를 한국어로 바꿔요. */
 function reasonLabel(value: string) {
   if (value === "PRICE_STRENGTH") return "가격 강세";
   if (value === "LIQUIDITY_ONLY") return "유동성 후보";
   return value;
 }
 
+/** 후보 처리 결과(제외 이유) 코드를 한국어로 바꿔요. */
 function exclusionReasonLabel(value: string) {
   if (value === "RECOMMENDED_BROAD") return "광역 후보로 추천됨";
   if (value === "PROMOTED_TO_PRECISION") return "정밀 탐지로 승격됨";
@@ -154,7 +176,13 @@ function exclusionReasonLabel(value: string) {
   return value;
 }
 
+/**
+ * 시장 전체 스캐너 화면 React 컴포넌트(화면 조각)예요. 비유하면 "그물로 넓게 건진 뒤 쓸 만한 것만 수조로 옮기는 선별대"예요.
+ * 받는 것(props, 부모가 넘겨주는 값): back(대시보드로 돌아가는 함수).
+ * 돌려주는 것: 스캔 조건 폼, 요약 카드, 수집 품질, Coverage 성과, 후보 목록, 정밀 구독·시장 상태 화면.
+ */
 export function MarketWidePage({ back }: { back: () => void }) {
+  // 상태(state, 컴포넌트가 기억하는 값): 입력 중인 스캔 조건이에요. params는 제출로 확정된 조건이에요.
   const [market, setMarket] = useState<Market>("");
   const [limit, setLimit] = useState(40);
   const [candidates, setCandidates] = useState(12);
@@ -165,6 +193,8 @@ export function MarketWidePage({ back }: { back: () => void }) {
     candidates,
     includeEtf,
   });
+  // useQuery(서버 데이터를 가져와 캐시하는 훅(hook)): 확정 조건으로 스캔해요.
+  // ⚠️ 확인 필요: 화면을 열 때마다 기본 조건 스캔이 바로 실행되는 것으로 보여요. 서버가 매번 KIS 조회를 하면 유량 제한에 부담이 될 수 있어요.
   const scan = useQuery({
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
@@ -174,6 +204,7 @@ export function MarketWidePage({ back }: { back: () => void }) {
         `/api/v1/market-wide/scan?limit=${params.limit}&candidates=${params.candidates}&includeEtf=${params.includeEtf}${params.market ? `&market=${params.market}` : ""}`,
       ),
   });
+  // 자동 스캔 상태는 30초마다, Coverage는 2분마다 다시 가져와요.
   const status = useQuery({
     queryKey: ["market-wide-status"],
     queryFn: () => api<MarketWideStatus>("/api/v1/market-wide/status"),
@@ -186,12 +217,14 @@ export function MarketWidePage({ back }: { back: () => void }) {
     queryFn: () => api<Coverage>("/api/v1/market-wide/coverage"),
     refetchInterval: 120000,
   });
+  // 후보를 정밀 구독으로 요청하고, 성공하면 스캔 결과를 다시 불러와 구독 여유를 갱신해요.
   const subscribe = useMutation({
     mutationFn: (stockCode: string) =>
       api(`/api/v1/market/subscriptions/${stockCode}`, { method: "POST" }),
     onSuccess: () => scan.refetch(),
   });
 
+  /** 폼 제출 시 입력 조건을 스캔 조건으로 확정해요. 받는 것: event. 돌려주는 것: 없음. */
   function submit(event: FormEvent) {
     event.preventDefault();
     setParams({ market, limit, candidates, includeEtf });

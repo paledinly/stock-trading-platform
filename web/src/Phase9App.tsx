@@ -1,3 +1,8 @@
+/**
+ * 웹 앱 전체의 껍데기(shell) 화면이에요. 위쪽 메뉴로 대시보드, 투자기록, 레이더, 성과 분석, 시장 전체, 백테스트, 마감 추천 화면을 바꿔 보여 줘요.
+ * 초보자/고급 모드를 나누고, 마지막으로 본 화면을 sessionStorage(탭이 열려 있는 동안 남는 브라우저 저장소)에 기억해요.
+ * 백테스트 화면(BacktestPage)도 이 파일에 들어 있어요. main.tsx가 Phase9App을 그려요.
+ */
 import { FormEvent, useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Phase3App } from './Phase3App'
@@ -8,30 +13,50 @@ import { MarketWidePage } from './Phase8App'
 import { ClosingRecommendationPage } from './ClosingRecommendationApp'
 import './phase9.css'
 
+// 아래 타입(데이터 모양 정의)들은 백테스트 API 응답 모양이에요.
+/** 탐지 설정(스캐너 설정) 하나의 id와 이름이에요. */
 type Setting = { id: number; name: string }
+/** 설정별 백테스트 통계(탐지 수, 5·30·60분 승률과 평균 수익률, 최대 상승·낙폭)예요. */
 type Summary = { settingId: number; settingName: string; scannerType: string; detections: number; winRate5m: number | null; winRate30m: number | null; winRate60m: number | null; averageReturn5m: number | null; averageReturn30m: number | null; averageReturn60m: number | null; averageMaxReturn: number | null; averageMaxDrawdown: number | null }
+/** 백테스트 중 다시 재생해서 나온 가상 탐지 한 건과 그 뒤 성과예요. 실제 주문이 아니에요. */
 type VirtualDetection = { settingId: number; settingName: string; scannerType: string; detectedAt: string; detectedPrice: number; changeRate: number | null; volumeRatio: number | null; score: number | null; reason: string; performance: { return5m: number | null; return30m: number | null; return60m: number | null; maxReturn: number | null; maxDrawdown: number | null; status: string } }
+/** 백테스트 실행 결과 전체(종목, 기간, 평가한 봉 수, 통계, 탐지 목록)예요. */
 type Backtest = { stockCode: string; stockName: string; from: string; to: string; evaluatedCandles: number; virtualDetections: number; summaries: Summary[]; detections: VirtualDetection[] }
+/** 저장된 5분봉이 있어서 백테스트할 수 있는 종목 정보예요. */
 type BacktestableStock = { stockCode: string; stockName: string; market: string; candleCount: number; firstCandleAt: string; lastCandleAt: string }
 
+/**
+ * fetch(브라우저 내장 HTTP 요청 함수)로 GET 요청을 보내고 JSON을 돌려주는 비동기(async) 도우미예요.
+ * 받는 것: url. 돌려주는 것: 응답 JSON. 실패하면 백테스트용 오류 메시지를 던져요.
+ */
 async function get<T>(url: string): Promise<T> {
   const response = await fetch(url)
   if (!response.ok) throw new Error('백테스트 데이터를 불러오지 못했습니다.')
   return response.json()
 }
 
+/**
+ * 날짜를 "YYYY-MM-DD" 글자로 바꿔요. 받는 것: date. 돌려주는 것: 날짜 글자.
+ * ⚠️ 확인 필요: toISOString은 UTC 기준이라 한국 시간 오전 9시 전에는 하루 전 날짜가 나오는 것으로 보여요.
+ */
 function dateValue(date: Date) {
   return date.toISOString().slice(0, 10)
 }
 
+/** 숫자를 "+1.23%" 같은 퍼센트 글자로 바꿔요. 값이 없으면 "--"를 돌려줘요. */
 function pct(value?: number | null) {
   return value == null ? '--' : `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`
 }
 
+/** 숫자를 한국식 천 단위 구분 글자(소수 둘째 자리까지)로 바꿔요. 값이 없으면 "--"를 돌려줘요. */
 function num(value?: number | null) {
   return value == null ? '--' : value.toLocaleString('ko-KR', { maximumFractionDigits: 2 })
 }
 
+/**
+ * 스캐너 종류 코드(예: VOLUME)를 한국어 이름으로 바꿔요.
+ * 받는 것: value(코드). 돌려주는 것: 한국어 이름, 모르는 코드면 그대로.
+ */
 function scannerTypeLabel(value: string) {
   const labels: Record<string, string> = {
     VOLUME: '거래량 급증',
@@ -47,6 +72,10 @@ function scannerTypeLabel(value: string) {
   return labels[value] ?? value
 }
 
+/**
+ * 탐지 설정의 영어 이름을 한국어 이름으로 바꿔요.
+ * 받는 것: name(설정 이름), scannerType(없을 때 대신 쓸 스캐너 종류). 돌려주는 것: 한국어 이름.
+ */
 function settingNameLabel(name: string, scannerType?: string) {
   const labels: Record<string, string> = {
     Momentum: '복합 모멘텀',
@@ -60,7 +89,13 @@ function settingNameLabel(name: string, scannerType?: string) {
   return labels[name] ?? (scannerType ? scannerTypeLabel(scannerType) : name)
 }
 
+/**
+ * 백테스트 화면 React 컴포넌트(화면 조각)예요. 비유하면 "지난 경기 녹화 다시보기"로, 저장된 5분봉으로 탐지 조건을 다시 돌려 봐요.
+ * 받는 것(props, 부모가 넘겨주는 값): back(대시보드로 돌아가는 함수).
+ * 돌려주는 것: 조건 입력 폼, 종목 고르기, 설정별 통계, 가상 탐지 목록 화면.
+ */
 export function BacktestPage({ back }: { back: () => void }) {
+  // 기본 기간은 최근 7일이에요.
   const today = new Date()
   const week = new Date(Date.now() - 7 * 86400000)
   const [stockCode, setStockCode] = useState('005930')
@@ -68,21 +103,26 @@ export function BacktestPage({ back }: { back: () => void }) {
   const [from, setFrom] = useState(dateValue(week))
   const [to, setTo] = useState(dateValue(today))
   const [settingId, setSettingId] = useState('')
+  // params는 "재생"을 눌렀을 때 확정된 조회 조건이에요. 입력 중인 값과 분리해서 누를 때만 다시 조회해요.
   const [params, setParams] = useState({ stockCode, from, to, settingId })
+  // useQuery(서버 데이터를 가져와 캐시하는 훅(hook)): 설정 목록, 백테스트 가능 종목, 백테스트 결과예요.
   const settings = useQuery({ queryKey: ['scanner-settings'], queryFn: () => get<Setting[]>('/api/v1/scanner-settings') })
   const backtestStocks = useQuery({ queryKey: ['backtest-stocks'], queryFn: () => get<BacktestableStock[]>('/api/v1/backtests/stocks') })
   const backtest = useQuery({
     queryKey: ['backtest', params],
+    // 입력 날짜를 한국 시간(+09:00) 하루 처음과 끝으로 바꿔 서버에 보내요.
     queryFn: () => get<Backtest>(`/api/v1/backtests/run?stockCode=${params.stockCode}&from=${encodeURIComponent(new Date(params.from + 'T00:00:00+09:00').toISOString())}&to=${encodeURIComponent(new Date(params.to + 'T23:59:59+09:00').toISOString())}${params.settingId ? `&settingId=${params.settingId}` : ''}&limit=80`),
     enabled: !!params.stockCode,
   })
 
+  /** 폼 제출 시 입력값을 조회 조건으로 확정해요. 받는 것: event(폼 제출 이벤트). 돌려주는 것: 없음. */
   function submit(event: FormEvent) {
     event.preventDefault()
     setParams({ stockCode: stockCode.trim(), from, to, settingId })
   }
 
   const data = backtest.data
+  // 검색어로 종목 코드·이름을 걸러서 최대 12개만 버튼으로 보여 줘요.
   const stockKeyword = stockSearch.trim().toLowerCase()
   const selectableStocks = (backtestStocks.data ?? [])
     .filter(item => !stockKeyword
@@ -167,6 +207,10 @@ export function BacktestPage({ back }: { back: () => void }) {
   )
 }
 
+/**
+ * sessionStorage에 저장된 선택값을 꺼내요. 허용 목록에 없거나 저장소를 못 쓰면 기본값을 써요.
+ * 받는 것: key(저장 이름), choices(허용 값 목록), fallback(기본값). 돌려주는 것: 고른 값.
+ */
 function savedSelection<T extends string>(key: string, choices: readonly T[], fallback: T): T {
   try {
     const saved = sessionStorage.getItem(key)
@@ -176,9 +220,15 @@ function savedSelection<T extends string>(key: string, choices: readonly T[], fa
   }
 }
 
+/**
+ * 전체 앱 껍데기 컴포넌트예요. 비유하면 "건물 안내 데스크와 층별 안내판"으로, 메뉴를 눌러 원하는 화면으로 보내 줘요.
+ * 받는 것: 없음(props 없음). 돌려주는 것: 위쪽 메뉴와 현재 선택된 화면.
+ */
 export function Phase9App() {
+  // 상태(state, 컴포넌트가 기억하는 값): 현재 화면(page)과 사용 모드(mode)예요. 새로고침해도 같은 탭이면 복원해요.
   const [page, setPage] = useState(() => savedSelection('workspace.page', ['dashboard', 'journal', 'scanner', 'analytics', 'wide', 'backtest', 'closing'] as const, 'dashboard'))
   const [mode, setMode] = useState(() => savedSelection('workspace.mode', ['beginner', 'advanced'] as const, 'beginner'))
+  // 화면이나 모드가 바뀔 때마다 sessionStorage에 저장해요.
   useEffect(() => {
     try {
       sessionStorage.setItem('workspace.page', page)
@@ -190,6 +240,10 @@ export function Phase9App() {
   const goDashboard = () => setPage('dashboard')
   const advanced = mode === 'advanced'
 
+  /**
+   * 사용 모드를 바꿔요. 초보자 모드로 바꾸면 고급 전용 화면에 있던 경우 마감 추천 화면으로 옮겨요.
+   * 받는 것: value(초보자 또는 고급). 돌려주는 것: 없음.
+   */
   function changeMode(value: 'beginner' | 'advanced') {
     setMode(value)
     if (value === 'beginner' && !['dashboard', 'journal', 'closing'].includes(page)) {
@@ -197,6 +251,7 @@ export function Phase9App() {
     }
   }
 
+  // 고급 모드에서만 백테스트, 시장 전체, 성과 분석, 실시간 레이더 메뉴가 보여요.
   return (
     <>
       <nav className="workspaceNav" aria-label="주요 메뉴">

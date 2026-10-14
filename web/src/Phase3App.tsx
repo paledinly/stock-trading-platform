@@ -1,22 +1,33 @@
+/**
+ * 대시보드 화면(종목 검색, 관심종목, 현재가·5분봉, 실시간 구독 표)을 그리는 파일이에요.
+ * React Query(서버 데이터를 가져오고 캐시하는 라이브러리)로 백엔드 API를 부르고, 관심종목 추가·삭제·실시간 고정을 서버에 요청해요.
+ * Phase9App(전체 화면 껍데기)이 대시보드 탭에서 이 화면을 보여 줘요.
+ */
 import { type FormEvent, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CandleChart } from './CandleChart'
 import type { Candle, Quote } from './marketData'
 import './phase3.css'
 
+/** 종목 기본 정보(코드, 이름, 시장)의 타입(데이터 모양 정의)이에요. */
 type Stock = { stockCode: string; stockName: string; market: string }
+/** 관심종목 그룹 안의 한 종목이에요. realtimePinned는 실시간 고정 여부, version은 동시 수정 충돌을 막는 번호예요. */
 type Item = Stock & { id: number; groupId: number; realtimePinned: boolean; version: number }
+/** 관심종목 그룹 하나와 그 안의 종목 목록이에요. */
 type Group = { id: number; name: string; version: number; items: Item[] }
+/** 실시간 구독 중인 종목 한 줄이에요. sources는 왜 구독했는지(정밀, 다음날 관측 등) 목록이에요. */
 type Subscription = {
   stockCode: string; stockName: string | null; market: string | null; sources: string[]
   state: string | null; stateMessage: string | null; stateUpdatedAt: string | null
   precisionScore: number | null; precisionAddedAt: string | null
 }
+/** 실시간 구독 전체 현황이에요. limit은 구독 한도, remaining은 남은 자리, precisionState는 정밀 구독 교체 가능 여부예요. */
 type Subscriptions = {
   limit: number; remaining: number; items?: Subscription[]
   precisionState?: string | null; precisionCapacity?: number | null
 }
 
+// 서버 코드값을 화면용 한국어 이름으로 바꾸는 표예요.
 const SOURCE_LABEL: Record<string, string> = {
   PRECISION: '정밀', OVERNIGHT: '다음날 관측', WATCHLIST: '관심 고정', MANUAL: '수동', QUOTE: '화면 조회', CORE: '핵심',
 }
@@ -25,18 +36,30 @@ const STATE_LABEL: Record<string, string> = {
 }
 const PRECISION_STATE_LABEL: Record<string, string> = { ACTIVE: '교체 가능', FROZEN: '고정됨', DISABLED: '꺼짐' }
 
+/**
+ * ISO 시각 문자열을 한국 시간 "시:분"으로 바꿔요.
+ * 받는 것: value(시각 문자열 또는 null). 돌려주는 것: "09:10" 같은 글자, 값이 없으면 "-".
+ */
 function time(value: string | null) {
   return value ? new Date(value).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '-'
 }
 
+/**
+ * 실시간 구독 종목 표를 보여 주는 React 컴포넌트(화면 조각)예요. 비유하면 "지금 수신 중인 채널을 적어 둔 게시판"이에요.
+ * 받는 것(props, 부모가 넘겨주는 값): select(종목을 누르면 상세 영역에 띄우는 함수).
+ * 돌려주는 것: 사용량 요약과 구독 종목 표 화면.
+ */
 function SubscriptionPanel({ select }: { select: (stock: Stock) => void }) {
+  // 구독 현황은 30초마다 다시 가져와요.
   const data = useQuery({
     queryKey: ['market-subscriptions'],
     queryFn: () => api<Subscriptions>('/api/v1/market/subscriptions'),
     refetchInterval: 30_000,
   })
   const items = data.data?.items ?? []
+  // 특정 출처(예: PRECISION)로 구독된 종목 수를 세요.
   const count = (source: string) => items.filter(item => item.sources.includes(source)).length
+  // 사용 중인 구독 수 = 한도 - 남은 자리예요.
   const used = data.data ? data.data.limit - data.data.remaining : 0
   return <section className="panel subscriptions" aria-label="실시간 구독 종목">
     <div className="title"><span><small>KIS 실시간 체결</small><h2>실시간 구독</h2></span>
@@ -70,6 +93,11 @@ function SubscriptionPanel({ select }: { select: (stock: Stock) => void }) {
   </section>
 }
 
+/**
+ * fetch(브라우저 내장 HTTP 요청 함수)로 JSON API를 부르는 비동기(async, 기다렸다가 결과를 받는) 도우미예요.
+ * 받는 것: url, init(요청 옵션). 돌려주는 것: 응답 JSON, 204(내용 없음)이면 undefined.
+ * 실패하면 서버가 준 detail 메시지로 오류를 던져요.
+ */
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...init })
   if (!response.ok) {
@@ -79,7 +107,12 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
   return response.status === 204 ? undefined as T : response.json()
 }
 
+/**
+ * 상단 종목 검색창이에요. 비유하면 "전화번호부 찾기 창"이에요.
+ * 받는 것(props): select(검색 결과를 골랐을 때 부르는 함수). 돌려주는 것: 검색 폼과 결과 목록 화면.
+ */
 function Search({ select }: { select: (stock: Stock) => void }) {
+  // text는 입력 중인 글자, query는 실제로 검색을 보낸 글자예요. 제출할 때만 검색해요.
   const [text, setText] = useState('')
   const [query, setQuery] = useState('')
   const results = useQuery({
@@ -110,13 +143,23 @@ function Search({ select }: { select: (stock: Stock) => void }) {
   </div>
 }
 
+/**
+ * 오늘 0시부터 지금까지의 5분봉 조회 주소를 만들어요.
+ * 받는 것: stockCode(종목코드). 돌려주는 것: 캔들 API 주소 문자열.
+ */
 function candleUrl(stockCode: string) {
   const to = new Date()
   const from = new Date(to)
+  // 브라우저 시간대 기준으로 오늘 0시를 시작점으로 잡아요(한국 시간 PC를 전제로 하는 것으로 보여요).
   from.setHours(0, 0, 0, 0)
   return `/api/v1/stocks/${stockCode}/candles?timeFrame=5M&from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`
 }
 
+/**
+ * 5분봉 차트 영역(제목, 로딩·오류·빈 상태, 차트, 시작·끝 시각)을 보여 주는 컴포넌트예요. 비유하면 "그래프 액자와 설명표"예요.
+ * 받는 것(props): candles(5분봉 목록), loading(불러오는 중 여부), error(오류).
+ * 돌려주는 것: 차트 카드 화면.
+ */
 function MarketChart({ candles, loading, error }: {
   candles: Candle[]
   loading: boolean
@@ -140,11 +183,17 @@ function MarketChart({ candles, loading, error }: {
   </div>
 }
 
+/**
+ * 대시보드 전체 화면 컴포넌트예요. 비유하면 "종목 관찰 책상"으로, 관심종목 수첩과 시세 화면, 구독 게시판을 한 책상에 펼쳐 둬요.
+ * 받는 것: 없음(props 없음). 돌려주는 것: 헤더, 관심종목, 종목 상세, 실시간 구독 표가 있는 화면.
+ */
 export function Phase3App() {
   const cache = useQueryClient()
+  // 상태(state, 컴포넌트가 기억하는 값): 선택한 종목과 새 그룹 이름이에요.
   const [selected, setSelected] = useState<Stock | null>(null)
   const [name, setName] = useState('')
   const lists = useQuery({ queryKey: ['watchlists'], queryFn: () => api<{ groups: Group[] }>('/api/v1/watchlists') })
+  // 현재가와 5분봉은 종목을 고른 뒤에만 조회해요. 같은 캐시 키를 RealtimeBridge가 실시간으로 고쳐 써요.
   const quote = useQuery({
     queryKey: ['quote', selected?.stockCode],
     queryFn: () => api<Quote>(`/api/v1/stocks/${selected!.stockCode}/quote`),
@@ -155,7 +204,9 @@ export function Phase3App() {
     queryFn: () => api<Candle[]>(candleUrl(selected!.stockCode)),
     enabled: !!selected,
   })
+  // 관심종목이 바뀌면 목록 캐시를 무효화해서 다시 불러오게 해요.
   const refresh = () => cache.invalidateQueries({ queryKey: ['watchlists'] })
+  // useMutation(서버 데이터를 바꾸는 요청 훅): 그룹 만들기, 종목 추가·삭제, 실시간 고정 켜기/끄기예요.
   const create = useMutation({
     mutationFn: (value: string) => api('/api/v1/watchlist-groups', { method: 'POST', body: JSON.stringify({ name: value }) }),
     onSuccess: () => { setName(''); refresh() },
@@ -177,6 +228,7 @@ export function Phase3App() {
     onSuccess: refresh,
   })
   const items = lists.data?.groups.flatMap(group => group.items) ?? []
+  // 여러 요청 중 먼저 발견된 오류 하나만 화면 위쪽에 보여 줘요.
   const error = create.error ?? add.error ?? remove.error ?? realtime.error
 
   return <div className="phase3">

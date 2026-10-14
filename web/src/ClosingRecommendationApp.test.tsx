@@ -1,7 +1,13 @@
+/**
+ * ClosingRecommendationPage(장마감 추천 화면) 테스트예요. fetch를 가짜 함수로 바꿔 서버 응답을 흉내 내요.
+ * 평가 내역 복원, 모의 계좌 미산출 표시, 공식 평가 우선 선택, 일별 수집 완결성 표를 확인해요.
+ * Vitest(테스트 실행 도구)가 npm test로 실행해요.
+ */
 import { render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ClosingRecommendationPage } from './ClosingRecommendationApp'
 
+// 저장된 평가 내역만 다시 보여주고, 후보 평가(/generate)는 새로 실행하지 않는지 확인해요.
 test('restores excluded candidate evaluation without generating recommendations', async () => {
   const mockFetch = vi.fn().mockImplementation((url: string) => Promise.resolve({
     ok: true,
@@ -28,6 +34,7 @@ test('restores excluded candidate evaluation without generating recommendations'
   expect(mockFetch.mock.calls.every(([url]) => !String(url).includes('/generate'))).toBe(true)
 })
 
+// 모의 체결 원장이 없으면 계좌 성과를 숫자 대신 '미산출'로 안내하는지 확인해요.
 test('shows account performance as unavailable without a paper execution ledger', async () => {
   globalThis.fetch = vi.fn().mockImplementation((url: string) => Promise.resolve({
     ok: true,
@@ -45,6 +52,7 @@ test('shows account performance as unavailable without a paper execution ledger'
   expect(screen.queryByText(/계좌 MDD/)).not.toBeInTheDocument()
 })
 
+// 더 최근의 과거 재생(REPLAY)보다 공식 장중 평가(FORWARD)를 기본 선택하는지 확인해요.
 test('prefers the official forward run over a newer replay', async () => {
   globalThis.fetch = vi.fn().mockImplementation((url: string) => Promise.resolve({
     ok: true,
@@ -61,6 +69,7 @@ test('prefers the official forward run over a newer replay', async () => {
   await waitFor(() => expect(screen.getByLabelText('평가 이력')).toHaveValue('27'))
 })
 
+// 일별 수집 완결성 표가 판정·사유를 한국어로 보여주고 누락된 날도 표시하는지 확인해요.
 test('shows the daily completeness table with Korean labels and missing days', async () => {
   globalThis.fetch = vi.fn().mockImplementation((url: string) => Promise.resolve({
     ok: true,

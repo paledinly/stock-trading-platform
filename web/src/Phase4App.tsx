@@ -1,7 +1,13 @@
+/**
+ * 투자기록(매매 일지) 화면 파일이에요. 사용자가 직접 한 매수·매도를 손으로 기록하고, 거래마다 메모·목표가·손절가·진입 이유를 남겨요.
+ * 실제 주문 기능은 없고, 서버의 /api/v1/trades API에 기록만 저장해요.
+ * Phase9App(전체 화면 껍데기)이 "투자기록" 메뉴에서 JournalPage를 보여 줘요.
+ */
 import { FormEvent, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import "./phase4.css";
 
+/** 거래 한 건에 붙는 투자 노트예요. version은 동시 수정 충돌을 막는 번호예요. */
 type Journal = {
   memo: string | null;
   targetPrice: number | null;
@@ -9,6 +15,7 @@ type Journal = {
   reasons: { code: string; customReason: string | null }[];
   version: number;
 };
+/** 기록된 거래 한 건이에요. realizedPnl(실현손익)과 holdingDays(보유기간)는 서버가 계산해 주는 것으로 보여요. */
 type Trade = {
   id: number;
   stockCode: string;
@@ -24,6 +31,11 @@ type Trade = {
   version: number;
   journal: Journal | null;
 };
+/**
+ * fetch(브라우저 내장 HTTP 요청 함수)로 JSON API를 부르는 비동기(async) 도우미예요.
+ * 받는 것: url, init(요청 옵션, 추가 헤더 포함). 돌려주는 것: 응답 JSON, 204(내용 없음)이면 undefined.
+ * 실패하면 서버가 준 detail 메시지로 오류를 던져요.
+ */
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...init,
@@ -35,11 +47,17 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
   }
   return response.status === 204 ? (undefined as T) : response.json();
 }
+/**
+ * 지금 시각을 datetime-local 입력칸 형식("YYYY-MM-DDTHH:mm", 내 PC 시간대 기준)으로 만들어요.
+ * 받는 것: 없음. 돌려주는 것: 날짜·시각 글자.
+ */
 function localDateTime() {
+  // 시간대 차이만큼 미리 더해 두면 toISOString(UTC 표기)이 로컬 시각처럼 보이게 돼요.
   const date = new Date(Date.now() - new Date().getTimezoneOffset() * 60000);
   return date.toISOString().slice(0, 16);
 }
 
+/** 진입 이유 코드(예: MOMENTUM)를 한국어 이름으로 바꿔요. 받는 것: code. 돌려주는 것: 이름, 모르는 코드면 그대로. */
 function reasonLabel(code: string) {
   const labels: Record<string, string> = {
     MOMENTUM: "추세",
@@ -52,16 +70,24 @@ function reasonLabel(code: string) {
   return labels[code] ?? code;
 }
 
+/**
+ * 새 거래 입력 폼 React 컴포넌트(화면 조각)예요. 비유하면 "가계부에 한 줄 적는 칸"이에요.
+ * 받는 것(props, 부모가 넘겨주는 값): done(저장이 끝나면 부르는 함수).
+ * 돌려주는 것: 매수/매도, 종목코드, 일시, 가격, 수량 입력 폼 화면.
+ */
 function TradeEditor({ done }: { done: () => void }) {
+  // 상태(state, 컴포넌트가 기억하는 값): 입력칸 값들이에요.
   const [stockCode, setStockCode] = useState(""),
     [type, setType] = useState<"BUY" | "SELL">("BUY"),
     [at, setAt] = useState(localDateTime()),
     [price, setPrice] = useState(""),
     [quantity, setQuantity] = useState("");
+  // useMutation(서버 데이터를 바꾸는 요청 훅(hook))으로 거래를 저장해요.
   const create = useMutation({
     mutationFn: () =>
       api<Trade>("/api/v1/trades", {
         method: "POST",
+        // Idempotency-Key(같은 요청 중복 저장 방지용 키)를 요청마다 새로 만들어요.
         headers: { "Idempotency-Key": crypto.randomUUID() },
         body: JSON.stringify({
           stockCode: stockCode.trim().toUpperCase(),
@@ -71,12 +97,14 @@ function TradeEditor({ done }: { done: () => void }) {
           quantity: Number(quantity),
         }),
       }),
+    // 저장 성공하면 가격·수량만 비우고(종목·일시는 유지) 부모에게 알려요.
     onSuccess: () => {
       setPrice("");
       setQuantity("");
       done();
     },
   });
+  /** 폼 제출 시 저장 요청을 보내요. 받는 것: e(폼 제출 이벤트). 돌려주는 것: 없음. */
   function submit(e: FormEvent) {
     e.preventDefault();
     create.mutate();
@@ -158,7 +186,13 @@ function TradeEditor({ done }: { done: () => void }) {
   );
 }
 
+/**
+ * 거래 한 건의 투자 노트 편집기예요. 비유하면 "가계부 줄 옆에 붙이는 포스트잇 메모"예요.
+ * 받는 것(props): trade(편집할 거래), done(저장이 끝나면 부르는 함수).
+ * 돌려주는 것: 메모, 목표가, 손절가, 진입 이유 태그 편집 화면.
+ */
 function JournalEditor({ trade, done }: { trade: Trade; done: () => void }) {
+  // 기존 노트가 있으면 그 값으로 입력칸을 채워요.
   const old = trade.journal,
     [memo, setMemo] = useState(old?.memo ?? ""),
     [target, setTarget] = useState(old?.targetPrice?.toString() ?? ""),
@@ -177,6 +211,7 @@ function JournalEditor({ trade, done }: { trade: Trade; done: () => void }) {
     ["NEWS", "뉴스"],
     ["CUSTOM", "직접입력"],
   ] as const;
+  // PUT으로 노트를 통째로 저장해요. version으로 다른 곳에서 먼저 고쳤는지 서버가 확인하는 것으로 보여요.
   const save = useMutation({
     mutationFn: () =>
       api(`/api/v1/trades/${trade.id}/journal`, {
@@ -253,19 +288,27 @@ function JournalEditor({ trade, done }: { trade: Trade; done: () => void }) {
   );
 }
 
+/**
+ * 투자기록 화면 전체 컴포넌트예요. 비유하면 "매매 일지 노트"로, 새 기록 칸과 지난 거래 목록이 함께 있어요.
+ * 받는 것: 없음(props 없음). 돌려주는 것: 누적 실현손익, 새 거래 입력, 거래 내역 화면.
+ */
 export function JournalPage() {
+  // editing은 지금 노트를 펼친 거래의 id예요(없으면 null).
   const cache = useQueryClient(),
     [editing, setEditing] = useState<number | null>(null);
   const trades = useQuery({
     queryKey: ["trades"],
     queryFn: () => api<Trade[]>("/api/v1/trades?limit=100"),
   });
+  // 저장·삭제 뒤 거래 목록 캐시를 무효화해서 다시 불러와요.
   const refresh = () => cache.invalidateQueries({ queryKey: ["trades"] });
+  // ⚠️ 확인 필요: 삭제 버튼을 누르면 확인 질문 없이 바로 지워지는 것으로 보여요.
   const remove = useMutation({
     mutationFn: (id: number) =>
       api(`/api/v1/trades/${id}`, { method: "DELETE" }),
     onSuccess: refresh,
   });
+  // 불러온 거래(최대 100건)의 실현손익을 더해요. 100건을 넘으면 전체 누적과 다를 수 있어요.
   const realized = trades.data?.reduce((sum, t) => sum + t.realizedPnl, 0) ?? 0;
   return (
     <div className="journalPage">

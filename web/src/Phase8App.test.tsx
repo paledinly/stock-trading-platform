@@ -1,7 +1,12 @@
+/**
+ * 시장 전체 스캐너 화면(MarketWidePage) 테스트예요. fetch를 가짜 함수로 바꿔 상태·스캔 결과를 주소별로 돌려줘요.
+ * 빈 후보 안내, 수집 통계(상세 REST 조회, 데이터 출처), 비동기 후보 보강 상태가 보이는지 확인해요.
+ */
 import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MarketWidePage } from "./Phase8App";
 
+// 주소가 market-wide/status면 수집기 상태를, market-wide면 후보 0건 스캔 결과를, 그 밖에는 빈 목록을 돌려줘요.
 beforeEach(() => {
   globalThis.fetch = vi.fn().mockImplementation((url: string) =>
     Promise.resolve({

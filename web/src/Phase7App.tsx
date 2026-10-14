@@ -1,8 +1,16 @@
+/**
+ * 신호 성과 분석 화면 파일이에요. 실시간 레이더가 탐지한 신호가 그 뒤 5분·10분·30분·60분·종가까지 얼마나 움직였는지 모아서 보여 줘요.
+ * 목표 수익률과 손절 기준 중 무엇에 먼저 닿았는지, 시간대·조건 조합별 성과, 표본 수에 따른 신뢰도도 함께 보여 줘요.
+ * Phase9App(전체 화면 껍데기)이 고급 모드의 "성과 분석" 메뉴에서 AnalyticsPage를 보여 줘요.
+ */
 import { FormEvent, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import "./phase7.css";
 
+// 아래 타입(데이터 모양 정의)들은 /api/v1/scanner-analytics 응답 모양이에요.
+/** 탐지 설정 하나의 id와 이름이에요. */
 type Setting = { id: number; name: string };
+/** 목표가와 손절가 중 어느 쪽에 먼저 닿았는지 센 결과예요. expectancy는 기대 수익률이에요. */
 type TargetStop = {
   sampleSize: number;
   targetFirst: number;
@@ -12,6 +20,7 @@ type TargetStop = {
   stopFirstRate: number | null;
   expectancy: number | null;
 };
+/** 시간대(bucket)별 표본 수, 승률, 평균 수익률이에요. */
 type TimeBucket = {
   bucket: string;
   sampleSize: number;
@@ -20,6 +29,7 @@ type TimeBucket = {
   averageMaxReturn: number | null;
   averageMaxDrawdown: number | null;
 };
+/** 스캐너 종류 × 기회점수 구간 × 위험점수 구간 조합별 성과예요. */
 type SignalCombination = {
   scannerType: string;
   opportunityBand: string;
@@ -31,6 +41,7 @@ type SignalCombination = {
   averageMaxDrawdown: number | null;
   confidence: "LOW" | "MEDIUM" | "HIGH" | string;
 };
+/** 과거 표본 전체의 우위 요약이에요. MFE는 최대 유리 움직임, MAE는 최대 불리 움직임이에요. */
 type HistoricalEdge = {
   sampleSize: number;
   winRate: number | null;
@@ -41,6 +52,7 @@ type HistoricalEdge = {
   confidence: string;
   enoughSamples: boolean;
 };
+/** 성과 분석 응답 전체예요. */
 type Analytics = {
   total: number;
   completed: number;
@@ -62,30 +74,42 @@ type Analytics = {
   minimumSampleSize?: number;
 };
 
+/**
+ * fetch(브라우저 내장 HTTP 요청 함수)로 GET 요청을 보내고 JSON을 돌려주는 비동기(async) 도우미예요.
+ * 받는 것: url. 돌려주는 것: 응답 JSON. 실패하면 오류를 던져요.
+ */
 async function get<T>(url: string): Promise<T> {
   const response = await fetch(url);
   if (!response.ok) throw new Error("성과 분석 데이터를 불러오지 못했습니다.");
   return response.json();
 }
 
+/**
+ * 날짜를 "YYYY-MM-DD" 글자로 바꿔요. 받는 것: date. 돌려주는 것: 날짜 글자.
+ * ⚠️ 확인 필요: toISOString은 UTC 기준이라 한국 시간 오전 9시 전에는 하루 전 날짜가 나오는 것으로 보여요.
+ */
 function dateValue(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
+/** 숫자를 "+1.23%" 같은 부호 있는 퍼센트 글자로 바꿔요. 값이 없으면 "--". */
 function pct(value: number | null | undefined) {
   return value == null ? "--" : `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
 }
 
+/** 비율을 "45.0%" 같은 글자로 바꿔요. 값이 없으면 "--". */
 function rate(value: number | null | undefined) {
   return value == null ? "--" : `${value.toFixed(1)}%`;
 }
 
+/** 신뢰도 코드(HIGH/MEDIUM/그 외)를 "충분/관찰/부족"으로 바꿔요. */
 function confidenceLabel(value?: string) {
   if (value === "HIGH") return "충분";
   if (value === "MEDIUM") return "관찰";
   return "부족";
 }
 
+/** 점수 구간 코드(HIGH/MID/LOW/UNKNOWN)를 한국어로 바꿔요. */
 function bandLabel(value?: string) {
   if (value === "HIGH") return "높음";
   if (value === "MID") return "중간";
@@ -94,6 +118,7 @@ function bandLabel(value?: string) {
   return value ?? "--";
 }
 
+/** 스캐너 종류 코드를 한국어 이름으로 바꿔요. 모르는 코드면 그대로 돌려줘요. */
 function scannerTypeLabel(value: string) {
   const labels: Record<string, string> = {
     VOLUME: "거래량 급증",
@@ -109,6 +134,7 @@ function scannerTypeLabel(value: string) {
   return labels[value] ?? value;
 }
 
+/** 탐지 설정의 영어 이름을 한국어 이름으로 바꿔요. 모르는 이름이면 그대로 돌려줘요. */
 function settingNameLabel(name: string) {
   const labels: Record<string, string> = {
     Momentum: "복합 모멘텀",
@@ -122,15 +148,24 @@ function settingNameLabel(name: string) {
   return labels[name] ?? name;
 }
 
+/**
+ * 신호 성과 분석 화면 React 컴포넌트(화면 조각)예요. 비유하면 "지난 신호들의 성적표"예요.
+ * 받는 것(props, 부모가 넘겨주는 값): back(대시보드로 돌아가는 함수).
+ * 돌려주는 것: 조건 입력 폼, 요약 카드, 수익률·목표/손절·시간대·조합·과거 우위 패널 화면.
+ * ⚠️ 확인 필요: 사용 안내의 "실제로 우위가 있는 신호만 골라냅니다" 문구는 표본·검증 상태와 상관없이 우위를 단정하는 것으로 보여요.
+ */
 export function AnalyticsPage({ back }: { back: () => void }) {
   const today = new Date();
   const week = new Date(Date.now() - 7 * 86400000);
+  // 상태(state, 컴포넌트가 기억하는 값): 입력 중인 조건들이에요.
   const [from, setFrom] = useState(dateValue(week));
   const [to, setTo] = useState(dateValue(today));
   const [setting, setSetting] = useState("");
   const [targetRate, setTargetRate] = useState(3);
   const [stopRate, setStopRate] = useState(-2);
   const [minimumSampleSize, setMinimumSampleSize] = useState(20);
+  // params는 "분석"을 눌렀을 때 확정된 조회 조건이에요.
+  // 처음 값은 지금으로부터 7일 전 ~ 내일 같은 시각이라, 제출 뒤(한국 시간 하루 처음~끝)와 기간 계산 방식이 조금 달라요.
   const [params, setParams] = useState({
     from: week.toISOString(),
     to: new Date(today.getTime() + 86400000).toISOString(),
@@ -143,6 +178,7 @@ export function AnalyticsPage({ back }: { back: () => void }) {
     queryKey: ["scanner-settings"],
     queryFn: () => get<Setting[]>("/api/v1/scanner-settings"),
   });
+  // 분석은 무거운 집계일 수 있어서 1분간 캐시를 쓰고, 창 포커스·재연결 때 다시 부르지 않아요.
   const analytics = useQuery({
     staleTime: 60000,
     refetchOnWindowFocus: false,
@@ -156,6 +192,7 @@ export function AnalyticsPage({ back }: { back: () => void }) {
       ),
   });
 
+  /** 폼 제출 시 입력 날짜를 한국 시간(+09:00) 하루 처음과 끝으로 바꿔 조회 조건을 확정해요. 받는 것: event. 돌려주는 것: 없음. */
   function submit(event: FormEvent) {
     event.preventDefault();
     setParams({
@@ -169,6 +206,7 @@ export function AnalyticsPage({ back }: { back: () => void }) {
   }
 
   const data = analytics.data;
+  // 수익률 막대에 쓸 [이름, 평균 수익률] 목록이에요.
   const milestones = [
     ["5분", data?.averageReturn5m],
     ["10분", data?.averageReturn10m],
@@ -307,6 +345,10 @@ export function AnalyticsPage({ back }: { back: () => void }) {
   );
 }
 
+/**
+ * 시점별 평균 수익률 막대 패널이에요. 비유하면 "구간별 기록 막대그래프"예요.
+ * 받는 것(props): milestones([이름, 수익률] 목록), total(전체 탐지 수). 돌려주는 것: 막대 목록 또는 빈 안내 화면.
+ */
 function ReturnPanel({
   milestones,
   total,
@@ -346,6 +388,10 @@ function ReturnPanel({
   );
 }
 
+/**
+ * 목표가·손절가 선도달 비교 막대 패널이에요. 비유하면 "결승선 먼저 닿기 시합 결과표"예요.
+ * 받는 것(props): summary(선도달 집계), target(목표 %), stop(손절 %). 돌려주는 것: 목표·손절·미도달 막대와 기대 수익률 화면.
+ */
 function TargetStopPanel({
   summary,
   target,
@@ -355,6 +401,7 @@ function TargetStopPanel({
   target: number;
   stop: number;
 }) {
+  // 0으로 나누지 않도록 표본 수를 최소 1로 둬요.
   const total = Math.max(1, summary?.sampleSize ?? 0);
   return (
     <section className="targetPanel">
@@ -387,6 +434,7 @@ function TargetStopPanel({
   );
 }
 
+/** 시간대별 성과 목록이에요. 받는 것(props): rows. 돌려주는 것: 시간대별 표본·승률·평균 수익률 줄 화면. */
 function TimeBucketPanel({ rows }: { rows: TimeBucket[] }) {
   return (
     <section>
@@ -411,6 +459,7 @@ function TimeBucketPanel({ rows }: { rows: TimeBucket[] }) {
   );
 }
 
+/** 신호 조합별 성과 목록(상위 8개)이에요. 받는 것(props): rows. 돌려주는 것: 조합별 신뢰도·평균 수익률 줄 화면. */
 function SignalCombinationPanel({ rows }: { rows: SignalCombination[] }) {
   return (
     <section>
@@ -441,6 +490,7 @@ function SignalCombinationPanel({ rows }: { rows: SignalCombination[] }) {
   );
 }
 
+/** 과거 우위 요약 카드예요. 받는 것(props): edge. 돌려주는 것: 신뢰도, 평균 수익률, 승률, MFE·MAE 카드 화면. */
 function HistoricalEdgePanel({ edge }: { edge?: HistoricalEdge }) {
   return (
     <section>
