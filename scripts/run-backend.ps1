@@ -7,7 +7,8 @@
     still loads the repository-root .env exactly as with gradlew bootRun. The jar is copied to .run/ so a
     running backend never locks build/libs for later gradle builds.
 
-    Output goes to .run/logs (gitignored): runner.log plus one .out.log/.err.log pair per backend start.
+    Output goes to .run/logs (gitignored): runner.log (rotated to runner.log.1 above -RunnerLogMaxBytes)
+    plus one .out.log/.err.log pair per backend start.
     Environment variables and credentials are never printed.
 
     Only one runner may be active (named mutex). If the previous backend process survived its runner
@@ -32,6 +33,7 @@ param(
     [int]$RestartDelaySeconds = 30,
     [int]$MaxRestartsPerHour = 6,
     [int]$LogRetentionDays = 14,
+    [long]$RunnerLogMaxBytes = 10MB,
     [string]$JavaOptions = '',
     [switch]$SkipBuild,
     [switch]$UseBootRun
@@ -77,12 +79,23 @@ function Test-PortBusy {
     return $null -ne $listener
 }
 
-# 하는 일: 보존 기간(LogRetentionDays)보다 오래된 backend-*.log 파일을 지워요.
-# ⚠️ 확인 필요: runner.log 는 이 패턴에 걸리지 않아 계속 커지는 것으로 보여요.
+# 하는 일: 보존 기간(LogRetentionDays)보다 오래된 backend-*.log 파일을 지우고, runner.log 를 크기 기준으로 돌려요.
+# runner.log 가 RunnerLogMaxBytes(기본 10MB)를 넘으면 runner.log.1 로 이름을 바꿔(이전 runner.log.1 은 지워요)
+# 새 runner.log 에 이어 써요. mutex 를 쥔 실행기만 부르므로 두 실행기가 동시에 돌리지 않아요.
 function Remove-OldLogs {
     $limit = (Get-Date).AddDays(-$LogRetentionDays)
     Get-ChildItem -Path $logDir -Filter 'backend-*.log' -ErrorAction SilentlyContinue |
         Where-Object { $_.LastWriteTime -lt $limit } | Remove-Item -Force -ErrorAction SilentlyContinue
+    $current = Get-Item -Path $runnerLog -ErrorAction SilentlyContinue
+    if ($null -ne $current -and $current.Length -gt $RunnerLogMaxBytes) {
+        $rotated = "$runnerLog.1"
+        try {
+            Move-Item -Path $runnerLog -Destination $rotated -Force -ErrorAction Stop
+            Write-RunnerLog "Rotated runner.log ($($current.Length) bytes) to runner.log.1"
+        } catch {
+            Write-RunnerLog "runner.log rotation failed: $($_.Exception.Message)"
+        }
+    }
 }
 
 # 하는 일: 실행할 java.exe 경로를 찾아요. JAVA_HOME 을 먼저 보고, 없으면 PATH 에서 찾아요.
