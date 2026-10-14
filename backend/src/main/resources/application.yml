@@ -228,6 +228,8 @@ closing:
     observation-subscription-limit: ${CLOSING_OBSERVATION_SUBSCRIPTION_LIMIT:10}
   limit-up-watch:
     enabled: ${CLOSING_LIMIT_UP_WATCH_ENABLED:false}
+  candidate-context:
+    enabled: ${CLOSING_CANDIDATE_CONTEXT_ENABLED:false}
   daily-backfill:
     enabled: ${CLOSING_DAILY_BACKFILL_ENABLED:true}
     max-stocks: ${CLOSING_DAILY_BACKFILL_MAX_STOCKS:40}
@@ -251,3 +253,6 @@ closing:
     sell-tax-percent: ${CLOSING_SELL_TAX_PERCENT:0}
     buy-slippage-percent: ${CLOSING_BUY_SLIPPAGE_PERCENT:0}
     sell-slippage-percent: ${CLOSING_SELL_SLIPPAGE_PERCENT:0}
+
+dart:
+  api-key: ${DART_API_KEY:}

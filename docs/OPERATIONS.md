@@ -88,6 +88,10 @@ Windows Home 호스트 설정:
 
 `CLOSING_LIMIT_UP_WATCH_ENABLED=true`이면 거래일 15:16:15와 15:18:30에 `limit_up_watch`를 기록한다. 순위 2회와 호가 최대 40회 호출이며, 15:20이 되면 남은 종목은 건너뛴다. 분석 시점과 판정 기준은 [사전 등록](../audit/2026-10-14-limit-up-entry/README.md)을 따른다. 그 전에는 건수·결측만 보고 수익률을 계산하지 않는다.
 
+## 외부 요인 기록 (기록 전용)
+
+`CLOSING_CANDIDATE_CONTEXT_ENABLED=true`이면 거래일 15:16:45와 15:19:00에 공식 run 후보의 시장경고·VI·단기과열 상태를 `closing_candidate_context`에 기록한다(현재가 조회 후보 수만큼, 약 40~65회). `DART_API_KEY`(opendart.fss.or.kr에서 발급)를 넣으면 DART 공시 목록을 `dart_filing`에 모은다. 키는 요청 URL에 들어가므로 로그에 예외 메시지를 남기지 않는다.
+
 ## KIS 한도
 
 WebSocket 구독 기본 한도는 41개다. 관심종목 실시간 고정(최대 10개), 수동 구독, 다음날 관측(`OVERNIGHT`)을 먼저 배정하고 남은 자리를 모두 정밀 구독으로 채운다(`MARKET_PRECISION_MAX=41`, `MARKET_SUBSCRIPTION_RESERVE=0`, 2026-10-14부터). 예비 슬롯이 없으므로 한도가 찬 상태에서 새 보호 구독은 실패할 수 있다. 정밀 구독은 다음 시장 전체 스캔에서 보호 구독 수만큼 줄어든다(15분 유지 조건 적용). 관심종목 등록 수가 곧 실시간 구독 수는 아니다. 화면에서 종목 시세를 열어도 실시간 구독을 추가하지 않는다(REST 시세, 이미 구독 중이면 최신 체결 반영). 대시보드의 '실시간 구독' 표에서 종목별 출처·상태·정밀 점수를 확인한다. REST 호출은 endpoint별 rate limiter가 적용된다.
