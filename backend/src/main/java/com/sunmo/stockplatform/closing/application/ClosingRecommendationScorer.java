@@ -201,13 +201,18 @@ public class ClosingRecommendationScorer {
     /**
      * JSON 필드를 숫자로 읽어요.
      * 받는 것: JSON 노드, 필드 이름. 돌려주는 것: 숫자, 없거나 비었으면 null.
-     * ⚠️ 확인 필요: 숫자가 아닌 문자열이면 NumberFormatException이 나고, featureValues는 JsonProcessingException만 잡아 점수 계산 전체가 실패할 수 있어요.
+     * 숫자로 읽을 수 없는 값도 필드가 없을 때와 똑같이 null(자료 없음)로 돌려줘요.
+     * 값 하나가 깨져도 그 종목의 그 요소만 빠지고, 15:15 평가 전체는 멈추지 않아요.
      */
     private BigDecimal decimal(JsonNode node, String field) {
         JsonNode value = node.path(field);
         if (value.isMissingNode() || value.isNull() || value.asText().isBlank())
             return null;
-        return new BigDecimal(value.asText());
+        try {
+            return new BigDecimal(value.asText());
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
     }
 
     // 작은 도우미들: value는 null을 0으로, positive는 음수를 0으로, cap은 0~상한으로 자르기, bd는 문자열을 BigDecimal로 바꿔요.

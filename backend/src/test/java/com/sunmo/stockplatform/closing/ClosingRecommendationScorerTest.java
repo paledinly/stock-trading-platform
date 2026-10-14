@@ -162,6 +162,45 @@ class ClosingRecommendationScorerTest {
         assertThat(result.riskReason()).contains("\"weakTradeStrength\":\"0.000\"");
     }
 
+    /**
+     * 숫자가 아닌 Feature 값이 있어도 예외 없이, 그 필드가 없을 때와 같은 점수를 내는지 확인해요.
+     * 입력: tradeStrength가 "abc"인 탐지와 tradeStrength 필드가 아예 없는 탐지(나머지는 같아요).
+     * 기대: 예외가 없고 두 점수·근거가 같으며 tradeStrength는 null로 기록돼요.
+     */
+    @Test
+    void malformedFeatureValueIsTreatedAsMissing() {
+        var malformed = detection("2026-09-04T06:15:00Z", "65", "10", "2.0", "8000000000", "2.0",
+                "{\"vwapDistanceRate\":1.5,\"dayHighDistanceRate\":0.7,\"tradeStrength\":\"abc\"}");
+        var absent = detection("2026-09-04T06:15:00Z", "65", "10", "2.0", "8000000000", "2.0",
+                "{\"vwapDistanceRate\":1.5,\"dayHighDistanceRate\":0.7}");
+
+        var malformedScore = scorer.score(malformed);
+        var absentScore = scorer.score(absent);
+
+        assertThat(malformedScore.score()).isEqualByComparingTo(absentScore.score());
+        assertThat(malformedScore.recommendationReason()).isEqualTo(absentScore.recommendationReason());
+        assertThat(malformedScore.riskReason()).contains("\"tradeStrength\":null", "\"weakTradeStrength\":\"0.000\"");
+    }
+
+    /**
+     * 정상 숫자 값은 문자열 숫자와 JSON 숫자 모두 이전과 똑같은 점수를 내는지 확인해요.
+     * 입력: 같은 값을 JSON 숫자로 담은 탐지와 숫자 문자열로 담은 탐지.
+     * 기대: 두 점수가 같고, 이전 기준값(체결강도 감점 등)이 그대로예요.
+     */
+    @Test
+    void normalNumericValuesKeepIdenticalScores() {
+        var numeric = detection("2026-09-04T06:15:00Z", "65", "10", "2.0", "8000000000", "2.0",
+                "{\"vwapDistanceRate\":1.5,\"dayHighDistanceRate\":0.7,\"tradeStrength\":80}");
+        var text = detection("2026-09-04T06:15:00Z", "65", "10", "2.0", "8000000000", "2.0",
+                "{\"vwapDistanceRate\":\"1.5\",\"dayHighDistanceRate\":\"0.7\",\"tradeStrength\":\"80\"}");
+
+        var numericScore = scorer.score(numeric);
+        var textScore = scorer.score(text);
+
+        assertThat(textScore.score()).isEqualByComparingTo(numericScore.score());
+        assertThat(numericScore.riskReason()).contains("\"weakTradeStrength\":\"3.000\"");
+    }
+
     /** 주어진 시각·점수·거래 지표·Feature JSON을 가진 VWAP 돌파 탐지 목(mock, 가짜 객체)을 만들어요. */
     private ScannerDetection detection(String detectedAt, String opportunity, String risk, String volumeRatio,
             String dailyValue, String changeRate, String featureSnapshot) {
