@@ -1,6 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Phase4App } from './Phase4App'
 import './phase6.css'
 
 type ScannerType = 'VOLUME' | 'PRICE_RISE' | 'MOMENTUM' | 'VOLUME_BREAKOUT' | 'TURNOVER_BREAKOUT' | 'HIGH_BREAKOUT' | 'VWAP_BREAKOUT' | 'VWAP_RECLAIM' | 'PULLBACK_REBREAK'
@@ -386,9 +385,4 @@ function SettingEditor({ setting, save, remove }: { setting: Setting; save: (set
       <div className="settingActions"><button onClick={() => save(local)}>저장</button><button onClick={() => remove(local.id)}>삭제</button></div>
     </div>
   )
-}
-
-export function Phase6App() {
-  const [scanner, setScanner] = useState(false)
-  return scanner ? <ScannerPage back={() => setScanner(false)} /> : <><button className="scannerLaunch" onClick={() => setScanner(true)}>실시간 레이더</button><Phase4App /></>
 }

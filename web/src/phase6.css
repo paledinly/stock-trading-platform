@@ -1,4 +1,4 @@
-.scannerLaunch{position:fixed;z-index:22;right:24px;bottom:82px;padding:10px 16px;border:1px solid #38547e;border-radius:8px;background:#172846;color:#9fc1ff;box-shadow:0 10px 28px #0008;cursor:pointer}
+.scannerLaunch{padding:10px 16px;border:1px solid #38547e;border-radius:8px;background:#172846;color:#9fc1ff;box-shadow:0 10px 28px #0008;cursor:pointer}
 .scannerPage{min-height:100vh;padding-bottom:60px;background:#090e17;color:#e9eef8}
 .scannerPage>header{position:relative;width:min(1320px,calc(100% - 40px));min-height:220px;margin:auto;display:flex;align-items:center;justify-content:space-between}
 .scannerPage>header>button{position:absolute;top:22px;left:0;border:0;background:transparent;color:#7997ca;cursor:pointer}
@@ -76,4 +76,4 @@
 .scannerEmpty{display:grid;place-items:center;min-height:280px;text-align:center;border:1px dashed #2b3749;border-radius:8px;color:#7e8b9e}
 .scannerEmpty p{margin:6px 0 0}
 @media(max-width:1100px){.radarGrid{grid-template-columns:1fr}.opsCard{display:none}.radarFilters{grid-template-columns:1fr 1fr}.radarFilters input:first-child{grid-column:1/-1}}
-@media(max-width:680px){.scannerPage>header{min-height:190px}.scannerPage header h1{font-size:34px}.radarFilters{grid-template-columns:1fr}.scoreStrip,.reasonGrid{grid-template-columns:1fr}.scannerLaunch{right:12px;bottom:72px}}
+@media(max-width:680px){.scannerPage>header{min-height:190px}.scannerPage header h1{font-size:34px}.radarFilters{grid-template-columns:1fr}.scoreStrip,.reasonGrid{grid-template-columns:1fr}}

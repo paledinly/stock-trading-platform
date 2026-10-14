@@ -1,4 +1,4 @@
-.wideLaunch{position:fixed;z-index:24;right:24px;bottom:182px;padding:10px 16px;border:1px solid #6a5a36;border-radius:8px;background:#2b2415;color:#f6d790;box-shadow:0 10px 28px #0008;cursor:pointer}
+.wideLaunch{padding:10px 16px;border:1px solid #6a5a36;border-radius:8px;background:#2b2415;color:#f6d790;box-shadow:0 10px 28px #0008;cursor:pointer}
 .widePage{min-height:100vh;padding-bottom:60px;background:#090e17;color:#e9eef8}
 .widePage>header{position:relative;width:min(1240px,calc(100% - 40px));min-height:230px;margin:auto;display:flex;align-items:center;justify-content:space-between}
 .widePage>header>button{position:absolute;top:22px;border:0;background:transparent;color:#c6aa68;cursor:pointer}
@@ -31,5 +31,5 @@
 .regimePanel h2{margin-top:0}.regimePanel p{font-size:34px;margin:8px 0 16px;color:#f8d98d}
 .gain{color:#ff7486}.loss{color:#61a7ff}
 .wideEmpty{display:grid;place-items:center;min-height:230px;text-align:center;border:1px dashed #3e3f32;border-radius:8px;color:#8792a3}
-@media(max-width:1050px){.widePage header aside{display:none}.widePage form,.wideGrid{grid-template-columns:1fr}.wideSummary{grid-template-columns:1fr 1fr}.wideLaunch{right:12px;bottom:172px}}
+@media(max-width:1050px){.widePage header aside{display:none}.widePage form,.wideGrid{grid-template-columns:1fr}.wideSummary{grid-template-columns:1fr 1fr}}
 @media(max-width:680px){.widePage header h1{font-size:34px}.wideSummary{grid-template-columns:1fr}.candidatePanel dl,.regimePanel dl{grid-template-columns:1fr}}

@@ -1,6 +1,6 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Phase8App } from "./Phase8App";
+import { MarketWidePage } from "./Phase8App";
 
 beforeEach(() => {
   globalThis.fetch = vi.fn().mockImplementation((url: string) =>
@@ -71,10 +71,9 @@ test("opens market-wide scanner", async () => {
         new QueryClient({ defaultOptions: { queries: { retry: false } } })
       }
     >
-      <Phase8App />
+      <MarketWidePage back={() => {}} />
     </QueryClientProvider>,
   );
-  fireEvent.click(screen.getByRole("button", { name: /시장 전체/ }));
   expect(
     screen.getByRole("heading", { name: "시장 전체 스캐너" }),
   ).toBeInTheDocument();

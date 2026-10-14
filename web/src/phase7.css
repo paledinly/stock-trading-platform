@@ -1,4 +1,4 @@
-.analyticsLaunch{position:fixed;z-index:23;right:24px;bottom:132px;padding:10px 16px;border:1px solid #35615f;border-radius:8px;background:#12302e;color:#a9e2d5;box-shadow:0 10px 28px #0008;cursor:pointer}
+.analyticsLaunch{padding:10px 16px;border:1px solid #35615f;border-radius:8px;background:#12302e;color:#a9e2d5;box-shadow:0 10px 28px #0008;cursor:pointer}
 .analyticsPage{min-height:100vh;padding-bottom:60px;background:#090e17;color:#e9eef8}
 .analyticsPage>header{position:relative;width:min(1240px,calc(100% - 40px));min-height:230px;margin:auto;display:flex;align-items:center;justify-content:space-between}
 .analyticsPage>header>button{position:absolute;top:22px;border:0;background:transparent;color:#8fbeb6;cursor:pointer}
@@ -41,4 +41,4 @@
 .analyticsEmpty{display:grid;place-items:center;min-height:230px;text-align:center;border:1px dashed #303f4a;border-radius:8px;color:#7f8b9d}
 .analyticsEmpty p{margin:6px 0 0}
 @media(max-width:1050px){.analyticsPage header aside{display:none}.analyticsPage form{grid-template-columns:1fr 1fr}.analyticsPage form button{grid-column:1/-1}.edgeGrid,.analyticsGrid{grid-template-columns:1fr}}
-@media(max-width:680px){.analyticsPage header h1{font-size:34px}.analyticsPage form,.summaryCards{grid-template-columns:1fr}.milestones{grid-template-columns:1fr;height:auto}.milestones article{min-height:78px}.analyticsLaunch{right:12px;bottom:122px}}
+@media(max-width:680px){.analyticsPage header h1{font-size:34px}.analyticsPage form,.summaryCards{grid-template-columns:1fr}.milestones{grid-template-columns:1fr;height:auto}.milestones article{min-height:78px}}

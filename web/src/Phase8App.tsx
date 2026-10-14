@@ -1,6 +1,5 @@
 import { FormEvent, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Phase7App } from "./Phase7App";
 import "./phase8.css";
 
 type Market = "" | "KOSPI" | "KOSDAQ";
@@ -448,19 +447,5 @@ export function MarketWidePage({ back }: { back: () => void }) {
         </section>
       </main>
     </div>
-  );
-}
-
-export function Phase8App() {
-  const [wide, setWide] = useState(false);
-  return wide ? (
-    <MarketWidePage back={() => setWide(false)} />
-  ) : (
-    <>
-      <button className="wideLaunch" onClick={() => setWide(true)}>
-        시장 전체
-      </button>
-      <Phase7App />
-    </>
   );
 }

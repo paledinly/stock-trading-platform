@@ -1,7 +1,5 @@
 import { FormEvent, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Phase3App } from "./Phase3App";
-import { RealtimeBridge } from "./RealtimeBridge";
 import "./phase4.css";
 
 type Journal = {
@@ -389,29 +387,5 @@ export function JournalPage() {
         </section>
       </main>
     </div>
-  );
-}
-
-export function Phase4App() {
-  const [page, setPage] = useState<"dashboard" | "journal">("dashboard");
-  return (
-    <>
-      <RealtimeBridge />
-      <nav className="phaseNav">
-        <button
-          className={page === "dashboard" ? "active" : ""}
-          onClick={() => setPage("dashboard")}
-        >
-          대시보드
-        </button>
-        <button
-          className={page === "journal" ? "active" : ""}
-          onClick={() => setPage("journal")}
-        >
-          투자기록
-        </button>
-      </nav>
-      {page === "dashboard" ? <Phase3App /> : <JournalPage />}
-    </>
   );
 }

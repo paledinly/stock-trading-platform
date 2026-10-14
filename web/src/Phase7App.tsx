@@ -1,6 +1,5 @@
 import { FormEvent, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Phase6App } from "./Phase6App";
 import "./phase7.css";
 
 type Setting = { id: number; name: string };
@@ -454,19 +453,5 @@ function HistoricalEdgePanel({ edge }: { edge?: HistoricalEdge }) {
         <span>최대 불리 낙폭 {pct(edge?.averageMae)}</span>
       </div>
     </section>
-  );
-}
-
-export function Phase7App() {
-  const [analytics, setAnalytics] = useState(false);
-  return analytics ? (
-    <AnalyticsPage back={() => setAnalytics(false)} />
-  ) : (
-    <>
-      <button className="analyticsLaunch" onClick={() => setAnalytics(true)}>
-        성과 분석
-      </button>
-      <Phase6App />
-    </>
   );
 }
