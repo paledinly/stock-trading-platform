@@ -226,6 +226,8 @@ closing:
     target-rate: ${CLOSING_AUTOMATION_TARGET_RATE:3}
     stop-rate: ${CLOSING_AUTOMATION_STOP_RATE:-2}
     observation-subscription-limit: ${CLOSING_OBSERVATION_SUBSCRIPTION_LIMIT:10}
+  limit-up-watch:
+    enabled: ${CLOSING_LIMIT_UP_WATCH_ENABLED:false}
   daily-backfill:
     enabled: ${CLOSING_DAILY_BACKFILL_ENABLED:true}
     max-stocks: ${CLOSING_DAILY_BACKFILL_MAX_STOCKS:40}

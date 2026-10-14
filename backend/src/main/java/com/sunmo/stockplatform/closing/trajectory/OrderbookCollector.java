@@ -66,7 +66,7 @@ public class OrderbookCollector {
     }
     public Map<String,Object> status(){return TrajectoryModel.fields("requestFailures",failures.get(),"lastResponseAt",lastSuccess,
             "sampling","BOUNDED_REST","responseDoesNotGuaranteeFreshBook",true);}
-    static Book parse(String symbol,JsonNode output,Instant received) {
+    public static Book parse(String symbol,JsonNode output,Instant received) {
         String time=output.path("aspr_acpt_hour").asText();
         if(!time.matches("[0-9]{6}"))throw new IllegalArgumentException("Missing orderbook source time");
         LocalTime local=LocalTime.of(Integer.parseInt(time.substring(0,2)),Integer.parseInt(time.substring(2,4)),Integer.parseInt(time.substring(4,6)));

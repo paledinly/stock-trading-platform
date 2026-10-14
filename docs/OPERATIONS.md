@@ -84,6 +84,10 @@ Windows Home 호스트 설정:
 
 `MARKET_ADJUSTED_DAILY_ENABLED=true`이면 평일 18:30(`MARKET_ADJUSTED_DAILY_CRON`)에 ETF·ETN 제외 전 종목(약 2,900개)의 수정주가 일봉을 갱신한다. 첫 수집은 종목당 약 2회 호출(약 5,800회, 일봉 rate limiter 초당 5건 기준 20~35분), 이후 매일은 종목당 1회(약 10~17분)다. 장 마감 15분 후부터 다음 거래일 08:30 전까지만 실행되고, 그 시간에 걸리면 `SESSION_GUARD`로 멈춘 뒤 다음 실행에서 이어 간다. 수동 시작: `POST /api/v1/market-data/adjusted-daily/sweep`, 진행 확인: `GET /api/v1/market-data/adjusted-daily/status`.
 
+## 상한가 직전 매수 연구 수집
+
+`CLOSING_LIMIT_UP_WATCH_ENABLED=true`이면 거래일 15:16:15와 15:18:30에 `limit_up_watch`를 기록한다. 순위 2회와 호가 최대 40회 호출이며, 15:20이 되면 남은 종목은 건너뛴다. 분석 시점과 판정 기준은 [사전 등록](../audit/2026-10-14-limit-up-entry/README.md)을 따른다. 그 전에는 건수·결측만 보고 수익률을 계산하지 않는다.
+
 ## KIS 한도
 
 WebSocket 구독 기본 한도는 41개다. 관심종목 중 실시간 고정 종목, 정밀 후보, 예약 슬롯이 같은 한도를 사용한다. 관심종목 등록 수가 곧 실시간 구독 수는 아니며, 고정 구독은 기본 최대 10개다. REST 호출은 endpoint별 rate limiter가 적용된다.

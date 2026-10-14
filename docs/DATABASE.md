@@ -1,5 +1,9 @@
 # Database
 
+## Limit-Up Watch (V34, 연구용)
+
+`limit_up_watch`는 거래일 15:16:15와 15:18:30에 등락률 +20% 이상 종목(KIS 등락률 순위 KOSPI·KOSDAQ 각 상위 100, 표본당 최대 40종목)의 순위 값과 10단계 호가 최우선·합계 잔량을 저장한다. 상한가 근처 종목을 15:20 진입 마감 전에 실제로 살 수 있었는지 보는 [사전 등록 연구](../audit/2026-10-14-limit-up-entry/README.md)용이다. `ranking_received_at`·`book_received_at`은 수신시각, `book_source_at`은 KIS 호가 원천시각이다. 호가 조회 실패도 `error`와 함께 행으로 남긴다. 추천 전략은 이 테이블을 읽지 않는다.
+
 ## Adjusted Daily Candle (V33)
 
 `daily_adjusted_candle`은 ETF·ETN을 제외한 상장 종목 전체의 수정주가 일봉을 `(stock_id, trade_date)` 기본키로 저장한다. 연구용 시점 기준 Universe(각 날짜 이전 거래대금 순위 등)를 재구성하기 위한 테이블이다. 수정주가는 기업행사 후 과거 값이 다시 계산되므로 `stock_candle`과 달리 행을 갱신하며, `fetched_at`은 마지막 기록시각이다. 운영 이동평균이 쓰는 `stock_candle`의 `1D`(원주가)는 바뀌지 않는다. `daily_adjusted_sweep_state`는 종목별 수집 범위(`covered_from`~`covered_through`)로 중단된 수집을 이어 가고 최근 구간만 다시 읽게 한다.
