@@ -32,20 +32,24 @@ public interface OvernightPositionDecisionRepository extends JpaRepository<Overn
     void deleteByRecommendationDate(@Param("date") LocalDate date);
 
     /**
-     * 하는 일: 특정 날짜의 가장 최근 실행(모드 무관)에서 추천마다 평가시각이 가장 늦은 판단을 순위 순으로 가져와요.
+     * 하는 일: 특정 날짜의 "대표 실행"에서 추천마다 평가시각이 가장 늦은 판단 한 줄을 순위 순으로 가져와요.
+     * 대표 실행은 추천 조회와 똑같이 그날 가장 최근 FORWARD 실행이고, 없으면 그날 가장 최근 실행이에요.
+     * 평가시각이 같은 판단이 여러 개면 그중 ID가 가장 큰(가장 나중에 저장된) 것 하나만 골라 추천마다 한 줄이에요.
      * 받는 것: 추천 날짜예요. 돌려주는 것: 판단 목록이에요.
-     * ⚠️ 확인 필요: 추천 조회는 FORWARD 실행을 우선하지만 여기는 max(id) 실행을 써서 서로 다른 실행을 볼 수 있어요.
-     * 또 같은 evaluatedAt 판단이 두 개면 한 추천에 두 줄이 나올 수 있어요(실행별 조회는 max(id)라 한 줄).
      */
     @Query("""
             select d from OvernightPositionDecision d
             join d.recommendation recommendation
-            where recommendation.run.id =
-              (select max(a.id) from ClosingRecommendationRun a where a.recommendationDate = :date)
-              and d.evaluatedAt = (
-                  select max(latest.evaluatedAt) from OvernightPositionDecision latest
-                  where latest.recommendation = recommendation
-              )
+            where recommendation.run.id = coalesce(
+                  (select max(a.id) from ClosingRecommendationRun a
+                    where a.recommendationDate = :date and a.executionMode = 'FORWARD'),
+                  (select max(b.id) from ClosingRecommendationRun b where b.recommendationDate = :date))
+              and d.id = (
+                  select max(tied.id) from OvernightPositionDecision tied
+                  where tied.recommendation = recommendation
+                    and tied.evaluatedAt = (
+                        select max(latest.evaluatedAt) from OvernightPositionDecision latest
+                        where latest.recommendation = recommendation))
             order by recommendation.rank asc
             """)
     List<OvernightPositionDecision> findLatestByRecommendationDate(@Param("date") LocalDate date);

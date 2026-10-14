@@ -38,16 +38,19 @@ public interface OvernightPerformanceRepository extends JpaRepository<OvernightP
     void deleteByRecommendationDate(@Param("date") LocalDate date);
 
     /**
-     * 하는 일: 특정 날짜의 가장 최근 실행(모드 무관)에 속한 성과를 추천·종목과 함께 순위 순으로 가져와요.
+     * 하는 일: 특정 날짜의 "대표 실행"에 속한 성과를 추천·종목과 함께 순위 순으로 가져와요.
+     * 대표 실행은 추천 조회(ClosingRecommendationRepository.findByRecommendationDateOrderByRankAsc)와 똑같이
+     * 그날 가장 최근 FORWARD 실행이고, 없으면 그날 가장 최근 실행이에요. 그래서 성과를 계산한 실행과 보여 주는 실행이 같아요.
      * 받는 것: 추천 날짜예요. 돌려주는 것: 순위 오름차순 성과 목록이에요.
-     * ⚠️ 확인 필요: 추천 조회(ClosingRecommendationRepository.findByRecommendationDateOrderByRankAsc)는 FORWARD 실행을 우선하는데,
-     * 여기는 실행 모드와 상관없이 max(id)를 써요. 같은 날 FORWARD 뒤에 다른 모드 실행이 생기면 성과를 계산한 실행과 다른 실행을 보여 줄 수 있어요.
      */
     @Query("""
             select p from OvernightPerformance p
               join fetch p.recommendation r
               join fetch r.stock
-             where r.run.id = (select max(a.id) from ClosingRecommendationRun a where a.recommendationDate = :date)
+             where r.run.id = coalesce(
+                   (select max(a.id) from ClosingRecommendationRun a
+                     where a.recommendationDate = :date and a.executionMode = 'FORWARD'),
+                   (select max(b.id) from ClosingRecommendationRun b where b.recommendationDate = :date))
              order by r.rank asc
             """)
     List<OvernightPerformance> findByRecommendationDate(@Param("date") LocalDate date);
