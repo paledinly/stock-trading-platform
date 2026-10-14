@@ -13,7 +13,8 @@ import com.sunmo.stockplatform.market.application.RealtimeDiagnostics;
 import com.sunmo.stockplatform.stock.domain.Stock;
 import org.slf4j.*;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.time.*;
@@ -34,47 +35,37 @@ public class CandleBackfillService {
     private final CandleBackfillProperties properties;
     private final RealtimeDiagnostics diagnostics;
     private final Map<String, Instant> lastAttempt = new ConcurrentHashMap<>();
+    private final TransactionTemplate transaction;
 
-    /** 하는 일: KIS 분봉 클라이언트, 봉 레포지토리, 보충 설정, 진단 기록부를 주입받아요(의존성 주입). */
+    /** 하는 일: KIS 분봉 클라이언트, 봉 레포지토리, 보충 설정, 진단 기록부, 트랜잭션 관리자를 주입받아요(의존성 주입). */
     public CandleBackfillService(KisMinuteCandleClient client, StockCandleRepository repository,
-            CandleBackfillProperties properties, RealtimeDiagnostics diagnostics) {
+            CandleBackfillProperties properties, RealtimeDiagnostics diagnostics,
+            PlatformTransactionManager transactions) {
         this.client = client;
         this.repository = repository;
         this.properties = properties;
         this.diagnostics = diagnostics;
+        this.transaction = new TransactionTemplate(transactions);
     }
 
     /**
      * 하는 일: 종목의 오늘 빈 5분봉 칸들을 KIS 분봉으로 채워요.
      * 받는 것: 종목, 빈 칸 시작시각 목록, 현재 시각.
      * 돌려주는 것: 실제로 저장한 봉 개수. 꺼져 있거나 빈 칸이 없거나 재시도 간격 안이면 0이고, 실패해도 예외 대신 0을 돌려줘요.
+     * KIS 호출은 DB 트랜잭션 밖에서 하고, 받은 봉 저장만 짧은 트랜잭션으로 묶어요(호출한 쪽에 트랜잭션이 있으면 거기에 참여해요).
      */
-    @Transactional
     public int backfillToday(Stock stock, List<Instant> gaps, Instant now) {
         if (!properties.enabled() || gaps.isEmpty() || throttled(stock.getStockCode(), now))
             return 0;
         lastAttempt.put(stock.getStockCode(), now);
         diagnostics.backfillStarted(stock.getStockCode(), gaps.size());
         try {
-            // 1) KIS에서 빈 칸 구간을 덮는 1분봉을 받아 5분봉으로 묶어요.
+            // 1) KIS에서 빈 칸 구간을 덮는 1분봉을 받아 5분봉으로 묶어요(트랜잭션 밖).
             Map<Instant, MinuteCandle> minutes = fetchPages(stock.getStockCode(), gaps);
-            int saved = 0;
-            // 2) 빈 칸에 해당하는 봉만 저장해요. 실시간 확정봉이 이미 있으면 건너뛰어요.
-            for (FiveMinuteBackfill candle : aggregate(minutes.values())) {
-                if (!gaps.contains(candle.startTime()))
-                    continue;
-                StockCandle entity = repository
-                        .findByStockIdAndTimeframeAndStartTime(stock.getId(), "5M", candle.startTime())
-                        .orElseGet(() -> new StockCandle(stock, candle.startTime(), candle.open(), candle.high(),
-                                candle.low(), candle.close(), candle.volume(), candle.tradingValue(), true, 0,
-                                CandleSource.BACKFILL));
-                if (entity.getSource() == CandleSource.REALTIME && entity.isFinalCandle())
-                    continue;
-                entity.revise(candle.open(), candle.high(), candle.low(), candle.close(), candle.volume(),
-                        candle.tradingValue(), true, 0, CandleSource.BACKFILL);
-                repository.save(entity);
-                saved++;
-            }
+            List<FiveMinuteBackfill> aggregated = aggregate(minutes.values());
+            // 2) 빈 칸에 해당하는 봉만 한 트랜잭션으로 저장해요.
+            Integer result = transaction.execute(status -> save(stock, gaps, aggregated));
+            int saved = result == null ? 0 : result;
             diagnostics.backfillSucceeded(stock.getStockCode(), gaps.size(), saved);
             return saved;
         } catch (RuntimeException error) {
@@ -82,6 +73,30 @@ public class CandleBackfillService {
             log.warn("Candle backfill failed for {}: {}", stock.getStockCode(), rootMessage(error));
             return 0;
         }
+    }
+
+    /**
+     * 하는 일: 묶은 5분봉 중 빈 칸에 해당하는 것만 저장해요. 실시간 확정봉이 이미 있으면 건너뛰어요.
+     * 받는 것: 종목, 빈 칸 목록, 5분봉 목록. 돌려주는 것: 저장한 봉 개수.
+     */
+    private int save(Stock stock, List<Instant> gaps, List<FiveMinuteBackfill> aggregated) {
+        int saved = 0;
+        for (FiveMinuteBackfill candle : aggregated) {
+            if (!gaps.contains(candle.startTime()))
+                continue;
+            StockCandle entity = repository
+                    .findByStockIdAndTimeframeAndStartTime(stock.getId(), "5M", candle.startTime())
+                    .orElseGet(() -> new StockCandle(stock, candle.startTime(), candle.open(), candle.high(),
+                            candle.low(), candle.close(), candle.volume(), candle.tradingValue(), true, 0,
+                            CandleSource.BACKFILL));
+            if (entity.getSource() == CandleSource.REALTIME && entity.isFinalCandle())
+                continue;
+            entity.revise(candle.open(), candle.high(), candle.low(), candle.close(), candle.volume(),
+                    candle.tradingValue(), true, 0, CandleSource.BACKFILL);
+            repository.save(entity);
+            saved++;
+        }
+        return saved;
     }
 
     /**

@@ -31,4 +31,25 @@ class CandleGapDetectorTest {
         // 확인
         assertThat(gaps).containsExactly(nine.plusSeconds(300));
     }
+
+    /**
+     * 장 마감 뒤에는 15:25 칸까지 보되, 체결이 없는 15:20 종가 단일가 칸은 갭으로 세지 않는지 확인해요.
+     * 준비: 기준 시각 16:00, 09:00~15:15 칸이 모두 있고 15:20·15:25 칸이 없어요.
+     * 기대: 15:25 한 개만 갭이에요. 15:20만 빠진 경우는 갭이 없어요.
+     */
+    @Test
+    void closingCallBucketIsNeverAGap() {
+        LocalDate date = LocalDate.of(2026, 9, 1);
+        Instant nine = date.atTime(9, 0).atZone(SEOUL).toInstant();
+        Instant closingCall = date.atTime(15, 20).atZone(SEOUL).toInstant();
+        Instant last = date.atTime(15, 25).atZone(SEOUL).toInstant();
+        java.util.List<Instant> existing = new java.util.ArrayList<>();
+        for (Instant bucket = nine; bucket.isBefore(closingCall); bucket = bucket.plusSeconds(300))
+            existing.add(bucket);
+        Instant after = date.atTime(16, 0).atZone(SEOUL).toInstant();
+
+        assertThat(new CandleGapDetector().gaps(date, after, existing)).containsExactly(last);
+        existing.add(last);
+        assertThat(new CandleGapDetector().gaps(date, after, existing)).isEmpty();
+    }
 }

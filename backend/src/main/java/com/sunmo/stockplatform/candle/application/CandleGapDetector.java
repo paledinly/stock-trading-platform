@@ -1,5 +1,5 @@
 /*
- * 하루 정규장 5분봉 칸(09:00~15:25) 중 아직 저장되지 않은 칸을 찾아 주는 계산기예요.
+ * 하루 정규장 5분봉 칸(09:00~15:25, 체결이 없는 15:20 종가 단일가 칸 제외) 중 아직 저장되지 않은 칸을 찾아 주는 계산기예요.
  * CandleQueryService가 오늘 차트를 조회할 때 빈 칸을 찾고, CandleBackfillService가 5분 내림 계산(floorFiveMinutes)을 빌려 써요.
  */
 package com.sunmo.stockplatform.candle.application;
@@ -18,17 +18,18 @@ public class CandleGapDetector {
      * 진행 중인 현재 칸은 아직 끝나지 않았으므로 빈 칸으로 세지 않아요.
      * 받는 것: 날짜, 기준 시각(보통 지금), 이미 있는 봉 시작시각들.
      * 돌려주는 것: 빈 칸의 시작시각 목록(오래된 순).
-     * ⚠️ 확인 필요: 15:20 칸은 종가 단일가 접수 시간이라 정상적으로 체결·봉이 없는데도 빈 칸으로 잡혀요.
-     * 보충도 이 칸을 채우지 않으므로 장 마감 후 조회 때마다 빈 칸 1개가 남고 보충 요청이 반복될 수 있어요.
+     * 15:20 칸은 종가 단일가 접수 시간이라 정상적으로 체결·봉이 없으므로 빈 칸으로 세지 않아요
+     * (ObservationBackfillService가 15:20을 빼는 것과 같은 규칙이에요). 그래야 장 마감 후 조회 때마다 보충이 반복되지 않아요.
      */
     public List<Instant> gaps(LocalDate date, Instant through, Collection<Instant> existing) {
         Instant open = date.atTime(9, 0).atZone(SEOUL).toInstant();
         Instant close = date.atTime(15, 30).atZone(SEOUL).toInstant();
+        Instant closingCall = date.atTime(15, 20).atZone(SEOUL).toInstant();
         Instant limit = through.isBefore(close) ? floorFiveMinutes(through) : close;
         Set<Instant> found = new HashSet<>(existing);
         List<Instant> gaps = new ArrayList<>();
         for (Instant bucket = open; bucket.isBefore(limit); bucket = bucket.plus(Duration.ofMinutes(5))) {
-            if (!found.contains(bucket))
+            if (!found.contains(bucket) && !bucket.equals(closingCall))
                 gaps.add(bucket);
         }
         return gaps;
