@@ -153,7 +153,7 @@ market:
     reserve: ${MARKET_SUBSCRIPTION_RESERVE:0}
     min-hold: ${MARKET_PRECISION_MIN_HOLD:15m}
     replace-margin: ${MARKET_PRECISION_REPLACE_MARGIN:10}
-    freeze-at: ${MARKET_PRECISION_FREEZE_AT:14:35}
+    freeze-at: ${MARKET_PRECISION_FREEZE_AT:14:50}
   performance:
     flush-interval: ${MARKET_PERFORMANCE_FLUSH_INTERVAL:1s}
   adjusted-daily:
