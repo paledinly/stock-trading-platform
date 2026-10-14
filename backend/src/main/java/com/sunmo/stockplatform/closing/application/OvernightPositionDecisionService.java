@@ -29,30 +29,30 @@ import java.util.*;
  */
 @Service
 public class OvernightPositionDecisionService {
-    // 판단 날짜·시각 계산에 쓰는 한국 시간대예요.
-    private static final ZoneId MARKET_ZONE = ZoneId.of("Asia/Seoul");
-
     private final ClosingRecommendationRepository recommendations;
     private final OvernightPositionDecisionRepository decisions;
     private final QuoteProvider quotes;
     private final MarketFeatureEngine features;
     private final IntradayMovingAverageService intradayMa;
     private final ObjectMapper objectMapper;
+    // 현재 시각, 오늘 날짜, 직전·다음 거래일은 모두 ClosingTradingCalendar 정책을 따라요.
+    private final ClosingTradingCalendar calendar;
 
     /**
      * 하는 일: 의존 객체를 받아 서비스를 만들어요.
-     * 받는 것: 추천 저장소, 판단 저장소, 현재가 제공자, 시장 Feature 엔진, 5분봉 이동평균 서비스, JSON 변환기.
+     * 받는 것: 추천 저장소, 판단 저장소, 현재가 제공자, 시장 Feature 엔진, 5분봉 이동평균 서비스, JSON 변환기, 거래일 달력.
      * 돌려주는 것: 없음(생성자).
      */
     public OvernightPositionDecisionService(ClosingRecommendationRepository recommendations,
             OvernightPositionDecisionRepository decisions, QuoteProvider quotes, MarketFeatureEngine features,
-            IntradayMovingAverageService intradayMa, ObjectMapper objectMapper) {
+            IntradayMovingAverageService intradayMa, ObjectMapper objectMapper, ClosingTradingCalendar calendar) {
         this.recommendations = recommendations;
         this.decisions = decisions;
         this.quotes = quotes;
         this.features = features;
         this.intradayMa = intradayMa;
         this.objectMapper = objectMapper;
+        this.calendar = calendar;
     }
 
     /**
@@ -66,17 +66,16 @@ public class OvernightPositionDecisionService {
 
     /**
      * 하는 일: 추천일(또는 실행 ID)의 추천 종목마다 지금 시점 판단을 만들어 저장해요.
-     * 받는 것: 추천일(없으면 달력상 어제), 목표 수익률(없으면 +3%), 손절 수익률(없으면 -2%), 실행 ID.
+     * 받는 것: 추천일(없으면 오늘 직전 거래일), 목표 수익률(없으면 +3%), 손절 수익률(없으면 -2%), 실행 ID.
      * 돌려주는 것: 판단 종류별 건수와 종목별 판단을 담은 응답.
      */
     @Transactional
     public DecisionEvaluationResponse evaluate(LocalDate date, BigDecimal targetRate, BigDecimal stopRate, Long runId) {
-        // ⚠️ 확인 필요: 다른 서비스와 달리 ClosingTradingCalendar가 아니라 시스템 시계(LocalDate.now/Instant.now)를 써요.
-        // 또 기본 날짜가 "달력상 어제"라 월요일·휴장일 다음날에는 직전 거래일을 가리키지 않아요.
-        LocalDate targetDate = date == null ? LocalDate.now(MARKET_ZONE).minusDays(1) : date;
+        // 현재 시각과 오늘 날짜는 ClosingTradingCalendar에서 받아요. 날짜를 안 주면 오늘의 직전 거래일(월요일이면 금요일)을 써요.
+        LocalDate targetDate = date == null ? calendar.previousTradingDay(calendar.today()) : date;
         BigDecimal target = targetRate == null ? bd("3") : targetRate;
         BigDecimal stop = stopRate == null ? bd("-2") : stopRate;
-        Instant evaluatedAt = Instant.now();
+        Instant evaluatedAt = calendar.now();
         // 처리: 추천마다 판단을 만들고 바로 저장해요(같은 추천에 판단이 여러 번 쌓이고, 조회는 최신 것을 보여 줘요).
         List<OvernightPositionDecision> saved = (runId == null
                 ? recommendations.findByRecommendationDateOrderByRankAsc(targetDate)
@@ -108,11 +107,11 @@ public class OvernightPositionDecisionService {
 
     /**
      * 하는 일: 추천일 또는 실행 ID 기준으로 최신 판단을 조회해요(읽기 전용).
-     * 받는 것: 추천일(없으면 달력상 어제), 실행 ID. 돌려주는 것: 종목별 최신 판단 목록.
+     * 받는 것: 추천일(없으면 오늘 직전 거래일), 실행 ID. 돌려주는 것: 종목별 최신 판단 목록.
      */
     @Transactional(readOnly = true)
     public List<OvernightPositionDecisionResponse> list(LocalDate date, Long runId) {
-        LocalDate targetDate = date == null ? LocalDate.now(MARKET_ZONE).minusDays(1) : date;
+        LocalDate targetDate = date == null ? calendar.previousTradingDay(calendar.today()) : date;
         return (runId == null ? decisions.findLatestByRecommendationDate(targetDate)
                 : decisions.findLatestByRunId(runId)).stream()
                 .map(OvernightPositionDecisionResponse::from)
@@ -122,14 +121,14 @@ public class OvernightPositionDecisionService {
     /**
      * 하는 일: 추천 한 건의 현재 판단을 만들어요.
      * 받는 것: 추천, 판단 시각, 목표·손절 수익률(%).
-     * 돌려주는 것: 판단 엔티티. 아직 다음날이 아니거나 자료를 못 받으면 DATA_PENDING(대기) 판단.
+     * 돌려주는 것: 판단 엔티티. 아직 다음 거래일이 아니거나, 자료를 못 받거나, 매수 기준가·현재가가 없으면 DATA_PENDING(대기) 판단.
      */
     private OvernightPositionDecision evaluate(ClosingRecommendation recommendation, Instant evaluatedAt,
             BigDecimal targetRate, BigDecimal stopRate) {
-        // 준비: 오늘이 추천일보다 뒤가 아니면 판단을 미뤄요.
-        // ⚠️ 확인 필요: 달력 날짜로만 비교해서, 추천일 다음날이 주말·휴장일이어도 지난 시세로 판단이 만들어질 수 있어요.
-        LocalDate today = evaluatedAt.atZone(MARKET_ZONE).toLocalDate();
-        if (!today.isAfter(recommendation.getRecommendationDate())) {
+        // 준비: 오늘이 추천일의 다음 거래일(ClosingTradingCalendar 기준)보다 앞이면 판단을 미뤄요.
+        // 그래서 추천일 다음날이 주말·휴장일이면 그날에는 지난 시세로 판단을 만들지 않아요.
+        LocalDate today = evaluatedAt.atZone(ClosingTradingCalendar.ZONE).toLocalDate();
+        if (today.isBefore(calendar.nextTradingDay(recommendation.getRecommendationDate()))) {
             return pending(recommendation, evaluatedAt, "추천일 다음 거래일 전이라 판단을 대기합니다.");
         }
         try {
@@ -137,7 +136,11 @@ public class OvernightPositionDecisionService {
             StockQuote quote = quotes.getQuote(recommendation.getStock());
             MarketFeatureSnapshot feature = features.latest(recommendation.getStock().getStockCode()).orElse(null);
             IntradayMovingAverageFeature ma = intradayMa.calculate(recommendation.getStock().getId(), quote.quotedAt());
-            DecisionContext context = context(recommendation, quote, feature, ma, targetRate, stopRate);
+            // 매수 기준가나 현재가가 없거나 0이면 수익률을 만들 수 없으니 0%로 두지 않고 대기 판단으로 남겨요.
+            BigDecimal returnRate = pct(quote.currentPrice(), recommendation.getBuyReferencePrice());
+            if (returnRate == null)
+                return pending(recommendation, evaluatedAt, "매수 기준가 또는 현재가가 없어 수익률을 계산할 수 없습니다.");
+            DecisionContext context = context(returnRate, quote, feature, ma, targetRate, stopRate);
             OvernightPositionDecisionType decision = decide(context);
             return new OvernightPositionDecision(
                     recommendation,
@@ -162,14 +165,12 @@ public class OvernightPositionDecisionService {
 
     /**
      * 하는 일: 판단에 필요한 수익률과 약세 신호들을 계산해 한 묶음으로 만들어요.
-     * 받는 것: 추천, 현재가 시세, 시장 Feature(없을 수 있음), 5분봉 이동평균, 목표·손절 수익률(%).
+     * 받는 것: 수익률(추천 매수 기준가 대비 현재가 변화율 %, null 아님), 현재가 시세, 시장 Feature(없을 수 있음),
+     * 5분봉 이동평균, 목표·손절 수익률(%).
      * 돌려주는 것: 판단 재료 묶음(DecisionContext).
      */
-    private DecisionContext context(ClosingRecommendation recommendation, StockQuote quote, MarketFeatureSnapshot feature,
+    private DecisionContext context(BigDecimal returnRate, StockQuote quote, MarketFeatureSnapshot feature,
             IntradayMovingAverageFeature ma, BigDecimal targetRate, BigDecimal stopRate) {
-        // 수익률 = 추천 매수 기준가 대비 현재가 변화율(%).
-        // ⚠️ 확인 필요: 매수 기준가가 없거나 0이면 pct가 0을 돌려줘서, 자료 없음이 "수익률 0%"로 보이고 판단까지 내려져요.
-        BigDecimal returnRate = pct(quote.currentPrice(), recommendation.getBuyReferencePrice());
         BigDecimal vwap = feature == null ? null : feature.vwap();
         BigDecimal vwapDistanceRate = feature == null ? null : feature.vwapDistanceRate();
         BigDecimal tradeStrength = feature == null ? null : feature.tradeStrength();
@@ -285,11 +286,11 @@ public class OvernightPositionDecisionService {
 
     /**
      * 하는 일: 기준가 대비 가격 변화율(%)을 구해요.
-     * 받는 것: 가격, 기준가. 돌려주는 것: 소수 6자리 변화율, 값이 없거나 기준가가 0이면 0.
+     * 받는 것: 가격, 기준가. 돌려주는 것: 소수 6자리 변화율, 값이 없거나 기준가가 0 이하이면 null(자료 없음, 0%가 아니에요).
      */
     private BigDecimal pct(BigDecimal price, BigDecimal base) {
-        if (price == null || base == null || base.signum() == 0)
-            return BigDecimal.ZERO;
+        if (price == null || base == null || base.signum() <= 0)
+            return null;
         return price.subtract(base)
                 .divide(base, 8, RoundingMode.HALF_UP)
                 .multiply(bd("100"))
