@@ -144,12 +144,15 @@ final class IntradayFeatureState {
     /**
      * 하는 일: 시각이 속한 5분 칸의 시작시각을 09:00 기준으로 계산해요. 09:00 이전은 09:00 칸으로 봐요.
      * 받는 것: 시각. 돌려주는 것: 칸 시작시각.
-     * ⚠️ 확인 필요: 5분봉 집계기(FiveMinuteCandleAggregator)와 달리 15:30 종가 단일가 체결을 15:25 칸에 합치지 않고 15:30 칸으로 나눠요.
-     * 그래서 종가 체결 틱의 거래량 배수는 15:25 봉과 다른 칸 기준으로 계산돼요.
+     * 5분봉 집계기(FiveMinuteCandleAggregator.bucketStart)와 같은 규칙으로, 15:30 이후의 종가 단일가 체결은
+     * 마지막 15:25 칸에 합쳐요. 그래서 종가 체결 틱의 거래량·거래대금 배수도 15:25 봉과 같은 칸 기준으로 계산돼요.
      */
     private Instant bucketStart(Instant instant) {
         ZonedDateTime time = instant.atZone(SEOUL);
         ZonedDateTime open = time.toLocalDate().atTime(9, 0).atZone(SEOUL);
+        ZonedDateTime close = open.plusMinutes(390);
+        if (!time.isBefore(close))
+            return close.minusMinutes(5).toInstant();
         long minutes = Math.max(0, ChronoUnit.MINUTES.between(open, time));
         return open.plusMinutes((minutes / 5) * 5).toInstant();
     }

@@ -140,7 +140,10 @@ public class FiveMinuteCandleAggregator {
         BigDecimal lastCumValue;
         Instant lastEvent;
         long lastSequence;
-        // ⚠️ 확인 필요: revision을 올리는 코드가 없어 스냅샷의 revision은 항상 0이에요. 의도한 것인지 확인이 필요해요.
+        // 지금은 revision을 올리는 코드가 없어 스냅샷의 revision은 항상 0이에요. 확정봉은 늦은 틱으로 다시 고치지 않으므로
+        // (finalizedThrough 이하의 틱은 버려요) 한 봉이 여러 판을 갖지 않기 때문이에요. 만약 나중에 확정 뒤 정정을
+        // 허용한다면, 이 값은 같은 시작시각의 확정봉이 몇 번째로 고쳐진 판인지(0 = 처음 확정본)를 뜻하게 돼요.
+        // 저장(stock_candle.revision)과 SSE payload는 이 값을 그대로 옮기기만 해요.
         int revision;
 
         /**

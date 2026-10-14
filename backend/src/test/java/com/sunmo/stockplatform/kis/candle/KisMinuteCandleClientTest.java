@@ -55,4 +55,42 @@ class KisMinuteCandleClientTest {
         assertThat(result.getFirst().close()).isEqualByComparingTo("70050");
         server.verify();
     }
+
+    /**
+     * 영업일자(stck_bsop_date)가 없거나 빈 행은 서버 날짜로 추정하지 않고 버리는지 확인해요.
+     * 준비: 날짜 있는 행 1개, 날짜 필드가 없는 행 1개, 날짜가 빈 문자열인 행 1개를 돌려주게 해요.
+     * 기대: 날짜 있는 행 1건만 그 날짜(2026-09-01 09:01 KST)로 남고, 버린 행 2개가 세어져요.
+     */
+    @Test
+    void skipsRowsWithoutBusinessDate() {
+        RestClient.Builder builder = RestClient.builder().baseUrl("https://example.test");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        KisTokenManager tokens = mock(KisTokenManager.class);
+        when(tokens.getAccessToken()).thenReturn("token");
+        KisProperties properties = new KisProperties(true, URI.create("https://example.test"), "key", "secret",
+                Duration.ofMinutes(5), Duration.ofSeconds(3), Duration.ofSeconds(5),
+                new KisProperties.Master(false, "0 0 0 * * *", URI.create("https://example.test/kospi"),
+                        URI.create("https://example.test/kosdaq")));
+        server.expect(requestTo(org.hamcrest.Matchers.startsWith(
+                "https://example.test/uapi/domestic-stock/v1/quotations/inquire-time-itemchartprice?")))
+                .andRespond(withSuccess("""
+                        {"rt_cd":"0","output2":[
+                        {"stck_bsop_date":"20260901","stck_cntg_hour":"090100","stck_oprc":"70000","stck_hgpr":"70100",
+                         "stck_lwpr":"69900","stck_prpr":"70050","cntg_vol":"123","acml_tr_pbmn":"8616150"},
+                        {"stck_cntg_hour":"090000","stck_oprc":"70000","stck_hgpr":"70100",
+                         "stck_lwpr":"69900","stck_prpr":"70050","cntg_vol":"1","acml_tr_pbmn":"70050"},
+                        {"stck_bsop_date":"","stck_cntg_hour":"085900","stck_oprc":"70000","stck_hgpr":"70100",
+                         "stck_lwpr":"69900","stck_prpr":"70050","cntg_vol":"1","acml_tr_pbmn":"70050"}]}
+                        """, MediaType.APPLICATION_JSON));
+        var client = new KisMinuteCandleClient(builder.build(), properties, tokens,
+                new com.sunmo.stockplatform.kis.config.KisRequestExecutor(
+                    new com.sunmo.stockplatform.kis.config.KisRequestProperties(Duration.ZERO, Duration.ZERO, Duration.ZERO, 1)));
+
+        var result = client.fetch("005930", LocalTime.of(9, 30));
+
+        assertThat(result).hasSize(1);
+        assertThat(result.getFirst().startTime()).isEqualTo(Instant.parse("2026-09-01T00:01:00Z"));
+        assertThat(client.rowsWithoutDate()).isEqualTo(2);
+        server.verify();
+    }
 }

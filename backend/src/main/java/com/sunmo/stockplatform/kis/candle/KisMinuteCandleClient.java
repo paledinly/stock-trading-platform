@@ -31,6 +31,9 @@ public class KisMinuteCandleClient {
     private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
     private static final DateTimeFormatter DATE = DateTimeFormatter.BASIC_ISO_DATE;
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("HHmmss");
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(KisMinuteCandleClient.class);
+    // 영업일자(stck_bsop_date)가 없어 버린 분봉 행의 누적 개수예요(서버 시작 이후).
+    private final java.util.concurrent.atomic.AtomicLong rowsWithoutDate = new java.util.concurrent.atomic.AtomicLong();
 
     private final RestClient client;
     private final KisProperties properties;
@@ -82,10 +85,15 @@ public class KisMinuteCandleClient {
         });
         // 처리: 각 행의 날짜와 시각을 서울 시간 Instant로 바꾸고 가격을 검증해 담아요.
         List<MinuteCandle> result = new ArrayList<>();
+        int skippedWithoutDate = 0;
         for (JsonNode row : body.path("output2")) {
-            // ⚠️ 확인 필요: 응답에 영업일자(stck_bsop_date)가 없으면 '서버의 오늘 날짜'로 대신 채워요.
-            // 자정 이후나 휴장일에 직전 거래일 분봉을 받으면 날짜가 잘못 붙을 수 있어요.
-            String rawDate = row.path("stck_bsop_date").asText(LocalDate.now(SEOUL).format(DATE));
+            // 영업일자(stck_bsop_date)가 없거나 형식이 틀린 행은 서버 날짜로 추정하지 않고 버려요.
+            // 자정 이후나 휴장일에 직전 거래일 분봉에 오늘 날짜가 잘못 붙는 일을 막기 위해서예요. 버린 개수는 세고 로그로 남겨요.
+            String rawDate = row.path("stck_bsop_date").asText().trim();
+            if (rawDate.length() != 8) {
+                skippedWithoutDate++;
+                continue;
+            }
             String rawTime = row.path("stck_cntg_hour").asText();
             if (rawTime.length() != 6)
                 continue;
@@ -96,7 +104,16 @@ public class KisMinuteCandleClient {
                     decimal(row, "stck_lwpr"), decimal(row, "stck_prpr"), number(row, "cntg_vol"),
                     nullableDecimal(row, "acml_tr_pbmn")));
         }
+        if (skippedWithoutDate > 0) {
+            rowsWithoutDate.addAndGet(skippedWithoutDate);
+            log.warn("KIS minute candle rows without business date skipped stock={} rows={}", stockCode, skippedWithoutDate);
+        }
         return result;
+    }
+
+    /** 영업일자가 없어 버린 분봉 행의 누적 개수를 돌려줘요(진단·테스트용). */
+    public long rowsWithoutDate() {
+        return rowsWithoutDate.get();
     }
 
     /**

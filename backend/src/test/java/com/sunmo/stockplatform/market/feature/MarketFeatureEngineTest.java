@@ -58,6 +58,25 @@ class MarketFeatureEngineTest {
     }
 
     /**
+     * 15:30 종가 단일가 체결을 5분봉 집계기처럼 15:25 칸에 합쳐 배수를 계산하는지 확인해요.
+     * 준비: 14:55~15:25 각 칸에 거래량 10씩 틱을 넣고(15:25 칸 직전 완료 칸 6개), 15:30:10에 거래량 20 종가 체결을 넣어요.
+     * 기대: 종가 체결이 15:25 칸(10 + 20 = 30)에 더해져 거래량 배수는 3이에요(따로 15:30 칸이면 2가 돼요).
+     */
+    @Test
+    void foldsClosingAuctionPrintIntoTheFinalBucket() {
+        Instant first = Instant.parse("2026-08-18T05:55:01Z");
+        for (int index = 0; index < 7; index++) {
+            long cumulative = (index + 1L) * 10;
+            engine.onTick(tick(first.plusSeconds(index * 300L).toString(), "100", 10, cumulative,
+                    Long.toString(cumulative * 100), index + 1L));
+        }
+
+        MarketFeatureSnapshot closing = engine.onTick(tick("2026-08-18T06:30:10Z", "100", 20, 90, "9000", 8));
+
+        assertThat(closing.volumeRatio()).isEqualByComparingTo("3.000000");
+    }
+
+    /**
      * 누적 매수·매도 체결량의 증가분을 추적하고, 같은 순번 틱은 무시하는지 확인해요.
      * 준비: 매수 100→120, 매도 40→45인 두 틱 뒤에 같은 순번(2)의 120원 틱을 넣어요.
      * 기대: 매수 증가 20, 매도 증가 5이고 중복 틱 뒤에도 가격은 101 그대로예요.
