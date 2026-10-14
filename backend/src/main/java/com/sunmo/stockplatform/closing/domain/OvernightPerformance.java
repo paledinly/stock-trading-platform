@@ -1,3 +1,8 @@
+/*
+ * 장마감 추천 종목 하나의 "다음 거래일 성과"를 기록하는 엔티티(DB 표 한 줄에 대응하는 자바 객체)예요.
+ * 다음 날 시가·고가·저가·종가 기준 수익률, 목표/손절 도달 여부, 15:20 이전 가상 진입가 기준 가상 청산 결과(비용 전/후)를 담아요.
+ * OvernightPerformanceService가 갱신하고, 성과 API·전략 분석·시장 커버리지가 읽어요. 실제 계좌 손익이 아니에요.
+ */
 package com.sunmo.stockplatform.closing.domain;
 
 import jakarta.persistence.*;
@@ -6,12 +11,19 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 
+/**
+ * 추천 한 건당 하나만 있는 다음 날 성적표예요(추천 ID에 유일 제약).
+ * 학생 성적표처럼 처음엔 빈칸(PENDING)으로 만들어 두고, 다음 날 장이 진행되며 칸을 채우다가 마감 뒤 확정(COMPLETED)해요.
+ * 수익률 값은 퍼센트 단위예요(2는 2%).
+ */
 @Entity
 @Table(name = "overnight_performance",
         uniqueConstraints = @UniqueConstraint(name = "uk_overnight_performance_recommendation",
                 columnNames = "closing_recommendation_id"))
 public class OvernightPerformance {
+    /** 예전(v1) 계산 방식 표식이에요. 생성 직후 기본값으로 들어가요. */
     public static final String VERSION = "overnight-performance-v1";
+    /** 현재 관측 방식(v2) 표식이에요. 전략 분석은 이 버전의 완료 성과만 집계해요. */
     public static final String OBSERVATION_VERSION = "overnight-observation-v2";
 
     @Id
@@ -112,9 +124,14 @@ public class OvernightPerformance {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    /** JPA가 DB에서 읽어 객체를 만들 때만 쓰는 빈 생성자예요. */
     protected OvernightPerformance() {
     }
 
+    /**
+     * 하는 일: 추천 한 건에 대한 빈 성적표를 PENDING 상태로 만들어요.
+     * 받는 것: 추천이에요. 돌려주는 것: 성과 객체예요.
+     */
     public OvernightPerformance(ClosingRecommendation recommendation) {
         this.recommendation = recommendation;
         this.status = OvernightPerformanceStatus.PENDING;
@@ -122,6 +139,11 @@ public class OvernightPerformance {
         this.evaluatedAt = Instant.now();
     }
 
+    /**
+     * 하는 일: 다음 날 시가·고가·저가·종가와 수익률, 목표/손절 도달 여부를 한 번에 채우고 COMPLETED(v1)로 확정해요.
+     * 현재 main 코드에서는 호출하는 곳이 없는 이전(v1) 방식으로 보여요. 지금은 initializeObservation/observe를 써요.
+     * 받는 것: 다음 거래일, 시·고·저·종가, 시가·종가 수익률, 최대 상승·최대 하락률, 목표·손절 도달 여부예요. 돌려주는 것: 없어요.
+     */
     public void complete(LocalDate nextTradingDate, BigDecimal openPrice, BigDecimal highPrice, BigDecimal lowPrice,
             BigDecimal closePrice, BigDecimal openReturnRate, BigDecimal closeReturnRate, BigDecimal maxReturnRate,
             BigDecimal maxDrawdownRate, boolean targetHit, boolean stopHit) {
@@ -141,17 +163,20 @@ public class OvernightPerformance {
         this.evaluatedAt = Instant.now();
     }
 
+    /** 처음 저장 직전에 생성·수정 시각을 채워요. */
     @PrePersist
     void prePersist() {
         createdAt = Instant.now();
         updatedAt = createdAt;
     }
 
+    /** 수정 저장 직전에 수정 시각을 갱신해요. */
     @PreUpdate
     void preUpdate() {
         updatedAt = Instant.now();
     }
 
+    /** 아래는 저장된 값을 그대로 돌려주는 조회용 getter들이에요. */
     public Long getId() {
         return id;
     }
@@ -216,6 +241,10 @@ public class OvernightPerformance {
         return calculationVersion;
     }
 
+    /**
+     * 하는 일: 관측(v2) 방식으로 전환하며 대상 거래일, 장 시작·마감 시각, 목표/손절 비율을 정해 둬요.
+     * 받는 것: 다음 거래일, 장 시작 시각, 장 마감 시각, 목표 비율, 손절 비율이에요. 돌려주는 것: 없어요.
+     */
     public void initializeObservation(LocalDate date, Instant open, Instant close, BigDecimal target, BigDecimal stop) {
         expectedSessionDate = date;
         nextTradingDate = date;
@@ -226,6 +255,12 @@ public class OvernightPerformance {
         calculationVersion = OBSERVATION_VERSION;
     }
 
+    /**
+     * 하는 일: 지금까지 관측한 다음 날 봉으로 성과 칸을 갱신해요. 장 중에는 latest 값만 바뀌고,
+     * 상태가 COMPLETED일 때만 latest를 종가·종가 수익률로 확정해요(미완료면 종가는 비워 둬요).
+     * 받는 것: 평가시각, 관측 끝 시각, 결측 구간 JSON, 상태, 시·고·저·최근가, 시가·최근 수익률, 최대 상승·최대 하락률, 목표·손절 도달 여부예요.
+     * 돌려주는 것: 없어요.
+     */
     public void observe(Instant at, Instant through, String missing, OvernightPerformanceStatus state,
             BigDecimal open, BigDecimal high, BigDecimal low, BigDecimal latest,
             BigDecimal openReturn, BigDecimal latestReturn, BigDecimal maximum, BigDecimal minimum,
@@ -248,6 +283,11 @@ public class OvernightPerformance {
         closeReturnRate = state == OvernightPerformanceStatus.COMPLETED ? latestReturn : null;
     }
 
+    /**
+     * 하는 일: 가상 진입(15:20 이전)과 다음 날 가상 청산 결과를 기록해요. 실제 체결이 아니에요.
+     * 진입가가 없거나 청산 결과가 없으면 이유만 costStatus에 남기고 끝내요.
+     * 받는 것: 가상 진입 시각·가격, 시뮬레이터 청산 결과(없을 수 있음), 비용 가정 JSON이에요. 돌려주는 것: 없어요.
+     */
     public void recordExecution(Instant entryAt, BigDecimal entryPrice,
             com.sunmo.stockplatform.closing.application.OvernightExecutionSimulator.ExecutionResult execution,
             String assumption) {
@@ -265,6 +305,7 @@ public class OvernightPerformance {
         executionExitAt = execution.exitAt();
         executionExitPrice = execution.exitReferencePrice();
         grossReturnRate = execution.grossReturnRate();
+        // 비용이 설정되지 않았으면 비용 차감 수익률은 비워 두고 "비용 미검증"으로 표시해요.
         netReturnRate = execution.costsApplied() ? execution.netReturnRate() : null;
         executionExitReason = execution.exitReason();
         executionAmbiguous = execution.ambiguous();
@@ -272,6 +313,7 @@ public class OvernightPerformance {
         costStatus = execution.costsApplied() ? "COSTS_APPLIED" : "ZERO_COSTS_UNVERIFIED";
     }
 
+    /** 관측(v2) 방식에서 추가된 값들의 조회용 getter들이에요. */
     public LocalDate getExpectedSessionDate() { return expectedSessionDate; }
     public Instant getSessionOpen() { return sessionOpen; }
     public Instant getSessionClose() { return sessionClose; }

@@ -1,3 +1,8 @@
+/*
+ * 수급(외국인·기관·프로그램 순매수) 연구 자료를 KIS REST API로 주기적으로 받아 Trajectory 맥락 대기열에 넣는 수집기예요.
+ * 외국인·기관은 KIS 가집계 순위 응답(추정치)에서, 프로그램은 종목별 KRX 프로그램 매매 응답에서 누적 순매수 수량을 꺼내요.
+ * 기본 꺼짐이고 실서버(openapi.koreainvestment.com)에서만 동작해요. TrajectoryController의 /flow/status가 상태를 보여 줘요.
+ */
 package com.sunmo.stockplatform.closing.trajectory;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -13,6 +18,11 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import static com.sunmo.stockplatform.closing.trajectory.TrajectoryModel.*;
 
+/**
+ * 최근 관측 종목들의 수급 누적값을 몇 분마다 조회해 기록하는 수집기예요.
+ * 학교 매점 앞에서 몇 분마다 "외국인 손님·단체 손님이 지금까지 몇 개 샀는지" 누적 장부를 훑어 적는 조사원과 같아요.
+ * 순위 응답에 없는 종목은 0이 아니라 "없음"으로 남겨요.
+ */
 @Component
 public class InvestorFlowCollector {
     private final InvestorFlowProperties policy;
@@ -27,6 +37,7 @@ public class InvestorFlowCollector {
     private long failures;
     private Instant lastCompletedAt;
 
+    /** 하는 일: 설정·저장소·서비스·KIS 접속 도구·달력을 받아 보관해요. 받는 것: 각 의존 객체. 돌려주는 것: 수집기 객체예요. */
     public InvestorFlowCollector(InvestorFlowProperties policy, TrajectoryProperties trajectory,
             TrajectoryStore store, TrajectoryService service, RestClient kisRestClient, KisProperties kis,
             KisTokenManager tokens, KisRequestExecutor requests, ClosingTradingCalendar calendar) {
@@ -34,6 +45,11 @@ public class InvestorFlowCollector {
         client = kisRestClient; this.kis = kis; this.tokens = tokens; this.requests = requests; this.calendar = calendar;
     }
 
+    /**
+     * 하는 일: (기본 5분마다) 최근 1분 집계가 있는 종목(최대 maxSymbols개)을 골라, 외국인·기관 추정 순위 2번(순매수·순매도 정렬)과
+     * 종목별 프로그램 매매를 조회해 맥락 관측으로 넣어요.
+     * 받는 것: 없어요. 돌려주는 것: 없어요. 한 요청이 실패해도 개수만 세고 다음 요청을 계속해요.
+     */
     @Scheduled(fixedDelayString = "${closing.trajectory.flow.interval:5m}", scheduler = "trajectoryContextScheduler")
     public synchronized void collect() {
         if (!active()) return;
@@ -62,6 +78,7 @@ public class InvestorFlowCollector {
         }
         lastCompletedAt = calendar.now();
     }
+    /** 하는 일: 수급·Trajectory·KIS가 켜져 있고, 실서버 주소이며, 거래일 09:00~분석 종료 시각 사이인지 확인해요. 돌려주는 것: 수집해도 되면 true예요. */
     private boolean active() {
         var now = calendar.now().atZone(ClosingTradingCalendar.ZONE);
         return policy.enabled() && trajectory.enabled() && kis.enabled()
@@ -69,6 +86,10 @@ public class InvestorFlowCollector {
                 && calendar.isTradingDay(now.toLocalDate())
                 && !now.toLocalTime().isBefore(LocalTime.of(9, 0)) && !now.toLocalTime().isAfter(trajectory.analysisEnd());
     }
+    /**
+     * 하는 일: KIS 시세 조회 API를 공통 헤더(토큰·앱키·거래ID)로 호출하고, 실패 응답이면 예외로 바꿔요.
+     * 받는 것: 엔드포인트 이름, 거래 ID(tr_id), 쿼리 파라미터예요. 돌려주는 것: 응답 JSON이에요.
+     */
     private JsonNode get(String endpoint, String tr, Map<String, String> params) {
         kis.requireCredentials();
         return requests.execute(false, () -> {
@@ -83,16 +104,23 @@ public class InvestorFlowCollector {
             return response;
         });
     }
+    /** 하는 일: 실패 횟수를 올리고 종류·예외 이름만 경고 로그로 남겨요(인증정보는 남기지 않음). 받는 것: 종류, 예외. 돌려주는 것: 없어요. */
     private void failed(String kind, RuntimeException error) {
         failures++;
         org.slf4j.LoggerFactory.getLogger(getClass()).warn("Flow collection failed kind={} type={}", kind, error.getClass().getSimpleName());
     }
+    /** 하는 일: 설정, 실패 횟수, 마지막 조회 완료 시각을 돌려줘요. 완료는 "조회 시도 완료"일 뿐 최신 자료 보장이 아니에요. */
     public synchronized Map<String, Object> status() {
         return fields("enabled", policy.enabled(), "trajectoryEnabled", trajectory.enabled(),
                 "maxSymbols", policy.maxSymbols(), "intervalSeconds", policy.interval().toSeconds(),
                 "failures", failures, "lastCompletedAt", lastCompletedAt,
                 "note", "Completion is a poll attempt, not proof of fresh provider data; live endpoint only");
     }
+    /**
+     * 하는 일: 외국인·기관 가집계 응답에서 대상 종목의 외국인(frgn_ntby_qty)·기관(orgn_ntby_qty) 순매수 수량을 꺼내요.
+     * 원천시각은 알 수 없어 비워 두고 수신시각만 기록해요.
+     * 받는 것: output 배열, 대상 종목 집합, 수신시각이에요. 돌려주는 것: FOREIGN/INSTITUTION_NET_BUY Context 목록이에요.
+     */
     static List<Context> parseEstimates(JsonNode output, Set<String> symbols, Instant received) {
         if (!output.isArray()) throw new IllegalArgumentException("Expected estimate rows");
         List<Context> rows = new ArrayList<>();
@@ -107,6 +135,10 @@ public class InvestorFlowCollector {
         }
         return rows;
     }
+    /**
+     * 하는 일: 종목별 프로그램 매매 응답에서 09:00~15:20 사이이고 수신시각보다 미래가 아닌 행 중 원천시각이 가장 늦은 순매수 수량을 골라요.
+     * 원천시각 날짜는 요청(수신) 날짜를 써요. 받는 것: output 배열, 종목, 수신시각이에요. 돌려주는 것: PROGRAM_NET_BUY Context 또는 null이에요.
+     */
     static Context parseProgram(JsonNode output, String symbol, Instant received) {
         if (!output.isArray()) throw new IllegalArgumentException("Expected program rows");
         Context latest = null;
@@ -124,6 +156,7 @@ public class InvestorFlowCollector {
         }
         return latest;
     }
+    /** 하는 일: 응답 필드 문자열을 쉼표를 빼고 숫자로 바꿔요. 받는 것: 노드, 필드 이름. 돌려주는 것: 숫자 또는 null(빈 값)이에요. */
     private static BigDecimal number(JsonNode row, String name) {
         String value = row.path(name).asText("").trim().replace(",", "");
         return value.isEmpty() ? null : new BigDecimal(value);

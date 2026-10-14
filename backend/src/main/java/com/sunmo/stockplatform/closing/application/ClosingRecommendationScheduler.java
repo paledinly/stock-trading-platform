@@ -1,3 +1,9 @@
+/*
+ * 마감 추천 자동화를 맡는 스케줄러(정해진 간격으로 자동 실행하는 장치)예요.
+ * 거래일 입력 마감(15:15)~진입 마감(15:20) 사이에 공식 FORWARD 평가를 한 번 만들고, 장중에는 전날 추천 성과를,
+ * 장 마감 10분 뒤에는 후보 관측을 갱신하며, 추천·관측 종목의 실시간 구독(OVERNIGHT)을 유지해요.
+ * closing.automation.enabled=true일 때만 켜져요. ObservationBackfillService는 이 스케줄러가 부르는 순서에 맞춰 동작해요.
+ */
 package com.sunmo.stockplatform.closing.application;
 
 import com.sunmo.stockplatform.candle.application.FiveMinuteCandleAggregator;
@@ -26,12 +32,21 @@ import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 
+/**
+ * 마감 추천의 하루 일정을 자동으로 돌리는 당번이에요.
+ * 30초마다 시계를 보고 "지금 평가할 때인가, 어제 추천 성적을 볼 때인가, 장 끝나고 관측을 정리할 때인가"를 확인해
+ * 해당하는 일을 하루(또는 5분)에 한 번씩만 처리하는 알람 시계 같은 역할이에요. 실주문은 하지 않아요.
+ */
 @Component
 @ConditionalOnProperty(prefix = "closing.automation", name = "enabled", havingValue = "true")
 public class ClosingRecommendationScheduler {
     private static final Logger log = LoggerFactory.getLogger(ClosingRecommendationScheduler.class);
-    /** Lets the last 5-minute bar finalize before unselected candidates are judged. */
+    /**
+     * Lets the last 5-minute bar finalize before unselected candidates are judged.
+     * 장 마감(15:30) 뒤 후보 관측까지 기다리는 시간(10분)이에요.
+     */
     private static final Duration OBSERVATION_DELAY = Duration.ofMinutes(10);
+    // 다시 평가해야 하는 관측 상태(아직 시작 전, 진행 중)예요.
     private static final List<OvernightPerformanceStatus> AWAITING_EVALUATION =
             List.of(OvernightPerformanceStatus.PENDING, OvernightPerformanceStatus.IN_PROGRESS);
 
@@ -45,17 +60,26 @@ public class ClosingRecommendationScheduler {
     private final ClosingTradingCalendar calendar;
     private final ClosingRecommendationProperties recommendationProperties;
     private final ClosingAutomationProperties automationProperties;
+    // 이 스케줄러가 OVERNIGHT로 붙잡아 둔 종목 코드예요. 다음 동기화에서 필요 없어진 것만 해제해요.
     private final Set<String> protectedCodes = new HashSet<>();
     private org.springframework.beans.factory.ObjectProvider<ObservationBackfillService> observationBackfill;
 
+    /**
+     * 관측 백필 서비스(있을 때만)를 주입받아요.
+     * 받는 것: 백필 서비스 제공자. 돌려주는 것: 없음.
+     */
     @org.springframework.beans.factory.annotation.Autowired
     void setObservationBackfill(org.springframework.beans.factory.ObjectProvider<ObservationBackfillService> value) {
         this.observationBackfill = value;
     }
+    // 같은 5분 구간에 구독 동기화·성과 추적을 반복하지 않기 위한 마지막 처리 구간과, 관측을 처리한 마지막 날짜예요(메모리에만 있어요).
     private long lastSubscriptionBucket = Long.MIN_VALUE;
     private long lastPerformanceBucket = Long.MIN_VALUE;
     private LocalDate lastObservationDate;
 
+    /**
+     * 추천·성과·관측 서비스, 저장소, 실시간 구독 등록부, 거래일 달력, 추천 정책과 자동화 설정을 받아요.
+     */
     public ClosingRecommendationScheduler(ClosingRecommendationService recommendations,
             OvernightPerformanceService performances, ClosingCandidateObservationService observations,
             ClosingCandidateObservationRepository observationRows, ClosingRecommendationRepository repository,
@@ -75,23 +99,35 @@ public class ClosingRecommendationScheduler {
         this.automationProperties = automationProperties;
     }
 
+    /**
+     * 기본 30초마다 불려 오늘 할 일을 순서대로 확인해요.
+     * 받는 것·돌려주는 것: 없음.
+     */
     @Scheduled(fixedDelayString = "${closing.automation.poll-interval:30s}")
     public synchronized void poll() {
         Instant now = calendar.now();
         LocalDate today = now.atZone(ClosingTradingCalendar.ZONE).toLocalDate();
         LocalTime time = now.atZone(ClosingTradingCalendar.ZONE).toLocalTime();
+        // 구독 동기화는 휴장일에도 돌려 필요 없어진 구독을 정리해요.
         syncSubscriptionsIfDue(today, time, now, false);
         if (!calendar.isTradingDay(today))
             return;
+        // 입력 마감(+유예) 뒤, 진입 마감 전에만 공식 평가를 만들어요. 새로 만들었으면 바로 구독을 맞춰요.
         if (!time.isBefore(recommendationProperties.featureFreezeAt().plus(recommendationProperties.candleFinalizationGrace()))
                 && time.isBefore(recommendationProperties.entryDeadline())) {
             if (generate(today))
                 syncSubscriptionsIfDue(today, time, now, true);
         }
+        // 전날 추천의 성과 추적과 후보 관측은 따로 조건을 보고 실행돼요.
         trackPreviousSession(today, time, now);
         trackCandidateObservations(today, now);
     }
 
+    /**
+     * 오늘 공식 평가 run이 없으면 만들어요. 같은 요청 키(official-날짜-전략버전)로 이미 있으면 다시 만들지 않아요.
+     * 받는 것: 추천 날짜. 돌려주는 것: 이번에 새로 만들었으면 true, 이미 있거나 실패하면 false.
+     * ⚠️ 확인 필요: 자동화 limit은 1~30(기본 10)이지만 최종 추천은 LIMITED_MODE_MAX_CANDIDATES=5로 다시 잘려요.
+     */
     private boolean generate(LocalDate date) {
         String key = officialKey(date);
         if (runs.findByRequestKey(key).isPresent())
@@ -106,6 +142,10 @@ public class ClosingRecommendationScheduler {
         }
     }
 
+    /**
+     * 09:00 이후 5분마다 전 거래일 공식 run의 다음날 성과를 갱신해요.
+     * 받는 것: 오늘 날짜, 현재 시각(로컬·Instant). 돌려주는 것: 없음. 실패는 로그만 남겨요.
+     */
     private void trackPreviousSession(LocalDate today, LocalTime time, Instant now) {
         if (time.isBefore(LocalTime.of(9, 0)))
             return;
@@ -128,6 +168,8 @@ public class ClosingRecommendationScheduler {
     /**
      * Once per trading day after the close: the previous official run plus any older run whose
      * observed session has passed but still has rows that were never re-evaluated. Missing data stays missing.
+     * 하는 일: 장 마감 10분 뒤 하루 한 번, 관측 백필 후 후보 관측을 다시 평가해요.
+     * 받는 것: 오늘 날짜, 현재 시각. 돌려주는 것: 없음. run별 실패는 로그만 남겨요.
      */
     private void trackCandidateObservations(LocalDate today, Instant now) {
         if (today.equals(lastObservationDate) || now.isBefore(calendar.close(today).plus(OBSERVATION_DELAY)))
@@ -139,6 +181,7 @@ public class ClosingRecommendationScheduler {
             backfill.fillTodayLogged();
         else
             log.warn("Observation backfill unavailable: next-session bars of unsubscribed candidates stay missing");
+        // 처리: 아직 평가가 끝나지 않은 과거 run과 전 거래일 공식 run을 모아 각각 관측을 갱신해요.
         Set<Long> runIds = new TreeSet<>(observationRows
                 .findRunIdsByStatusInAndExpectedSessionDateOnOrBefore(AWAITING_EVALUATION, today));
         ClosingRecommendationRun previous = officialRun(calendar.previousTradingDay(today));
@@ -153,6 +196,10 @@ public class ClosingRecommendationScheduler {
         }
     }
 
+    /**
+     * 공식 추천 종목과 관측 후보 종목을 실시간 구독(OVERNIGHT)으로 맞춰요. 5분에 한 번, 또는 force면 바로 해요.
+     * 받는 것: 오늘 날짜, 로컬 시각, 현재 시각, 강제 실행 여부. 돌려주는 것: 없음.
+     */
     private void syncSubscriptionsIfDue(LocalDate today, LocalTime time, Instant now, boolean force) {
         long bucket = now.getEpochSecond() / 300;
         if (!force && bucket == lastSubscriptionBucket)
@@ -169,12 +216,14 @@ public class ClosingRecommendationScheduler {
             protectedRuns.add(officialRun(calendar.previousTradingDay(today)));
         protectedRuns.add(officialRun(today));
         protectedRuns.removeIf(java.util.Objects::isNull);
+        // 보호할 run의 SELECTED 종목은 필수로, SELECTED/WATCH 관측 후보는 선택으로 모아요.
         for (ClosingRecommendationRun run : protectedRuns)
             desired.addAll(repository.findStockCodesByRunId(run.getId()));
         for (ClosingRecommendationRun run : protectedRuns)
             addObservationCodes(observed, run);
         observed.removeAll(desired);
 
+        // 처리 1: 필수 종목은 슬롯이 없더라도 등록을 시도해요.
         for (String code : desired) {
             try {
                 subscriptions.add(code, RealtimeSubscriptionRegistry.Source.OVERNIGHT);
@@ -182,6 +231,7 @@ public class ClosingRecommendationScheduler {
                 log.warn("Unable to protect overnight subscription {}: {}", code, error.getMessage());
             }
         }
+        // 처리 2: 관측 후보는 남는 슬롯이 있을 때만 등록해요. 그래서 관측 표본은 슬롯 여유에 따라 골라져요.
         int skipped = 0;
         for (String code : observed) {
             if (!subscriptions.all().contains(code) && subscriptions.remaining() == 0) { skipped++; continue; }
@@ -194,6 +244,7 @@ public class ClosingRecommendationScheduler {
         }
         if (skipped > 0)
             log.info("Closing observation subscriptions skipped for {} candidates: no free realtime slots", skipped);
+        // 정리: 지난번에 잡았지만 이번에 필요 없는 종목은 OVERNIGHT 구독을 해제하고, 보호 목록을 바꿔요.
         for (String code : new HashSet<>(protectedCodes)) {
             if (!desired.contains(code))
                 subscriptions.remove(code, RealtimeSubscriptionRegistry.Source.OVERNIGHT);
@@ -202,6 +253,10 @@ public class ClosingRecommendationScheduler {
         protectedCodes.addAll(desired);
     }
 
+    /**
+     * run에서 관측용으로 구독할 후보 종목을 설정 개수만큼 더해요.
+     * 받는 것: 담을 집합, run. 돌려주는 것: 없음. 실패는 로그만 남겨요.
+     */
     private void addObservationCodes(Set<String> target, ClosingRecommendationRun run) {
         int limit = automationProperties.observationSubscriptionLimit();
         if (limit <= 0)
@@ -213,15 +268,27 @@ public class ClosingRecommendationScheduler {
         }
     }
 
+    /**
+     * 날짜별 공식 run의 요청 키를 만들어요.
+     * 받는 것: 날짜. 돌려주는 것: "official-날짜-전략버전".
+     */
     private String officialKey(LocalDate date) {
         return "official-" + date + "-" + ClosingRecommendation.STRATEGY_VERSION;
     }
 
+    /**
+     * 그 날짜의 공식 run을 찾아요. 현재 버전 키가 없으면 그날의 최신 FORWARD run을 써요.
+     * 받는 것: 날짜. 돌려주는 것: run, 없으면 null.
+     */
     private ClosingRecommendationRun officialRun(LocalDate date) {
         return runs.findByRequestKey(officialKey(date)).or(() ->
                 runs.findFirstByRecommendationDateAndExecutionModeOrderByIdDesc(date, "FORWARD")).orElse(null);
     }
 
+    /**
+     * 예외의 가장 안쪽 원인 메시지를 꺼내요(로그용).
+     * 받는 것: 예외. 돌려주는 것: 원인 메시지, 없으면 예외 클래스 이름.
+     */
     private String rootMessage(Throwable error) {
         Throwable current = error;
         while (current.getCause() != null)

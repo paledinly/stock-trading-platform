@@ -1,3 +1,8 @@
+/*
+ * 장 마감 뒤, 전날 공식 추천 실행의 정밀 후보·추천 종목에 대해 오늘 빠진 5분봉을 KIS 분봉(1분 단위 가격 막대)으로 채우는 서비스예요.
+ * 15:30 종가 동시호가 체결분은 15:25 봉에 합쳐지고, 실시간으로 이미 확정된 봉은 덮어쓰지 않아요.
+ * ClosingRecommendationScheduler가 15:40(마감+10분) 관측 실행 직전에 부르며, closing.automation.enabled=true일 때만 만들어져요.
+ */
 package com.sunmo.stockplatform.closing.application;
 
 import com.sunmo.stockplatform.candle.application.CandleBackfillService;
@@ -20,6 +25,9 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
+ * 다음날 관측에 쓸 5분봉의 빈칸을 장 마감 뒤 한꺼번에 메우는 클래스예요.
+ * 실시간 녹화를 놓친 장면만 방송 끝난 뒤 다시보기(분봉 조회)로 채워 넣는 편집자라고 생각하면 돼요. 이미 녹화된 장면은 건드리지 않아요.
+ *
  * ADR-010: every precision candidate of the previous official run is a primary sample, but only up to ten of them
  * get a realtime slot on the next session. After the closing auction, the missing 5M bars of today's session are
  * filled from KIS minute candles (source BACKFILL) before the 15:40 observation run, without using realtime slots.
@@ -29,9 +37,15 @@ import java.util.List;
 @ConditionalOnProperty(prefix = "closing.automation", name = "enabled", havingValue = "true")
 public class ObservationBackfillService {
     private static final Logger log = LoggerFactory.getLogger(ObservationBackfillService.class);
-    /** The closing auction print (15:30:00..15:31:00) must be final before minute candles are read. */
+    /**
+     * 종가 동시호가 체결(15:30:00~15:31:00)이 확정된 뒤에 분봉을 읽도록 마감 후 2분을 기다려요.
+     * The closing auction print (15:30:00..15:31:00) must be final before minute candles are read.
+     */
     static final Duration AFTER_CLOSE = Duration.ofMinutes(2);
 
+    /**
+     * 한 번의 보충 결과 요약이에요: 기준 실행 ID, 대상 종목 수, 채운 봉 수, 채운 뒤에도 빈칸이 남은 종목 수.
+     */
     public record Result(Long runId, int stocks, int filledBars, int stillMissingStocks) { }
 
     private final ClosingTradingCalendar calendar;
@@ -40,8 +54,14 @@ public class ObservationBackfillService {
     private final StockCandleRepository candles;
     private final CandleBackfillService backfill;
     private final JdbcTemplate jdbc;
+    // 하루 5분봉 칸 중 비어 있는 칸(갭)을 찾는 도구예요.
     private final CandleGapDetector gaps = new CandleGapDetector();
 
+    /**
+     * 하는 일: 의존 객체를 받아 서비스를 만들어요.
+     * 받는 것: 거래일 달력, 추천 실행 저장소, 종목 저장소, 봉 저장소, 분봉 보충 서비스, JdbcTemplate.
+     * 돌려주는 것: 없음(생성자).
+     */
     public ObservationBackfillService(ClosingTradingCalendar calendar, ClosingRecommendationRunRepository runs,
             StockRepository stocks, StockCandleRepository candles, CandleBackfillService backfill, JdbcTemplate jdbc) {
         this.calendar = calendar;
@@ -53,6 +73,9 @@ public class ObservationBackfillService {
     }
 
     /**
+     * 하는 일: fillToday를 실행하고, 건너뜀·성공·실패 모두를 로그로 남겨요.
+     * 받는 것: 없음. 돌려주는 것: 결과 요약(건너뛰었거나 실패하면 null).
+     *
      * Called by the closing scheduler right before the close + 10m observation run, so bars are filled before they are
      * judged. A separate cron registration left no trace on 2026-10-14, so this rides the path that is known to run.
      * Every outcome, including a skip, is logged.
@@ -69,22 +92,32 @@ public class ObservationBackfillService {
         }
     }
 
+    /**
+     * 하는 일: 오늘이 거래일이고 마감+2분이 지났으면, 전 거래일 FORWARD(실전 관측용) 실행의 대상 종목마다 오늘 빠진 5분봉을 채워요.
+     * 받는 것: 없음(시각은 ClosingTradingCalendar에서 가져와요).
+     * 돌려주는 것: 결과 요약. 거래일이 아니거나 너무 이르거나 전 거래일 실행이 없으면 null.
+     */
     Result fillToday() {
+        // 준비: 거래일인지, 마감+2분이 지났는지 확인해요.
         LocalDate today = calendar.today();
         Instant now = calendar.now();
         if (!calendar.isTradingDay(today) || now.isBefore(calendar.close(today).plus(AFTER_CLOSE)))
             return null;
+        // 전 거래일의 가장 최근 FORWARD 실행을 기준으로 삼아요.
         LocalDate previous = calendar.previousTradingDay(today);
         ClosingRecommendationRun run = runs.findFirstByRecommendationDateAndExecutionModeOrderByIdDesc(previous, "FORWARD")
                 .orElse(null);
         if (run == null)
             return null;
+        // 대상: 그 실행의 정밀 후보(PRECISION) 관측 종목 + 실제 추천 종목(중복 제거).
         List<Long> stockIds = jdbc.queryForList("""
                 select stock_id from closing_candidate_observation where run_id = ? and candidate_source = 'PRECISION'
                 union
                 select stock_id from closing_recommendation where run_id = ?""", Long.class, run.getId(), run.getId());
+        // 장 시작은 09:00으로 둬요. ClosingTradingCalendar.open도 09:00 고정이라 같은 기준이에요(개장 지연 같은 특별 일정은 반영하지 않아요).
         Instant open = today.atTime(9, 0).atZone(ClosingTradingCalendar.ZONE).toInstant();
         Instant close = calendar.close(today);
+        // 처리: 종목마다 빈칸을 찾고, 있으면 분봉으로 채운 뒤 다시 확인해 아직 남았는지 세요.
         int filled = 0;
         int stillMissing = 0;
         for (Long stockId : stockIds) {
@@ -101,6 +134,11 @@ public class ObservationBackfillService {
         return new Result(run.getId(), stockIds.size(), filled, stillMissing);
     }
 
+    /**
+     * 하는 일: 한 종목의 오늘 5분봉 중 비어 있는 칸의 시작 시각을 찾아요.
+     * 받는 것: 종목, 오늘 날짜, 장 시작·마감 시각.
+     * 돌려주는 것: 빈칸 시작 시각 목록(15:20 동시호가 칸은 빼요). 거래량 0인 15:25 봉도 빈칸으로 봐요.
+     */
     private List<Instant> missing(Stock stock, LocalDate today, Instant open, Instant close) {
         List<Instant> existing = candles
                 .findByStockIdAndTimeframeAndStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(
@@ -110,10 +148,15 @@ public class ObservationBackfillService {
                 .filter(candle -> !isFlatClosingBar(candle, today))
                 .map(StockCandle::getStartTime).toList();
         // 15:20 is the closing call (no trades) and is never required; drop it from the gaps.
+        // 15:20/15:25와 CandleGapDetector의 15:30 마감은 고정값이에요. 달력의 마감도 15:30 고정이라 지금은 서로 맞아요.
         Instant closingCall = today.atTime(15, 20).atZone(ClosingTradingCalendar.ZONE).toInstant();
         return gaps.gaps(today, close, existing).stream().filter(gap -> !gap.equals(closingCall)).toList();
     }
 
+    /**
+     * 하는 일: 이 봉이 "아직 종가 체결이 안 담긴 15:25 봉(거래량 0)"인지 확인해요.
+     * 받는 것: 5분봉, 오늘 날짜. 돌려주는 것: 15:25 시작이고 거래량이 0 이하이면 true.
+     */
     private static boolean isFlatClosingBar(StockCandle candle, LocalDate today) {
         Instant closingBar = today.atTime(15, 25).atZone(ClosingTradingCalendar.ZONE).toInstant();
         return candle.getStartTime().equals(closingBar) && candle.getVolume() <= 0;
