@@ -1,3 +1,7 @@
+/*
+ * KisMasterParser가 KIS 종목 마스터 파일(고정 폭 텍스트, MS949 인코딩)에서 종목 정보와 상태 값을 읽는지 확인해요.
+ * 폭 계산이 한 칸만 어긋나도 ETF·관리종목·거래정지 표시가 틀어지므로 중요해요.
+ */
 package com.sunmo.stockplatform.kis.master;
 
 import com.sunmo.stockplatform.stock.domain.Market;
@@ -8,7 +12,13 @@ import java.nio.charset.Charset;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/** 종목 마스터 고정 폭 파싱을 점검하는 테스트예요. */
 class KisMasterParserTest {
+    /**
+     * 코스피 줄에서 종목코드·이름·유형·관리종목·거래정지 값을 읽는지 확인해요.
+     * 준비: 필드 폭 배열에 맞춰 ETF 구분(EF)과 상태 플래그를 넣은 줄을 만들고, 줄 끝을 \n, \r\n, 없음으로 바꿔 가며 파싱해요.
+     * 기대: 매번 069500 KODEX 200, ETF, 관리종목·거래정지 true인 1건이에요.
+     */
     @Test
     void parsesKospiIdentityAndStatusFields() {
         int[] widths = {2,1,4,4,4,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,9,5,5,1,1,1};
@@ -31,6 +41,11 @@ class KisMasterParserTest {
         }
     }
 
+    /**
+     * 코스닥 줄을 줄바꿈 문자 길이에 영향받지 않고 읽는지 확인해요.
+     * 준비: 코스닥 폭 배열로 일반주식(ST)과 상태 플래그를 넣은 한글 이름 줄을 만들어요.
+     * 기대: 줄 끝 형태와 관계없이 주성엔지니어링, STOCK, 관리종목·거래정지 true예요.
+     */
     @Test void parsesKosdaqFieldsWithoutCountingLineTerminator() {
         int[] widths = {2,1,4,4,4,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,9,5,5,1,1,1};
         String suffix = " ".repeat(221);
@@ -49,12 +64,14 @@ class KisMasterParserTest {
         }
     }
 
+    /** 고정 폭 문자열에서 index번째 필드 자리에 값을 끼워 넣는 도우미예요. */
     private String replaceField(String source, int[] widths, int index, String value) {
         int start = 0;
         for (int i = 0; i < index; i++) start += widths[i];
         return source.substring(0, start) + fixed(value, widths[index]) + source.substring(start + widths[index]);
     }
 
+    /** 값을 지정한 폭만큼 공백으로 채우는 도우미예요. */
     private String fixed(String value, int width) {
         return value + " ".repeat(width - value.length());
     }

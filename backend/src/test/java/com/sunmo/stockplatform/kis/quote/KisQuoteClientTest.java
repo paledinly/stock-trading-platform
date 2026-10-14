@@ -1,3 +1,7 @@
+/*
+ * KisQuoteClient가 KIS 현재가 조회 API를 공식 주소·인증 헤더·거래ID(tr_id)로 호출하고 응답을 시세로 바꾸는지 확인해요.
+ * 헤더가 하나라도 틀리면 운영에서 시세 조회가 실패하므로 중요해요.
+ */
 package com.sunmo.stockplatform.kis.quote;
 
 import com.sunmo.stockplatform.kis.auth.KisTokenManager;
@@ -21,9 +25,16 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
+/** KIS 현재가 조회 클라이언트를 점검하는 테스트예요. */
 class KisQuoteClientTest {
+    /**
+     * 공식 엔드포인트와 헤더로 요청하고 응답을 매핑하는지 확인해요.
+     * 준비: MockRestServiceServer(가짜 외부 서버)에 기대 요청과 정상 응답을 등록하고, 토큰 관리자는 목(mock, 가짜 객체)으로 둬요.
+     * 기대: 종목코드 005930, 현재가 70000이고 기대한 요청이 호출돼요.
+     */
     @Test
     void sendsOfficialEndpointTrIdAndMapsResponse() {
+        // 준비
         RestClient.Builder builder = RestClient.builder().baseUrl("https://example.test");
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         var properties = properties();
@@ -48,13 +59,16 @@ class KisQuoteClientTest {
                          "acml_vol":"123456","acml_tr_pbmn":"8641975200"}}
                         """, MediaType.APPLICATION_JSON));
 
+        // 실행
         var quote = client.getQuote(stock);
 
+        // 확인
         assertThat(quote.stockCode()).isEqualTo("005930");
         assertThat(quote.currentPrice()).isEqualByComparingTo("70000");
         server.verify();
     }
 
+    /** 테스트용 KIS 설정을 만드는 도우미예요(가짜 키 값만 써요). */
     private KisProperties properties() {
         return new KisProperties(true, URI.create("https://example.test"), "app-key", "app-secret",
                 Duration.ofMinutes(5), Duration.ofSeconds(3), Duration.ofSeconds(5),

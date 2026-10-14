@@ -1,3 +1,7 @@
+/*
+ * BroadSnapshotService가 전시장 스캔 결과를 시간 구간별 스냅샷으로 저장하는지 확인해요.
+ * 시세를 못 받은 후보에 값을 지어내지 않고, 늦게 보강한 값은 원래 구간을 덮지 않아야 해요.
+ */
 package com.sunmo.stockplatform.marketwide;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -21,13 +25,21 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+/** 전시장 스냅샷 저장 규칙을 점검하는 테스트예요. */
 class BroadSnapshotServiceTest {
+    // 저장소는 목(mock, 가짜 객체)으로 둬요.
     private final MarketBroadSnapshotRepository repository = mock(MarketBroadSnapshotRepository.class);
     private final BroadSnapshotService service = new BroadSnapshotService(repository,
             new ObjectMapper().findAndRegisterModules());
 
+    /**
+     * 수집 성공과 실패 후보를 구간 시각으로 저장하고, 실패한 쪽에 시세를 지어내지 않는지 확인해요.
+     * 준비: 05:31:59에 시세가 있는 삼성전자와 "quote timeout"으로 실패한 SK하이닉스를 저장해요.
+     * 기대: 구간 시각 05:30, 성공 쪽은 BROAD_C·COLLECTED·현재가 70000, 실패 쪽은 INSUFFICIENT·QUOTE_FAILED·현재가 null이에요.
+     */
     @Test
     void bucketsAndStoresCollectedAndFailedCandidatesWithoutInventingQuoteValues() {
+        // 준비
         Stock samsung = stock("005930", "삼성전자");
         Stock hynix = stock("000660", "SK하이닉스");
         BroadCandidate first = new BroadCandidate(samsung, new BigDecimal("500"),
@@ -41,10 +53,12 @@ class BroadSnapshotServiceTest {
         when(repository.findBySessionDateAndCapturedAtAndStockId(any(), any(), any())).thenReturn(Optional.empty());
         when(repository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
+        // 실행
         var saved = service.save(Instant.parse("2026-09-07T05:31:59Z"), List.of(
                 new BroadSnapshotService.Capture(first, quote, new BigDecimal("81.2"), null),
                 new BroadSnapshotService.Capture(second, null, new BigDecimal("30"), "quote timeout")));
 
+        // 확인
         MarketBroadSnapshot collected = saved.get("005930");
         MarketBroadSnapshot failed = saved.get("000660");
         assertThat(collected.getCapturedAt()).isEqualTo(Instant.parse("2026-09-07T05:30:00Z"));
@@ -58,6 +72,11 @@ class BroadSnapshotServiceTest {
         assertThat(failed.getExclusionReason()).isEqualTo("quote timeout");
     }
 
+    /**
+     * 보강(enrichment) 결과는 실제 완료 시각으로 새로 추가하고 원래 구간 행은 건드리지 않는지 확인해요.
+     * 준비: 05:31:21에 완료된 REST 보강 시세를 저장해요.
+     * 기대: 수집 시각은 완료 시각, 시세 시각은 관측 시각, 출처는 ENRICHED_REST이고 기존 구간 행 조회는 없어요.
+     */
     @Test
     void enrichmentAppendsAtActualTimeWithoutUpdatingOriginalBucket() {
         var candidate = new BroadCandidate(stock("005930", "삼성전자"), BigDecimal.TEN, Map.of(), null);
@@ -72,6 +91,7 @@ class BroadSnapshotServiceTest {
         verify(repository, never()).findBySessionDateAndCapturedAtAndStockId(any(), any(), any());
     }
 
+    /** 코스피 일반 종목을 만드는 도우미예요. */
     private Stock stock(String code, String name) {
         return new Stock(code, "KR7" + code + "003", name, Market.KOSPI, MarketType.STOCK,
                 false, false, Instant.now());

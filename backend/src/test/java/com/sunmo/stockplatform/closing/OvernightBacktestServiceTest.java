@@ -1,3 +1,8 @@
+/*
+ * OvernightBacktestService(마감 추천 오버나이트 백테스트)를 확인하는 테스트예요.
+ * 과거 Scanner 탐지로 가상 마감 추천을 만들고, 평가 이후 봉에서 진입가를 잡은 뒤 다음 거래일 봉으로 수익률을 계산하는지 봐요.
+ * 진입 데이터나 다음 거래일 데이터가 없을 때 값을 지어내지 않는지도 함께 확인해서, 백테스트 결과가 부풀려지지 않도록 지켜줘요.
+ */
 package com.sunmo.stockplatform.closing;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -32,7 +37,11 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+/**
+ * 채점관처럼 과거 탐지를 가상으로 사고팔아 본 결과(수익률, 요약, 무결성 경고)가 정확히 계산되는지 확인해요.
+ */
 class OvernightBacktestServiceTest {
+    // 저장소와 이동평균 서비스는 목(mock, 가짜 객체)으로 두고, 점수 계산기와 무결성 검사는 실제 객체를 써요.
     private final ScannerDetectionRepository detections = mock(ScannerDetectionRepository.class);
     private final StockCandleRepository candles = mock(StockCandleRepository.class);
     private final IntradayMovingAverageService intradayMa = mock(IntradayMovingAverageService.class);
@@ -41,12 +50,16 @@ class OvernightBacktestServiceTest {
     private final OvernightBacktestService service = new OvernightBacktestService(detections, candles,
             new ClosingRecommendationScorer(new ObjectMapper().findAndRegisterModules()), new BacktestIntegrityService(),
             intradayMa, dailyMa, precisionEvaluator, new ClosingRecommendationProperties(20, 4, bd("55"),
+                    // 평가 시작 14:30, 평가 기준 15:00, 진입 마감 15:20, 진입 지연 허용 10초로 보여요(운영 v9.1의 15:15와 다른 값이에요).
                     java.time.LocalTime.of(14, 30), java.time.LocalTime.of(15, 0),
                     java.time.LocalTime.of(15, 20), java.time.Duration.ofSeconds(10)), calendar(),
             new com.sunmo.stockplatform.closing.application.OvernightExecutionSimulator(
                     new com.sunmo.stockplatform.closing.config.TradingCostProperties(
                             BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO)));
 
+    /**
+     * 정밀 평가기 목이 들어온 탐지를 모두 조건 통과(QUALIFIED)로 돌려주도록 설정해요.
+     */
     OvernightBacktestServiceTest() {
         ClosingRecommendationScorer scorer = new ClosingRecommendationScorer(new ObjectMapper().findAndRegisterModules());
         org.mockito.stubbing.Answer<List<ClosingPrecisionEvaluator.Assessment>> accepted = invocation -> {
@@ -60,8 +73,14 @@ class OvernightBacktestServiceTest {
                 .thenAnswer(accepted);
     }
 
+    /**
+     * 가상 마감 추천 1건의 다음 거래일 수익률과 요약 통계가 맞게 계산되는지 확인해요.
+     * 입력: 15:05 진입봉(종가 100)과 다음 거래일 5분봉 2개(시가 103, 최고 106, 최저 98, 마지막 종가 104), 목표 +3%, 손절 -2%.
+     * 기대: 시가 수익 3%, 종가 수익 4%, 최대 6%, 최대 낙폭 -2%, 샘플 부족 경고, TARGET_OR_STOP은 먼저 닿은 목표로 3%예요.
+     */
     @Test
     void calculatesOvernightReturnsFromVirtualClosingRecommendations() {
+        // 준비
         ScannerDetection detection = detection();
         when(detections.findByDetectedAtBetweenOrderByDetectedAtAsc(any(), any())).thenReturn(List.of(detection));
         when(intradayMa.calculate(detection)).thenReturn(IntradayMovingAverageFeature.empty(0));
@@ -70,9 +89,11 @@ class OvernightBacktestServiceTest {
                 candle("2026-09-07T00:00:00Z", "103", "104", "102", "103"),
                 candle("2026-09-07T00:05:00Z", "103", "106", "98", "104")));
 
+        // 실행
         var result = service.run(LocalDate.of(2026, 9, 4), LocalDate.of(2026, 9, 4),
                 10, bd("35"), bd("65"), bd("3"), bd("-2"));
 
+        // 확인(어서션, 기대값 검사)
         assertThat(result.tradingDays()).isEqualTo(1);
         assertThat(result.virtualRecommendations()).isEqualTo(1);
         assertThat(result.completed()).isEqualTo(1);
@@ -100,11 +121,17 @@ class OvernightBacktestServiceTest {
                 .first()
                 .satisfies(summary -> {
                     assertThat(summary.averageReturnRate()).isEqualByComparingTo("3.000000");
+                    // 비용이 모두 0이라 Net 수익률은 현실 수익으로 보지 않고 비워 두는 것으로 보여요.
                     assertThat(summary.averageNetReturnRate()).isNull();
                     assertThat(summary.ambiguousCount()).isZero();
                 });
     }
 
+    /**
+     * 한 봉 안에서 목표와 손절이 모두 닿으면 보수적으로 손절로 처리하는지 확인해요.
+     * 입력: 다음 거래일 첫 봉 최고 104(목표 +3% 도달), 최저 98(손절 -2% 도달).
+     * 기대: TARGET_OR_STOP 평균 수익 -2%, 모호한(ambiguous) 건수 1, 손절률 100%예요.
+     */
     @Test
     void treatsSameCandleTargetAndStopAsConservativeStopInExitStrategy() {
         ScannerDetection detection = detection();
@@ -126,6 +153,11 @@ class OvernightBacktestServiceTest {
                 });
     }
 
+    /**
+     * 다음 거래일 봉이 없으면 완료로 세지 않고 데이터 누락으로 보고하는지 확인해요.
+     * 입력: 진입봉(시가 101)은 있고 다음 거래일 봉은 빈 목록이에요.
+     * 기대: 완료 0, 누락 1, 신호가 100과 진입 기준가 101은 남고, "다음 거래일 데이터 없음" 경고가 나와요.
+     */
     @Test
     void reportsMissingNextSessionData() {
         ScannerDetection detection = detection();
@@ -152,6 +184,11 @@ class OvernightBacktestServiceTest {
                 .contains(tuple("DATA_COVERAGE", "다음 거래일 데이터 없음"));
     }
 
+    /**
+     * 평가 이후 진입봉이 없으면 진입가를 지어내지 않는지 확인해요.
+     * 입력: 당일 진입봉은 비어 있고 다음 거래일 봉만 있어요.
+     * 기대: 상태 ENTRY_DATA_MISSING, 진입 기준가 null, "평가 이후 진입 데이터 없음" 경고예요.
+     */
     @Test
     void doesNotInventAnEntryWhenThePostEvaluationCandleIsMissing() {
         ScannerDetection detection = detection();
@@ -168,6 +205,7 @@ class OvernightBacktestServiceTest {
         assertThat(result.integrity().issues()).extracting("message").contains("평가 이후 진입 데이터 없음");
     }
 
+    /** 2026-09-04 14:55(KST)에 삼성전자 VWAP 돌파로 탐지된 가짜 Scanner 탐지를 만들어요. */
     private ScannerDetection detection() {
         Stock stock = mock(Stock.class);
         when(stock.getId()).thenReturn(1L);
@@ -193,11 +231,13 @@ class OvernightBacktestServiceTest {
         return detection;
     }
 
+    /** 주어진 시작시각(UTC)과 OHLC 가격으로 확정된 봉을 만들어요. */
     private StockCandle candle(String at, String open, String high, String low, String close) {
         return new StockCandle(null, Instant.parse(at), bd(open), bd(high), bd(low), bd(close),
                 100, bd("100000"), true, 0);
     }
 
+    /** 조회 시작일이 2026-09-04(KST)면 진입봉 목록을, 그 외 날짜면 다음 거래일 봉 목록을 돌려주도록 목을 설정해요. */
     private void stubCandles(List<StockCandle> entry, List<StockCandle> nextSession) {
         when(candles.findByStockIdAndTimeframeAndStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(
                 eq(1L), eq("5M"), any(), any())).thenAnswer(invocation -> {
@@ -207,11 +247,13 @@ class OvernightBacktestServiceTest {
                 });
     }
 
+    /** 추가 휴장일 없이 주말만 쉬는 기본 거래일 달력을 만들어요. */
     private ClosingTradingCalendar calendar() {
         return new ClosingTradingCalendar(new com.sunmo.stockplatform.market.config.MarketWideScheduleProperties(
                 false, 0, 0, false, null, null, null, null, null, List.of()));
     }
 
+    /** 문자열을 BigDecimal로 바꾸는 짧은 도우미예요. */
     private BigDecimal bd(String value) {
         return new BigDecimal(value);
     }

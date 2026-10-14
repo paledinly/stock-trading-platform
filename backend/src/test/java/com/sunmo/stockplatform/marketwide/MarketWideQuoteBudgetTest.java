@@ -1,3 +1,7 @@
+/*
+ * MarketWideScannerService가 전시장 스캔 한 번에 쓰는 상세 시세 조회 수(예산)를 제한하는지 확인해요.
+ * KIS 호출 한도를 넘지 않으면서도, 조회하지 못한 후보도 이유와 함께 기록돼야 해요.
+ */
 package com.sunmo.stockplatform.marketwide;
 
 import com.sunmo.stockplatform.kis.config.*;
@@ -17,9 +21,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 import static org.mockito.ArgumentMatchers.*;
 
+/** 전시장 스캔의 상세 조회 예산을 점검하는 테스트예요. */
 class MarketWideQuoteBudgetTest {
+    /**
+     * 상세 조회를 예산만큼만 하고, 나머지 후보도 버리지 않고 기록하는지 확인해요.
+     * 준비: 상세 조회 예산 2로 설정하고, 목(mock, 가짜 객체) 수집기가 후보 5개를 돌려주게 해요.
+     * 기대: REST 조회 2번, 정보 부족 3건, 스캔 2건이고 실시간 구독은 추가하지 않으며 저장은 5건(마지막은 DETAIL_QUOTE_BUDGET_EXHAUSTED)이에요.
+     */
     @Test
     void capsDetailLookupsAcrossWholeScanAndKeepsRemainingCandidates() {
+        // 준비
         var stocks = mock(StockRepository.class);
         var provider = mock(QuoteProvider.class);
         var ticks = mock(QuoteStateStore.class);
@@ -49,7 +60,9 @@ class MarketWideQuoteBudgetTest {
         });
         when(persistence.save(any(), anyList())).thenReturn(Map.of());
         when(precision.reconcile(anyList())).thenReturn(mock(PrecisionSubscriptionAllocator.Snapshot.class));
+        // 실행
         var response = service.scan(null, 5, 5, false);
+        // 확인
         assertThat(response.collection().restLookups()).isEqualTo(2);
         assertThat(response.collection().insufficientCount()).isEqualTo(3);
         assertThat(response.scannedCount()).isEqualTo(2);

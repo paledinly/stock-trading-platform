@@ -1,3 +1,7 @@
+/*
+ * KisMarketRankingClient가 KIS 순위 API(거래량·거래대금·등락률 순위)를 맞는 파라미터로 부르고 응답을 순위 항목으로 바꾸는지 확인해요.
+ * 순위는 전시장 스캔 후보의 출발점이라, 파라미터나 값 매핑이 틀리면 후보 전체가 달라져요.
+ */
 package com.sunmo.stockplatform.kis.ranking;
 
 import com.sunmo.stockplatform.kis.auth.KisTokenManager;
@@ -19,9 +23,16 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
+/** KIS 순위 조회 클라이언트를 점검하는 테스트예요. */
 class KisMarketRankingClientTest {
+    /**
+     * 거래대금 순위를 요청하고 응답 행을 매핑하는지 확인해요.
+     * 준비: MockRestServiceServer(가짜 외부 서버)가 쉼표가 들어간 가격("70,000")의 행과 필드가 부족한 행을 돌려주게 하고, 요청 수는 1로 해요.
+     * 기대: 1건만 남고 종목코드 005930, 현재가 70000(쉼표 제거), 거래대금이 그대로 들어가요.
+     */
     @Test
     void requestsTurnoverRankingAndMapsRows() {
+        // 준비: 토큰 관리자는 목(mock, 가짜 객체)으로 둬요.
         RestClient.Builder builder = RestClient.builder().baseUrl("https://example.test");
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         KisTokenManager tokens = mock(KisTokenManager.class);
@@ -46,8 +57,10 @@ class KisMarketRankingClientTest {
                          ]}
                         """, MediaType.APPLICATION_JSON));
 
+        // 실행
         var result = client.fetch(RankingType.TURNOVER, Market.KOSPI, 1);
 
+        // 확인
         assertThat(result).hasSize(1);
         assertThat(result.getFirst().stockCode()).isEqualTo("005930");
         assertThat(result.getFirst().currentPrice()).isEqualByComparingTo("70000");
@@ -55,6 +68,7 @@ class KisMarketRankingClientTest {
         server.verify();
     }
 
+    /** 테스트용 KIS 설정을 만드는 도우미예요(가짜 키 값만 써요). */
     private KisProperties properties() {
         return new KisProperties(true, URI.create("https://example.test"), "app-key", "app-secret",
                 Duration.ofMinutes(5), Duration.ofSeconds(3), Duration.ofSeconds(5),
@@ -62,6 +76,11 @@ class KisMarketRankingClientTest {
                         URI.create("https://example.test/kosdaq")));
     }
 
+    /**
+     * 등락률 순위 요청에 필수 필드를 보내고, 응답에 없는 값은 null로 두는지 확인해요.
+     * 준비: 요청 수 50, 응답에는 거래량·거래대금이 없는 행 하나를 돌려주게 해요.
+     * 기대: 거래량·거래대금은 null(0으로 채우지 않음), 고가는 71000이에요.
+     */
     @Test
     void sendsRequiredFluctuationFieldsAndPreservesMissingValues() {
         RestClient.Builder builder = RestClient.builder().baseUrl("https://example.test");

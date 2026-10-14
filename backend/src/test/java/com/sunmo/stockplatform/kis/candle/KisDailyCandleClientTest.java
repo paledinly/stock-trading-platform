@@ -1,3 +1,7 @@
+/*
+ * KisDailyCandleClient가 KIS 일봉 조회 API로 원본(수정주가 미반영)·수정주가 일봉을 받아오는지 확인해요.
+ * 요청 범위를 벗어난 날짜나 가격 없는 행이 섞이면 백테스트 기준 데이터가 오염되므로 중요해요.
+ */
 package com.sunmo.stockplatform.kis.candle;
 
 import com.sunmo.stockplatform.kis.auth.KisTokenManager;
@@ -19,9 +23,16 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
+/** KIS 일봉 조회 클라이언트를 점검하는 테스트예요. */
 class KisDailyCandleClientTest {
+    /**
+     * 원본 일봉을 받고 요청 범위 밖 날짜는 빼는지 확인해요.
+     * 준비: MockRestServiceServer(가짜 외부 서버)가 범위 밖 9/17 행과 범위 안 9/16 행을 돌려주게 해요. 토큰 관리자는 목(mock, 가짜 객체)이에요.
+     * 기대: 9/16 한 건만 남고 거래대금 5050이며, 요청은 FID_ORG_ADJ_PRC=1(원본)로 나가요.
+     */
     @Test
     void fetchesRawDailyCandlesAndExcludesDatesOutsideRequest() {
+        // 준비
         RestClient.Builder builder = RestClient.builder().baseUrl("https://example.test");
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         KisTokenManager tokens = mock(KisTokenManager.class);
@@ -43,16 +54,24 @@ class KisDailyCandleClientTest {
         var client = new KisDailyCandleClient(builder.build(), properties, tokens,
                 new KisRequestExecutor(new KisRequestProperties(Duration.ZERO, Duration.ZERO, Duration.ZERO, 0)));
 
+        // 실행
         var result = client.fetch("005930", LocalDate.of(2026, 6, 1), LocalDate.of(2026, 9, 16));
 
+        // 확인
         assertThat(result).hasSize(1);
         assertThat(result.getFirst().date()).isEqualTo(LocalDate.of(2026, 9, 16));
         assertThat(result.getFirst().tradingValue()).isEqualByComparingTo("5050");
         server.verify();
     }
 
+    /**
+     * 수정주가 요청은 FID_ORG_ADJ_PRC=0으로 보내고, 가격이 없는(시가 0) 행은 건너뛰는지 확인해요.
+     * 준비: 정상 9/16 행과 시가·고가·저가가 0인 9/15 행을 돌려주게 해요.
+     * 기대: 9/16 한 건만 남아요.
+     */
     @Test
     void adjustedRequestUsesAdjustedPricesAndSkipsRowsWithoutAPrice() {
+        // 준비
         RestClient.Builder builder = RestClient.builder().baseUrl("https://example.test");
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         KisTokenManager tokens = mock(KisTokenManager.class);
@@ -73,8 +92,10 @@ class KisDailyCandleClientTest {
         var client = new KisDailyCandleClient(builder.build(), properties, tokens,
                 new KisRequestExecutor(new KisRequestProperties(Duration.ZERO, Duration.ZERO, Duration.ZERO, 0)));
 
+        // 실행
         var result = client.fetchAdjusted("005930", LocalDate.of(2026, 6, 1), LocalDate.of(2026, 9, 16));
 
+        // 확인
         assertThat(result).extracting(DailyCandle::date).containsExactly(LocalDate.of(2026, 9, 16));
         server.verify();
     }

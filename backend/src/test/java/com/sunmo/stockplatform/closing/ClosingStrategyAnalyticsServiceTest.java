@@ -1,3 +1,8 @@
+/*
+ * ClosingStrategyAnalyticsService(마감 전략 성과 분석 보고서)를 확인하는 테스트예요.
+ * 공식 Forward 완료 표본만으로 점수 구간 보정, 손실 패턴, OOS(표본 외) 검증, 최근 성과 악화 감시, 승격 관문을 계산하는지 봐요.
+ * 표본이 적을 때 경고를 붙이고 운영 승격을 막아서, 검증되지 않은 수익성 주장을 피하는 데 중요해요.
+ */
 package com.sunmo.stockplatform.closing;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -17,14 +22,25 @@ import java.util.stream.IntStream;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+/**
+ * 감사관처럼 공식 성과 표본을 집계하고, 표본이 부족하면 결론을 보류하는지 확인해요.
+ */
 class ClosingStrategyAnalyticsServiceTest {
+    // 저장소와 거래일 달력은 목(mock, 가짜 객체)이에요.
     private final OvernightPerformanceRepository repository = mock(OvernightPerformanceRepository.class);
     private final ClosingTradingCalendar calendar = mock(ClosingTradingCalendar.class);
     private final ClosingStrategyAnalyticsService service = new ClosingStrategyAnalyticsService(
             repository, calendar, new ObjectMapper());
 
+    /**
+     * 저장소가 준 공식 완료 표본만으로 점수 구간·손실 패턴·OOS 검증을 계산하는지 확인해요.
+     * 입력: 30일 기간에 점수 58/62/65인 공식 완료 성과 3건(손절 2건), 비용 검증 없음.
+     * 기대: 표본 3, 점수 구간 50-59/60-69, 60-69 구간 목표 도달률 50%, 손절 2건,
+     * 표본 부족·순수익 표본 없음 경고, OOS는 09-15 기준 개발 2·검증 1로 INSUFFICIENT_SAMPLE이에요.
+     */
     @Test
     void calibratesOnlyRepositorySuppliedOfficialCompletedRows() {
+        // 준비
         LocalDate to = LocalDate.of(2026, 9, 22);
         LocalDate from = to.minusDays(30);
         when(calendar.now()).thenReturn(Instant.parse("2026-09-22T06:30:00Z"));
@@ -34,8 +50,10 @@ class ClosingStrategyAnalyticsServiceTest {
         when(repository.findOfficialCompletedBetween(from, to, OvernightPerformance.OBSERVATION_VERSION))
                 .thenReturn(List.of(first, second, third));
 
+        // 실행
         var report = service.analyze(from, to);
 
+        // 확인(어서션, 기대값 검사)
         assertThat(report.sampleSize()).isEqualTo(3);
         assertThat(report.population()).isEqualTo("OFFICIAL_FORWARD_POINT_IN_TIME");
         assertThat(report.scoreBands()).extracting("band").containsExactly("50-59", "60-69");
@@ -57,6 +75,11 @@ class ClosingStrategyAnalyticsServiceTest {
         assertThat(vwap.comparison().validationHigh().sampleSize()).isEqualTo(1);
     }
 
+    /**
+     * 시작과 끝이 뒤집힌 기간이나 730일을 넘는 기간을 거부하는지 확인해요.
+     * 입력: (to, to-1일) / (to-731일, to).
+     * 기대: 둘 다 "최대 730일" 메시지의 예외예요.
+     */
     @Test
     void rejectsReversedOrExcessiveRange() {
         LocalDate to = LocalDate.of(2026, 9, 22);
@@ -66,6 +89,12 @@ class ClosingStrategyAnalyticsServiceTest {
                 .hasMessageContaining("최대 730일");
     }
 
+    /**
+     * 기준 구간과 최근 구간이 날짜로 나뉠 만큼 표본이 있을 때 최근 성과 악화를 표시하는지 확인해요.
+     * 입력: 08-01부터 하루씩 17건, 앞 10건은 목표 도달·종가 +1%, 뒤 7건은 손절·종가 -1%.
+     * 기대: 감시 상태 DEGRADED(기준 10, 최근 7, 종가 수익 차이 -2), 최근 CLOSE_LOSS 100%,
+     * 시장/업종 맥락은 없음, 승격 관문은 모두 BLOCKED이고 운영 활성화는 허용되지 않아요.
+     */
     @Test
     void flagsRecentDeteriorationOnlyAfterSeparateDateWindowsAreAvailable() {
         LocalDate from = LocalDate.of(2026, 8, 1);
@@ -90,6 +119,7 @@ class ClosingStrategyAnalyticsServiceTest {
                 .singleElement().extracting("recentRate").isEqualTo(new BigDecimal("100.000000"));
         assertThat(report.contextCoverage().marketRegimeAvailable()).isFalse();
         assertThat(report.contextCoverage().sectorHistoryAvailable()).isFalse();
+        // ⚠️ 확인 필요: 현재 전략 버전은 closing-recommend-v9_1-1515인데 승격 관문 표시는 RULE_BASED_V9_1515를 기대해요. 의도한 계열 이름인지 갱신이 빠진 것인지 확인이 필요해 보여요.
         assertThat(report.promotionGate().currentStrategy()).isEqualTo("RULE_BASED_V9_1515");
         assertThat(report.promotionGate().statisticalModelStatus()).isEqualTo("BLOCKED");
         assertThat(report.promotionGate().eventModelStatus()).isEqualTo("BLOCKED");
@@ -98,6 +128,7 @@ class ClosingStrategyAnalyticsServiceTest {
                 .singleElement().extracting("passed").isEqualTo(false);
     }
 
+    /** 주어진 날짜·점수·목표/손절 여부·수익률·VWAP 거리를 가진 현재 전략 Precision 후보의 성과 목을 만들어요(목표 +3%). */
     private OvernightPerformance row(LocalDate date, String score, boolean target, boolean stop, String close,
             String maximum, String drawdown, String open, String vwapDistance) {
         OvernightPerformance performance = mock(OvernightPerformance.class);
@@ -119,6 +150,7 @@ class ClosingStrategyAnalyticsServiceTest {
         return performance;
     }
 
+    /** 문자열을 BigDecimal로 바꾸는 짧은 도우미예요. */
     private BigDecimal bd(String value) {
         return new BigDecimal(value);
     }

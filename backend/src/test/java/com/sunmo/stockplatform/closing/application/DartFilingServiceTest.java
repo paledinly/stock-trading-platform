@@ -1,3 +1,7 @@
+/*
+ * DartFilingService 가 DART(전자공시) 목록 API 를 날짜·페이지별로 훑어 상장사 공시만 저장하는 흐름을 확인해요.
+ * 후보 경고 상태와 함께 나중에 가설을 검증할 공시 기록이므로, 빠짐없이 모으되 한도 오류에서는 무리하게 재시도하지 않는지가 중요해요.
+ */
 package com.sunmo.stockplatform.closing.application;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -18,16 +22,24 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+/** 공시 수집기가 필요한 공시만 저장하고 오류에서 멈출 줄 아는지 확인하는 테스트예요. */
 class DartFilingServiceTest {
     final ObjectMapper json = new ObjectMapper();
+    /** DB 저장 호출을 기록만 하는 목(mock, 가짜 객체)이에요. */
     final JdbcTemplate jdbc = mock(JdbcTemplate.class);
 
+    /** 고정 시계 Clock(2026-10-02 18:10 한국시간)을 쓰는 달력과 가짜 페이지 공급자로 서비스를 만들어요. */
     DartFilingService service(DartFilingService.PageSource pages) {
         var calendar = new ClosingTradingCalendar(new MarketWideScheduleProperties(false, 120, 30, false, null, null,
                 null, null, null, List.of()), Clock.fixed(Instant.parse("2026-10-02T09:10:00Z"), ZoneOffset.UTC));
         return new DartFilingService("key", calendar, jdbc, pages);
     }
 
+    /**
+     * 무엇: 여러 날짜·페이지를 순회하며 상장사(유가 Y, 코스닥 K) 공시만 저장하고, 자료 없음(013) 날짜는 넘어가는지 확인해요.
+     * 입력: 10/02 만 2페이지 공시(삼성전자, 비상장 E, 코스닥사)가 있고 나머지 날짜는 status 013 인 응답.
+     * 기대: 2건 저장, 상태 OK, 호출 순서 9/29~10/02 각 1페이지 + 10/02 2페이지, 저장 종목은 005930, 035720.
+     */
     @Test
     void storesListedCompanyFilingsAcrossPagesAndSkipsEmptyDates() {
         when(jdbc.update(anyString(), any(Object[].class))).thenReturn(1);
@@ -53,6 +65,7 @@ class DartFilingServiceTest {
             }
         }).collect();
 
+        // 확인: 비상장(E, 종목코드 공백) 공시는 저장하지 않아요.
         assertThat(result.saved()).isEqualTo(2);
         assertThat(result.status()).isEqualTo("OK");
         assertThat(calls).containsExactly("2026-09-29#1", "2026-09-30#1", "2026-10-01#1", "2026-10-02#1", "2026-10-02#2");
@@ -61,6 +74,11 @@ class DartFilingServiceTest {
         assertThat(args.getAllValues()).extracting(row -> (String) row[5]).containsExactly("005930", "035720");
     }
 
+    /**
+     * 무엇: 예상하지 못한 상태 코드(020, 호출 한도)를 받으면 다른 날짜·페이지를 계속 두드리지 않고 멈추는지 확인해요.
+     * 입력: 모든 요청에 status 020 을 돌려주는 페이지 공급자.
+     * 기대: 상태 DART_STATUS_020, 요청 1페이지, DB 저장 호출 없음.
+     */
     @Test
     void stopsOnAnUnexpectedStatusWithoutRetryingEveryPage() throws Exception {
         JsonNode denied = json.readTree("{\"status\":\"020\",\"message\":\"limit\"}");

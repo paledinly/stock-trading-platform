@@ -1,3 +1,8 @@
+/*
+ * ClosingDailyHealthService와 ClosingDailyHealthRecorder(마감 전략 일일 건강 기록)를 확인하는 테스트예요.
+ * 하루의 공식 run, 추천 종목 가상 진입, 다음 거래일 관측, 실시간 연결 상태를 모아 COMPLETE/DEGRADED/MISSING으로 판정하는지 봐요.
+ * 이 판정이 틀리면 Forward 표본이 온전한 날과 빠진 날을 구분할 수 없어서 중요해요.
+ */
 package com.sunmo.stockplatform.closing.application;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -17,17 +22,23 @@ import java.util.*;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+/**
+ * 건강검진 의사처럼 하루치 마감 전략 실행 기록을 보고 빠진 곳을 정확히 짚어내는지 확인해요.
+ */
 class ClosingDailyHealthServiceTest {
+    // 시각은 UTC예요. KST로는 평가 완료 15:15:08, 가상 진입 마감 15:20, 점검 15:45(장 마감 15:30 + 15분)예요.
     static final LocalDate FRIDAY = LocalDate.of(2026, 10, 2);
     static final Instant COMPLETED = Instant.parse("2026-10-02T06:15:08Z");
     static final Instant DEADLINE = Instant.parse("2026-10-02T06:20:00Z");
     static final Instant CHECK = Instant.parse("2026-10-02T06:45:00Z");
+    // 15:14:30~15:20:10(KST) 동안 연결이 유지되고 버린 틱이 0개인 정상 실시간 구간이에요.
     static final RealtimeWindow HEALTHY = new RealtimeWindow(true, 0L,
             Instant.parse("2026-10-02T06:14:30Z"), Instant.parse("2026-10-02T06:20:10Z"));
     final ClosingRecommendationProperties policy = new ClosingRecommendationProperties(20, 4, null, null, null, null, null);
     EmbeddedDatabase db;
     JdbcTemplate jdbc;
 
+    /** 매 테스트마다 새 H2(테스트용 메모리 DB)를 띄우고, 필요한 최소 테이블과 실제 마이그레이션(V30, V32)을 적용해요. */
     @BeforeEach void setup() {
         db = new EmbeddedDatabaseBuilder().generateUniqueName(true).setType(EmbeddedDatabaseType.H2).build();
         jdbc = new JdbcTemplate(db);
@@ -43,18 +54,26 @@ class ClosingDailyHealthServiceTest {
         new ResourceDatabasePopulator(new ClassPathResource("db/migration/V30__closing_paper_entry.sql"),
                 new ClassPathResource("db/migration/V32__create_closing_daily_health.sql")).execute(db);
     }
+    /** 테스트가 끝나면 메모리 DB를 내려요. */
     @AfterEach void close() { db.shutdown(); }
 
+    /** 고정 시계 Clock(항상 같은 시각을 돌려주는 시계)을 now에 맞춘 서비스를 만들어요. */
     ClosingDailyHealthService service(Instant now) {
         var calendar = new ClosingTradingCalendar(new MarketWideScheduleProperties(false, 120, 30, false, null, null,
                 null, null, null, List.of()), Clock.fixed(now, ZoneOffset.UTC));
         return new ClosingDailyHealthService(jdbc, calendar, policy, new ObjectMapper());
     }
 
+    /** run 7, 진입 마감 DEADLINE, Scanner 탐지 3건을 기본으로 둔 판정 입력(Facts)을 만들어요. */
     Facts facts(Instant completed, int selected, int entered, Map<String, Integer> observations, RealtimeWindow realtime) {
         return new Facts(7L, completed, DEADLINE, selected, entered, Map.of(), observations, realtime, 3, null);
     }
 
+    /**
+     * run, 진입, 관측, 실시간이 모두 온전할 때만 COMPLETE인지 확인해요.
+     * 입력: 마감 전 완료된 run, 추천 2개 모두 진입, 관측 3건 완료, 정상 실시간 / 추천 0개(NO TRADE)인 날.
+     * 기대: 둘 다 COMPLETE이고 사유 목록은 비어 있어요.
+     */
     @Test void completeOnlyWhenRunEntriesObservationsAndRealtimeAreAllWhole() {
         assertThat(ClosingDailyHealthService.judge(facts(COMPLETED, 2, 2, Map.of("COMPLETED", 3), HEALTHY)))
                 .isEqualTo(new Judgement(Verdict.COMPLETE, List.of()));
@@ -62,6 +81,11 @@ class ClosingDailyHealthServiceTest {
                 .as("a NO TRADE day with a completed run is complete").isEqualTo(Verdict.COMPLETE);
     }
 
+    /**
+     * 완료된 공식 run이 없으면 MISSING인지 확인해요.
+     * 입력: run 자체가 없는 경우 / run id는 있지만 완료시각이 없는 경우.
+     * 기대: 각각 OFFICIAL_RUN_MISSING, OFFICIAL_RUN_INCOMPLETE 사유의 MISSING이에요.
+     */
     @Test void missingWithoutACompletedOfficialRun() {
         assertThat(ClosingDailyHealthService.judge(new Facts(null, null, DEADLINE, 0, 0, Map.of(), Map.of(), HEALTHY, 0, null)))
                 .isEqualTo(new Judgement(Verdict.MISSING, List.of("OFFICIAL_RUN_MISSING")));
@@ -69,6 +93,11 @@ class ClosingDailyHealthServiceTest {
                 .isEqualTo(new Judgement(Verdict.MISSING, List.of("OFFICIAL_RUN_INCOMPLETE")));
     }
 
+    /**
+     * 빠진 곳마다 DEGRADED 사유가 하나씩 정해진 순서로 붙는지 확인해요.
+     * 입력: 진입 마감 시각에야 끝난 평가, 추천 2개 중 1개만 진입, 관측 대기, 실시간 미관측 / 연결 끊김과 버린 틱 3개, 관측 데이터 누락.
+     * 기대: 각 상황에 맞는 사유 코드가 모두 순서대로 나와요.
+     */
     @Test void everyGapIsADegradedReason() {
         assertThat(ClosingDailyHealthService.judge(facts(DEADLINE, 2, 1, Map.of("COMPLETED", 1, "PENDING", 1),
                 RealtimeWindow.UNOBSERVED)))
@@ -79,6 +108,11 @@ class ClosingDailyHealthServiceTest {
                 .containsExactly("REALTIME_DISCONNECTED", "REALTIME_TICKS_DROPPED", "OBSERVATION_INCOMPLETE");
     }
 
+    /**
+     * 평가 구간에 Scanner 탐지가 0건이면 DEGRADED인지 확인해요.
+     * 입력: 탐지 수 0인 경우 / 탐지 수를 세지 않은(null) 경우.
+     * 기대: 0건은 SCANNER_DETECTIONS_MISSING, 세지 않은 경우는 빈틈으로 보지 않고 COMPLETE예요.
+     */
     @Test void noScannerDetectionInTheEvaluationWindowIsDegraded() {
         assertThat(ClosingDailyHealthService.judge(new Facts(7L, COMPLETED, DEADLINE, 0, 0, Map.of(), Map.of(),
                 HEALTHY, 0, null))).isEqualTo(new Judgement(Verdict.DEGRADED, List.of("SCANNER_DETECTIONS_MISSING")));
@@ -86,7 +120,13 @@ class ClosingDailyHealthServiceTest {
                 HEALTHY, null, null)).verdict()).as("not counted is not a gap").isEqualTo(Verdict.COMPLETE);
     }
 
+    /**
+     * 저장된 DB 행으로 오늘 건강 기록을 만들고, 재시작 후에도 앞서 기록한 실시간 구간을 유지하는지 확인해요.
+     * 입력: 어제·오늘 공식 FORWARD run, 오늘 REPLAY run, 추천 2개(1개만 진입), 어제 run의 오늘 관측 2건 완료, 어제 MISSING 기록.
+     * 기대: 오늘은 run 7 기준 SELECTED_ENTRY_MISSING으로 DEGRADED, 재시작 후 미관측 실시간이 와도 기존 구간 유지, 어제 기록은 다시 쓰지 않아요.
+     */
     @Test void recordsTodayFromStoredRowsAndKeepsEarlierRealtimeAfterRestart() {
+        // 준비
         // 14:29:59 is before the evaluation start, 14:40 and 15:15:00 are inside it, 15:15:01 is after the freeze.
         jdbc.update("insert into scanner_detection values (1, ?, ?), (2, ?, ?), (3, ?, ?), (4, ?, ?)",
                 FRIDAY, Timestamp.from(Instant.parse("2026-10-02T05:29:59Z")),
@@ -111,8 +151,11 @@ class ClosingDailyHealthServiceTest {
                 + "values (?, 'MISSING', 'OFFICIAL_RUN_MISSING', 'closing-recommend-v9_1-1515', ?)",
                 FRIDAY.minusDays(1), Timestamp.from(CHECK.minusSeconds(86400)));
 
+        // 실행: 첫 기록
         DailyHealth first = service(CHECK).recordToday(HEALTHY);
 
+        // 확인(어서션, 기대값 검사): 035720은 추천이 아니라서 진입 상태 집계에만 들어가고 추천 진입 수에는 빠져요.
+        // 관측은 오늘 세션을 기대하는 run 6(어제) 것만 세고, REPLAY run 8의 PENDING은 빠져요.
         assertThat(first.verdict()).isEqualTo(Verdict.DEGRADED);
         assertThat(first.reasons()).containsExactly("SELECTED_ENTRY_MISSING");
         assertThat(first.runId()).isEqualTo(7L);
@@ -123,6 +166,7 @@ class ClosingDailyHealthServiceTest {
                 Map.of("ENTERED", 2, "NO_FRESH_TICK_BEFORE_DEADLINE", 1));
         assertThat(first.observationStatuses()).containsExactlyEntriesOf(Map.of("COMPLETED", 2));
 
+        // 실행: 한 시간 뒤 재시작해 실시간 구간을 관측하지 못한 상태로 다시 기록
         DailyHealth restarted = service(CHECK.plusSeconds(3600)).recordToday(RealtimeWindow.UNOBSERVED);
         assertThat(restarted.realtimeConnected()).isTrue();
         assertThat(restarted.realtimeWindowStart()).isEqualTo(HEALTHY.start());
@@ -136,6 +180,11 @@ class ClosingDailyHealthServiceTest {
         assertThat(jdbc.queryForObject("select count(*) from closing_daily_health", Integer.class)).isEqualTo(2);
     }
 
+    /**
+     * 전략 버전이 바뀐 날에도 오늘 실제로 돈 공식 run을 찾는지 확인해요.
+     * 입력: 이전 버전(v9) 공식 키 run 7, 같은 버전 수동 재시도 run 8, 현재 버전(v9_1) REPLAY run 9.
+     * 기대: 공식 키를 가진 run 7이 선택되고, 전략 버전은 v9로 기록되며 OFFICIAL_RUN_MISSING이 없어요.
+     */
     @Test void findsTheRunThatExecutedTodayAfterAVersionChange() {
         jdbc.update("insert into closing_recommendation_run values (7, ?, ?, 'FORWARD', 'closing-recommend-v9-1515', "
                 + "'official-2026-10-02-closing-recommend-v9-1515')", FRIDAY, Timestamp.from(COMPLETED));
@@ -152,6 +201,11 @@ class ClosingDailyHealthServiceTest {
         assertThat(row.reasons()).doesNotContain("OFFICIAL_RUN_MISSING");
     }
 
+    /**
+     * 공식 run이 하나도 없으면 MISSING으로 기록하는지 확인해요.
+     * 입력: 빈 DB.
+     * 기대: 사유는 OFFICIAL_RUN_MISSING 하나뿐이고 탐지 누락은 중복 보고하지 않으며 추천 수는 0이에요.
+     */
     @Test void recordsMissingWhenNoOfficialRunExists() {
         DailyHealth row = service(CHECK).recordToday(HEALTHY);
         assertThat(row.verdict()).isEqualTo(Verdict.MISSING);
@@ -161,6 +215,11 @@ class ClosingDailyHealthServiceTest {
         assertThat(row.selectedCount()).isZero();
     }
 
+    /**
+     * 기간 조회에서 기록 없는 거래일은 MISSING으로 채우고, 휴장일·주말·아직 점검 전인 오늘은 빼는지 확인해요.
+     * 입력: 09-30 COMPLETE 기록 1건, 조회 기간 09-23~10-05, 점검 시각 15:45 / 그 10분 전 / 잘못된 기간.
+     * 기대: 거래일만 최신순으로 나오고 미기록 날은 NO_HEALTH_RECORD, 15:35에는 오늘이 빠지며, 역순·400일 기간은 예외예요.
+     */
     @Test void tradingDaysWithoutARowAreMissingAndClosuresWeekendsAndUncheckedTodayAreOmitted() {
         jdbc.update("insert into closing_daily_health(trade_date, verdict, reasons, strategy_version, run_id, checked_at) "
                 + "values (?, 'COMPLETE', '', 'closing-recommend-v9_1-1515', 5, ?)", LocalDate.of(2026, 9, 30),
@@ -186,7 +245,13 @@ class ClosingDailyHealthServiceTest {
         assertThatThrownBy(() -> service(CHECK).list(FRIDAY.minusDays(400), FRIDAY)).isInstanceOf(ApplicationException.class);
     }
 
+    /**
+     * 기록기(Recorder)가 입력 마감 전후 실시간 상태를 표본으로 잡고 거래일마다 한 번만 기록하는지 확인해요.
+     * 입력: 15:13:50부터 15:46까지 여러 시각에 poll하고, 15:14:30 직후 틱 2개를 버린 상황이에요.
+     * 기대: 15:14:30~15:20:10 구간, 버린 틱 2개로 recordToday가 정확히 1번 호출되고, 새로 만든 기록기는 미관측 상태예요.
+     */
     @Test void recorderSamplesAroundFreezeAndRecordsOncePerTradingDay() {
+        // 준비: 서비스와 달력은 목(mock, 가짜 객체)이에요.
         var health = mock(ClosingDailyHealthService.class);
         var calendar = mock(ClosingTradingCalendar.class);
         var diagnostics = new RealtimeDiagnostics();

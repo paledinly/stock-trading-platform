@@ -1,3 +1,8 @@
+/*
+ * MarketCoverageService가 하루 동안 전시장 수집이 얼마나 넓게 됐는지(커버리지), 정밀 구독이 얼마나 유지됐는지,
+ * 후보 출처별 다음 날 성과가 어땠는지를 계산하는지 확인해요.
+ * 수집 범위와 출처별 성과를 함께 봐야 전략 검증 결과를 해석할 수 있어서 중요해요.
+ */
 package com.sunmo.stockplatform.marketwide;
 
 import com.sunmo.stockplatform.closing.domain.*;
@@ -18,9 +23,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+/** 전시장 커버리지·출처별 성과 집계를 점검하는 테스트예요. */
 class MarketCoverageServiceTest {
+    /**
+     * 커버리지 비율, 정밀 구독 유지 시간, 출처별 성과, 제외 사유 집계를 확인해요.
+     * 준비: 거래 가능 종목 80개, 수집 성공 1건·실패 1건, 14:30~15:00 정밀 구독 1건, PRECISION 출처 추천 1건(종가 수익률 2%)을 목(mock, 가짜 객체)으로 준비해요.
+     * 기대: 순위 커버리지 2.5%, 전시장 커버리지 1.25%, 평균 정밀 구독 30분, PRECISION 종가 승률 100%·평균 2%, 제외 사유 PROMOTED_TO_PRECISION 1·QUOTE_FAILED 1이에요.
+     */
     @Test
     void calculatesCoverageSubscriptionResidenceAndSourcePerformance() {
+        // 준비
         LocalDate date = LocalDate.of(2026, 9, 4);
         Stock stock1 = stock(1L, true);
         Stock stock2 = stock(2L, true);
@@ -59,9 +71,11 @@ class MarketCoverageServiceTest {
         when(runs.findBySessionDateOrderByScheduledForAsc(date)).thenReturn(List.of());
         when(detections.findByDetectedAtBetweenOrderByDetectedAtAsc(any(), any())).thenReturn(List.of());
 
+        // 실행
         var result = new MarketCoverageService(stocks, snapshots, sessions, detections, recommendations,
                 performances, runs).coverage(date);
 
+        // 확인
         assertThat(result.rankingCoverageRate()).isEqualByComparingTo("2.500");
         assertThat(result.broadCoverageRate()).isEqualByComparingTo("1.250");
         assertThat(result.averagePrecisionMinutes()).isEqualByComparingTo("30.000");
@@ -75,6 +89,7 @@ class MarketCoverageServiceTest {
                 .containsEntry("QUOTE_FAILED", 1);
     }
 
+    /** 종목 id·품질·수집 상태만 정한 커버리지 행 목을 만드는 도우미예요. */
     private static BroadCoverageRow coverageRow(long id, BroadSnapshotQuality quality, BroadSnapshotStatus status) {
         var row = mock(BroadCoverageRow.class);
         when(row.getStockId()).thenReturn(id);
@@ -84,12 +99,14 @@ class MarketCoverageServiceTest {
         return row;
     }
 
+    /** id와 활성 여부만 정한 종목 목을 만드는 도우미예요. */
     private static Stock stock(long id, boolean active) {
         Stock stock = mock(Stock.class);
         when(stock.getId()).thenReturn(id);
         when(stock.isActive()).thenReturn(active);
         return stock;
     }
+    /** 스냅샷 목을 만드는 도우미예요(현재 이 파일의 테스트에서는 쓰이지 않는 것으로 보여요). */
     private static MarketBroadSnapshot snapshot(Stock stock, BroadSnapshotQuality quality, BroadSnapshotStatus status) {
         MarketBroadSnapshot snapshot = mock(MarketBroadSnapshot.class);
         when(snapshot.getStock()).thenReturn(stock);
@@ -97,5 +114,6 @@ class MarketCoverageServiceTest {
         when(snapshot.getCollectionStatus()).thenReturn(status);
         return snapshot;
     }
+    /** 문자열을 BigDecimal로 바꾸는 도우미예요. */
     private static BigDecimal bd(String value) { return new BigDecimal(value); }
 }

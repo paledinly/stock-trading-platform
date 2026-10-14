@@ -1,3 +1,8 @@
+/*
+ * KisRealtimeClient(KIS 실시간 웹소켓 연결을 관리하는 클라이언트)의 수신·재연결·세션 경계 동작을 확인해요.
+ * 수신 시각을 잘못 기록하거나, 장 밖에서 연결을 다시 열거나, 끊긴 연결을 방치하면 실시간 데이터가 비거나 왜곡돼요.
+ * 내부 필드는 ReflectionTestUtils(테스트에서 private 필드·메서드에 접근하는 도구)로 직접 읽고 바꿔요.
+ */
 package com.sunmo.stockplatform.kis.websocket;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -21,7 +26,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+/** 실시간 웹소켓 클라이언트의 수신·재연결 규칙을 점검하는 테스트예요. */
 class KisRealtimeClientTest {
+    /**
+     * 한 메시지가 여러 조각(fragment)으로 나뉘어 와도 첫 조각을 받은 시각을 수신 시각으로 쓰는지 확인해요.
+     * 준비: 목(mock, 가짜 객체) 파서·서비스·세션 정책을 두고, 머리 조각과 "payload" 조각을 차례로 보내요.
+     * 기대: 틱이 첫 조각 시각(frameReceivedAt)으로 전달되고, 소켓에 다음 메시지 요청이 3번(열기 1 + 조각 2) 가요.
+     */
     @Test void fragmentedFrameRetainsFirstCallbackTime() {
         var parser = mock(KisRealtimeTickParser.class);
         var market = mock(MarketDataService.class);
@@ -40,6 +51,11 @@ class KisRealtimeClientTest {
         verify(market).onTick(eq(tick),eq(receipt),eq(false));
         verify(socket,times(3)).request(1);
     }
+    /**
+     * 장 시간 밖이면 접속 승인키를 받지 않고, 기존 소켓은 닫되 재시도하지 않는지 확인해요.
+     * 준비: connectionAllowed가 false(목 기본값)인 세션 정책으로 실행하고, 기존 소켓을 넣은 뒤 끊김 콜백을 흉내 내요.
+     * 기대: 소켓 abort·끊김 기록이 일어나고, 승인 요청 없음, 재연결 예약 없음, 구독 해제 없음이에요.
+     */
     @Test
     void outsideSessionDoesNotIssueApprovalAndClosesExistingSocketWithoutRetry() {
         var approval = mock(KisApprovalClient.class);
@@ -65,6 +81,11 @@ class KisRealtimeClientTest {
         } finally { client.shutdown(); }
     }
 
+    /**
+     * 정기 점검에서 다음 세션이 열리면 연결을 다시 시작하는지 확인해요.
+     * 준비: 처음엔 연결 불가, 그다음 연결 가능으로 바꿔 두 번 점검해요(승인 요청은 네트워크 전에 예외로 멈춰요).
+     * 기대: 첫 점검엔 승인 요청이 없고, 두 번째에 승인 요청이 1번 일어나요.
+     */
     @Test
     void periodicCheckRestartsConnectionWhenNextSessionOpens() {
         var session = mock(RealtimeSessionPolicy.class);
@@ -83,8 +104,14 @@ class KisRealtimeClientTest {
         } finally { client.shutdown(); }
     }
 
+    /**
+     * 소켓이 연결된 것처럼 보여도 메시지가 끊겼으면(stale) 다시 연결하는지 확인해요.
+     * 준비: 진단 목이 stale을 true로 돌려주게 하고 기존 소켓을 넣어요.
+     * 기대: 소켓 abort와 끊김 기록이 일어나요.
+     */
     @Test
     void reconnectsWhenTheSocketLooksConnectedButMessagesAreStale() {
+        // 준비
         RealtimeDiagnostics diagnostics = mock(RealtimeDiagnostics.class);
         RealtimeSessionPolicy session = mock(RealtimeSessionPolicy.class);
         when(session.connectionAllowed()).thenReturn(true);
@@ -93,13 +120,20 @@ class KisRealtimeClientTest {
         KisRealtimeClient client = client(diagnostics, session);
         ReflectionTestUtils.setField(client, "socket", socket);
 
+        // 실행
         client.reconnectIfStale();
 
+        // 확인
         verify(socket).abort();
         verify(diagnostics).disconnected();
         client.shutdown();
     }
 
+    /**
+     * 서버가 정상 종료(NORMAL_CLOSURE)로 끊어도 재연결을 예약하는지 확인해요.
+     * 준비: 연결된 진단 정보와 연결 가능 세션에서 현재 소켓의 onClose를 호출해요.
+     * 기대: 연결 상태가 false가 되고 reconnectScheduled가 true예요.
+     */
     @Test
     void reconnectsAfterAWebSocketNormalClose() {
         RealtimeDiagnostics diagnostics = new RealtimeDiagnostics();
@@ -117,6 +151,12 @@ class KisRealtimeClientTest {
         client.shutdown();
     }
 
+    /**
+     * 틱 처리(저장) 실패를 파싱 실패로 세지 않는지 확인해요.
+     * 준비: 파싱은 성공하고 시장 데이터 서비스가 "storage unavailable" 예외를 던지게 해요.
+     * 기대: 파싱 오류 0, 처리 오류 1이에요.
+     * ⚠️ 확인 필요: client.shutdown()이 두 번 호출돼요. 중복 호출이 무해하다면 문제는 없지만 의도한 것인지 확인이 필요해 보여요.
+     */
     @Test
     void processingFailureIsNotCountedAsAParseFailure() {
         RealtimeDiagnostics diagnostics = new RealtimeDiagnostics();
@@ -141,12 +181,14 @@ class KisRealtimeClientTest {
         client.shutdown();
     }
 
+    /** 모든 틱을 받아들이는 세션 정책 목을 만드는 도우미예요. */
     private RealtimeSessionPolicy acceptingSession() {
         var session = mock(RealtimeSessionPolicy.class);
         when(session.accepts(any())).thenReturn(true);
         return session;
     }
 
+    /** 진단 정보와 세션 정책만 바꾼 실시간 클라이언트를 만드는 도우미예요. */
     private KisRealtimeClient client(RealtimeDiagnostics diagnostics, RealtimeSessionPolicy session) {
         return new KisRealtimeClient(mock(KisApprovalClient.class), mock(KisRealtimeTickParser.class),
                 mock(MarketDataService.class), mock(RealtimeSubscriptionRegistry.class),
