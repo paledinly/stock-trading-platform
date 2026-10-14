@@ -30,6 +30,27 @@ class PrecisionSubscriptionAllocatorTest {
     }
 
     @Test
+    void aCodeThatIsBothProtectedAndPrecisionIsNotSubtractedTwice() {
+        RealtimeSubscriptionRegistry registry = registry(4);
+        registry.add("005930", RealtimeSubscriptionRegistry.Source.OVERNIGHT);
+        registry.add("000660", RealtimeSubscriptionRegistry.Source.OVERNIGHT);
+        PrecisionSubscriptionAllocator allocator = new PrecisionSubscriptionAllocator(registry,
+                new PrecisionSubscriptionProperties(true, 41, 0, Duration.ZERO, BigDecimal.TEN, LocalTime.of(14, 50)),
+                org.mockito.Mockito.mock(PrecisionSubscriptionHistory.class));
+        allocator.initialize();
+        Instant at = Instant.parse("2026-09-07T04:00:00Z");
+
+        allocator.reconcile(List.of(candidate("005930", "99"), candidate("A00001", "90"), candidate("A00002", "80"),
+                candidate("A00003", "70")), at);
+        var second = allocator.reconcile(List.of(candidate("005930", "99"), candidate("A00001", "90"),
+                candidate("A00002", "80"), candidate("A00003", "70")), at.plusSeconds(1));
+
+        assertThat(second.capacity()).as("only 000660 is held by another source alone").isEqualTo(3);
+        assertThat(registry.remaining()).as("every slot is used").isZero();
+        assertThat(registry.all()).contains("005930", "000660", "A00001", "A00002");
+    }
+
+    @Test
     void keepsOldCandidateUntilReplacementIsAcknowledged() {
         RealtimeSubscriptionRegistry registry = registry(3);
         PrecisionSubscriptionAllocator allocator = allocator(registry, Duration.ofMinutes(15), "10");

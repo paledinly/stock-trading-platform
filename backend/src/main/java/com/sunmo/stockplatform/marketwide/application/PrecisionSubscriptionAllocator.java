@@ -145,9 +145,13 @@ public class PrecisionSubscriptionAllocator {
         try { action.run(); } catch (RuntimeException ignored) { /* metrics failure must not interrupt subscriptions */ }
     }
 
+    /**
+     * Slots held only by other sources (pinned, manual, next-session observation) are unavailable. A code that is both
+     * protected and precision already counts toward precision, so it is not subtracted twice.
+     */
     private int capacity() {
         long protectedCodes = registry.entries().values().stream()
-                .filter(sources -> sources.stream().anyMatch(source -> source != RealtimeSubscriptionRegistry.Source.PRECISION))
+                .filter(sources -> !sources.contains(RealtimeSubscriptionRegistry.Source.PRECISION))
                 .count();
         return Math.min(properties.maxSubscriptions(),
                 Math.max(0, registry.limit() - properties.reserve() - Math.toIntExact(protectedCodes)));

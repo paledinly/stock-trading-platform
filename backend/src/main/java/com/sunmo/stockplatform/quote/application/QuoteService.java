@@ -1,7 +1,6 @@
 package com.sunmo.stockplatform.quote.application;
 
 import com.sunmo.stockplatform.market.application.QuoteStateStore;
-import com.sunmo.stockplatform.market.application.RealtimeSubscriptionRegistry;
 import com.sunmo.stockplatform.market.domain.MarketTick;
 import com.sunmo.stockplatform.quote.domain.StockQuote;
 import com.sunmo.stockplatform.stock.application.StockService;
@@ -24,25 +23,20 @@ public class QuoteService {
     private final StockService stockService;
     private final QuoteProvider quoteProvider;
     private final QuoteStateStore quoteStateStore;
-    private final RealtimeSubscriptionRegistry subscriptions;
     private final QuoteSnapshotCache snapshots;
 
     public QuoteService(StockService stockService, QuoteProvider quoteProvider, QuoteStateStore quoteStateStore,
-            RealtimeSubscriptionRegistry subscriptions, QuoteSnapshotCache snapshots) {
+            QuoteSnapshotCache snapshots) {
         this.stockService = stockService;
         this.quoteProvider = quoteProvider;
         this.quoteStateStore = quoteStateStore;
-        this.subscriptions = subscriptions;
         this.snapshots = snapshots;
     }
 
     public StockQuote getQuote(String stockCode) {
+        // Viewing a quote no longer takes a realtime slot: every free slot goes to precision (ADR-010).
+        // A stock that is already subscribed still merges its latest tick below.
         var stock = stockService.getByCode(stockCode);
-        try {
-            subscriptions.add(stockCode);
-        } catch (IllegalStateException error) {
-            log.warn("Quote for {} will use REST without realtime subscription: {}", stockCode, error.getMessage());
-        }
         MarketTick tick = quoteStateStore.get(stockCode).orElse(null);
         StockQuote baseline = snapshots.today(stockCode, Instant.now()).orElse(null);
         boolean realBaseline = true;
