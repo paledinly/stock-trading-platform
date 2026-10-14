@@ -255,6 +255,32 @@ class ClosingPrecisionEvaluatorTest {
         assertThat(assessment.reason()).isEqualTo("RECEIVED_AT_MISSING");
     }
 
+    /**
+     * 탐지 수신도 늦고 필요한 봉도 늦게 수정됐을 때 RECEIVED_AFTER_EVALUATION이 결측 목록에 한 번만 들어가는지 확인해요.
+     *
+     * <p>입력: 탐지 수신 시각 AS_OF+11초(유예 10초 초과), 마지막 필요 봉도 AS_OF+11초에 수정됐어요.
+     * <p>기대: 판정은 그대로 RECEIVED_AFTER_EVALUATION이고 missingFeatures에는 그 값이 정확히 1번 있어요.
+     */
+    @Test
+    void lateReceiptAndLateCandleRevisionAreListedOnce() {
+        ScannerDetection signal = signal(AS_OF);
+        when(signal.getReceivedAt()).thenReturn(AS_OF.plusSeconds(11));
+        DailyMovingAverageFeature ready = dailyReady();
+        when(daily.calculate(signal, AS_OF.plusSeconds(10))).thenReturn(ready);
+        when(scorer.score(eq(signal), any(), any())).thenReturn(new ScoreResult(new BigDecimal("70"), "{}", "{}"));
+        List<StockCandle> rows = new java.util.ArrayList<>(java.util.stream.IntStream.range(0, 3)
+                .mapToObj(index -> candle(AS_OF.minus(Duration.ofMinutes(20 - index * 5L)), AS_OF.minusSeconds(1)))
+                .toList());
+        rows.add(candle(AS_OF.minus(Duration.ofMinutes(5)), AS_OF.plusSeconds(11)));
+        when(candles.findByStockIdAndTimeframeAndStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(
+                eq(1L), eq("5M"), eq(FROM), any())).thenReturn(rows);
+
+        var assessment = evaluator.assess(signal, FROM, AS_OF, BigDecimal.ZERO, new BigDecimal("100"));
+
+        assertThat(assessment.reason()).isEqualTo("RECEIVED_AFTER_EVALUATION");
+        assertThat(assessment.missingFeatures()).containsOnlyOnce("RECEIVED_AFTER_EVALUATION");
+    }
+
     /** 종목 ID 1, 탐지·수신 시각이 같고 기본 조건을 통과할 만한 값을 가진 Scanner 탐지 목을 만들어요. */
     private ScannerDetection signal(Instant at) {
         Stock stock = mock(Stock.class);

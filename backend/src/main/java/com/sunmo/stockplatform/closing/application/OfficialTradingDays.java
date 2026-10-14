@@ -7,12 +7,14 @@ package com.sunmo.stockplatform.closing.application;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import java.sql.Timestamp;
 import java.time.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.LongSupplier;
 
 /**
  * 공식 개장 여부를 기억해 두는 메모장 클래스예요.
@@ -24,6 +26,8 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class OfficialTradingDays {
     private static final Logger log = LoggerFactory.getLogger(OfficialTradingDays.class);
+    // 테이블 읽기에 실패했을 때 다시 읽기를 시도하기 전까지 기다리는 시간이에요. 조회가 몰릴 때 실패한 DB를 매번 두드리지 않게 해요.
+    static final Duration LOAD_RETRY_BACKOFF = Duration.ofSeconds(30);
     /**
      * 상태 요약이에요: 알고 있는 날짜 수, 가장 이른·늦은 날짜, 마지막으로 받은 시각, 출처 이름.
      */
@@ -33,12 +37,25 @@ public class OfficialTradingDays {
     private final Map<LocalDate, Boolean> days = new ConcurrentHashMap<>();
     private volatile boolean loaded;
     private volatile Instant lastFetchedAt;
+    // 재시도 대기 계산용 단조 시계(nanoTime)와, 마지막 읽기 실패 뒤 다시 시도해도 되는 시점이에요(실패한 적 없으면 null).
+    private final LongSupplier nanoTime;
+    private volatile Long retryAfterNanos;
 
     /**
      * 하는 일: DB 접근 도구를 받아 저장소를 만들어요.
      * 받는 것: JdbcTemplate. 돌려주는 것: 없음(생성자).
      */
-    public OfficialTradingDays(JdbcTemplate jdbc) { this.jdbc = jdbc; }
+    @Autowired
+    public OfficialTradingDays(JdbcTemplate jdbc) { this(jdbc, System::nanoTime); }
+
+    /**
+     * 하는 일: 재시도 대기 시간을 계산할 시계를 바꿔 끼울 수 있는 생성자예요(테스트용).
+     * 받는 것: JdbcTemplate, 나노초 단조 시계. 돌려주는 것: 없음(생성자).
+     */
+    OfficialTradingDays(JdbcTemplate jdbc, LongSupplier nanoTime) {
+        this.jdbc = jdbc;
+        this.nanoTime = nanoTime;
+    }
 
     /**
      * 하는 일: 그 날짜에 시장이 열리는지 공급자 기록을 알려 줘요.
@@ -82,24 +99,30 @@ public class OfficialTradingDays {
     }
 
     /**
-     * 하는 일: 테이블을 처음 한 번만 메모리로 읽어 와요(두 번 확인하는 잠금 방식으로 동시에 여러 번 읽지 않게 해요).
+     * 하는 일: 테이블을 성공할 때까지 한 번만 메모리로 읽어 와요(두 번 확인하는 잠금 방식으로 동시에 여러 번 읽지 않게 해요).
+     * 읽기에 실패하면 LOAD_RETRY_BACKOFF 동안은 다시 시도하지 않고, 그 뒤 다음 접근 때 다시 읽어요.
      * 받는 것: 없음. 돌려주는 것: 없음.
      */
     private void load() {
         if (loaded) return;
         synchronized (this) {
             if (loaded) return;
+            Long retryAfter = retryAfterNanos;
+            if (retryAfter != null && nanoTime.getAsLong() - retryAfter < 0) return;
             try {
                 jdbc.query("select trade_date, market_open, fetched_at from trading_calendar_day", rs -> {
                     days.put(rs.getObject(1, LocalDate.class), rs.getBoolean(2));
                     Instant fetched = rs.getTimestamp(3).toInstant();
                     if (lastFetchedAt == null || fetched.isAfter(lastFetchedAt)) lastFetchedAt = fetched;
                 });
+                loaded = true;
+                retryAfterNanos = null;
             } catch (RuntimeException error) {
-                // ⚠️ 확인 필요: 읽기에 실패해도 아래에서 loaded=true가 되어, 재시작 전까지 DB에 있던 기록을 다시 읽지 않아요(그동안은 새로 받은 값과 정적 정책만 쓰여요).
-                log.warn("Official trading days unavailable; static calendar policy applies: {}", error.getMessage());
+                // 읽기에 실패하면 loaded를 true로 두지 않아요. 잠깐(LOAD_RETRY_BACKOFF) 기다린 뒤 다음 접근 때 다시 읽고,
+                // 그 사이에는 이미 메모리에 있는 값(새로 받은 값 포함)과 정적 정책을 써요.
+                retryAfterNanos = nanoTime.getAsLong() + LOAD_RETRY_BACKOFF.toNanos();
+                log.warn("Official trading days unavailable; static calendar policy applies until retry: {}", error.getMessage());
             }
-            loaded = true;
         }
     }
 }

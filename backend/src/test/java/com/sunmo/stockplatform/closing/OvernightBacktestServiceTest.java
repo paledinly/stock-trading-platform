@@ -75,7 +75,8 @@ class OvernightBacktestServiceTest {
 
     /**
      * 가상 마감 추천 1건의 다음 거래일 수익률과 요약 통계가 맞게 계산되는지 확인해요.
-     * 입력: 15:05 진입봉(종가 100)과 다음 거래일 5분봉 2개(시가 103, 최고 106, 최저 98, 마지막 종가 104), 목표 +3%, 손절 -2%.
+     * 입력: 15:05 진입봉(종가 100)과 빠짐없는 다음 거래일 5분봉(09:00 시가 103, 09:05 최고 106·최저 98, 나머지 103,
+     * 15:25 종가 봉 104), 목표 +3%, 손절 -2%.
      * 기대: 시가 수익 3%, 종가 수익 4%, 최대 6%, 최대 낙폭 -2%, 샘플 부족 경고, TARGET_OR_STOP은 먼저 닿은 목표로 3%예요.
      */
     @Test
@@ -85,9 +86,9 @@ class OvernightBacktestServiceTest {
         when(detections.findByDetectedAtBetweenOrderByDetectedAtAsc(any(), any())).thenReturn(List.of(detection));
         when(intradayMa.calculate(detection)).thenReturn(IntradayMovingAverageFeature.empty(0));
         when(dailyMa.calculate(detection)).thenReturn(DailyMovingAverageFeature.empty(0));
-        stubCandles(List.of(candle("2026-09-04T06:05:00Z", "100", "101", "99", "100")), List.of(
+        stubCandles(List.of(candle("2026-09-04T06:05:00Z", "100", "101", "99", "100")), fullSession(
                 candle("2026-09-07T00:00:00Z", "103", "104", "102", "103"),
-                candle("2026-09-07T00:05:00Z", "103", "106", "98", "104")));
+                candle("2026-09-07T00:05:00Z", "103", "106", "98", "104"), "103", "104"));
 
         // 실행
         var result = service.run(LocalDate.of(2026, 9, 4), LocalDate.of(2026, 9, 4),
@@ -129,7 +130,7 @@ class OvernightBacktestServiceTest {
 
     /**
      * 한 봉 안에서 목표와 손절이 모두 닿으면 보수적으로 손절로 처리하는지 확인해요.
-     * 입력: 다음 거래일 첫 봉 최고 104(목표 +3% 도달), 최저 98(손절 -2% 도달).
+     * 입력: 빠짐없는 다음 거래일 5분봉 중 첫 봉 최고 104(목표 +3% 도달), 최저 98(손절 -2% 도달).
      * 기대: TARGET_OR_STOP 평균 수익 -2%, 모호한(ambiguous) 건수 1, 손절률 100%예요.
      */
     @Test
@@ -139,7 +140,8 @@ class OvernightBacktestServiceTest {
         when(intradayMa.calculate(detection)).thenReturn(IntradayMovingAverageFeature.empty(0));
         when(dailyMa.calculate(detection)).thenReturn(DailyMovingAverageFeature.empty(0));
         stubCandles(List.of(candle("2026-09-04T06:05:00Z", "100", "101", "99", "100")),
-                List.of(candle("2026-09-07T00:00:00Z", "100", "104", "98", "101")));
+                fullSession(candle("2026-09-07T00:00:00Z", "100", "104", "98", "101"),
+                        candle("2026-09-07T00:05:00Z", "101", "101", "101", "101"), "101", "101"));
 
         var result = service.run(LocalDate.of(2026, 9, 4), LocalDate.of(2026, 9, 4),
                 10, bd("35"), bd("65"), bd("3"), bd("-2"));
@@ -205,6 +207,56 @@ class OvernightBacktestServiceTest {
         assertThat(result.integrity().issues()).extracting("message").contains("평가 이후 진입 데이터 없음");
     }
 
+    /**
+     * 다음 거래일 봉이 일부만 있으면 완료로 세지 않고 수익률도 만들지 않는지 확인해요(성과 추적 서비스와 같은 완전성 규칙).
+     * 입력: 진입봉은 있고 다음 거래일 봉은 09:00·09:05 두 개뿐이에요(15:25 종가 봉 없음).
+     * 기대: 상태 NEXT_SESSION_DATA_INCOMPLETE, 완료 0·누락 1, 종가 수익률 null, 청산 방식 표본 0이에요.
+     */
+    @Test
+    void partialNextSessionIsNotCompleted() {
+        ScannerDetection detection = detection();
+        when(detections.findByDetectedAtBetweenOrderByDetectedAtAsc(any(), any())).thenReturn(List.of(detection));
+        when(intradayMa.calculate(detection)).thenReturn(IntradayMovingAverageFeature.empty(0));
+        when(dailyMa.calculate(detection)).thenReturn(DailyMovingAverageFeature.empty(0));
+        stubCandles(List.of(candle("2026-09-04T06:05:00Z", "100", "101", "99", "100")), List.of(
+                candle("2026-09-07T00:00:00Z", "103", "104", "102", "103"),
+                candle("2026-09-07T00:05:00Z", "103", "106", "98", "104")));
+
+        var result = service.run(LocalDate.of(2026, 9, 4), LocalDate.of(2026, 9, 4),
+                10, bd("35"), bd("65"), bd("3"), bd("-2"));
+
+        assertThat(result.completed()).isZero();
+        assertThat(result.dataMissing()).isEqualTo(1);
+        assertThat(result.rows().getFirst().status()).isEqualTo("NEXT_SESSION_DATA_INCOMPLETE");
+        assertThat(result.rows().getFirst().closeReturnRate()).isNull();
+        assertThat(result.strategySummaries()).allSatisfy(summary -> assertThat(summary.sampleSize()).isZero());
+    }
+
+    /**
+     * 가격 정합이 깨진 봉은 빼고 완전성을 따지는지 확인해요.
+     * 입력: 빠짐없는 다음 거래일 봉이지만 10:00 봉의 고가가 종가보다 낮아요(정합 위반).
+     * 기대: 그 봉이 빠진 것으로 보여 NEXT_SESSION_DATA_INCOMPLETE이고 완료 0이에요.
+     */
+    @Test
+    void priceInconsistentNextSessionBarMakesTheSessionIncomplete() {
+        ScannerDetection detection = detection();
+        when(detections.findByDetectedAtBetweenOrderByDetectedAtAsc(any(), any())).thenReturn(List.of(detection));
+        when(intradayMa.calculate(detection)).thenReturn(IntradayMovingAverageFeature.empty(0));
+        when(dailyMa.calculate(detection)).thenReturn(DailyMovingAverageFeature.empty(0));
+        List<StockCandle> session = new java.util.ArrayList<>(fullSession(
+                candle("2026-09-07T00:00:00Z", "103", "104", "102", "103"),
+                candle("2026-09-07T00:05:00Z", "103", "106", "98", "104"), "103", "104"));
+        session.replaceAll(row -> row.getStartTime().equals(Instant.parse("2026-09-07T01:00:00Z"))
+                ? candle("2026-09-07T01:00:00Z", "103", "102", "101", "103") : row);
+        stubCandles(List.of(candle("2026-09-04T06:05:00Z", "100", "101", "99", "100")), session);
+
+        var result = service.run(LocalDate.of(2026, 9, 4), LocalDate.of(2026, 9, 4),
+                10, bd("35"), bd("65"), bd("3"), bd("-2"));
+
+        assertThat(result.completed()).isZero();
+        assertThat(result.rows().getFirst().status()).isEqualTo("NEXT_SESSION_DATA_INCOMPLETE");
+    }
+
     /** 2026-09-04 14:55(KST)에 삼성전자 VWAP 돌파로 탐지된 가짜 Scanner 탐지를 만들어요. */
     private ScannerDetection detection() {
         Stock stock = mock(Stock.class);
@@ -235,6 +287,19 @@ class OvernightBacktestServiceTest {
     private StockCandle candle(String at, String open, String high, String low, String close) {
         return new StockCandle(null, Instant.parse(at), bd(open), bd(high), bd(low), bd(close),
                 100, bd("100000"), true, 0);
+    }
+
+    /**
+     * 2026-09-07(월) 다음 거래일의 빠짐없는 5분봉을 만들어요: 09:00·09:05는 주어진 봉, 09:10~15:15는 fill 가격의 평평한 봉,
+     * 15:20 동시호가 봉은 없고(선택), 15:25 종가 봉은 closePrint 가격이에요.
+     */
+    private List<StockCandle> fullSession(StockCandle first, StockCandle second, String fill, String closePrint) {
+        List<StockCandle> rows = new java.util.ArrayList<>(List.of(first, second));
+        Instant callStart = Instant.parse("2026-09-07T06:20:00Z");
+        for (Instant at = Instant.parse("2026-09-07T00:10:00Z"); at.isBefore(callStart); at = at.plusSeconds(300))
+            rows.add(candle(at.toString(), fill, fill, fill, fill));
+        rows.add(candle("2026-09-07T06:25:00Z", closePrint, closePrint, closePrint, closePrint));
+        return rows;
     }
 
     /** 조회 시작일이 2026-09-04(KST)면 진입봉 목록을, 그 외 날짜면 다음 거래일 봉 목록을 돌려주도록 목을 설정해요. */

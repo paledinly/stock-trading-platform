@@ -97,4 +97,29 @@ class OfficialTradingDaysTest {
         assertThat(refresher.refresh()).isFalse();
         verify(client, times(2)).fetch(FRIDAY);
     }
+
+    /**
+     * 무엇: 첫 테이블 읽기가 실패해도 영구히 포기하지 않고, 대기 시간이 지난 뒤 다음 접근에서 DB 기록을 다시 읽는지 확인해요.
+     * 입력: 10/05 휴장이 저장된 테이블, 첫 select만 실패하는 JdbcTemplate, 직접 움직이는 나노초 시계.
+     * 기대: 실패 직후엔 모름(empty), 대기 시간 안에는 다시 읽지 않고(select 1회), 대기 뒤에는 휴장(false)을 읽어요.
+     */
+    @Test void failedInitialLoadIsRetriedAfterBackoff() {
+        new OfficialTradingDays(jdbc).record(Map.of(SUBSTITUTE_HOLIDAY, false), "KIS_CHK_HOLIDAY", MORNING);
+        var flaky = spy(jdbc);
+        doThrow(new org.springframework.dao.DataAccessResourceFailureException("db down"))
+                .doCallRealMethod()
+                .when(flaky).query(anyString(), any(org.springframework.jdbc.core.RowCallbackHandler.class));
+        long[] nanos = {0L};
+        var days = new OfficialTradingDays(flaky, () -> nanos[0]);
+
+        assertThat(days.marketOpen(SUBSTITUTE_HOLIDAY)).isEmpty();
+        nanos[0] += OfficialTradingDays.LOAD_RETRY_BACKOFF.toNanos() / 2;
+        assertThat(days.marketOpen(SUBSTITUTE_HOLIDAY)).isEmpty();
+        verify(flaky, times(1)).query(anyString(), any(org.springframework.jdbc.core.RowCallbackHandler.class));
+
+        nanos[0] += OfficialTradingDays.LOAD_RETRY_BACKOFF.toNanos();
+        assertThat(days.marketOpen(SUBSTITUTE_HOLIDAY)).contains(false);
+        assertThat(days.marketOpen(SUBSTITUTE_HOLIDAY)).contains(false);
+        verify(flaky, times(2)).query(anyString(), any(org.springframework.jdbc.core.RowCallbackHandler.class));
+    }
 }

@@ -245,6 +245,25 @@ class OvernightPerformanceServiceTest {
         assertThat(row.costStatus()).isEqualTo("ZERO_COSTS_UNVERIFIED");
     }
 
+    /**
+     * 날짜 없이 부르면 달력상 어제(일요일)가 아니라 직전 거래일(금요일)을 기본값으로 쓰는지 확인해요.
+     * 입력: 월요일 16:00에 날짜 없이 track과 list를 불러요.
+     * 기대: 응답의 추천일은 금요일이고, 추천·성과 조회 모두 금요일로 해요.
+     */
+    @Test
+    void defaultDateIsThePreviousTradingDayNotCalendarYesterday() {
+        var service = service(MONDAY, LocalTime.of(16, 0), List.of());
+        stubCandles(bars(MONDAY, 78));
+
+        var response = service.track(null, null, null, null);
+        service.list(null, null);
+
+        assertThat(response.recommendationDate()).isEqualTo(FRIDAY);
+        assertThat(response.performances()).hasSize(1);
+        verify(recommendations).findByRecommendationDateOrderByRankAsc(FRIDAY);
+        verify(performances).findByRecommendationDate(FRIDAY);
+    }
+
     /** 기간과 상관없이 봉 조회가 항상 rows를 돌려주도록 목을 설정해요. */
     private void stubCandles(List<StockCandle> rows) {
         when(candles.findByStockIdAndTimeframeAndStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(

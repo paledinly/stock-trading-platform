@@ -56,14 +56,14 @@ public class OvernightPerformanceService {
 
     /**
      * 하는 일: 추천일(또는 실행 ID)의 추천 종목마다 다음날 성과를 계산해 저장해요. 트랜잭션(여러 저장을 한 묶음으로 처리하는 단위) 안에서 돌아요.
-     * 받는 것: 추천일(없으면 어제), 목표 수익률(없으면 +3%), 손절 수익률(없으면 -2%), 실행 ID(있으면 날짜 대신 사용).
+     * 받는 것: 추천일(없으면 오늘의 직전 거래일), 목표 수익률(없으면 +3%), 손절 수익률(없으면 -2%), 실행 ID(있으면 날짜 대신 사용).
      * 돌려주는 것: 처리 건수, 완료 건수, 자료 부족 건수와 종목별 성과를 담은 응답.
      */
     @Transactional
     public TrackPerformanceResponse track(LocalDate date, BigDecimal targetRate, BigDecimal stopRate, Long runId) {
         // 준비: 기본값을 채우고 목표는 양수, 손절은 0 미만 -100 초과인지 검사해요.
-        // ⚠️ 확인 필요: 날짜 없이 부르면(API) 기본값이 "달력상 어제"라, 월요일·휴장일 다음날에는 직전 거래일이 아니라 추천이 없는 날을 가리켜요.
-        LocalDate targetDate = date == null ? calendar.today().minusDays(1) : date;
+        // 날짜 없이 부르면(API) ClosingTradingCalendar의 직전 거래일을 써요. 그래서 월요일·휴장일 다음날에도 추천이 있던 날을 가리켜요.
+        LocalDate targetDate = date == null ? calendar.previousTradingDay(calendar.today()) : date;
         BigDecimal target = targetRate == null ? new BigDecimal("3") : targetRate;
         BigDecimal stop = stopRate == null ? new BigDecimal("-2") : stopRate;
         if (target.signum() <= 0 || stop.signum() >= 0 || stop.compareTo(new BigDecimal("-100")) <= 0)
@@ -89,12 +89,12 @@ public class OvernightPerformanceService {
 
     /**
      * 하는 일: 저장된 다음날 성과를 조회해요(읽기 전용).
-     * 받는 것: 추천일(없으면 달력상 어제), 실행 ID(있으면 날짜 대신 사용).
+     * 받는 것: 추천일(없으면 오늘의 직전 거래일), 실행 ID(있으면 날짜 대신 사용).
      * 돌려주는 것: 종목별 성과 응답 목록.
      */
     @Transactional(readOnly = true)
     public List<OvernightPerformanceResponse> list(LocalDate date, Long runId) {
-        LocalDate targetDate = date == null ? calendar.today().minusDays(1) : date;
+        LocalDate targetDate = date == null ? calendar.previousTradingDay(calendar.today()) : date;
         return (runId == null ? performances.findByRecommendationDate(targetDate)
                 : performances.findByRecommendationRunIdOrderByRecommendationRankAsc(runId))
                 .stream().map(OvernightPerformanceResponse::from).toList();
