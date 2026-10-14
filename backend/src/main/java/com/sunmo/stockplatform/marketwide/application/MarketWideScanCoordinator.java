@@ -81,16 +81,23 @@ public class MarketWideScanCoordinator {
             diagnostics.skipped("SCAN_ALREADY_RUNNING", bucket);
             return;
         }
-        // 실패했던 회차면 다시 시작으로 표시하고, 처음이면 새 실행 기록을 만들어요.
+        // 실행 기록 저장부터 스캔·결과 저장까지 모두 try/finally 안에 두어, 어디서 예외가 나도
+        // running 표시가 반드시 풀리게 해요. 그래야 다음 회차가 SCAN_ALREADY_RUNNING으로 막히지 않아요.
         Instant started = Instant.now();
-        if (run == null)
-            run = new MarketWideScanRun(bucket.atZone(MARKET_ZONE).toLocalDate(), bucket, started);
-        else
-            run.restart(started);
-        // ⚠️ 확인 필요: 이 저장은 try/finally 밖에 있어서, 여기서 예외가 나면 running이 true로 남아
-        // 이후 모든 스캔이 SCAN_ALREADY_RUNNING으로 건너뛰어질 수 있어요.
-        run = runs.save(run);
         diagnostics.started(started, bucket);
+        try {
+            // 실패했던 회차면 다시 시작으로 표시하고, 처음이면 새 실행 기록을 만들어요.
+            if (run == null)
+                run = new MarketWideScanRun(bucket.atZone(MARKET_ZONE).toLocalDate(), bucket, started);
+            else
+                run.restart(started);
+            // 시작 기록 저장이 실패하면 스캔은 돌리지 않고 실패로만 진단에 남겨요(회차는 나중에 다시 시도돼요).
+            run = runs.save(run);
+        } catch (RuntimeException error) {
+            diagnostics.failed(Instant.now(), "RUN_RECORD_SAVE_FAILED: " + rootMessage(error));
+            running.set(false);
+            return;
+        }
         // 처리: 전체 시장 스캔을 돌리고 결과를 회차 기록과 진단에 남겨요.
         try {
             BroadScanResponse response = scanner.scan(null, limit, candidates, includeEtf);
@@ -100,9 +107,15 @@ public class MarketWideScanCoordinator {
             diagnostics.completed(completed, response);
         } catch (RuntimeException error) {
             Instant failed = Instant.now();
-            run.fail(failed, rootMessage(error));
-            runs.save(run);
-            diagnostics.failed(failed, rootMessage(error));
+            String message = rootMessage(error);
+            // 실패 기록 저장마저 실패해도 예외를 밖으로 던지지 않고, 그 사실을 진단 메시지에 덧붙여요.
+            try {
+                run.fail(failed, message);
+                runs.save(run);
+            } catch (RuntimeException saveError) {
+                message = message + " (run record save failed: " + rootMessage(saveError) + ")";
+            }
+            diagnostics.failed(failed, message);
         } finally {
             running.set(false);
         }

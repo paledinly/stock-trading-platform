@@ -74,4 +74,54 @@ class MarketWideScanCoordinatorTest {
         assertThat(diagnostics.snapshot().lastError()).isEqualTo("KIS unavailable");
         verify(runs, times(2)).save(any(MarketWideScanRun.class));
     }
+
+    /**
+     * 시작 기록 저장이 예외를 던져도 running 표시가 풀려 다음 회차가 정상 실행되는지 확인해요.
+     * 준비: 첫 저장은 DB 오류를 던지고, 그 뒤 저장은 정상으로 돌려줘요.
+     * 기대: 첫 회차는 실패로 진단에 남고 스캔은 돌지 않으며, 다음 회차는 SCAN_ALREADY_RUNNING 없이 스캔돼요.
+     */
+    @Test
+    void releasesRunningFlagWhenTheInitialRunRecordSaveFails() {
+        Instant first = Instant.parse("2026-09-07T05:04:00Z");
+        Instant second = Instant.parse("2026-09-07T05:06:00Z");
+        BroadScanResponse response = mock(BroadScanResponse.class);
+        when(response.rankingSources()).thenReturn(java.util.List.of());
+        when(scanner.scan(null, 120, 30, false)).thenReturn(response);
+        when(runs.findByScheduledFor(any())).thenReturn(Optional.empty());
+        when(runs.save(any()))
+                .thenThrow(new IllegalStateException("db down"))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        coordinator.scheduled(first, 120, 30, false);
+
+        assertThat(diagnostics.snapshot().failedRuns()).isEqualTo(1);
+        assertThat(diagnostics.snapshot().lastError()).contains("db down");
+        assertThat(diagnostics.snapshot().running()).isFalse();
+        verify(scanner, never()).scan(null, 120, 30, false);
+
+        coordinator.scheduled(second, 120, 30, false);
+
+        assertThat(diagnostics.snapshot().lastSkipReason()).isNull();
+        assertThat(diagnostics.snapshot().completedRuns()).isEqualTo(1);
+        verify(scanner, times(1)).scan(null, 120, 30, false);
+    }
+
+    /**
+     * 스캔 실패 뒤 실패 기록 저장까지 실패해도 예외가 밖으로 나가지 않고 running 표시가 풀리는지 확인해요.
+     */
+    @Test
+    void releasesRunningFlagWhenTheFailureRecordSaveAlsoFails() {
+        Instant bucket = Instant.parse("2026-09-07T05:08:00Z");
+        when(runs.findByScheduledFor(bucket)).thenReturn(Optional.empty());
+        when(runs.save(any()))
+                .thenAnswer(invocation -> invocation.getArgument(0))
+                .thenThrow(new IllegalStateException("db down"));
+        when(scanner.scan(null, 120, 30, false)).thenThrow(new IllegalStateException("KIS unavailable"));
+
+        coordinator.scheduled(bucket, 120, 30, false);
+
+        assertThat(diagnostics.snapshot().failedRuns()).isEqualTo(1);
+        assertThat(diagnostics.snapshot().lastError()).contains("KIS unavailable").contains("db down");
+        assertThat(diagnostics.snapshot().running()).isFalse();
+    }
 }

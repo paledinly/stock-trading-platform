@@ -113,6 +113,44 @@ class PrecisionSubscriptionAllocatorTest {
     }
 
     /**
+     * 교체용 새 구독의 확인 응답이 60초 넘게 오지 않으면 실패로 정리하고, 다음 교체가 다시 가능해지는지 확인해요.
+     * 준비: A00001, A00002 배분 뒤 A00003으로 교체를 시작하고 응답을 보내지 않아요.
+     * 기대: 60초 이내엔 대기가 유지되고, 61초 뒤엔 A00003이 해지·배정 해제되며 ACK_TIMEOUT 거절 이력이 남고,
+     *       A00002는 그대로 남아요. 같은 reconcile에서 더 나은 A00004로 새 교체가 시작돼요.
+     */
+    @Test
+    void expiresReplacementWhoseAcknowledgementNeverArrives() {
+        RealtimeSubscriptionRegistry registry = registry(3);
+        PrecisionSubscriptionHistory history = org.mockito.Mockito.mock(PrecisionSubscriptionHistory.class);
+        PrecisionSubscriptionAllocator allocator = new PrecisionSubscriptionAllocator(registry,
+                new PrecisionSubscriptionProperties(true, 2, 1, Duration.ZERO, BigDecimal.TEN, LocalTime.of(14, 50)),
+                history);
+        allocator.initialize();
+        Instant first = Instant.parse("2026-09-07T04:00:00Z");
+        allocator.reconcile(List.of(candidate("A00001", "90"), candidate("A00002", "80")), first);
+        Instant pendingAt = first.plusSeconds(1);
+        allocator.reconcile(List.of(candidate("A00003", "95"), candidate("A00001", "90")), pendingAt);
+
+        // 60초 이내: 대기 유지, 새 교체 없음
+        var waiting = allocator.reconcile(List.of(candidate("A00004", "99"), candidate("A00001", "90")),
+                pendingAt.plusSeconds(60));
+        assertThat(waiting.allocations()).filteredOn(PrecisionSubscriptionAllocator.AllocationView::awaitingAcknowledgement)
+                .extracting(PrecisionSubscriptionAllocator.AllocationView::stockCode).containsExactly("A00003");
+        assertThat(registry.all()).doesNotContain("A00004");
+
+        // 60초 초과: A00003 정리, A00002 유지, A00004로 새 교체 시작
+        Instant expiredAt = pendingAt.plusSeconds(61);
+        var expired = allocator.reconcile(List.of(candidate("A00004", "99"), candidate("A00001", "90")), expiredAt);
+
+        assertThat(registry.all()).contains("A00001", "A00002", "A00004").doesNotContain("A00003");
+        assertThat(expired.allocations()).extracting(PrecisionSubscriptionAllocator.AllocationView::stockCode)
+                .doesNotContain("A00003");
+        assertThat(expired.allocations()).filteredOn(PrecisionSubscriptionAllocator.AllocationView::awaitingAcknowledgement)
+                .extracting(PrecisionSubscriptionAllocator.AllocationView::stockCode).containsExactly("A00004");
+        org.mockito.Mockito.verify(history).rejected("A00003", expiredAt, "ACK_TIMEOUT");
+    }
+
+    /**
      * 고정 시각(14:50, 서울) 이후에는 처음 들어온 후보도 새로 추가하지 않는지 확인해요.
      * 준비: 14:50(UTC 05:50)에 후보 하나를 배분해요.
      * 기대: 상태 FROZEN, 활성 0, 구독 없음이에요.

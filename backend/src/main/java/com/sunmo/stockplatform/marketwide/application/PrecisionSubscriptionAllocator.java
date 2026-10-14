@@ -23,13 +23,15 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class PrecisionSubscriptionAllocator {
     private static final ZoneId MARKET_ZONE = ZoneId.of("Asia/Seoul");
+    // 교체용 새 구독의 KIS 확인(ack)을 기다리는 최대 시간이에요. 넘으면 실패로 보고 새 구독을 거둬요.
+    static final Duration REPLACEMENT_ACK_TIMEOUT = Duration.ofSeconds(60);
     private final RealtimeSubscriptionRegistry registry;
     private final PrecisionSubscriptionProperties properties;
     private final PrecisionSubscriptionHistory history;
     // 종목코드 → 현재 정밀 배정 정보(점수, 배정 시각, 마지막으로 후보에 보인 시각).
     private final Map<String, Allocation> allocations = new ConcurrentHashMap<>();
-    // 새 종목코드 → 교체될 옛 종목코드. 새 구독이 KIS 확인(ack)을 받으면 옛 종목을 빼요.
-    private final Map<String, String> pendingReplacements = new ConcurrentHashMap<>();
+    // 새 종목코드 → (교체될 옛 종목코드, 대기 시작 시각). 새 구독이 KIS 확인(ack)을 받으면 옛 종목을 빼요.
+    private final Map<String, PendingReplacement> pendingReplacements = new ConcurrentHashMap<>();
 
     /**
      * 하는 일: 실시간 구독 등록부, 정밀 구독 설정, 구독 이력 기록기를 받아 둬요.
@@ -89,6 +91,8 @@ public class PrecisionSubscriptionAllocator {
         candidates.forEach((code, candidate) -> allocations.compute(code, (ignored, current) ->
                 current == null ? null : current.withScore(candidate.score(), now)));
 
+        // 확인 응답이 너무 오래 오지 않은 교체는 실패로 정리해요(동결 여부와 상관없이).
+        expirePendingReplacements(now);
         // 처리: 자리 수가 줄었으면 동결 여부와 상관없이 약한 배정부터 빼요.
         int capacity = capacity();
         trimExcess(capacity, now);
@@ -121,8 +125,8 @@ public class PrecisionSubscriptionAllocator {
      * 돌려주는 것: 없음.
      */
     private void replace(Collection<Candidate> candidates, int capacity, Instant now) {
-        // ⚠️ 확인 필요: 교체 대기 중인 구독의 확인 응답(ack)이 끝내 오지 않으면 pendingReplacements가 비지 않아,
-        // 이후 교체가 계속 막히는 것으로 보여요(대기 항목을 시간 초과로 정리하는 곳이 보이지 않아요).
+        // 교체는 한 번에 한 건만 진행해요. 확인 응답이 끝내 오지 않는 대기 건은 reconcile 앞부분의
+        // expirePendingReplacements가 60초 뒤 실패로 정리하므로, 대기가 영원히 교체를 막지는 않아요.
         if (capacity == 0 || precisionCount() < capacity || frozen(now) || !pendingReplacements.isEmpty())
             return;
         Allocation weakest = removable(now).orElse(null);
@@ -155,7 +159,7 @@ public class PrecisionSubscriptionAllocator {
             if (alreadySubscribed) {
                 remove(replaceCode);
             } else {
-                pendingReplacements.put(candidate.stockCode(), replaceCode);
+                pendingReplacements.put(candidate.stockCode(), new PendingReplacement(replaceCode, now));
             }
         } catch (IllegalStateException ignored) {
             allocations.remove(candidate.stockCode());
@@ -168,7 +172,9 @@ public class PrecisionSubscriptionAllocator {
      * 돌려주는 것: 없음. 뺄 수 있는 배정이 없으면(최소 유지 시간 전 등) 초과 상태로 멈춰요.
      */
     private void trimExcess(int capacity, Instant now) {
-        while (precisionCount() > capacity) {
+        // 교체 대기 중인 새 구독은 확인 응답 뒤 옛 종목이 빠지면서 자리가 맞춰지므로, 그만큼은 초과로 보지 않아요.
+        // (이걸 빼지 않으면 응답을 기다리는 사이 다음 reconcile이 상관없는 다른 배정을 잘라 버려요.)
+        while (precisionCount() - pendingReplacements.size() > capacity) {
             Allocation weakest = removable(now).orElse(null);
             if (weakest == null)
                 return;
@@ -185,7 +191,8 @@ public class PrecisionSubscriptionAllocator {
     private Optional<Allocation> removable(Instant now) {
         return allocations.values().stream()
                 .filter(allocation -> !pendingReplacements.containsKey(allocation.stockCode()))
-                .filter(allocation -> !pendingReplacements.containsValue(allocation.stockCode()))
+                .filter(allocation -> pendingReplacements.values().stream()
+                        .noneMatch(pending -> pending.oldCode().equals(allocation.stockCode())))
                 .filter(allocation -> Duration.between(allocation.addedAt(), now).compareTo(properties.minHold()) >= 0)
                 .min(Comparator.comparing(Allocation::score).thenComparing(Allocation::addedAt));
     }
@@ -199,7 +206,8 @@ public class PrecisionSubscriptionAllocator {
     private synchronized void acknowledged(RealtimeSubscriptionRegistry.Acknowledgement acknowledgement) {
         if (!acknowledgement.subscribing())
             return;
-        String oldCode = pendingReplacements.remove(acknowledgement.stockCode());
+        PendingReplacement pending = pendingReplacements.remove(acknowledgement.stockCode());
+        String oldCode = pending == null ? null : pending.oldCode();
         if (acknowledgement.success()) {
             recordHistory(() -> history.activated(acknowledgement.stockCode(), Instant.now()));
             if (oldCode != null)
@@ -210,6 +218,26 @@ public class PrecisionSubscriptionAllocator {
         recordHistory(() -> history.rejected(acknowledgement.stockCode(), Instant.now(), acknowledgement.message()));
         registry.remove(acknowledgement.stockCode(), RealtimeSubscriptionRegistry.Source.PRECISION);
         allocations.remove(acknowledgement.stockCode());
+    }
+
+    /**
+     * 하는 일: 교체 대기가 REPLACEMENT_ACK_TIMEOUT(60초)을 넘었는데 확인 응답이 없으면 실패로 정리해요.
+     * 새 종목의 정밀 출처를 빼고(해지) 배정을 지우며, 옛 종목은 그대로 두고, 이력은 ACK_TIMEOUT 거절로 남겨요.
+     * 받는 것: 기준 시각.
+     * 돌려주는 것: 없음.
+     */
+    private void expirePendingReplacements(Instant now) {
+        List<String> expired = pendingReplacements.entrySet().stream()
+                .filter(entry -> Duration.between(entry.getValue().pendingSince(), now)
+                        .compareTo(REPLACEMENT_ACK_TIMEOUT) > 0)
+                .map(Map.Entry::getKey)
+                .toList();
+        for (String code : expired) {
+            pendingReplacements.remove(code);
+            recordHistory(() -> history.rejected(code, now, "ACK_TIMEOUT"));
+            registry.remove(code, RealtimeSubscriptionRegistry.Source.PRECISION);
+            allocations.remove(code);
+        }
     }
 
     /**
@@ -308,6 +336,10 @@ public class PrecisionSubscriptionAllocator {
      */
     public record AllocationView(String stockCode, BigDecimal score, Instant addedAt, Instant lastSeenAt,
             boolean awaitingAcknowledgement) {
+    }
+
+    /** 교체 대기 한 건이에요. 교체될 옛 종목코드와 대기를 시작한 시각을 담아요. */
+    private record PendingReplacement(String oldCode, Instant pendingSince) {
     }
 
     /**
