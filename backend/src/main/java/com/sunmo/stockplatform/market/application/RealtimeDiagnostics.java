@@ -142,9 +142,14 @@ public class RealtimeDiagnostics {
         lastPingAt = Instant.now();
     }
 
+    /**
+     * A repeated registry add or a send racing the connect callback can queue a code that KIS already acknowledged.
+     * While connected that must not hide the subscription; a real disconnect resets every code anyway.
+     */
     public void queued(String stockCode) {
-        subscriptions.put(stockCode,
-                new SubscriptionStatus(stockCode, SubscriptionState.QUEUED, "waiting for connection", Instant.now()));
+        subscriptions.compute(stockCode, (code, current) -> connected && current != null
+                && current.state() == SubscriptionState.SUBSCRIBED ? current
+                : new SubscriptionStatus(code, SubscriptionState.QUEUED, "waiting for connection", Instant.now()));
     }
 
     public void subscriptionRequested(String stockCode) {

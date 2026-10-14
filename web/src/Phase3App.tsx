@@ -7,6 +7,68 @@ import './phase3.css'
 type Stock = { stockCode: string; stockName: string; market: string }
 type Item = Stock & { id: number; groupId: number; realtimePinned: boolean; version: number }
 type Group = { id: number; name: string; version: number; items: Item[] }
+type Subscription = {
+  stockCode: string; stockName: string | null; market: string | null; sources: string[]
+  state: string | null; stateMessage: string | null; stateUpdatedAt: string | null
+  precisionScore: number | null; precisionAddedAt: string | null
+}
+type Subscriptions = {
+  limit: number; remaining: number; items?: Subscription[]
+  precisionState?: string | null; precisionCapacity?: number | null
+}
+
+const SOURCE_LABEL: Record<string, string> = {
+  PRECISION: '정밀', OVERNIGHT: '다음날 관측', WATCHLIST: '관심 고정', MANUAL: '수동', QUOTE: '화면 조회', CORE: '핵심',
+}
+const STATE_LABEL: Record<string, string> = {
+  SUBSCRIBED: '수신 중', REQUESTED: '요청 중', QUEUED: '연결 대기', FAILED: '실패',
+}
+const PRECISION_STATE_LABEL: Record<string, string> = { ACTIVE: '교체 가능', FROZEN: '고정됨', DISABLED: '꺼짐' }
+
+function time(value: string | null) {
+  return value ? new Date(value).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '-'
+}
+
+function SubscriptionPanel({ select }: { select: (stock: Stock) => void }) {
+  const data = useQuery({
+    queryKey: ['market-subscriptions'],
+    queryFn: () => api<Subscriptions>('/api/v1/market/subscriptions'),
+    refetchInterval: 30_000,
+  })
+  const items = data.data?.items ?? []
+  const count = (source: string) => items.filter(item => item.sources.includes(source)).length
+  const used = data.data ? data.data.limit - data.data.remaining : 0
+  return <section className="panel subscriptions" aria-label="실시간 구독 종목">
+    <div className="title"><span><small>KIS 실시간 체결</small><h2>실시간 구독</h2></span>
+      <b>{used}</b></div>
+    {data.isLoading && <p>불러오는 중…</p>}
+    {data.error && <div className="alert">구독 목록을 불러오지 못했습니다.</div>}
+    {data.data && <>
+      <div className="subscriptionSummary">
+        <span><small>사용 / 한도</small><b>{used} / {data.data.limit}</b></span>
+        <span><small>정밀</small><b>{count('PRECISION')}{data.data.precisionCapacity != null ? ` / ${data.data.precisionCapacity}` : ''}</b>
+          {data.data.precisionState && <em>{PRECISION_STATE_LABEL[data.data.precisionState] ?? data.data.precisionState}</em>}</span>
+        <span><small>다음날 관측</small><b>{count('OVERNIGHT')}</b></span>
+        <span><small>관심 고정 · 수동</small><b>{count('WATCHLIST')} · {count('MANUAL')}</b></span>
+      </div>
+      {items.length === 0 ? <div className="empty"><b>구독 중인 종목이 없습니다</b>
+        <p>장 시작 후 시장 전체 스캔이 정밀 구독을 채웁니다.</p></div> :
+        <table>
+          <thead><tr><th>종목</th><th>출처</th><th>상태</th><th>정밀 점수</th><th>정밀 편입</th></tr></thead>
+          <tbody>{items.map(item => <tr key={item.stockCode}>
+            <td><button onClick={() => select({ stockCode: item.stockCode, stockName: item.stockName ?? item.stockCode,
+              market: item.market ?? '' })}><b>{item.stockName ?? item.stockCode}</b><small>{item.stockCode}</small></button></td>
+            <td>{item.sources.map(source => <i key={source} className={`source ${source.toLowerCase()}`}>
+              {SOURCE_LABEL[source] ?? source}</i>)}</td>
+            <td className={`state ${(item.state ?? '').toLowerCase()}`} title={item.stateMessage ?? ''}>
+              {item.state ? STATE_LABEL[item.state] ?? item.state : '-'}</td>
+            <td>{item.precisionScore != null ? Number(item.precisionScore).toFixed(1) : '-'}</td>
+            <td>{time(item.precisionAddedAt)}</td>
+          </tr>)}</tbody>
+        </table>}
+    </>}
+  </section>
+}
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...init })
@@ -186,6 +248,7 @@ export function Phase3App() {
           </>}
         </section>
       </div>
+      <SubscriptionPanel select={setSelected} />
     </main>
     <footer>데이터는 투자 참고용이며 실제 주문 기능을 제공하지 않습니다.</footer>
   </div>

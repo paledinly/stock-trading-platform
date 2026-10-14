@@ -149,8 +149,8 @@ market:
       holidays: ${MARKET_WIDE_HOLIDAYS:}
   precision:
     enabled: ${MARKET_PRECISION_ENABLED:false}
-    max-subscriptions: ${MARKET_PRECISION_MAX:28}
-    reserve: ${MARKET_SUBSCRIPTION_RESERVE:3}
+    max-subscriptions: ${MARKET_PRECISION_MAX:41}
+    reserve: ${MARKET_SUBSCRIPTION_RESERVE:0}
     min-hold: ${MARKET_PRECISION_MIN_HOLD:15m}
     replace-margin: ${MARKET_PRECISION_REPLACE_MARGIN:10}
     freeze-at: ${MARKET_PRECISION_FREEZE_AT:14:35}

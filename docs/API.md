@@ -69,6 +69,10 @@ API 변경 시 Controller, DTO, Web client와 테스트를 함께 수정한다. 
 - `POST /api/v1/market-data/adjusted-daily/sweep`: ETF·ETN 제외 전 종목 수정주가 일봉 수집을 백그라운드로 시작한다. 시작하면 202, 이미 실행 중이거나 KIS 비활성 또는 장중 보호 시간(거래일 08:30~장 종료 15분 후)이면 409다. 본문은 현재 상태다.
 - `GET /api/v1/market-data/adjusted-daily/status`: `running`, `startedAt`/`finishedAt`(수집 실행시각), `latestSession`(수집 기준 마지막 완료 거래일), `universe`, `processed`, `upToDate`, `fullFetches`, `calls`, `savedRows`, `revisedRows`(가격이 다시 계산된 행), `failed`, `lastStockCode`, `stoppedReason`(`SESSION_GUARD` 등). 프로세스 메모리 값이며 재시작하면 초기화된다.
 
+## 실시간 구독 목록
+
+`GET /api/v1/market/subscriptions`: 기존 `stockCodes`, `sources`, `limit`, `remaining`에 더해 `items`(종목코드순: `stockCode`, `stockName`, `market`, `sources`, `state`/`stateMessage`/`stateUpdatedAt`(구독 상태 변경 시각), `precisionScore`/`precisionAddedAt`(정밀 배정 점수와 배정 시각, 정밀이 아니면 null)), `precisionState`(`ACTIVE`/`FROZEN`/`DISABLED`), `precisionCapacity`를 반환한다. 상태 시각은 호스트 시각이며 체결 원천시각이 아니다.
+
 ## 마감 파이프라인 일별 완결성
 
 `GET /api/v1/closing-recommendations/daily-health?from=YYYY-MM-DD&to=YYYY-MM-DD`: 기본 `to`는 오늘(KST), `from`은 `to` 13일 전이며 최대 366일, `from > to`는 400이다. 최신 거래일부터 반환한다. 기록이 없는 거래일(`ClosingTradingCalendar` 기준)은 `verdict=MISSING`, `reasons=["NO_HEALTH_RECORD"]`, `recorded=false`로 채운다. 휴장일·미래일과 장 종료 15분 전의 오늘은 포함하지 않는다.
