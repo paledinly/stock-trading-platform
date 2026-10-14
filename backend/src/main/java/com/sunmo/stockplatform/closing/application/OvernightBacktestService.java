@@ -36,8 +36,6 @@ import java.util.function.Predicate;
 @Transactional(readOnly = true)
 public class OvernightBacktestService {
     private static final ZoneId MARKET_ZONE = ZoneId.of("Asia/Seoul");
-    // ⚠️ 확인 필요: CUTOFF(14:30)는 이 클래스에서 쓰이지 않는 것으로 보여요(평가 시작은 properties.evaluationStart()를 써요).
-    private static final LocalTime CUTOFF = LocalTime.of(14, 30);
     private static final String TIMEFRAME = "5M";
 
     private final ScannerDetectionRepository detections;
@@ -312,7 +310,8 @@ public class OvernightBacktestService {
     /**
      * 하는 일: 후보 한 건의 진입 봉과 다음날 봉을 찾아 시가·종가·최고·최저 수익률과 목표·손절 도달 여부를 계산해요.
      * 받는 것: 추천일, 순위, 점수가 붙은 탐지, 목표·손절 수익률(%).
-     * 돌려주는 것: 평가 결과(행 + 다음날 봉). 진입 봉이나 다음날 봉이 없으면 상태만 표시한 행.
+     * 돌려주는 것: 평가 결과(행 + 다음날 봉). 진입 봉이나 다음날 봉이 없으면 상태만 표시한 행이고,
+     * 다음날 봉이 NextSessionCoverage 기준으로 빠짐없이 모이지 않았으면 NEXT_SESSION_DATA_INCOMPLETE 행(완료로 세지 않아요)이에요.
      */
     private BacktestEvaluation evaluate(LocalDate date, int rank, ScoredDetection scored, BigDecimal targetRate,
             BigDecimal stopRate) {
@@ -334,6 +333,20 @@ public class OvernightBacktestService {
                     scored.score().score(),
                     detection.getOpportunityScore(), detection.getRiskScore(), null, null, null, null, null, false, false,
                     "NEXT_SESSION_DATA_MISSING");
+            return new BacktestEvaluation(row, List.of());
+        }
+        // 다음날 성과 추적(OvernightPerformanceService)과 같은 완전성 규칙을 써요: 09:00~15:15 정규 봉이 하나씩 모두 있고
+        // 15:25 종가 봉이 거래량과 함께 있어야 해요. 세션 전체를 요구하도록 판정 시각은 그 세션의 정산 시각(마감+2분)으로 둬요.
+        LocalDate nextDate = calendar.nextTradingDay(date);
+        Instant nextClose = calendar.close(nextDate);
+        if (!NextSessionCoverage.missing(calendar.open(nextDate), nextClose, NextSessionCoverage.settledAt(nextClose),
+                nextSession).isEmpty()) {
+            OvernightBacktestRow row = new OvernightBacktestRow(date, rank, detection.getStock().getStockCode(),
+                    detection.getStock().getStockName(), detection.getStock().getMarket().name(), detection.getType().name(),
+                    detection.getDetectedAt(), detection.getDetectedPrice(), entry.getStartTime(), entry.getOpen(),
+                    scored.score().score(),
+                    detection.getOpportunityScore(), detection.getRiskScore(), nextDate, null, null, null, null, false, false,
+                    "NEXT_SESSION_DATA_INCOMPLETE");
             return new BacktestEvaluation(row, List.of());
         }
         // 진입 기준가는 진입 봉의 시가예요. 다음날 고가·저가로 최대 수익률과 최대 하락률을 구해요.
@@ -373,26 +386,36 @@ public class OvernightBacktestService {
     }
 
     /**
-     * 하는 일: 추천일 다음 거래일의 확정 5분봉을 모두 가져와요.
+     * 하는 일: 추천일 다음 거래일의 확정 5분봉을 성과 추적 서비스와 같은 기준으로 걸러 가져와요.
+     * 장 시작~마감 안에서 5분 경계에 맞고, 가격 정합(저가>0, 고가>=시가·종가, 저가<=시가·종가)인 봉만 시간순으로 남겨요.
+     * 완전성(빠진 봉) 판정은 evaluate에서 NextSessionCoverage로 해요.
      * 받는 것: 탐지, 추천일. 돌려주는 것: 다음 거래일 5분봉 목록(없으면 빈 목록).
      */
     private List<StockCandle> nextSessionCandles(ScannerDetection detection, LocalDate recommendationDate) {
-        // ⚠️ 확인 필요: NextSessionCoverage 완전성 검사와 가격 정합 검사를 하지 않아요. 봉이 일부만 있어도 COMPLETED가 되고,
-        // 마지막 봉이 15:25 종가 봉이 아니어도 그 종가를 "다음날 종가"로 써요(성과 추적 서비스와 기준이 달라요).
         LocalDate nextDate = calendar.nextTradingDay(recommendationDate);
         Instant from = calendar.open(nextDate);
-        Instant to = calendar.close(nextDate).plusSeconds(1);
-        List<StockCandle> values = candles
+        Instant close = calendar.close(nextDate);
+        return candles
                 .findByStockIdAndTimeframeAndStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(
-                        detection.getStock().getId(), TIMEFRAME, from, to)
+                        detection.getStock().getId(), TIMEFRAME, from, close.plusSeconds(1))
                 .stream()
                 .filter(StockCandle::isFinalCandle)
+                .filter(candle -> !candle.getStartTime().isBefore(from) && !candle.getStartTime().isAfter(close))
+                .filter(candle -> Duration.between(from, candle.getStartTime()).getSeconds() % 300 == 0)
+                .filter(this::validPrices)
+                .sorted(Comparator.comparing(StockCandle::getStartTime))
                 .toList();
-        if (values.isEmpty())
-            return List.of();
-        return values.stream()
-                .filter(candle -> candle.getStartTime().atZone(MARKET_ZONE).toLocalDate().equals(nextDate))
-                .toList();
+    }
+
+    /**
+     * 하는 일: 봉의 시가·고가·저가·종가가 모두 있고 서로 앞뒤가 맞는지 확인해요(성과 추적 서비스와 같은 규칙).
+     * 받는 것: 5분봉. 돌려주는 것: 정상이면 true.
+     */
+    private boolean validPrices(StockCandle candle) {
+        return candle.getOpen() != null && candle.getHigh() != null && candle.getLow() != null
+                && candle.getClose() != null && candle.getLow().signum() > 0
+                && candle.getHigh().compareTo(candle.getOpen().max(candle.getClose())) >= 0
+                && candle.getLow().compareTo(candle.getOpen().min(candle.getClose())) <= 0;
     }
 
     /**
