@@ -44,7 +44,7 @@ public class MarketWideScannerController {
     @GetMapping("/scan")
     public MarketWideDtos.BroadScanResponse scan(@RequestParam(required = false) Market market,
             @RequestParam(defaultValue = "40") @Min(1) @Max(120) int limit,
-            @RequestParam(defaultValue = "12") @Min(1) @Max(30) int candidates,
+            @RequestParam(defaultValue = "12") @Min(1) @Max(41) int candidates,
             @RequestParam(defaultValue = "false") boolean includeEtf) {
         return scans.manual(market, limit, candidates, includeEtf);
     }
