@@ -37,6 +37,9 @@ public class TrajectoryService {
     // 맥락 관측(지수·순위·수급) 대기열이에요. 최대 5000개, 넘치면 버리고 개수만 세요.
     private final ArrayBlockingQueue<Context> contexts = new ArrayBlockingQueue<>(5000);
     private final AtomicLong droppedContexts = new AtomicLong();
+    // 계산 중 예외가 나서 건너뛴 스냅샷 수와 마지막으로 건너뛴 종목·기준시각이에요(상태 API로 보여요).
+    private final AtomicLong skippedSnapshots = new AtomicLong();
+    private volatile String lastSkippedSnapshot;
     private String error;
     private final MicrostructureService microstructure;
     /**
@@ -78,38 +81,47 @@ public class TrajectoryService {
                 for (Minute row : ready) {
                     // 분 시작+60초가 스냅샷 기준시각(cutoff)이에요. 분석 구간 밖이거나 간격(기본 5분)에 안 맞으면 건너뛰어요.
                     Instant cutoff = row.start().plusSeconds(60);
-                    var local = cutoff.atZone(ClosingTradingCalendar.ZONE);
-                    if (local.toLocalTime().isBefore(policy.analysisStart()) || local.toLocalTime().isAfter(policy.analysisEnd())
-                            || Duration.between(policy.analysisStart(), local.toLocalTime()).toMinutes() % policy.snapshotMinutes() != 0) continue;
-                    var stock = stocks.findByStockCode(row.symbol()).orElse(null);
-                    if (stock == null) continue;
-                    // 당일 이전의 확정 일봉을 최대 61개 가져와요(연속성·수신시각 검사는 availableDaily에서 해요).
-                    var daily = candles.findTop61ByStockIdAndTimeframeAndStartTimeLessThanEqualAndFinalCandleTrueOrderByStartTimeDesc(
-                            stock.getId(), "1D", local.toLocalDate().atStartOfDay(ClosingTradingCalendar.ZONE).toInstant().minusSeconds(1));
-                    // Delayed finalization never fabricates historical availability.
-                    Snapshot snapshot = TrajectoryFeatures.calculate(row.symbol(), stock.getMarket().name(), cutoff, now,
-                            store.minutes(row.symbol(), calendar.open(local.toLocalDate()), cutoff),
-                            store.contexts(row.symbol(), stock.getMarket().name(), calendar.open(local.toLocalDate()), cutoff),
-                            availableDaily(daily, local.toLocalDate(), now), policy);
-                    // 미세구조 자료를 덧붙이고 계산 완료시각을 찍어요. 이미 같은 스냅샷이 있으면 저장·로그를 생략해요.
-                    if (snapshot != null) snapshot = microstructure.enrich(snapshot).completedAt(calendar.now());
-                    if (snapshot != null && store.snapshot(snapshot))
-                        org.slf4j.LoggerFactory.getLogger(getClass()).info("[ClosingCandidate] symbol={} cutoff={} mode=SHADOW price={} turnover={} execution={} vwap={} patterns={} catalyst=UNKNOWN",
-                                row.symbol(), cutoff, snapshot.price(), snapshot.turnover(), snapshot.execution(), snapshot.vwap(), snapshot.intradayPattern());
+                    // 한 종목의 스냅샷 계산·저장이 예외를 던져도 그 종목만 건너뛰고(개수·로그 기록) 나머지 종목과
+                    // 1분 집계·맥락 저장은 그대로 커밋해요. 같은 자료로 매번 실패해도 묶음 전체가 막히지 않아요.
+                    // 단, DB 자체가 트랜잭션을 깨뜨리는 SQL 오류(PostgreSQL의 aborted transaction)는 예전처럼 묶음 전체 실패로 남아요.
+                    try {
+                        var local = cutoff.atZone(ClosingTradingCalendar.ZONE);
+                        if (local.toLocalTime().isBefore(policy.analysisStart()) || local.toLocalTime().isAfter(policy.analysisEnd())
+                                || Duration.between(policy.analysisStart(), local.toLocalTime()).toMinutes() % policy.snapshotMinutes() != 0) continue;
+                        var stock = stocks.findByStockCode(row.symbol()).orElse(null);
+                        if (stock == null) continue;
+                        // 당일 이전의 확정 일봉을 최대 61개 가져와요(연속성·수신시각 검사는 availableDaily에서 해요).
+                        var daily = candles.findTop61ByStockIdAndTimeframeAndStartTimeLessThanEqualAndFinalCandleTrueOrderByStartTimeDesc(
+                                stock.getId(), "1D", local.toLocalDate().atStartOfDay(ClosingTradingCalendar.ZONE).toInstant().minusSeconds(1));
+                        // Delayed finalization never fabricates historical availability.
+                        Snapshot snapshot = TrajectoryFeatures.calculate(row.symbol(), stock.getMarket().name(), cutoff, now,
+                                store.minutes(row.symbol(), calendar.open(local.toLocalDate()), cutoff),
+                                store.contexts(row.symbol(), stock.getMarket().name(), calendar.open(local.toLocalDate()), cutoff),
+                                availableDaily(daily, local.toLocalDate(), now), policy);
+                        // 미세구조 자료를 덧붙이고 계산 완료시각을 찍어요. 이미 같은 스냅샷이 있으면 저장·로그를 생략해요.
+                        if (snapshot != null) snapshot = microstructure.enrich(snapshot).completedAt(calendar.now());
+                        if (snapshot != null && store.snapshot(snapshot))
+                            org.slf4j.LoggerFactory.getLogger(getClass()).info("[ClosingCandidate] symbol={} cutoff={} mode=SHADOW price={} turnover={} execution={} vwap={} patterns={} catalyst=UNKNOWN",
+                                    row.symbol(), cutoff, snapshot.price(), snapshot.turnover(), snapshot.execution(), snapshot.vwap(), snapshot.intradayPattern());
+                    } catch (RuntimeException failure) {
+                        skippedSnapshots.incrementAndGet();
+                        lastSkippedSnapshot = row.symbol() + "@" + cutoff;
+                        org.slf4j.LoggerFactory.getLogger(getClass()).warn("Trajectory snapshot skipped symbol={} cutoff={} ({})",
+                                row.symbol(), cutoff, failure.getClass().getSimpleName());
+                    }
                 }
             });
-            // ⚠️ 확인 필요: 한 종목의 스냅샷 계산이 예외를 던지면 이 묶음 전체가 롤백돼요. 같은 자료로 매번 실패하면
-            // 1분 집계 저장이 계속 막히고, 종목당 3분을 넘는 미저장 분은 집계기에서 버려질 수 있어요.
             aggregator.acknowledge(ready); error = null;
         } catch (RuntimeException failure) {
             batch.forEach(this::context); error = "TRAJECTORY_PERSIST_FAILED";
             org.slf4j.LoggerFactory.getLogger(getClass()).warn("Trajectory persistence failed ({})", failure.getClass().getSimpleName());
         }
     }
-    /** 하는 일: 수집 상태(켜짐, SHADOW 모드, 거부 틱 수, 버린·대기 맥락 수, 마지막 오류)를 돌려줘요. 받는 것: 없어요. 돌려주는 것: 상태 Map이에요. */
+    /** 하는 일: 수집 상태(켜짐, SHADOW 모드, 거부 틱 수, 버린·대기 맥락 수, 마지막 오류, 건너뛴 스냅샷 수·마지막 건)를 돌려줘요. 받는 것: 없어요. 돌려주는 것: 상태 Map이에요. */
     public synchronized Map<String, Object> status() {
         return fields("enabled", policy.enabled(), "mode", "SHADOW", "rejectedTicks", aggregator.rejected(),
-                "droppedContexts", droppedContexts.get(), "pendingContexts", contexts.size(), "error", error);
+                "droppedContexts", droppedContexts.get(), "pendingContexts", contexts.size(), "error", error,
+                "skippedSnapshots", skippedSnapshots.get(), "lastSkippedSnapshot", lastSkippedSnapshot);
     }
     /**
      * 하는 일: 일봉 중 availableBy 시각 전에 이미 생성·수정이 끝난 확정봉만 남기고, 직전 거래일부터 거꾸로 하루도 빠짐없이 이어지는 부분만 골라요.

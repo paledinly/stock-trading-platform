@@ -68,6 +68,37 @@ class KisMarketRankingClientTest {
         server.verify();
     }
 
+    /**
+     * 순위 이벤트 리스너가 예외를 던져도 받은 순위 결과를 그대로 돌려주는지 확인해요.
+     * 준비: 이벤트 발행기가 IllegalStateException을 던지게 해요(설정 누락 예외와 같은 타입이라 잘못 바뀌면 안 돼요).
+     * 기대: 예외 없이 1건이 돌아오고, 발행은 한 번 시도돼요.
+     */
+    @Test
+    void returnsFetchedRankingEvenWhenAListenerFails() {
+        RestClient.Builder builder = RestClient.builder().baseUrl("https://example.test");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        KisTokenManager tokens = mock(KisTokenManager.class);
+        when(tokens.getAccessToken()).thenReturn("access-token");
+        KisMarketRankingClient client = new KisMarketRankingClient(builder.build(), properties(), tokens,
+                new com.sunmo.stockplatform.kis.config.KisRequestExecutor(
+                    new com.sunmo.stockplatform.kis.config.KisRequestProperties(Duration.ZERO, Duration.ZERO, Duration.ZERO, 1)));
+        var publisher = mock(org.springframework.context.ApplicationEventPublisher.class);
+        org.mockito.Mockito.doThrow(new IllegalStateException("listener broke"))
+                .when(publisher).publishEvent(org.mockito.ArgumentMatchers.any(Object.class));
+        client.setPublisher(publisher);
+        server.expect(requestTo(startsWith("https://example.test/uapi/domestic-stock/v1/quotations/volume-rank?")))
+                .andRespond(withSuccess("""
+                        {"rt_cd":"0","msg_cd":"MCA00000","msg1":"ok",
+                         "output":[{"mksc_shrn_iscd":"005930","hts_kor_isnm":"Samsung","stck_prpr":"70000"}]}
+                        """, MediaType.APPLICATION_JSON));
+
+        var result = client.fetch(RankingType.TURNOVER, Market.KOSPI, 5);
+
+        assertThat(result).extracting(KisRankingEntry::stockCode).containsExactly("005930");
+        org.mockito.Mockito.verify(publisher).publishEvent(org.mockito.ArgumentMatchers.any(Object.class));
+        server.verify();
+    }
+
     /** 테스트용 KIS 설정을 만드는 도우미예요(가짜 키 값만 써요). */
     private KisProperties properties() {
         return new KisProperties(true, URI.create("https://example.test"), "app-key", "app-secret",

@@ -103,10 +103,17 @@ public class KisMarketRankingClient implements MarketRankingProvider {
                     break;
             }
             // 결과: 받은 순위를 이벤트로 알리고(수신시각 포함) 목록을 돌려줘요.
-            // ⚠️ 확인 필요: publishEvent는 기본적으로 같은 스레드에서 리스너를 바로 실행해요. 리스너(예: TrajectoryContextCollector)가
-            // 예외를 던지면 이미 받은 순위 결과도 버려지고 서킷 브레이커 실패로 집계될 수 있어요.
+            // publishEvent는 같은 스레드에서 리스너(예: TrajectoryContextCollector)를 바로 실행해요. 리스너가 예외를 던져도
+            // 이미 받은 순위 결과는 그대로 돌려주도록 여기서 잡아 경고 로그만 남겨요(서킷 브레이커 실패로 세지 않아요).
             var result = List.copyOf(entries);
-            if (publisher != null) publisher.publishEvent(new ObservedRanking(type, market, java.time.Instant.now(), result));
+            if (publisher != null) {
+                try {
+                    publisher.publishEvent(new ObservedRanking(type, market, java.time.Instant.now(), result));
+                } catch (RuntimeException listenerFailure) {
+                    org.slf4j.LoggerFactory.getLogger(getClass()).warn("ObservedRanking listener failed type={} ({})",
+                            type, listenerFailure.getClass().getSimpleName());
+                }
+            }
             return result;
         } catch (IllegalStateException exception) {
             throw new ApplicationException(ErrorCode.KIS_NOT_CONFIGURED, HttpStatus.SERVICE_UNAVAILABLE,
