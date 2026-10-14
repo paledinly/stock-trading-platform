@@ -10,6 +10,8 @@ import com.sunmo.stockplatform.analytics.domain.DetectionPerformance;
 import com.sunmo.stockplatform.analytics.domain.PerformanceStatus;
 import com.sunmo.stockplatform.analytics.infrastructure.DetectionPerformanceRepository;
 import com.sunmo.stockplatform.candle.infrastructure.StockCandleRepository;
+import com.sunmo.stockplatform.closing.application.ClosingTradingCalendar;
+import com.sunmo.stockplatform.market.config.MarketWideScheduleProperties;
 import com.sunmo.stockplatform.market.application.MarketEventGateway;
 import com.sunmo.stockplatform.market.application.QuoteStateStore;
 import com.sunmo.stockplatform.market.application.RealtimeDiagnostics;
@@ -38,7 +40,9 @@ class DetectionPerformanceTrackerStaleTest {
     private final RealtimeDiagnostics diagnostics = new RealtimeDiagnostics();
     private final DetectionPerformanceTracker tracker = new DetectionPerformanceTracker(repository,
             mock(StockCandleRepository.class), mock(QuoteStateStore.class), mock(MarketEventGateway.class),
-            diagnostics, mock(PlatformTransactionManager.class));
+            diagnostics, mock(PlatformTransactionManager.class),
+            new ClosingTradingCalendar(new MarketWideScheduleProperties(false, 120, 30, false, null, null, null,
+                    null, null, List.of())));
     // A future session keeps the startup recovery from finalizing the rows.
     private final LocalDate session = LocalDate.now(ZoneId.of("Asia/Seoul")).plusDays(1);
 

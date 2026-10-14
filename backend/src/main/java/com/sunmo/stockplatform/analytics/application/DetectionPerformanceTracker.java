@@ -9,6 +9,7 @@ import com.sunmo.stockplatform.analytics.domain.*;
 import com.sunmo.stockplatform.analytics.infrastructure.DetectionPerformanceRepository;
 import com.sunmo.stockplatform.candle.domain.StockCandle;
 import com.sunmo.stockplatform.candle.infrastructure.StockCandleRepository;
+import com.sunmo.stockplatform.closing.application.ClosingTradingCalendar;
 import com.sunmo.stockplatform.market.application.*;
 import com.sunmo.stockplatform.market.domain.MarketTick;
 import com.sunmo.stockplatform.scanner.domain.ScannerDetection;
@@ -40,6 +41,8 @@ public class DetectionPerformanceTracker implements ApplicationRunner {
     private final MarketEventGateway events;
     private final RealtimeDiagnostics diagnostics;
     private final TransactionTemplate transaction;
+    // 거래일 여부, 현재 시각, 정규장 시작·종료 시각은 모두 ClosingTradingCalendar 정책을 따라요.
+    private final ClosingTradingCalendar calendar;
     // 종목코드 → (감지 ID → 성과): 틱이 오면 그 종목의 추적 중인 성과만 빨리 찾기 위한 색인이에요.
     private final ConcurrentMap<String, ConcurrentMap<Long, DetectionPerformance>> byStock = new ConcurrentHashMap<>();
     // 감지 ID → 성과: 추적 중인 전체 목록이에요.
@@ -50,30 +53,31 @@ public class DetectionPerformanceTracker implements ApplicationRunner {
     /**
      * 필요한 저장소와 도구를 받아 추적기를 만들어요.
      * 받는 것: 성과 레포지토리(DB 읽기·쓰기 담당 객체), 5분봉 레포지토리, 현재가 저장소, 이벤트 발행기, 진단 기록기,
-     * 트랜잭션(여러 DB 작업을 한 묶음으로 처리하는 단위) 관리자.
+     * 트랜잭션(여러 DB 작업을 한 묶음으로 처리하는 단위) 관리자, 거래일 달력.
      * 돌려주는 것: 추적기 객체예요.
      */
     public DetectionPerformanceTracker(DetectionPerformanceRepository repository, StockCandleRepository candles,
             QuoteStateStore quotes, MarketEventGateway events, RealtimeDiagnostics diagnostics,
-            PlatformTransactionManager transactions) {
+            PlatformTransactionManager transactions, ClosingTradingCalendar calendar) {
         this.repository = repository;
         this.candles = candles;
         this.quotes = quotes;
         this.events = events;
         this.diagnostics = diagnostics;
         this.transaction = new TransactionTemplate(transactions);
+        this.calendar = calendar;
     }
 
     /**
      * 서버 시작 시 한 번 실행돼요. DB에 남은 PENDING 성과를 불러와 저장된 봉으로 복구해요.
-     * 지난 날짜이거나 오늘 마감(15:30) 1분 뒤가 지났으면 바로 확정하고, 아니면 메모리에 올려 계속 추적해요.
+     * 지난 날짜이거나 오늘 정규장 마감(달력 기준) 1분 뒤가 지났으면 바로 확정하고, 아니면 메모리에 올려 계속 추적해요.
      * 받는 것: 실행 인자(쓰지 않아요). 돌려주는 것: 없어요.
      */
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
-        LocalDate today = LocalDate.now(SEOUL);
-        Instant now = Instant.now();
+        LocalDate today = calendar.today();
+        Instant now = calendar.now();
         for (DetectionPerformance performance : repository.findWithDetectionByStatus(PerformanceStatus.PENDING)) {
             recoverFromStoredCandles(performance);
             // 세션이 이미 끝났으면 복구 마감, 진행 중이면 실시간 추적 목록에 등록해요.
@@ -147,13 +151,15 @@ public class DetectionPerformanceTracker implements ApplicationRunner {
 
     /**
      * 평일 15:31(서울)에 추적 중인 모든 성과를 마감 가격으로 확정해요.
+     * ClosingTradingCalendar가 오늘을 거래일이 아니라고 하면(평일 휴장일) 아무것도 확정하지 않고 넘어가요.
      * 충돌이 나면 DB에서 다시 읽어 확정을 한 번 더 시도해요.
      * 받는 것: 없어요. 돌려주는 것: 없어요.
-     * ⚠️ 확인 필요: 요일만 보고 실행돼서 휴장일·단축 장을 고려하지 않아요(ClosingTradingCalendar 정책과 다를 수 있어요).
      */
     @Scheduled(cron = "0 31 15 * * MON-FRI", zone = "Asia/Seoul")
     public synchronized void finalizeMarketClose() {
-        Instant now = Instant.now();
+        if (!calendar.isTradingDay(calendar.today()))
+            return;
+        Instant now = calendar.now();
         for (DetectionPerformance performance : List.copyOf(byId.values())) {
             String code = performance.getDetection().getStock().getStockCode();
             try {
@@ -172,13 +178,23 @@ public class DetectionPerformanceTracker implements ApplicationRunner {
      */
     private void finalizeAndSave(DetectionPerformance performance, String code, Instant now) {
         recoverFromStoredCandles(performance);
-        // 마감 가격은 메모리의 최신 현재가를 우선 쓰고, 없으면 저장된 마지막 5분봉 종가를 써요.
-        // ⚠️ 확인 필요: 현재가의 수신 시각을 확인하지 않아서, 오늘 체결이 없던 종목이면 오래된 가격이 마감 가격으로 들어갈 수 있어요.
-        var tick = quotes.get(code).orElse(null);
+        // 마감 가격은 메모리의 최신 현재가를 우선 쓰지만, 그 체결이 감지한 세션 날짜에 일어났고
+        // 정규장 마감 1분 뒤를 넘지 않은 경우에만 써요. 그렇지 않으면(지난 날 가격 등) 저장된 마지막 확정 5분봉 종가를 써요.
+        LocalDate sessionDate = performance.getDetection().getSessionDate();
+        var tick = quotes.get(code).filter(value -> sessionTick(value, sessionDate)).orElse(null);
         performance.finalizeClose(tick == null ? lastStoredClose(performance) : tick.price(), now);
         DetectionPerformance saved = repository.save(performance);
         unregister(saved);
         publish(saved, code);
+    }
+
+    /**
+     * 하는 일: 현재가 틱을 그 세션의 마감 가격으로 써도 되는지 봐요.
+     * 받는 것: 틱, 세션 날짜. 돌려주는 것: 체결 시각이 세션 날짜(서울)이고 정규장 마감 + 1분을 넘지 않으면 true예요.
+     */
+    private boolean sessionTick(MarketTick tick, LocalDate sessionDate) {
+        return tick.occurredAt().atZone(SEOUL).toLocalDate().equals(sessionDate)
+                && !tick.occurredAt().isAfter(sessionClose(sessionDate).plus(Duration.ofMinutes(1)));
     }
 
     /**
@@ -226,17 +242,19 @@ public class DetectionPerformanceTracker implements ApplicationRunner {
     }
 
     /**
-     * 하는 일: 감지한 날의 저장된 5분봉 중 마지막 봉의 종가를 찾아요.
-     * 받는 것: 성과. 돌려주는 것: 마지막 종가, 봉이 없으면 null이에요.
-     * ⚠️ 확인 필요: 마지막 봉이 확정봉인지 확인하지 않아요(recoverFromStoredCandles는 확정봉만 써요).
+     * 하는 일: 감지한 날의 저장된 5분봉 중 마지막 확정봉의 종가를 찾아요(recoverFromStoredCandles처럼 확정봉만 써요).
+     * 받는 것: 성과. 돌려주는 것: 마지막 확정봉 종가, 확정봉이 없으면 null이에요.
      */
     private java.math.BigDecimal lastStoredClose(DetectionPerformance performance) {
         List<StockCandle> stored = storedCandles(performance.getDetection());
-        return stored.isEmpty() ? null : stored.getLast().getClose();
+        for (int i = stored.size() - 1; i >= 0; i--)
+            if (stored.get(i).isFinalCandle())
+                return stored.get(i).getClose();
+        return null;
     }
 
     /**
-     * 하는 일: 감지한 날 09:00~15:30 사이의 저장된 5분봉을 시간순으로 불러와요.
+     * 하는 일: 감지한 날 정규장 시작~종료(달력 기준) 사이의 저장된 5분봉을 시간순으로 불러와요.
      * 받는 것: 감지. 돌려주는 것: 5분봉 목록이에요.
      */
     private List<StockCandle> storedCandles(ScannerDetection detection) {
@@ -271,17 +289,17 @@ public class DetectionPerformanceTracker implements ApplicationRunner {
                 code, "status", performance.getStatus().name()));
     }
 
-    /** 하는 일: 그 날짜의 정규장 시작 시각(서울 09:00)을 돌려줘요. */
+    /** 하는 일: 그 날짜의 정규장 시작 시각을 ClosingTradingCalendar.open에서 받아 돌려줘요. */
     private Instant sessionOpen(LocalDate date) {
-        return date.atTime(9, 0).atZone(SEOUL).toInstant();
+        return calendar.open(date);
     }
 
     /**
-     * 하는 일: 그 날짜의 정규장 마감 시각(서울 15:30)을 돌려줘요.
-     * ⚠️ 확인 필요: 15:30으로 고정돼 있어서 개장 지연·단축 장 같은 특별한 날은 반영하지 않아요.
+     * 하는 일: 그 날짜의 정규장 마감 시각을 ClosingTradingCalendar.close에서 받아 돌려줘요.
+     * 개장 지연·단축 장 같은 특별한 날은 달력 정책이 정해요.
      */
     private Instant sessionClose(LocalDate date) {
-        return date.atTime(15, 30).atZone(SEOUL).toInstant();
+        return calendar.close(date);
     }
 
     /**
