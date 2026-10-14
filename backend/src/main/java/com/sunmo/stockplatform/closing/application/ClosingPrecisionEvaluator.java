@@ -209,11 +209,11 @@ public class ClosingPrecisionEvaluator {
             firstMissing = firstMissing.minus(Duration.ofMinutes(5));
         }
         // 연속이 끊긴 자리나 최신 봉 이후에 늦게 저장된 봉이 있으면 늦은 수정으로 보고 결측 처리해요(덮어쓰지 않아요).
-        // ⚠️ 확인 필요: 앞의 수신 시각 검사와 여기서 RECEIVED_AFTER_EVALUATION이 같은 목록에 두 번 들어갈 수 있어요. 판정에는 영향이 없어 보여요.
+        // 앞의 수신 시각 검사에서 이미 RECEIVED_AFTER_EVALUATION이 들어갔으면 다시 넣지 않아요(목록에는 한 번만, 순서·판정은 그대로예요).
         Instant latestStart = latest == null ? null : latest.getStartTime();
         boolean lateRevision = unavailableAtEvaluation.contains(firstMissing)
                 || (latestStart != null && unavailableAtEvaluation.stream().anyMatch(start -> start.isAfter(latestStart)));
-        if (lateRevision) missing.add("RECEIVED_AFTER_EVALUATION");
+        if (lateRevision && !missing.contains("RECEIVED_AFTER_EVALUATION")) missing.add("RECEIVED_AFTER_EVALUATION");
         if (missingCandleTimestamp) missing.add("CANDLE_TIMESTAMP_MISSING");
         if (finalCandles < properties.minimumFinalCandles()) missing.add("CANDLE_GAP");
 
