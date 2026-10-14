@@ -16,15 +16,16 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 @Configuration
 public class BroadEnrichmentScheduling {
     /**
-     * 하는 일: 기본 스케줄러를 스레드 1개로 만들어요.
+     * 하는 일: 기본 스케줄러를 스레드 4개로 만들어요.
      * 돌려주는 것: "market-scheduled-" 이름의 스레드를 쓰는 스케줄러.
-     * ⚠️ 확인 필요: 스레드가 1개라서 이름 없는 @Scheduled 작업(봉 확정 closeExpired 1초 주기, 14:25/14:35 일봉 보완 등)이 모두 한 줄로 실행돼요.
-     * 오래 걸리는 작업이 돌면 장중 봉 확정(특히 다음 틱이 없는 15:25 봉)이 그만큼 늦어질 수 있어요.
+     * 이름 없는 @Scheduled 작업(봉 확정 closeExpired 1초 주기, 14:25/14:35 일봉 보완 등)이 이 풀을 함께 써요.
+     * 스레드를 4개로 두어 오래 걸리는 작업 하나가 장중 봉 확정(특히 다음 틱이 없는 15:25 봉)을 붙잡지 않게 해요.
+     * 같은 작업은 fixedDelay/cron 규칙상 겹쳐 돌지 않고, 봉 처리는 MarketDataService의 잠금으로 틱 처리와 한 줄로 맞춰요.
      */
     @Bean("taskScheduler")
     public ThreadPoolTaskScheduler taskScheduler() {
         var scheduler = new ThreadPoolTaskScheduler();
-        scheduler.setPoolSize(1);
+        scheduler.setPoolSize(4);
         scheduler.setThreadNamePrefix("market-scheduled-");
         return scheduler;
     }

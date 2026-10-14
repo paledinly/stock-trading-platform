@@ -16,9 +16,9 @@ import com.sunmo.stockplatform.scanner.application.ScannerEngine;
 import com.sunmo.stockplatform.analytics.application.DetectionPerformanceTracker;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * 실시간 틱 처리의 조립 라인 반장 같은 클래스예요.
@@ -39,6 +39,9 @@ public class MarketDataService {
     private final MarketFeatureEngine features;
     private final org.springframework.context.ApplicationEventPublisher publisher;
     private final org.springframework.transaction.support.TransactionTemplate transaction;
+    // 봉 집계·확정봉 저장·Scanner 평가·봉 SSE 구간을 한 번에 한 스레드만 지나가게 하는 잠금이에요.
+    // 틱 작업자 스레드(onTick)와 스케줄러 스레드(closeExpired)가 같은 잠금을 써서 Scanner가 동시에 돌지 않아요.
+    private final ReentrantLock candleLock = new ReentrantLock();
 
     /**
      * 하는 일: 틱 처리에 필요한 부품을 주입받고, 5분봉 집계기와 트랜잭션 템플릿을 직접 만들어요.
@@ -93,12 +96,16 @@ public class MarketDataService {
         } finally { diagnostics.timing("quoteSse", System.nanoTime() - sseStart); }
         // 2) 5분봉(5분 동안의 시가·고가·저가·종가·거래량 묶음) 집계.
         //    확정봉이 섞여 있을 때만 저장·평가를 한 트랜잭션으로 묶고, 진행 중 봉만 있으면 DB 없이 처리해요.
+        //    closeExpired와 같은 잠금 안에서 집계부터 처리까지 끝내, 봉 처리 순서가 섞이지 않게 해요.
+        candleLock.lock();
+        try {
         var snapshots = aggregator.accept(tick);
         if (snapshots.stream().anyMatch(CandleSnapshot::finalCandle)) {
             long dbStart = System.nanoTime();
             try { transaction.executeWithoutResult(status -> snapshots.forEach(this::handle)); }
             finally { diagnostics.timing("candleTransaction", System.nanoTime() - dbStart); }
         } else snapshots.forEach(this::handle);
+        } finally { candleLock.unlock(); }
         // 3) 탐지 성과 추적을 갱신하고, 다른 기능이 들을 수 있게 관측 이벤트를 발행해요.
         long performanceStart = System.nanoTime();
         try { performance.onTick(tick); } finally { diagnostics.timing("performanceAndSse", System.nanoTime() - performanceStart); }
@@ -111,13 +118,30 @@ public class MarketDataService {
      * 하는 일: 1초마다 돌면서 시간이 지나(봉 끝 + watermark) 더 기다릴 필요가 없는 봉을 확정해요.
      * 다음 틱이 오지 않는 종목도 봉이 닫히도록 하는 스케줄러(정해진 주기로 자동 실행되는 작업)예요.
      * 받는 것: 없음. 돌려주는 것: 없음.
-     * ⚠️ 확인 필요: 이 메서드는 스케줄러 스레드에서 handle(저장·Scanner 평가·SSE)을 부르므로,
-     * 틱 작업자 스레드의 onTick과 동시에 Scanner를 호출할 수 있어요. 집계기는 synchronized지만 handle 이후 단계는 잠금 밖이에요.
+     * 스케줄러 스레드에서 돌지만 onTick과 같은 candleLock을 잡은 뒤 flush·handle(저장·Scanner 평가·SSE)을 하므로,
+     * 틱 작업자 스레드와 동시에 Scanner를 부르지 않아요. 확정된 봉이 있으면 예전 @Transactional과 똑같이
+     * 그 묶음 전체를 한 트랜잭션으로 저장·평가하고(예외면 모두 롤백), 확정할 봉이 없으면 트랜잭션을 열지 않아요.
+     * 잠금을 먼저 잡고 트랜잭션을 여는 순서는 onTick과 같아서, DB 연결을 쥔 채 잠금을 기다리는 일이 없어요.
      */
     @Scheduled(fixedDelay = 1000)
-    @Transactional
     public void closeExpired() {
-        aggregator.flush(Instant.now()).forEach(this::handle);
+        closeExpired(Instant.now());
+    }
+
+    /**
+     * 하는 일: 기준 시각으로 기한이 지난 봉을 확정해 처리해요(시각을 받을 수 있어 테스트하기 쉬워요).
+     * 받는 것: 기준 시각. 돌려주는 것: 없음.
+     */
+    void closeExpired(Instant now) {
+        candleLock.lock();
+        try {
+            List<CandleSnapshot> closed = aggregator.flush(now);
+            if (closed.isEmpty())
+                return;
+            transaction.executeWithoutResult(status -> closed.forEach(this::handle));
+        } finally {
+            candleLock.unlock();
+        }
     }
 
     /**
