@@ -1,3 +1,8 @@
+/*
+ * 장마감 추천 계산에 필요한 일봉을 KIS REST(HTTP 주소로 데이터를 요청하는 방식)로 미리 받아 두는 서비스예요.
+ * 평일 08:10에 후보 종목 전체를, 14:25·14:35에 그날 ACTIVE 정밀 후보를 우선 준비하며, 평가일 직전 거래일까지의 일봉만 요청해요.
+ * 스케줄러가 자동으로 부르고, DailyCandleBackfillController로 수동 실행도 할 수 있어요.
+ */
 package com.sunmo.stockplatform.candle.application;
 
 import com.sunmo.stockplatform.candle.config.DailyCandleBackfillProperties;
@@ -26,6 +31,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * 추천 계산 전 일봉 장보기 담당이에요.
+ * 요리 전에 재료 목록(후보 종목)을 보고, 냉장고(DB)에 이미 충분히 있는 재료는 건너뛰고 모자란 것만 사 오는 것과 같아요.
+ * 한 번에 사 오는 양(maxStocks)과 같은 재료 재구매 간격(refreshInterval)을 제한해 KIS 호출을 아껴요.
+ */
 @Service
 public class DailyCandleBackfillService {
     private static final Logger log = LoggerFactory.getLogger(DailyCandleBackfillService.class);
@@ -40,6 +50,9 @@ public class DailyCandleBackfillService {
     private final DailyCandlePersistence persistence;
     private final Map<String, Instant> lastAttempt = new ConcurrentHashMap<>();
 
+    /**
+     * 하는 일: 설정, KIS 설정, 거래일 달력, 탐지·관심종목·종목·정밀 세션 레포지토리, KIS 일봉 클라이언트, 일봉 저장기를 주입받아요(의존성 주입).
+     */
     public DailyCandleBackfillService(DailyCandleBackfillProperties settings, KisProperties kis,
             ClosingTradingCalendar calendar, ScannerDetectionRepository detections,
             WatchlistItemRepository watchlist, StockRepository stocks, KisDailyCandleClient client,
@@ -55,6 +68,10 @@ public class DailyCandleBackfillService {
         this.persistence = persistence;
     }
 
+    /**
+     * 하는 일: 평일 14:25·14:35에 그날 ACTIVE 정밀 후보의 일봉을 보완해요. 실패해도 로그만 남겨요.
+     * 받는 것·돌려주는 것: 없음(스케줄러가 호출해요).
+     */
     @Scheduled(cron = "${closing.daily-backfill.precision-cron:0 25,35 14 * * MON-FRI}", zone = "Asia/Seoul")
     public void scheduledPreparePrecision() {
         if (!settings.enabled() || !kis.enabled()) return;
@@ -68,6 +85,10 @@ public class DailyCandleBackfillService {
         }
     }
 
+    /**
+     * 하는 일: 평일 08:10에 후보 종목 전체의 일봉을 준비해요. 실패해도 로그만 남겨요.
+     * 받는 것·돌려주는 것: 없음(스케줄러가 호출해요).
+     */
     @Scheduled(cron = "${closing.daily-backfill.cron:0 10 8 * * MON-FRI}", zone = "Asia/Seoul")
     public void scheduledPrepare() {
         if (!settings.enabled() || !kis.enabled()) return;
@@ -81,11 +102,19 @@ public class DailyCandleBackfillService {
         }
     }
 
+    /**
+     * 하는 일: 정밀 후보·최근 탐지·관심종목을 모은 후보 목록의 일봉을 준비해요. 동시에 두 번 돌지 않게 synchronized예요.
+     * 받는 것: 없음. 돌려주는 것: 준비 결과 요약.
+     */
     public synchronized PrepareResult prepare() {
         TargetWindow window = targetWindow();
         return prepare(window, candidates(window.target(), window.latestRequired()));
     }
 
+    /**
+     * 하는 일: 대상 날짜의 ACTIVE 정밀 후보만 골라 일봉을 준비해요.
+     * 받는 것: 없음. 돌려주는 것: 준비 결과 요약.
+     */
     public synchronized PrepareResult preparePrecision() {
         TargetWindow window = targetWindow();
         List<String> codes = precisionSessions
@@ -95,7 +124,14 @@ public class DailyCandleBackfillService {
         return prepare(window, codes);
     }
 
+    /**
+     * 하는 일: 종목 목록을 차례로 보며 일봉이 모자란 종목만 KIS에서 받아 저장해요.
+     * 받는 것: 대상 날짜 창(추천일, 필요한 마지막 일봉 날짜), 종목코드 목록.
+     * 돌려주는 것: 후보·시도·저장·준비 완료·실패·건너뜀 수가 담긴 결과.
+     * 기능이나 KIS가 꺼져 있으면 IllegalStateException을 던져요.
+     */
     private PrepareResult prepare(TargetWindow window, List<String> requestedCodes) {
+        // 준비: 기능·인증 확인, 받을 기간 계산, 종목코드 정리(공백·중복 제거)
         if (!settings.enabled() || !kis.enabled())
             throw new IllegalStateException("Daily candle preparation or KIS integration is disabled");
         kis.requireCredentials();
@@ -110,6 +146,7 @@ public class DailyCandleBackfillService {
         int ready = 0;
         int failed = 0;
         int skipped = 0;
+        // 처리: 비활성·관리·거래정지·ETF·ETN 종목은 건너뛰고, 이미 준비됐거나 최근에 시도한 종목도 건너뛰어요.
         for (String code : codes) {
             Stock stock = stocks.findByStockCodeAndActiveTrue(code).orElse(null);
             if (stock == null || stock.isManaged() || stock.isTradingHalted() || stock.isEtf() || stock.isEtn()) {
@@ -125,6 +162,7 @@ public class DailyCandleBackfillService {
             if (attempted >= settings.maxStocks()) break;
             lastAttempt.put(code, now);
             attempted++;
+            // KIS에서 받아 빠진 날짜만 저장해요. 실패하면 다음 실행에서 바로 다시 시도할 수 있게 시도 기록을 지워요.
             try {
                 saved += persistence.saveMissing(stock, from, latestRequired,
                         client.fetch(code, from, latestRequired));
@@ -138,6 +176,11 @@ public class DailyCandleBackfillService {
         return new PrepareResult(target, latestRequired, codes.size(), attempted, saved, ready, failed, skipped);
     }
 
+    /**
+     * 하는 일: 어느 추천일을 위해 일봉을 준비할지 정해요.
+     * 오늘이 거래일이고 장 마감 + 15분 전이면 오늘, 아니면 다음 거래일이 대상이에요. 필요한 마지막 일봉은 그 전 거래일이에요.
+     * 돌려주는 것: (대상 추천일, 필요한 마지막 일봉 날짜).
+     */
     private TargetWindow targetWindow() {
         LocalDate today = calendar.today();
         LocalDate target = calendar.isTradingDay(today)
@@ -146,6 +189,13 @@ public class DailyCandleBackfillService {
         return new TargetWindow(target, calendar.previousTradingDay(target));
     }
 
+    /**
+     * 하는 일: 일봉을 준비할 종목 순서를 정해요(앞쪽일수록 먼저 시도해요).
+     * 순서: ① 대상일 ACTIVE 정밀 후보 ② 대상일 최근 탐지 종목 ③ 직전 거래일 탐지 종목 일부(maxStocks의 절반)
+     * ④ 관심종목 ⑤ 나머지 직전 거래일 탐지 종목.
+     * 받는 것: 대상 추천일, 필요한 마지막 일봉 날짜. 돌려주는 것: 중복 없는 종목코드 목록.
+     * 관심종목은 사용자 ID 1번 것만 읽어요(단일 사용자 전제로 보여요).
+     */
     private List<String> candidates(LocalDate target, LocalDate latestRequired) {
         Set<String> activePrecision = precisionSessions
                 .findBySessionDateAndStatusOrderByRequestedAtAsc(target, PrecisionSubscriptionSession.Status.ACTIVE)
@@ -166,8 +216,13 @@ public class DailyCandleBackfillService {
         return new ArrayList<>(ordered);
     }
 
+    /** 준비 대상 날짜 묶음이에요. target은 추천일, latestRequired는 그 전 거래일(필요한 마지막 일봉 날짜)이에요. */
     private record TargetWindow(LocalDate target, LocalDate latestRequired) { }
 
+    /**
+     * 일봉 준비 결과 요약이에요. candidateStocks: 후보 수, attemptedStocks: KIS를 부른 종목 수, savedCandles: 새로 저장한 일봉 수,
+     * readyStocks: 준비 완료 종목 수, failedStocks: 실패 수, skippedStocks: 대상 아님·최근 시도로 건너뛴 수예요.
+     */
     public record PrepareResult(LocalDate recommendationDate, LocalDate latestRequiredDate,
             int candidateStocks, int attemptedStocks, int savedCandles, int readyStocks,
             int failedStocks, int skippedStocks) { }

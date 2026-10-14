@@ -1,3 +1,8 @@
+/*
+ * 실시간 틱(체결 한 건) 하나가 들어왔을 때 해야 할 일을 순서대로 처리하는 중심 서비스예요.
+ * Feature 계산 → 최신 시세 저장 → 시세 SSE 발행 → 5분봉 집계 → 확정봉 저장·Scanner 평가 → 성과 추적 → 관측 이벤트 발행 순으로 진행해요.
+ * KIS WebSocket 처리 작업자(kis/websocket의 RealtimeTickProcessor, KisRealtimeClient)가 틱마다 onTick을 불러요.
+ */
 package com.sunmo.stockplatform.market.application;
 
 import com.sunmo.stockplatform.candle.application.*;
@@ -15,6 +20,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.*;
 
+/**
+ * 실시간 틱 처리의 조립 라인 반장 같은 클래스예요.
+ * 공장 컨베이어처럼 틱 하나가 들어오면 각 작업대(Feature, 시세판, SSE, 봉 집계, Scanner, 성과 추적)에 차례로 넘겨요.
+ * 각 단계의 걸린 시간은 RealtimeDiagnostics에 기록해 어디서 느려지는지 볼 수 있게 해요.
+ * 일반 틱은 DB 트랜잭션(여러 DB 작업을 한 묶음으로 성공/실패시키는 단위) 없이 처리하고, 확정봉이 생길 때만 트랜잭션을 열어요.
+ */
 @Service
 public class MarketDataService {
     private final QuoteStateStore quotes;
@@ -29,6 +40,11 @@ public class MarketDataService {
     private final org.springframework.context.ApplicationEventPublisher publisher;
     private final org.springframework.transaction.support.TransactionTemplate transaction;
 
+    /**
+     * 하는 일: 틱 처리에 필요한 부품을 주입받고, 5분봉 집계기와 트랜잭션 템플릿을 직접 만들어요.
+     * 받는 것: 시세 저장소, 종목·봉 레포지토리(DB 테이블을 읽고 쓰는 창구), SSE 게이트웨이, 실시간 설정(봉 확정 watermark),
+     * Scanner, 성과 추적기, 진단, Feature 엔진, 스프링 이벤트 발행기, 트랜잭션 관리자.
+     */
     public MarketDataService(QuoteStateStore quotes, StockRepository stocks, StockCandleRepository candles,
             MarketEventGateway events, RealtimeMarketProperties properties, ScannerEngine scanner,
             DetectionPerformanceTracker performance, RealtimeDiagnostics diagnostics, MarketFeatureEngine features,
@@ -47,13 +63,23 @@ public class MarketDataService {
         this.publisher = publisher;
     }
 
+    /**
+     * 하는 일: 수신시각을 지금으로, 데이터 손실 없음으로 보고 틱을 처리해요.
+     * 받는 것: 틱. 돌려주는 것: 없음.
+     */
     public void onTick(MarketTick tick) {
         onTick(tick, Instant.now(), false);
     }
 
+    /**
+     * 하는 일: 틱 하나를 모든 처리 단계에 차례로 통과시켜요.
+     * 받는 것: 틱, 서버 수신시각, 이 틱 앞에서 연속성이 끊겼는지(dataLoss).
+     * 돌려주는 것: 이 메서드 본문 처리에 걸린 시간(나노초).
+     */
     public long onTick(MarketTick tick, Instant receivedAt, boolean dataLoss) {
         long bodyStart = System.nanoTime();
         try {
+        // 1) Feature 계산과 최신 시세 저장(Redis 포함), 브라우저용 시세 SSE 발행
         var feature = features.onTick(tick);
         long redisStart = System.nanoTime();
         try { quotes.put(tick); } finally { diagnostics.timing("redisWrite", System.nanoTime() - redisStart); }
@@ -65,12 +91,15 @@ public class MarketDataService {
                         tick.cumulativeTradingValue() == null ? "0" : tick.cumulativeTradingValue().toPlainString(),
                         "occurredAt", tick.occurredAt().toString()));
         } finally { diagnostics.timing("quoteSse", System.nanoTime() - sseStart); }
+        // 2) 5분봉(5분 동안의 시가·고가·저가·종가·거래량 묶음) 집계.
+        //    확정봉이 섞여 있을 때만 저장·평가를 한 트랜잭션으로 묶고, 진행 중 봉만 있으면 DB 없이 처리해요.
         var snapshots = aggregator.accept(tick);
         if (snapshots.stream().anyMatch(CandleSnapshot::finalCandle)) {
             long dbStart = System.nanoTime();
             try { transaction.executeWithoutResult(status -> snapshots.forEach(this::handle)); }
             finally { diagnostics.timing("candleTransaction", System.nanoTime() - dbStart); }
         } else snapshots.forEach(this::handle);
+        // 3) 탐지 성과 추적을 갱신하고, 다른 기능이 들을 수 있게 관측 이벤트를 발행해요.
         long performanceStart = System.nanoTime();
         try { performance.onTick(tick); } finally { diagnostics.timing("performanceAndSse", System.nanoTime() - performanceStart); }
         publisher.publishEvent(new ObservedMarketTick(tick, feature, receivedAt, dataLoss));
@@ -78,12 +107,24 @@ public class MarketDataService {
         } finally { diagnostics.timing("tickBody", System.nanoTime() - bodyStart); }
     }
 
+    /**
+     * 하는 일: 1초마다 돌면서 시간이 지나(봉 끝 + watermark) 더 기다릴 필요가 없는 봉을 확정해요.
+     * 다음 틱이 오지 않는 종목도 봉이 닫히도록 하는 스케줄러(정해진 주기로 자동 실행되는 작업)예요.
+     * 받는 것: 없음. 돌려주는 것: 없음.
+     * ⚠️ 확인 필요: 이 메서드는 스케줄러 스레드에서 handle(저장·Scanner 평가·SSE)을 부르므로,
+     * 틱 작업자 스레드의 onTick과 동시에 Scanner를 호출할 수 있어요. 집계기는 synchronized지만 handle 이후 단계는 잠금 밖이에요.
+     */
     @Scheduled(fixedDelay = 1000)
     @Transactional
     public void closeExpired() {
         aggregator.flush(Instant.now()).forEach(this::handle);
     }
 
+    /**
+     * 하는 일: 봉 스냅샷 하나를 처리해요. 확정봉이면 DB에 저장하고 Scanner로 평가하며, 진행 중 봉이면 Scanner에 관찰만 알려요.
+     * 끝으로 브라우저에 candle.5m.closed(확정) 또는 candle.5m.updated(진행 중) 이벤트를 보내요.
+     * 받는 것: 봉 스냅샷. 돌려주는 것: 없음.
+     */
     private void handle(CandleSnapshot snapshot) {
         long start = System.nanoTime();
         try {
@@ -95,6 +136,10 @@ public class MarketDataService {
         } finally { diagnostics.timing("candleScannerAndSse", System.nanoTime() - start); }
     }
 
+    /**
+     * 하는 일: 확정 5분봉을 stock_candle 테이블에 저장해요. 같은 시작시각의 행이 있으면 실시간 값으로 고쳐 써요.
+     * 받는 것: 확정봉 스냅샷. 돌려주는 것: 없음. 활성 종목이 아니면 저장하지 않아요.
+     */
     private void persist(CandleSnapshot c) {
         long start = System.nanoTime();
         try {
@@ -110,6 +155,10 @@ public class MarketDataService {
         } finally { diagnostics.timing("candleRepository", System.nanoTime() - start); }
     }
 
+    /**
+     * 하는 일: 봉 스냅샷을 SSE로 보낼 JSON 모양의 Map으로 바꿔요. 금액은 소수 표기가 흔들리지 않게 문자열로 넣어요.
+     * 받는 것: 봉 스냅샷. 돌려주는 것: 필드 순서가 유지되는 Map.
+     */
     private Map<String, Object> payload(CandleSnapshot c) {
         Map<String, Object> p = new LinkedHashMap<>();
         p.put("stockCode", c.stockCode());

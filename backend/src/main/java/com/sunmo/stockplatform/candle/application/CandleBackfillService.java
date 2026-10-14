@@ -1,3 +1,8 @@
+/*
+ * 오늘 빠진 5분봉을 KIS 과거 1분봉으로 받아 5분봉으로 묶어 채우는(backfill) 서비스예요.
+ * 실시간 확정봉은 절대 덮어쓰지 않고, 15:20~15:29 무체결 분봉은 버리며, 15:30 종가 체결 분봉은 15:25 봉에 합쳐요.
+ * 보충 봉은 실시간 수신을 증명하지 못하므로 출처 BACKFILL로 남아요. CandleQueryService가 오늘 차트 조회 때 불러요.
+ */
 package com.sunmo.stockplatform.candle.application;
 
 import com.sunmo.stockplatform.candle.config.CandleBackfillProperties;
@@ -15,6 +20,11 @@ import java.time.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * 빠진 5분봉 메우기 담당이에요.
+ * 찢어진 앨범 페이지를 다른 사람이 찍어 둔 사진(KIS 분봉)으로 채우는 것과 같아서, 원본(실시간 확정봉)이 있는 칸은 건드리지 않고 빈 칸만 채워요.
+ * 같은 종목은 refreshInterval(기본 1분)에 한 번만 시도해 KIS 호출이 몰리지 않게 해요.
+ */
 @Service
 public class CandleBackfillService {
     private static final Logger log = LoggerFactory.getLogger(CandleBackfillService.class);
@@ -25,6 +35,7 @@ public class CandleBackfillService {
     private final RealtimeDiagnostics diagnostics;
     private final Map<String, Instant> lastAttempt = new ConcurrentHashMap<>();
 
+    /** 하는 일: KIS 분봉 클라이언트, 봉 레포지토리, 보충 설정, 진단 기록부를 주입받아요(의존성 주입). */
     public CandleBackfillService(KisMinuteCandleClient client, StockCandleRepository repository,
             CandleBackfillProperties properties, RealtimeDiagnostics diagnostics) {
         this.client = client;
@@ -33,6 +44,11 @@ public class CandleBackfillService {
         this.diagnostics = diagnostics;
     }
 
+    /**
+     * 하는 일: 종목의 오늘 빈 5분봉 칸들을 KIS 분봉으로 채워요.
+     * 받는 것: 종목, 빈 칸 시작시각 목록, 현재 시각.
+     * 돌려주는 것: 실제로 저장한 봉 개수. 꺼져 있거나 빈 칸이 없거나 재시도 간격 안이면 0이고, 실패해도 예외 대신 0을 돌려줘요.
+     */
     @Transactional
     public int backfillToday(Stock stock, List<Instant> gaps, Instant now) {
         if (!properties.enabled() || gaps.isEmpty() || throttled(stock.getStockCode(), now))
@@ -40,8 +56,10 @@ public class CandleBackfillService {
         lastAttempt.put(stock.getStockCode(), now);
         diagnostics.backfillStarted(stock.getStockCode(), gaps.size());
         try {
+            // 1) KIS에서 빈 칸 구간을 덮는 1분봉을 받아 5분봉으로 묶어요.
             Map<Instant, MinuteCandle> minutes = fetchPages(stock.getStockCode(), gaps);
             int saved = 0;
+            // 2) 빈 칸에 해당하는 봉만 저장해요. 실시간 확정봉이 이미 있으면 건너뛰어요.
             for (FiveMinuteBackfill candle : aggregate(minutes.values())) {
                 if (!gaps.contains(candle.startTime()))
                     continue;
@@ -66,11 +84,20 @@ public class CandleBackfillService {
         }
     }
 
+    /**
+     * 하는 일: 이 종목을 최근에 시도했는지 확인해요.
+     * 받는 것: 종목코드, 현재 시각. 돌려주는 것: 마지막 시도 후 refreshInterval이 안 지났으면 true.
+     */
     private boolean throttled(String code, Instant now) {
         Instant previous = lastAttempt.get(code);
         return previous != null && now.isBefore(previous.plus(properties.refreshInterval()));
     }
 
+    /**
+     * 하는 일: 가장 늦은 빈 칸 끝에서부터 과거 방향으로 KIS 분봉 페이지를 넘기며 받아요.
+     * 가장 이른 빈 칸까지 닿거나, 빈 페이지가 오거나, 요청 한도(maxRequestsPerQuery)에 닿으면 멈춰요.
+     * 받는 것: 종목코드, 빈 칸 목록(비어 있으면 안 돼요). 돌려주는 것: 분봉 시작시각 순 Map.
+     */
     private Map<Instant, MinuteCandle> fetchPages(String code, List<Instant> gaps) {
         Instant earliest = Collections.min(gaps).minus(Duration.ofMinutes(1));
         LocalTime cursor = Collections.max(gaps).plus(Duration.ofMinutes(5)).atZone(SEOUL).toLocalTime();
@@ -88,14 +115,22 @@ public class CandleBackfillService {
         return result;
     }
 
+    /**
+     * 하는 일: 1분봉들을 5분봉으로 묶어요. 실시간 집계와 같은 규칙을 따라요.
+     * 받는 것: 1분봉 모음(순서 무관). 돌려주는 것: 시작시각 순 5분봉 목록.
+     * 거래대금은 누적 거래대금 차이를 우선 쓰고, 09:00 첫 칸은 누적값 자체, 그 밖에는 종가 × 거래량 합으로 추정해요.
+     */
     public static List<FiveMinuteBackfill> aggregate(Collection<MinuteCandle> input) {
+        // 1) 분봉을 시간순으로 정렬해 5분 칸별로 나눠요.
         List<MinuteCandle> sorted = input.stream().sorted(Comparator.comparing(MinuteCandle::startTime)).toList();
         Map<Instant, List<MinuteCandle>> buckets = new LinkedHashMap<>();
         for (MinuteCandle minute : sorted) {
             Instant bucket = CandleGapDetector.floorFiveMinutes(minute.startTime());
             // The random-end closing auction print (15:30 minute) is the session's final 5M bar, as in realtime.
+            // 15:30 분봉(랜덤엔드 종가 체결)은 실시간과 똑같이 마지막 15:25 봉에 넣어요.
             LocalTime minuteTime = minute.startTime().atZone(SEOUL).toLocalTime();
             // Closing call minutes without trades are placeholders, not prices anyone traded at.
+            // 15:20~15:29 동시호가 시간의 무체결 분봉은 실제 거래 가격이 아닌 자리 채움이라 버려요.
             if (!minuteTime.isBefore(LocalTime.of(15, 20)) && minuteTime.isBefore(LocalTime.of(15, 30))
                     && minute.volume() <= 0)
                 continue;
@@ -103,6 +138,7 @@ public class CandleBackfillService {
                 bucket = minute.startTime().atZone(SEOUL).toLocalDate().atTime(15, 25).atZone(SEOUL).toInstant();
             buckets.computeIfAbsent(bucket, ignored -> new ArrayList<>()).add(minute);
         }
+        // 2) 칸마다 시가(첫 분봉)·종가(마지막 분봉)·고가·저가·거래량·거래대금을 계산해요.
         List<FiveMinuteBackfill> result = new ArrayList<>();
         BigDecimal priorCumulative = null;
         for (var entry : buckets.entrySet()) {
@@ -127,6 +163,7 @@ public class CandleBackfillService {
         return result;
     }
 
+    /** 하는 일: 예외의 가장 안쪽 원인 메시지를 꺼내요. 메시지가 없으면 예외 클래스 이름을 돌려줘요. */
     private String rootMessage(Throwable error) {
         Throwable current = error;
         while (current.getCause() != null)
@@ -134,6 +171,7 @@ public class CandleBackfillService {
         return current.getMessage() == null ? current.getClass().getSimpleName() : current.getMessage();
     }
 
+    /** 분봉을 묶어 만든 보충용 5분봉 한 개예요. */
     public record FiveMinuteBackfill(Instant startTime, BigDecimal open, BigDecimal high, BigDecimal low,
             BigDecimal close, long volume, BigDecimal tradingValue) {
     }
