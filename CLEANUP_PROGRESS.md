@@ -24,7 +24,7 @@
 - [x] 0단계 준비
 - [x] 1단계 분석·정리 후보 보고 (2026-10-14 15:4x, 승인 대기)
 - [x] 2단계 승인 항목 정리 (승인: A 전부, B1, B2, B4)
-- [ ] 3단계 md 문서 재작성
+- [x] 3단계 md 문서 재작성 (커밋 `b82579d`)
 - [ ] 4단계 코드 주석 작성
 
 ## 1단계 정리 후보 (번호는 승인 회신용)
@@ -64,6 +64,37 @@
 
 보류(미승인): B3 DB 테이블, B5 ngrok 호스트, B6 mobile, B7 거래일 판단 중복, B8 설정 예시 보완, B9 SSE 중복 연결, B10 로컬 산출물.
 
+## 3단계 결과 (2026-10-14)
+
+커밋 `b82579d`. 코드·설정(`application.yml`, `.env.example`, Controller mapping, migration, `package.json`, `build.gradle`, scripts)과 대조해 다시 썼다. `audit/`와 ADR 본문은 건드리지 않았다. 상대 링크·앵커는 스크립트로 전부 확인했다(깨진 링크 0).
+
+| 파일 | 주요 수정 |
+| --- | --- |
+| `README.md` | 순서 재구성(목적 → 폴더 → 실행 → 기능 → 환경변수), 용어 첫 등장 시 설명, 주요 환경변수 표(코드 기본값 포함) |
+| `AGENTS.md` | 목표 전략 시각 15:00 → 15:15, 문서 소유 목록에 FEATURES·CHANGELOG·연구 문서 추가 |
+| `docs/API.md` | Controller별 전체 엔드포인트 표(메서드·경로·용도·파라미터), [운영]/[연구] 표시, SSE 이벤트 이름, generate 규칙(400/409/503), 삭제된 API 기록 |
+| `docs/ARCHITECTURE.md` | 실제 패키지 13개 표, Web 메뉴↔컴포넌트 표, 서버 측 WebSocket 없음(SSE만) |
+| `docs/DATABASE.md` | V1~V36 전체 테이블 표, 사용하지 않는 테이블(`platform_schema_version` 포함) 절 |
+| `docs/OPERATIONS.md` | "마감 추천" 절의 15:00·유예 10초 → 15:15·0초, 시작 순서에 스캔·정밀 스위치, 장중 기능 절을 과거 기록으로 축소 |
+| `docs/MARKET_DATA.md` | 재구성, 장중 입력 원장 절 제거, 관측 분봉 보충·구독 출처·정밀 교체 조건 추가 |
+| `docs/TRADING_STRATEGY.md` | Precision(탐지)만 SELECTED 가능·Broad는 WATCH까지(코드 기준), ADR-010 표본, OVERNIGHT 유지 15:31 |
+| `docs/BACKTESTING.md` | 제공 기능 표, cutoff 15:00 → 15:15, 판정 스크립트 링크 |
+| `docs/FEATURES.md` | 화면 이름을 실제 컴포넌트로, 연구 수집 4종 추가, "이 PC" 값은 2026-10-13 기록으로 표시 |
+| `docs/DEVELOPMENT.md` | `npm run lint`, Testcontainers 테스트 건너뜀 조건, Vite 프록시, `V36` |
+| `docs/ROADMAP.md` | 2단계 보류 항목(B3·B5·B6·B7·B8·B9) 추가, ADR-009/010 반영 |
+| `docs/CLOSING_TRAJECTORY.md`, `INVESTOR_FLOW.md`, `MICROSTRUCTURE.md` | 구현 당시 기록임을 표시, 15:00 기준은 과거 v8 기준이라고 명시 |
+| `docs/CHANGELOG.md` | 목록 사이 빈 줄 제거(형식만) |
+| `mobile/README.md` | 화면·API 표, `API_BASE_URL` 설정, 릴리스 manifest의 INTERNET 권한 누락 |
+
+남긴 `TODO: 확인 필요`:
+
+- `docs/BACKTESTING.md`: v9.1 공식 완료 표본 수(운영 DB 조회 필요)
+- `docs/DATABASE.md`: 운영 DB가 로컬인지 Supabase인지
+- `docs/DEVELOPMENT.md`: `vite.config.ts`의 ngrok 허용 호스트를 지금도 쓰는지
+- `docs/FEATURES.md`: "운영 PC" 열의 현재 값(2026-10-13 기록)
+
+문서와 코드가 다른 점(코드는 고치지 않음): ADR-010은 정밀 교체 고정 시각을 "14:50"으로 적었지만 코드 기본값 `MARKET_PRECISION_FREEZE_AT`은 14:35다(ADR 본문은 수정 대상이 아니라 그대로 둠).
+
 ## 다음 할 일
 
-3단계: README.md와 docs/를 코드와 대조해 다시 쓴다(CHANGELOG은 형식만). 장 마감 후 Backend 재시작 시에는 원래 폴더(`fix-sse-backpressure`)로 실행한다.
+4단계: 코드 주석 작성. 장 마감 후 Backend 재시작 시에는 원래 폴더(`fix-sse-backpressure`)로 실행한다.
