@@ -74,32 +74,6 @@ public final class MarketWideDtos {
                         Instant quotedAt,
                         String quoteSource) {
         }
-
-        public record SnapshotResponse(
-                        Long id,
-                        java.time.LocalDate sessionDate,
-                        Instant capturedAt,
-                        String stockCode,
-                        String stockName,
-                        String market,
-                        BigDecimal currentPrice,
-                        BigDecimal changeRate,
-                        Long accumulatedVolume,
-                        BigDecimal accumulatedTradingValue,
-                        BigDecimal dayOpen,
-                        BigDecimal dayHigh,
-                        BigDecimal dayLow,
-                        BigDecimal tradeStrength,
-                        BigDecimal broadScore,
-                        String rankingSources,
-                        String dataQuality,
-                        String collectionStatus,
-                        String exclusionReason,
-                        Instant quotedAt,
-                        String sourceVersion,
-                        String quoteSource) {
-        }
-
         public record CoverageResponse(
                         LocalDate sessionDate,
                         Instant calculatedAt,

@@ -1,8 +1,6 @@
 package com.sunmo.stockplatform.marketwide.api;
 
 import com.sunmo.stockplatform.marketwide.application.MarketWideScannerService;
-import com.sunmo.stockplatform.marketwide.application.BroadSnapshotQueryService;
-import com.sunmo.stockplatform.marketwide.application.PrecisionSubscriptionAllocator;
 import com.sunmo.stockplatform.marketwide.application.MarketWideScanCoordinator;
 import com.sunmo.stockplatform.marketwide.application.MarketWideDiagnostics;
 import com.sunmo.stockplatform.marketwide.application.MarketCoverageService;
@@ -15,27 +13,19 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import java.time.LocalDate;
-import java.time.ZoneId;
-import java.util.List;
-import jakarta.validation.constraints.Pattern;
 
 @Validated
 @RestController
 @RequestMapping("/api/v1/market-wide")
 public class MarketWideScannerController {
     private final MarketWideScanCoordinator scans;
-    private final BroadSnapshotQueryService snapshots;
-    private final PrecisionSubscriptionAllocator precision;
     private final MarketWideDiagnostics diagnostics;
     private final MarketCoverageService coverage;
     private final com.sunmo.stockplatform.marketwide.application.BroadEnrichmentQueue enrichment;
 
-    public MarketWideScannerController(MarketWideScanCoordinator scans, BroadSnapshotQueryService snapshots,
-            PrecisionSubscriptionAllocator precision, MarketWideDiagnostics diagnostics,
+    public MarketWideScannerController(MarketWideScanCoordinator scans, MarketWideDiagnostics diagnostics,
             MarketCoverageService coverage, com.sunmo.stockplatform.marketwide.application.BroadEnrichmentQueue enrichment) {
         this.scans = scans;
-        this.snapshots = snapshots;
-        this.precision = precision;
         this.diagnostics = diagnostics;
         this.coverage = coverage;
         this.enrichment = enrichment;
@@ -47,20 +37,6 @@ public class MarketWideScannerController {
             @RequestParam(defaultValue = "12") @Min(1) @Max(41) int candidates,
             @RequestParam(defaultValue = "false") boolean includeEtf) {
         return scans.manual(market, limit, candidates, includeEtf);
-    }
-
-    @GetMapping("/snapshots")
-    public List<MarketWideDtos.SnapshotResponse> snapshots(
-            @RequestParam(required = false) LocalDate date,
-            @RequestParam(required = false) @Pattern(regexp = "[A-Z0-9]{6,12}") String stockCode,
-            @RequestParam(defaultValue = "100") @Min(1) @Max(500) int limit) {
-        LocalDate targetDate = date == null ? LocalDate.now(ZoneId.of("Asia/Seoul")) : date;
-        return snapshots.history(targetDate, stockCode, limit);
-    }
-
-    @GetMapping("/precision")
-    public PrecisionSubscriptionAllocator.Snapshot precision() {
-        return precision.snapshot();
     }
 
     @GetMapping("/status")

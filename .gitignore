@@ -7,13 +7,9 @@ web/node_modules/
 web/dist/
 web/.npm-cache/
 web/*.tsbuildinfo
-web/vite.config.js
-web/vite.config.d.ts
 backend/.gradle-user-home/
 /backend/bin/
 /backup/
-mobile/.dart_tool/
-mobile/build/
 mobile/.flutter-plugins*
 *.log
 # Backend runner output (scripts/run-backend.ps1): logs, copied jar, pid file.
@@ -25,7 +21,6 @@ mobile/.flutter-plugins*
 .DS_Store
 Thumbs.db
 audit/**/classes/
-**/.intraday-checkpoints/
 # Local evidence exports; keep diagnosis, scripts, and derived summaries in Git.
 /audit/2026-10-08-intraday/*.tsv
 /audit/2026-10-08-intraday/input_bounds.txt

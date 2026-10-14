@@ -61,7 +61,7 @@ class ClosingRecommendationScorerTest {
         var ma = new IntradayMovingAverageFeature(true, 60, bd("105"), bd("104"), bd("102"), bd("100"),
                 bd("0.961538"), bd("2.941176"), bd("5.000000"), true, true, false, false);
 
-        var score = scorer.score(detection, ma);
+        var score = scorer.score(detection, ma, DailyMovingAverageFeature.empty(0));
 
         assertThat(score.recommendationReason()).contains("\"intradayMa\"", "\"bullishAlignment\":true",
                 "\"goldenCross\":true");

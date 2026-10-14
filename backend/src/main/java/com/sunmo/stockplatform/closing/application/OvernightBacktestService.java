@@ -253,24 +253,6 @@ public class OvernightBacktestService {
         return byDate;
     }
 
-    private Map<Long, ScannerDetection> deduplicateByStock(List<ScannerDetection> source) {
-        Map<Long, ScannerDetection> latest = new LinkedHashMap<>();
-        for (ScannerDetection detection : source) {
-            latest.putIfAbsent(detection.getStock().getId(), detection);
-        }
-        return latest;
-    }
-
-    private boolean qualifies(ScannerDetection detection, BigDecimal minOpportunity, BigDecimal maxRisk) {
-        return value(detection.getOpportunityScore()).compareTo(minOpportunity) >= 0
-                && value(detection.getRiskScore()).compareTo(maxRisk) <= 0
-                && detection.getStock().isActive()
-                && !detection.getStock().isManaged()
-                && !detection.getStock().isTradingHalted()
-                && !detection.getStock().isEtf()
-                && !detection.getStock().isEtn();
-    }
-
     private BacktestEvaluation evaluate(LocalDate date, int rank, ScoredDetection scored, BigDecimal targetRate,
             BigDecimal stopRate) {
         ScannerDetection detection = scored.detection();

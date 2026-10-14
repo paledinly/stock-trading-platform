@@ -281,11 +281,6 @@ public class ClosingRecommendationService {
     }
 
     @Transactional(readOnly = true)
-    public GenerateResponse latestEvaluation(LocalDate date) {
-        return evaluation(date, null);
-    }
-
-    @Transactional(readOnly = true)
     public GenerateResponse evaluation(LocalDate date, Long runId) {
         runDate(date, runId);
         LocalDate targetDate = date == null ? calendar.today() : date;

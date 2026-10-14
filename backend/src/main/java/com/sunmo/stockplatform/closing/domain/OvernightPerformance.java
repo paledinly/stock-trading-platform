@@ -141,12 +141,6 @@ public class OvernightPerformance {
         this.evaluatedAt = Instant.now();
     }
 
-    public void markDataMissing() {
-        this.status = OvernightPerformanceStatus.DATA_MISSING;
-        this.calculationVersion = VERSION;
-        this.evaluatedAt = Instant.now();
-    }
-
     @PrePersist
     void prePersist() {
         createdAt = Instant.now();

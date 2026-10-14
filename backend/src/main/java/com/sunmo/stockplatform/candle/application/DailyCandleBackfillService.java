@@ -95,10 +95,6 @@ public class DailyCandleBackfillService {
         return prepare(window, codes);
     }
 
-    public synchronized PrepareResult prepareCodes(List<String> stockCodes) {
-        return prepare(targetWindow(), stockCodes == null ? List.of() : stockCodes);
-    }
-
     private PrepareResult prepare(TargetWindow window, List<String> requestedCodes) {
         if (!settings.enabled() || !kis.enabled())
             throw new IllegalStateException("Daily candle preparation or KIS integration is disabled");

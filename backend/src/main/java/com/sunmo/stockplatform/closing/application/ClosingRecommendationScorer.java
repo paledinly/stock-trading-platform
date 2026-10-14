@@ -28,10 +28,6 @@ public class ClosingRecommendationScorer {
         return score(detection, IntradayMovingAverageFeature.empty(0), DailyMovingAverageFeature.empty(0));
     }
 
-    public ScoreResult score(ScannerDetection detection, IntradayMovingAverageFeature intradayMa) {
-        return score(detection, intradayMa, DailyMovingAverageFeature.empty(0));
-    }
-
     public ScoreResult score(ScannerDetection detection, IntradayMovingAverageFeature intradayMa,
             DailyMovingAverageFeature dailyMa) {
         FeatureValues feature = featureValues(detection.getFeatureSnapshot());

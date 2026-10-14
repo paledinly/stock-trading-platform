@@ -253,7 +253,7 @@ class ClosingRecommendationServiceTest {
         verify(fixture.runs).save(capture.capture());
         when(fixture.runs.findFirstByRecommendationDateOrderByIdDesc(date))
                 .thenReturn(java.util.Optional.of(capture.getValue()));
-        assertThat(fixture.service.latestEvaluation(date).evaluations()).isEqualTo(response.evaluations());
+        assertThat(fixture.service.evaluation(date, null).evaluations()).isEqualTo(response.evaluations());
         verify(fixture.recommendations).saveAll(argThat(rows -> !rows.iterator().hasNext()));
     }
 
@@ -276,8 +276,8 @@ class ClosingRecommendationServiceTest {
         when(fixture.runs.findFirstByRecommendationDateOrderByIdDesc(date))
                 .thenReturn(java.util.Optional.of(replay));
 
-        assertThat(fixture.service.latestEvaluation(date).runId()).isEqualTo(27L);
-        assertThat(fixture.service.latestEvaluation(date).executionMode()).isEqualTo("FORWARD");
+        assertThat(fixture.service.evaluation(date, null).runId()).isEqualTo(27L);
+        assertThat(fixture.service.evaluation(date, null).executionMode()).isEqualTo("FORWARD");
         verify(fixture.runs, never()).findFirstByRecommendationDateOrderByIdDesc(date);
     }
 

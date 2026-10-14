@@ -43,10 +43,6 @@ public class KisTokenManager {
         }
     }
 
-    public void invalidate() {
-        cached = null;
-    }
-
     private boolean isUsable(KisAccessToken token) {
         return token != null && !token.expiresBefore(clock.instant().plus(properties.tokenRefreshSkew()));
     }

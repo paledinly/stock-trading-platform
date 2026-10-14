@@ -55,25 +55,4 @@ public class ScannerController {
     public ScannerDtos.DetectionResponse detection(@PathVariable long id) {
         return service.detection(id);
     }
-
-    @GetMapping("/scanners/{kind}")
-    public List<ScannerDtos.DetectionResponse> snapshot(@PathVariable String kind,
-            @RequestParam(defaultValue = "20") int limit) {
-        return service.detections(type(kind), limit, true);
-    }
-
-    private ScannerType type(String kind) {
-        return switch (kind) {
-            case "volume" -> ScannerType.VOLUME;
-            case "price-rise" -> ScannerType.PRICE_RISE;
-            case "momentum" -> ScannerType.MOMENTUM;
-            case "volume-breakout" -> ScannerType.VOLUME_BREAKOUT;
-            case "turnover-breakout" -> ScannerType.TURNOVER_BREAKOUT;
-            case "high-breakout" -> ScannerType.HIGH_BREAKOUT;
-            case "vwap-breakout" -> ScannerType.VWAP_BREAKOUT;
-            case "vwap-reclaim" -> ScannerType.VWAP_RECLAIM;
-            case "pullback-rebreak" -> ScannerType.PULLBACK_REBREAK;
-            default -> throw new IllegalArgumentException("Unknown scanner");
-        };
-    }
 }
