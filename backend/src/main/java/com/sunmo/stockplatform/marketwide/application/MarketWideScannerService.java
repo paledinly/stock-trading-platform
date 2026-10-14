@@ -57,7 +57,8 @@ public class MarketWideScannerService {
 
     public BroadScanResponse scan(Market market, int limit, int candidates, boolean includeEtf) {
         int safeLimit = Math.min(Math.max(limit, 1), 120);
-        int safeCandidates = Math.min(Math.max(candidates, 1), 30);
+        // Up to the KIS realtime limit so precision can fill every free slot (ADR-010).
+        int safeCandidates = Math.min(Math.max(candidates, 1), 41);
         BroadCandidateCollector.Result collected = collector.collect(market, safeLimit, includeEtf);
         Instant scannedAt = Instant.now();
         Map<String, BroadCandidate> byCode = collected.candidates().stream()

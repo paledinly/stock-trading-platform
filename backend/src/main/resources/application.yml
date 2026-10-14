@@ -131,7 +131,7 @@ market:
       poll-interval: ${MARKET_WIDE_ENRICHMENT_POLL_INTERVAL:1s}
     collection:
       ranking-limit: ${MARKET_WIDE_RANKING_LIMIT:100}
-      detail-quote-budget: ${MARKET_WIDE_DETAIL_QUOTE_BUDGET:30}
+      detail-quote-budget: ${MARKET_WIDE_DETAIL_QUOTE_BUDGET:45}
       cache-max-age: ${MARKET_WIDE_QUOTE_CACHE_MAX_AGE:60s}
       tick-max-age: ${MARKET_WIDE_TICK_MAX_AGE:30s}
       exclude-structured-names: ${MARKET_WIDE_EXCLUDE_STRUCTURED_NAMES:true}
@@ -139,7 +139,7 @@ market:
       enabled: ${MARKET_WIDE_SCHEDULE_ENABLED:false}
       poll-interval: ${MARKET_WIDE_POLL_INTERVAL:30s}
       scan-limit: ${MARKET_WIDE_SCAN_LIMIT:120}
-      candidate-limit: ${MARKET_WIDE_CANDIDATE_LIMIT:30}
+      candidate-limit: ${MARKET_WIDE_CANDIDATE_LIMIT:41}
       include-etf: ${MARKET_WIDE_INCLUDE_ETF:false}
       open: ${MARKET_WIDE_OPEN:09:00}
       close: ${MARKET_WIDE_CLOSE:15:20}

@@ -10,7 +10,7 @@ public record MarketWideScheduleProperties(boolean enabled, int scanLimit, int c
         List<LocalDate> holidays) {
     public MarketWideScheduleProperties {
         scanLimit = scanLimit <= 0 ? 120 : Math.min(scanLimit, 120);
-        candidateLimit = candidateLimit <= 0 ? 30 : Math.min(candidateLimit, 30);
+        candidateLimit = candidateLimit <= 0 ? 41 : Math.min(candidateLimit, 41);
         open = open == null ? LocalTime.of(9, 0) : open;
         close = close == null ? LocalTime.of(15, 20) : close;
         lateStart = lateStart == null ? LocalTime.of(14, 0) : lateStart;

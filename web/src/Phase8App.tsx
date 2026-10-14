@@ -245,7 +245,7 @@ export function MarketWidePage({ back }: { back: () => void }) {
             <input
               type="number"
               min="1"
-              max="30"
+              max="41"
               value={candidates}
               onChange={(event) => setCandidates(Number(event.target.value))}
             />
