@@ -118,12 +118,12 @@ public class MarketDataService {
      * 하는 일: 1초마다 돌면서 시간이 지나(봉 끝 + watermark) 더 기다릴 필요가 없는 봉을 확정해요.
      * 다음 틱이 오지 않는 종목도 봉이 닫히도록 하는 스케줄러(정해진 주기로 자동 실행되는 작업)예요.
      * 받는 것: 없음. 돌려주는 것: 없음.
-     * 스케줄러 스레드에서 돌지만 onTick과 같은 candleLock을 잡은 뒤 flush·handle(저장·Scanner 평가·SSE)을 하므로,
+     * 봉 확정 전용 스케줄러(candleCloseScheduler) 스레드에서 돌지만 onTick과 같은 candleLock을 잡은 뒤 flush·handle(저장·Scanner 평가·SSE)을 하므로,
      * 틱 작업자 스레드와 동시에 Scanner를 부르지 않아요. 확정된 봉이 있으면 예전 @Transactional과 똑같이
      * 그 묶음 전체를 한 트랜잭션으로 저장·평가하고(예외면 모두 롤백), 확정할 봉이 없으면 트랜잭션을 열지 않아요.
      * 잠금을 먼저 잡고 트랜잭션을 여는 순서는 onTick과 같아서, DB 연결을 쥔 채 잠금을 기다리는 일이 없어요.
      */
-    @Scheduled(fixedDelay = 1000)
+    @Scheduled(fixedDelay = 1000, scheduler = "candleCloseScheduler")
     public void closeExpired() {
         closeExpired(Instant.now());
     }
