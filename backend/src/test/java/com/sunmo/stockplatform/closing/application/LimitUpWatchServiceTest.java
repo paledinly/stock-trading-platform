@@ -67,6 +67,33 @@ class LimitUpWatchServiceTest {
     }
 
     @Test
+    void addsNearLimitStocksSeenOnlyInMarketWideSnapshotsAndRecordsTheSource() throws Exception {
+        when(stocks.findByStockCode(anyString())).thenReturn(Optional.empty());
+        when(rankings.fetch(RankingType.PRICE_RISE, Market.KOSPI, 100)).thenReturn(List.of(entry("011330", "30.0")));
+        when(rankings.fetch(RankingType.PRICE_RISE, Market.KOSDAQ, 100)).thenThrow(new IllegalStateException("EGW00201"));
+        java.sql.ResultSet row = mock(java.sql.ResultSet.class);
+        when(row.getString(1)).thenReturn("010580");
+        when(row.getString(2)).thenReturn("snapshot only");
+        when(row.getBigDecimal(3)).thenReturn(new BigDecimal("5000"));
+        when(row.getBigDecimal(4)).thenReturn(new BigDecimal("29.93"));
+        when(row.getBigDecimal(5)).thenReturn(new BigDecimal("5000"));
+        when(row.getTimestamp(6)).thenReturn(java.sql.Timestamp.from(Instant.parse("2026-10-02T06:15:30Z")));
+        doAnswer(call -> {
+            ((org.springframework.jdbc.core.RowCallbackHandler) call.getArgument(1)).processRow(row);
+            return null;
+        }).when(jdbc).query(anyString(), any(org.springframework.jdbc.core.RowCallbackHandler.class), any(Object[].class));
+        Instant at = Instant.parse("2026-10-02T06:16:16Z");
+
+        var sample = service("2026-10-02T06:16:15Z", code -> book(code, at, "0")).sample("15:16");
+
+        assertThat(sample.candidates()).isEqualTo(2);
+        ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+        verify(jdbc, times(2)).update(anyString(), args.capture());
+        assertThat(args.getAllValues()).extracting(r -> r[2] + ":" + r[17] + ":" + r[18])
+                .containsExactly("011330:RANKING:KOSPI=1,KOSDAQ=ERR", "010580:BROAD_SNAPSHOT:KOSPI=1,KOSDAQ=ERR");
+    }
+
+    @Test
     void doesNothingOutsideTheWindowBetweenEvaluationAndEntryDeadline() {
         var sample = service("2026-10-02T06:20:00Z", code -> { throw new AssertionError(); }).sample("15:18");
         assertThat(sample.candidates()).isZero();

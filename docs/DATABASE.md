@@ -6,9 +6,9 @@
 - `dart_filing`: DART 공시 목록(유가·코스닥 상장사)을 접수번호 기본키로 저장한다. DART는 접수 **날짜**만 주므로 15:15 판단에 쓸 수 있는 공시는 `rcept_dt`가 판단일보다 이전인 것뿐이다. 평일 07:40과 매일 18:10에 최근 3일을 다시 읽고, 이미 있는 행은 유지한다. `DART_API_KEY`가 없으면 수집하지 않는다.
 - 두 테이블 모두 추천 점수·선정에 쓰지 않는다. ADR-010 판단 기간 동안 외부 요인 가설을 나중에 사전 등록해 검증하기 위한 기록이다.
 
-## Limit-Up Watch (V34, 연구용)
+## Limit-Up Watch (V34·V36, 연구용)
 
-`limit_up_watch`는 거래일 15:16:15와 15:18:30에 등락률 +20% 이상 종목(KIS 등락률 순위 KOSPI·KOSDAQ 각 상위 100, 표본당 최대 40종목)의 순위 값과 10단계 호가 최우선·합계 잔량을 저장한다. 상한가 근처 종목을 15:20 진입 마감 전에 실제로 살 수 있었는지 보는 [사전 등록 연구](../audit/2026-10-14-limit-up-entry/README.md)용이다. `ranking_received_at`·`book_received_at`은 수신시각, `book_source_at`은 KIS 호가 원천시각이다. 호가 조회 실패도 `error`와 함께 행으로 남긴다. 추천 전략은 이 테이블을 읽지 않는다.
+`limit_up_watch`는 거래일 15:16:15와 15:18:30에 등락률 +20% 이상 종목(KIS 등락률 순위 KOSPI·KOSDAQ 각 상위 100, 표본당 최대 40종목)의 순위 값과 10단계 호가 최우선·합계 잔량을 저장한다. 상한가 근처 종목을 15:20 진입 마감 전에 실제로 살 수 있었는지 보는 [사전 등록 연구](../audit/2026-10-14-limit-up-entry/README.md)용이다. `ranking_received_at`·`book_received_at`은 수신시각, `book_source_at`은 KIS 호가 원천시각이다. 호가 조회 실패도 `error`와 함께 행으로 남긴다. V36부터 `candidate_source`(`RANKING` 또는 최근 10분 시장 스캔 스냅샷 `BROAD_SNAPSHOT`)와 `ranking_rows`(시장별 순위 응답 건수)를 함께 저장한다. 추천 전략은 이 테이블을 읽지 않는다.
 
 ## Adjusted Daily Candle (V33)
 

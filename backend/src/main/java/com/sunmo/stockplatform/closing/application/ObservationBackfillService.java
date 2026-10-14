@@ -12,7 +12,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -24,7 +23,7 @@ import java.util.List;
  * ADR-010: every precision candidate of the previous official run is a primary sample, but only up to ten of them
  * get a realtime slot on the next session. After the closing auction, the missing 5M bars of today's session are
  * filled from KIS minute candles (source BACKFILL) before the 15:40 observation run, without using realtime slots.
- * Realtime final bars are never overwritten. Runs before the observation tracking at close + 10m.
+ * Realtime final bars are never overwritten. Invoked by ClosingRecommendationScheduler before observation tracking.
  */
 @Component
 @ConditionalOnProperty(prefix = "closing.automation", name = "enabled", havingValue = "true")
@@ -53,15 +52,20 @@ public class ObservationBackfillService {
         this.jdbc = jdbc;
     }
 
-    /** Three attempts before the observation run; the backfill service throttles each stock to one per minute. */
-    @Scheduled(cron = "${closing.observation-backfill.cron:0 33,36,39 15 * * MON-FRI}", zone = "Asia/Seoul")
-    public void scheduled() {
+    /**
+     * Called by the closing scheduler right before the close + 10m observation run, so bars are filled before they are
+     * judged. A separate cron registration left no trace on 2026-10-14, so this rides the path that is known to run.
+     * Every outcome, including a skip, is logged.
+     */
+    public Result fillTodayLogged() {
         try {
             Result result = fillToday();
-            if (result != null)
-                log.info("Observation backfill: {}", result);
+            log.info("Observation backfill: {}", result == null ? "skipped (not after close on a trading day, or no "
+                    + "previous official run)" : result);
+            return result;
         } catch (RuntimeException error) {
             log.warn("Observation backfill failed: {}", error.getMessage());
+            return null;
         }
     }
 

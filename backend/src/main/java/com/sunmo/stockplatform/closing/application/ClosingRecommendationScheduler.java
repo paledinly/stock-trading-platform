@@ -46,6 +46,12 @@ public class ClosingRecommendationScheduler {
     private final ClosingRecommendationProperties recommendationProperties;
     private final ClosingAutomationProperties automationProperties;
     private final Set<String> protectedCodes = new HashSet<>();
+    private org.springframework.beans.factory.ObjectProvider<ObservationBackfillService> observationBackfill;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setObservationBackfill(org.springframework.beans.factory.ObjectProvider<ObservationBackfillService> value) {
+        this.observationBackfill = value;
+    }
     private long lastSubscriptionBucket = Long.MIN_VALUE;
     private long lastPerformanceBucket = Long.MIN_VALUE;
     private LocalDate lastObservationDate;
@@ -127,6 +133,12 @@ public class ClosingRecommendationScheduler {
         if (today.equals(lastObservationDate) || now.isBefore(calendar.close(today).plus(OBSERVATION_DELAY)))
             return;
         lastObservationDate = today;
+        // ADR-010: fill missing next-session bars of the previous run's precision candidates before judging them.
+        ObservationBackfillService backfill = observationBackfill == null ? null : observationBackfill.getIfAvailable();
+        if (backfill != null)
+            backfill.fillTodayLogged();
+        else
+            log.warn("Observation backfill unavailable: next-session bars of unsubscribed candidates stay missing");
         Set<Long> runIds = new TreeSet<>(observationRows
                 .findRunIdsByStatusInAndExpectedSessionDateOnOrBefore(AWAITING_EVALUATION, today));
         ClosingRecommendationRun previous = officialRun(calendar.previousTradingDay(today));

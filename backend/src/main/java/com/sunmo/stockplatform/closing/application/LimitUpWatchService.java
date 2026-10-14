@@ -112,16 +112,43 @@ public class LimitUpWatchService {
             return new Sample(today, label, 0, 0, 0);
         Map<String, KisRankingEntry> candidates = new LinkedHashMap<>();
         Map<String, Instant> receivedAt = new LinkedHashMap<>();
+        Map<String, String> sources = new LinkedHashMap<>();
+        List<String> rows = new ArrayList<>();
         for (Market market : Market.values()) {
-            List<KisRankingEntry> entries = rankings.fetch(RankingType.PRICE_RISE, market, RANKING_LIMIT);
+            List<KisRankingEntry> entries;
+            try {
+                entries = rankings.fetch(RankingType.PRICE_RISE, market, RANKING_LIMIT);
+            } catch (RuntimeException failure) {
+                rows.add(market + "=ERR");
+                continue;
+            }
+            rows.add(market + "=" + entries.size());
             Instant received = calendar.now();
             for (KisRankingEntry entry : entries) {
                 if (entry.changeRate() == null || entry.changeRate().compareTo(MIN_CHANGE_RATE) < 0)
                     continue;
                 candidates.putIfAbsent(entry.stockCode(), entry);
                 receivedAt.putIfAbsent(entry.stockCode(), received);
+                sources.putIfAbsent(entry.stockCode(), "RANKING");
             }
         }
+        // The ranking alone missed a +29.93% stock on 2026-10-14; the market-wide snapshots of the last 10 minutes are a
+        // second source. Their quote time stands in for the ranking receipt time.
+        jdbc.query("""
+                select distinct on (s.stock_code) s.stock_code, s.stock_name, b.current_price, b.change_rate, b.day_high,
+                       b.quoted_at
+                  from market_broad_snapshot b join stock s on s.id = b.stock_id
+                 where b.session_date = ? and b.quoted_at >= ? and b.quoted_at <= ? and b.change_rate >= ?
+                 order by s.stock_code, b.quoted_at desc""", rs -> {
+                    String code = rs.getString(1);
+                    if (candidates.containsKey(code)) return;
+                    candidates.put(code, new KisRankingEntry(code, rs.getString(2), 0, rs.getBigDecimal(3),
+                            rs.getBigDecimal(4), null, null, null, null, rs.getBigDecimal(5), null));
+                    receivedAt.put(code, rs.getTimestamp(6).toInstant());
+                    sources.put(code, "BROAD_SNAPSHOT");
+                }, java.sql.Date.valueOf(today), Timestamp.from(now.minus(java.time.Duration.ofMinutes(10))),
+                Timestamp.from(now), MIN_CHANGE_RATE);
+        String rankingRows = String.join(",", rows);
         List<KisRankingEntry> ordered = new ArrayList<>(candidates.values());
         ordered.sort(Comparator.comparing(KisRankingEntry::changeRate).reversed());
         int recorded = 0, failures = 0;
@@ -136,28 +163,31 @@ public class LimitUpWatchService {
                 error = failure.getClass().getSimpleName() + ": " + failure.getMessage();
                 failures++;
             }
-            insert(today, label, entry, receivedAt.get(entry.stockCode()), book, error);
+            insert(today, label, entry, receivedAt.get(entry.stockCode()), book, error, sources.get(entry.stockCode()),
+                    rankingRows);
             if (book != null) recorded++;
         }
         return new Sample(today, label, ordered.size(), recorded, failures);
     }
 
-    private void insert(LocalDate day, String label, KisRankingEntry entry, Instant rankingAt, Book book, String error) {
+    private void insert(LocalDate day, String label, KisRankingEntry entry, Instant rankingAt, Book book, String error,
+            String source, String rankingRows) {
         Long stockId = stocks.findByStockCode(entry.stockCode()).map(stock -> stock.getId()).orElse(null);
         Level ask = book == null ? null : book.asks().getFirst();
         Level bid = book == null ? null : book.bids().getFirst();
         jdbc.update("""
                 insert into limit_up_watch(session_date, sample_label, stock_code, stock_id, ranking_received_at,
                     current_price, change_rate, day_high, book_source_at, book_received_at, best_ask, best_ask_qty,
-                    best_bid, best_bid_qty, total_ask_qty, total_bid_qty, error)
-                values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    best_bid, best_bid_qty, total_ask_qty, total_bid_qty, error, candidate_source, ranking_rows)
+                values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 on conflict (session_date, sample_label, stock_code) do nothing""",
                 Date.valueOf(day), label, entry.stockCode(), stockId, Timestamp.from(rankingAt), entry.currentPrice(),
                 entry.changeRate(), entry.highPrice(),
                 book == null ? null : Timestamp.from(book.sourceAt()), book == null ? null : Timestamp.from(book.receivedAt()),
                 ask == null ? null : ask.price(), ask == null ? null : ask.quantity(),
                 bid == null ? null : bid.price(), bid == null ? null : bid.quantity(),
-                book == null ? null : total(book.asks()), book == null ? null : total(book.bids()), error);
+                book == null ? null : total(book.asks()), book == null ? null : total(book.bids()), error, source,
+                rankingRows);
     }
 
     private static BigDecimal total(List<Level> levels) {
