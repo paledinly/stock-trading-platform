@@ -1,86 +1,199 @@
 # API Guide
 
-v9 마감 평가 기본 기준은 15:15이며 수신 유예는 0초다. 같은 거래일·전략의 FORWARD 수동/자동 요청은 하나의 실행을 공유한다. 다른 설정으로 중복 요청하면 409이며 과거 REPLAY는 별도 실행으로 보존한다. criteria.entryModel은 FRESH_OBSERVED_TICK_AFTER_COMPLETION이고 가상 진입은 15:20 이전 실관측만 사용한다.
+Backend REST/SSE API 목록이다. 모든 경로는 `/api/v1`로 시작하며 Controller mapping(`backend/src/main/java/**/api/*Controller.java`, `closing/trajectory/TrajectoryController.java`)이 기준이다. 정확한 응답 필드는 해당 DTO와 Web 호출 코드를 함께 확인한다.
 
-## 실시간 처리 진단
+표시: **[운영]** Web 화면이 호출하지 않고 운영자가 직접 부르는 API, **[연구]** 연구용 수집 결과 조회. 표시가 없으면 Web(또는 Mobile)이 사용한다.
 
-`GET /api/v1/market/realtime/status`의 `realtime`에 `processingQueued`, `processingDropped`, `timings`를 추가했다. 각 timing은 프로세스 시작 이후 `count`, `averageMs`, `maxMs`, `lastMs`다. 최상위 `sseClients`는 현재 SSE 연결 수, `sseSlowClientDisconnects`는 전송 큐가 넘쳐 끊은 느린 클라이언트 누적 수다. `outsideSessionTicks`/`lastOutsideSessionSourceAt`은 원천시각이 수집 창(09:00~15:31:00) 밖이라 버린 체결 수와 마지막 원천시각, `closingAuctionTicks`/`lastClosingAuctionSourceAt`은 15:30:00 이후 수락한 종가 단일가 체결 수와 마지막 원천시각이다.
+날짜 파라미터는 `YYYY-MM-DD`(KST 거래일), 시각 파라미터(`Instant`)는 ISO-8601 UTC 문자열이다.
 
-- `sourceToCallback`: 체결 원천시각부터 첫 수신 콜백까지(두 시계 차이 및 원천 초 단위 정밀도 포함).
-- `processingQueueWait`: 수신 후 파싱된 틱의 작업 큐 대기시간.
-- `tickTransaction`: 기존 필드명을 유지한 단일 틱 전체 처리시간. 일반 틱에는 DB 트랜잭션이 없으며 확정봉이 있는 경우의 커밋 비용은 포함한다.
-- `transactionBoundary`: 성공한 틱 전체 처리에서 메서드 본문을 제외한 호출 부가 비용. 현재 DB 시간 지표로 사용하지 않는다.
-- `candleTransaction`: 확정봉 저장·Scanner 평가와 커밋을 포함한 트랜잭션 시간.
-- `tickBody`, `redisWrite`, `quoteSse`, `performanceAndSse`, `candleScannerAndSse`, `candleRepository`: 본문 및 해당 처리 구간. 구간은 중첩되므로 합산하지 않는다. Repository 시간에는 커밋 시 지연 실행되는 SQL 전체가 포함되지 않는다.
+## 종목·시세
 
-큐 분리 자체가 소비자 처리량을 높였다는 보장은 없다. 큐 대기 증가 시 위 시간을 확인하고 병목 단계를 개선한다. 기존 원장·추천을 재평가하거나 지연 기준을 완화하지 않는다.
+**StockController**, **StockMasterController**, **QuoteController**, **CandleController**
 
-## Phase 3 호가·대량체결
+| 메서드 | 경로 | 용도 | 주요 파라미터 |
+| --- | --- | --- | --- |
+| GET | `/stocks/search` | 종목 검색 | `q`(필수), `limit`(1~50, 기본 20) |
+| POST | `/stocks/master/sync` | **[운영]** KIS 종목 마스터 파일로 종목 테이블 동기화 | 없음 |
+| GET | `/stocks/{stockCode}/quote` | 현재가. 실시간 구독을 추가하지 않는다(이미 구독 중이면 최신 체결 반영). | `stockCode`(영숫자 6~12자) |
+| GET | `/stocks/{stockCode}/candles` | 저장된 봉 조회 | `timeFrame`(기본 `5M`), `from`, `to`(필수, Instant) |
 
-- GET `/api/v1/closing-trajectory/microstructure/status`: 설정, 요청 오류, 관측 거절, 저장 오류 상태.
-- GET `/api/v1/closing-trajectory/microstructure/minutes?symbol=005930&date=YYYY-MM-DD`: 저장된 1분 호가 및 대량체결 관측.
-- Snapshot의 `orderbook`, `execution`에 원본 Feature와 관측 상태를 제공한다. [시간·결측 의미](MICROSTRUCTURE.md).
+## 관심종목
 
-## Phase 2 수급 관측
+**WatchlistController**
 
-- GET `/api/v1/closing-trajectory/flow/status`: 수급 설정, 수집 시도 완료시각, 오류 횟수.
-- GET `/api/v1/closing-trajectory/flow?symbol=005930&date=YYYY-MM-DD`: 저장된 수급 Context 이력.
-- 기존 Trajectory Snapshot의 `investorFlow`에 누적 수량·30분 관측 변화·시각/품질 정보를 제공한다. [상세 의미](INVESTOR_FLOW.md).
+| 메서드 | 경로 | 용도 | 주요 파라미터 |
+| --- | --- | --- | --- |
+| GET | `/watchlists` | 그룹과 항목 전체 조회 | 없음 |
+| POST | `/watchlist-groups` | 그룹 생성 | 본문 `name`, `displayOrder` |
+| PATCH | `/watchlist-groups/{id}` | 그룹 이름·순서 변경 | 본문 `name`, `displayOrder`, `version` |
+| DELETE | `/watchlist-groups/{id}` | 그룹 삭제 | 없음 |
+| POST | `/watchlists` | 항목 추가 | 본문 `groupId`, `stockCode`, `displayOrder` |
+| PATCH | `/watchlists/{id}` | 항목 이동 | 본문 `groupId`, `displayOrder`, `version` |
+| PATCH | `/watchlists/{id}/realtime` | 실시간 고정 켜기/끄기(최대 `WATCHLIST_REALTIME_MAX_PINNED`개). 목록 저장과 별개다. | 본문 `enabled`, `version` |
+| DELETE | `/watchlists/{id}` | 항목 삭제 | 없음 |
 
-## 장마감 Trajectory 연구 API
+## 실시간 상태·구독·스트림
 
-`/api/v1/closing-trajectory` 아래 GET `/status`, `/minutes?symbol=...&date=...`, `/snapshots?date=...`, `/outcomes?date=...`, POST `/outcomes/track?date=...`를 제공한다. 기존 평가의 `dataReadiness.trajectory`에도 당시 사용 가능한 Snapshot을 연결한다. [설정·응답 의미](CLOSING_TRAJECTORY.md)를 참고한다.
+**MarketStreamController**, **RealtimeStatusController**, **RealtimeSubscriptionController**
 
-## 제거된 장중 연구 API
+| 메서드 | 경로 | 용도 | 주요 파라미터 |
+| --- | --- | --- | --- |
+| GET | `/stream` | SSE 스트림 | 헤더 `Last-Event-ID`(재연결 시 replay) |
+| GET | `/market/realtime/status` | 실시간 수집 진단, Redis 상태, 구독 수, SSE 연결 수 | 없음 |
+| GET | `/market/subscriptions` | 현재 실시간 구독 목록과 출처·상태·정밀 점수 | 없음 |
+| POST | `/market/subscriptions/{stockCode}` | 수동(`MANUAL`) 구독 추가. 한도가 차면 실패한다. | `stockCode` |
+| DELETE | `/market/subscriptions/{stockCode}` | 수동 구독 해제 | `stockCode` |
 
-`/api/v1/intraday/*` endpoint와 SSE `intraday.entry-ready`는 2026-10-13 장중 추천 모듈 제거와 함께 삭제됐다([실패 분석](../audit/2026-10-13-intraday-failure-analysis/README.md)). 호출하면 404가 반환된다.
+SSE 이벤트: `quote.updated`, `candle.5m.updated`, `candle.5m.closed`, `scanner.<종류>.detected`(`volume`, `price`, `momentum`, `volume-breakout`, `turnover-breakout`, `high-breakout`, `vwap-breakout`, `vwap-reclaim`, `pullback-rebreak`), `scanner.performance.updated`. 새 이벤트가 있을 때만 전송한다.
 
-Backend의 REST/SSE endpoint는 Controller mapping이 기준이다. 이 문서는 영역과 사용 원칙만 설명하며 정확한 request/response 필드는 DTO와 Web 호출 코드를 함께 확인한다.
+### 실시간 진단 필드 (`/market/realtime/status`)
 
-## 주요 영역
+- 최상위: `realtime`(아래), `redisStatus`(`UP`/`DOWN`/`UNAVAILABLE`), `subscriptionCount`/`subscriptionLimit`/`subscriptionRemaining`, `sseClients`(현재 SSE 연결 수), `sseSlowClientDisconnects`(전송 큐가 넘쳐 끊은 느린 클라이언트 누적 수).
+- `realtime.processingQueued`, `processingDropped`: 처리 큐 대기 수와 큐 초과로 버린 틱 누적 수.
+- `realtime.outsideSessionTicks`/`lastOutsideSessionSourceAt`: 원천시각이 수집 창(09:00~15:31:00) 밖이라 버린 체결 수와 마지막 원천시각. `closingAuctionTicks`/`lastClosingAuctionSourceAt`: 15:30:00 이후 수락한 종가 단일가 체결.
+- `realtime.scannerCooldownFallbacks`/`lastScannerCooldownFallbackAt`: Redis 대신 프로세스 내부 쿨다운으로 탐지를 저장한 횟수.
+- `realtime.timings`: 단계별 `count`, `averageMs`, `maxMs`, `lastMs`, `minMs`, `negativeCount`(프로세스 시작 이후). `minMs`/`negativeCount`는 음수 원값을 보존해 호스트 시계가 원천보다 늦은지 보여 준다.
+  - `sourceToCallback`: 체결 원천시각부터 첫 수신 콜백까지(두 시계 차이와 원천 초 단위 절사 포함)
+  - `processingQueueWait`: 수신 후 파싱된 틱의 작업 큐 대기시간
+  - `tickTransaction`: 단일 틱 전체 처리시간(이름은 과거 그대로). 일반 틱에는 DB 트랜잭션이 없으며 확정봉이 있으면 커밋 비용을 포함한다.
+  - `transactionBoundary`: 틱 처리에서 메서드 본문을 뺀 호출 부가 비용. DB 시간 지표가 아니다.
+  - `candleTransaction`: 확정봉 저장·Scanner 평가·커밋을 포함한 트랜잭션 시간
+  - `tickBody`, `redisWrite`, `quoteSse`, `performanceAndSse`, `candleScannerAndSse`, `candleRepository`: 세부 구간. 구간이 겹치므로 합산하지 않는다.
+- 메모리 값이며 재시작하면 초기화된다.
 
-- 종목 검색과 현재가
-- 관심종목 그룹/항목
-- 5분봉과 과거 데이터 준비
-- 실시간 상태와 SSE 스트림
-- 스캐너 설정, 탐지, 성과
-- 시장 전체 스캔과 후보
-- 마감 추천 생성, 후보 평가, 조회
-- 익일 성과와 보유/매도 판단
-- 완료된 Forward 실행의 전체 후보 성과 관측
-- 백테스트와 전략 분석
-- 수동 거래 및 투자 기록
+### 구독 목록 필드 (`/market/subscriptions`)
+
+`stockCodes`, `sources`, `limit`, `remaining`, `items`(종목코드순: `stockCode`, `stockName`, `market`, `sources`, `state`/`stateMessage`/`stateUpdatedAt`, `precisionScore`/`precisionAddedAt`(정밀이 아니면 null)), `precisionState`(`ACTIVE`/`FROZEN`/`DISABLED`, 배정기가 없으면 null), `precisionCapacity`. 상태 시각은 호스트 시각이며 체결 원천시각이 아니다.
+
+## Scanner·성과 분석·백테스트
+
+**ScannerController**, **ScannerAnalyticsController**, **BacktestController**
+
+| 메서드 | 경로 | 용도 | 주요 파라미터 |
+| --- | --- | --- | --- |
+| GET | `/scanner-settings` | Scanner 설정 목록 | 없음 |
+| POST | `/scanner-settings` | 설정 생성(201) | 본문 `SettingRequest` |
+| PATCH | `/scanner-settings/{id}` | 설정 수정 | 본문 `SettingRequest` |
+| DELETE | `/scanner-settings/{id}` | 설정 삭제(204) | 없음 |
+| GET | `/scanner-detections` | 탐지 목록 | `type`(ScannerType), `limit`(1~100, 기본 50), `todayOnly`(기본 true) |
+| GET | `/scanner-detections/{id}` | 탐지 상세 | 없음 |
+| GET | `/scanner-detections/{id}/performance` | 탐지 이후 성과 | 없음 |
+| GET | `/scanner-analytics` | 기간별 탐지 성과 집계 | `from`, `to`(필수, Instant), `settingId`, `targetRate`(기본 3), `stopRate`(기본 -2), `minimumSampleSize`(기본 20) |
+| GET | `/backtests/stocks` | 5분봉이 저장된 백테스트 가능 종목 | 없음 |
+| GET | `/backtests/run` | 저장된 5분봉으로 Scanner 재생 | `stockCode`, `from`, `to`(필수, Instant), `settingId`, `limit`(1~200, 기본 50) |
+
+ScannerType: `VOLUME`, `PRICE_RISE`, `MOMENTUM`, `VOLUME_BREAKOUT`, `TURNOVER_BREAKOUT`, `HIGH_BREAKOUT`, `VWAP_BREAKOUT`, `VWAP_RECLAIM`, `PULLBACK_REBREAK`.
+
+## 시장 전체 스캔
+
+**MarketWideScannerController**
+
+| 메서드 | 경로 | 용도 | 주요 파라미터 |
+| --- | --- | --- | --- |
+| GET | `/market-wide/scan` | 수동 시장 전체 스캔 실행·결과 | `market`(KOSPI/KOSDAQ, 생략 시 전체), `limit`(1~120, 기본 40), `candidates`(1~41, 기본 12), `includeEtf`(기본 false) |
+| GET | `/market-wide/status` | 스캔·상세시세 보강 큐 진단 | 없음 |
+| GET | `/market-wide/coverage` | 날짜별 수집 범위 | `date` |
+
+## 마감 추천
+
+**ClosingRecommendationController**, **ClosingDailyHealthController**, **DailyCandleBackfillController** (모두 `/closing-recommendations` 아래)
+
+| 메서드 | 경로 | 용도 | 주요 파라미터 |
+| --- | --- | --- | --- |
+| POST | `/closing-recommendations/generate` | 마감 평가 실행 | `date`, `limit`(1~30, 기본 10, 최종 추천은 최대 5), `minOpportunity`(기본 35), `maxRisk`(기본 65), 헤더 `Idempotency-Key` |
+| GET | `/closing-recommendations` | 저장된 최종 추천 | `date`, `runId` |
+| GET | `/closing-recommendations/runs` | 평가 실행(run) 이력 | `date` |
+| GET | `/closing-recommendations/evaluation` | run의 전체 후보 평가 결과(없으면 204) | `date`, `runId` |
+| POST | `/closing-recommendations/performance/track` | 다음 거래일 성과 계산 | `date`, `runId`, `targetRate`(기본 3), `stopRate`(기본 -2) |
+| GET | `/closing-recommendations/performance` | 다음 거래일 성과 조회 | `date`, `runId` |
+| POST | `/closing-recommendations/decisions/evaluate` | 보유/매도 판단 계산 | `date`, `runId`, `targetRate`, `stopRate` |
+| GET | `/closing-recommendations/decisions` | 보유/매도 판단 조회 | `date`, `runId` |
+| POST | `/closing-recommendations/candidate-observations/track` | 전체 후보(선정·미선정) 관측 재계산 | `runId`(필수), `targetRate`, `stopRate` |
+| GET | `/closing-recommendations/candidate-observations` | 전체 후보 관측 조회. 공식 추천 성과와 별도 집계다. | `runId`(필수) |
+| GET | `/closing-recommendations/strategy-analytics` | 기간별 전략 분석 | `from`, `to` |
+| GET | `/closing-recommendations/account-performance` | 계좌 성과. 현재 항상 "사용 불가" 응답을 돌려준다. | 없음 |
+| GET | `/closing-recommendations/daily-health` | 마감 파이프라인 일별 완결성 | `from`, `to` |
+| POST | `/closing-recommendations/daily-data/prepare` | 후보용 일봉 준비 실행 | 없음 |
+| GET | `/closing-recommendations/backtest` | **[운영]** 저장 데이터로 마감 전략 재생 | `from`, `to`, `limit`, `minOpportunity`, `maxRisk`, `targetRate`, `stopRate` |
+| GET | `/closing-recommendations/trading-calendar` | **[운영]** 거래일 달력 상태(KIS 갱신 결과) | 없음 |
+
+`generate` 규칙:
+
+- 오늘 날짜는 입력 마감(15:15 + 유예) 전에 실행할 수 없다(400). 미래 날짜도 400이다.
+- 오늘이 거래일이고 진입 마감(15:20) 전이면 FORWARD, 그 밖은 REPLAY다. FORWARD는 실시간 마지막 틱이 `MARKET_REALTIME_STALE_TIMEOUT`보다 오래되면 503이다.
+- FORWARD 요청 키는 `official-<날짜>-<전략버전>`으로 고정되어 자동·수동 요청이 하나의 실행을 공유한다. 같은 키에 다른 설정이면 409, 같은 설정이면 저장된 결과를 돌려준다. REPLAY는 `Idempotency-Key`(없으면 무작위 키)로 별도 실행된다.
+- run 설정(criteria)에 `entryModel=FRESH_OBSERVED_TICK_AFTER_COMPLETION`, `inputAvailability=EXCLUDE_UNAVAILABLE_AT_RECEIPT_DEADLINE`이 기록된다.
+
+`daily-health` 규칙: 기본 `to`는 오늘(KST), `from`은 `to`의 13일 전이며 최대 366일, `from > to`는 400이다. 최신 거래일부터 반환한다. 기록이 없는 거래일(`ClosingTradingCalendar` 기준)은 `verdict=MISSING`, `reasons=["NO_HEALTH_RECORD"]`, `recorded=false`로 채운다. 휴장일·미래일과 장 종료 15분 전의 오늘은 포함하지 않는다. 주요 필드:
+
+- `verdict`(`COMPLETE`/`DEGRADED`/`MISSING`), `reasons`(판정 사유 코드)
+- `runId`, `runCompletedAt`: 현재 전략 버전의 공식 FORWARD 평가와 평가 완료시각(체결·원천시각 아님)
+- `selectedCount`, `selectedEntered`: 최종 추천 수와 그중 `ENTERED` 가상 진입 수
+- `paperEntryStatuses`: 해당 run 전체 후보의 `closing_paper_entry` 상태별 수
+- `observationStatuses`: 당일이 관측 세션인 FORWARD 후보 관측의 상태별 수
+- `realtimeConnected`, `realtimeDroppedDelta`, `realtimeWindowStart/End`: 15:15 직전~15:20 이후 호스트 표본 사이 연결 유지 여부와 `processingDropped` 증가량. 미관측이면 null
+- `checkedAt`: 판정 기록시각
+
+판정 기준은 [운영 가이드](OPERATIONS.md#마감-파이프라인-일별-완결성)를 따른다.
+
+## 수정주가 일봉 (연구)
+
+**AdjustedDailySweepController**
+
+| 메서드 | 경로 | 용도 | 주요 파라미터 |
+| --- | --- | --- | --- |
+| POST | `/market-data/adjusted-daily/sweep` | **[운영·연구]** ETF·ETN 제외 전 종목 수정주가 일봉 수집을 백그라운드로 시작. 시작하면 202, 이미 실행 중이거나 KIS 비활성 또는 보호 시간(거래일 08:30~장 종료 15분 후)이면 409. 본문은 현재 상태. | 없음 |
+| GET | `/market-data/adjusted-daily/status` | **[운영·연구]** 진행 상태 | 없음 |
+
+상태 필드: `running`, `startedAt`/`finishedAt`, `latestSession`(수집 기준 마지막 완료 거래일), `universe`, `processed`, `upToDate`, `fullFetches`, `calls`, `savedRows`, `revisedRows`(가격이 다시 계산된 행), `failed`, `lastStockCode`, `stoppedReason`(`SESSION_GUARD` 등). 메모리 값이며 재시작하면 초기화된다.
+
+## 장마감 Trajectory (연구)
+
+**TrajectoryController** (`/closing-trajectory` 아래, 모두 **[연구]**)
+
+| 메서드 | 경로 | 용도 | 주요 파라미터 |
+| --- | --- | --- | --- |
+| GET | `/closing-trajectory/status` | Trajectory 수집 상태 | 없음 |
+| GET | `/closing-trajectory/minutes` | 저장된 1분 Aggregate | `symbol`, `date` |
+| GET | `/closing-trajectory/snapshots` | 날짜별 Snapshot(`investorFlow`, `orderbook`, `execution` 포함) | `date` |
+| GET | `/closing-trajectory/outcomes` | 오전 결과 라벨 | `date` |
+| POST | `/closing-trajectory/outcomes/track` | 오전 결과 재계산 | `date` |
+| GET | `/closing-trajectory/flow/status` | 수급 수집 상태 | 없음 |
+| GET | `/closing-trajectory/flow` | 저장된 수급 Context 이력 | `symbol`, `date` |
+| GET | `/closing-trajectory/microstructure/status` | 호가·대량체결 수집 상태 | 없음 |
+| GET | `/closing-trajectory/microstructure/minutes` | 저장된 1분 호가·대량체결 | `symbol`, `date` |
+
+의미는 [장마감 Trajectory](CLOSING_TRAJECTORY.md), [투자자 수급](INVESTOR_FLOW.md), [호가·대량체결](MICROSTRUCTURE.md)을 따른다.
+
+## 투자기록
+
+**TradeController**
+
+| 메서드 | 경로 | 용도 | 주요 파라미터 |
+| --- | --- | --- | --- |
+| GET | `/trades` | 거래 기록 목록 | `limit`(1~100, 기본 50) |
+| POST | `/trades` | 거래 기록 생성(201). 실제 주문이 아니다. | 본문 `TradeRequests.Create`, 헤더 `Idempotency-Key` |
+| GET | `/trades/{id}` | 거래 기록 조회 | 없음 |
+| PATCH | `/trades/{id}` | 거래 기록 수정 | 본문 `TradeRequests.Update` |
+| DELETE | `/trades/{id}` | 거래 기록 삭제(204) | 없음 |
+| PUT | `/trades/{id}/journal` | 투자 노트 저장 | 본문 `TradeRequests.Journal` |
+
+## 기타
+
+- `GET /actuator/health`, `GET /actuator/info`: Spring Boot Actuator(상태 확인). 상세 정보는 노출하지 않는다.
+
+## 삭제된 API (과거 기록)
+
+다음 경로는 현재 없다(호출하면 404).
+
+- 2026-10-13: `/api/v1/intraday/*`와 SSE `intraday.entry-ready` (장중 추천 모듈 제거)
+- 2026-10-14 정리: `GET /market-wide/snapshots`, `GET /market-wide/precision`, `GET /scanners/{kind}`(→ `/scanner-detections?type=` 사용), `GET /stocks/{code}/features/latest`, `GET /stocks/{code}`
 
 ## 원칙
 
 - 날짜와 시각의 timezone 의미를 보존한다.
 - 빈 목록과 undefined payload를 구분한다.
-- 추천 생성 API는 실제 주문 API가 아니다.
-- 점수는 확률로 표시하지 않는다.
+- 추천 생성 API는 실제 주문 API가 아니다. 점수는 확률로 표시하지 않는다.
 - 데이터 품질, 제외 사유, 실행 가정을 결과와 함께 전달한다.
 - KIS 오류 원문이나 인증정보를 응답에 노출하지 않는다.
-
-API 변경 시 Controller, DTO, Web client와 테스트를 함께 수정한다. 사용자에게 보이는 enum/영문 reason은 서버 원본을 보존하되 UI 번역 mapping으로 표시한다.
-
-관심종목 실시간 고정은 `PATCH /api/v1/watchlists/{id}/realtime`로 목록 저장과 별도로 변경한다. 전체 후보 관측은 마감 자동화 스케줄이 거래일 장 종료 10분 후 자동 계산하며, `POST /api/v1/closing-recommendations/candidate-observations/track`으로 수동 재계산할 수 있고 같은 경로의 GET 조회 API에서 확인한다. 이 결과는 공식 추천 성과와 별도 집계한다.
-
-## 수정주가 일봉 수집
-
-- `POST /api/v1/market-data/adjusted-daily/sweep`: ETF·ETN 제외 전 종목 수정주가 일봉 수집을 백그라운드로 시작한다. 시작하면 202, 이미 실행 중이거나 KIS 비활성 또는 장중 보호 시간(거래일 08:30~장 종료 15분 후)이면 409다. 본문은 현재 상태다.
-- `GET /api/v1/market-data/adjusted-daily/status`: `running`, `startedAt`/`finishedAt`(수집 실행시각), `latestSession`(수집 기준 마지막 완료 거래일), `universe`, `processed`, `upToDate`, `fullFetches`, `calls`, `savedRows`, `revisedRows`(가격이 다시 계산된 행), `failed`, `lastStockCode`, `stoppedReason`(`SESSION_GUARD` 등). 프로세스 메모리 값이며 재시작하면 초기화된다.
-
-## 실시간 구독 목록
-
-`GET /api/v1/market/subscriptions`: 기존 `stockCodes`, `sources`, `limit`, `remaining`에 더해 `items`(종목코드순: `stockCode`, `stockName`, `market`, `sources`, `state`/`stateMessage`/`stateUpdatedAt`(구독 상태 변경 시각), `precisionScore`/`precisionAddedAt`(정밀 배정 점수와 배정 시각, 정밀이 아니면 null)), `precisionState`(`ACTIVE`/`FROZEN`/`DISABLED`), `precisionCapacity`를 반환한다. 상태 시각은 호스트 시각이며 체결 원천시각이 아니다.
-
-## 마감 파이프라인 일별 완결성
-
-`GET /api/v1/closing-recommendations/daily-health?from=YYYY-MM-DD&to=YYYY-MM-DD`: 기본 `to`는 오늘(KST), `from`은 `to` 13일 전이며 최대 366일, `from > to`는 400이다. 최신 거래일부터 반환한다. 기록이 없는 거래일(`ClosingTradingCalendar` 기준)은 `verdict=MISSING`, `reasons=["NO_HEALTH_RECORD"]`, `recorded=false`로 채운다. 휴장일·미래일과 장 종료 15분 전의 오늘은 포함하지 않는다.
-
-- `verdict`: `COMPLETE`/`DEGRADED`/`MISSING`, `reasons`: 판정 사유 코드 목록
-- `runId`, `runCompletedAt`: 공식 FORWARD v9 평가와 평가 완료시각(체결·원천시각 아님)
-- `selectedCount`, `selectedEntered`: 최종 추천 수와 그중 `ENTERED` 가상 진입 수
-- `paperEntryStatuses`: 해당 실행의 전체 후보 `closing_paper_entry` 상태별 수(미진입 사유 포함)
-- `observationStatuses`: 당일이 관측 세션인 FORWARD 후보 관측의 상태별 수
-- `realtimeConnected`, `realtimeDroppedDelta`, `realtimeWindowStart/End`: 15:15 직전~15:20 이후 호스트 표본시각 사이 연결 유지 여부와 `processingDropped` 증가량. 미관측이면 null
-- `checkedAt`: 판정 기록시각
+- API 변경 시 Controller, DTO, Web client와 테스트를 함께 수정한다. 사용자에게 보이는 enum/영문 reason은 서버 원본을 보존하되 UI 번역 mapping으로 표시한다.

@@ -1,16 +1,12 @@
 # Operations Guide
 
-## 15:15 자동 마감 평가 (v9)
+## 15:15 자동 마감 평가 (v9.1)
 
-`CLOSING_AUTOMATION_ENABLED=true`, `CLOSING_FEATURE_FREEZE_AT=15:15`, `CLOSING_CANDLE_FINALIZATION_GRACE=0s`, `CLOSING_ENTRY_DEADLINE=15:20`을 사용한다. .env의 명시값이 기본값보다 우선하며 백엔드 재시작 후 반영된다. 기본 30초 poll에서 15:15 이상·15:20 미만에 실행한다. 15:20 이후 재시작하면 당일 자동평가를 소급 실행하지 않는다.
+전략 버전은 `closing-recommend-v9_1-1515`다. `CLOSING_AUTOMATION_ENABLED=true`, `CLOSING_FEATURE_FREEZE_AT=15:15`, `CLOSING_CANDLE_FINALIZATION_GRACE=0s`, `CLOSING_ENTRY_DEADLINE=15:20`을 사용한다. .env의 명시값이 기본값보다 우선하며 백엔드 재시작 후 반영된다. 기본 30초 poll에서 15:15 이상·15:20 미만에 실행한다. 15:20 이후 재시작하면 당일 자동평가를 소급 실행하지 않는다.
 
 수동/자동 FORWARD 요청은 거래일·전략 버전의 동일 키와 DB 잠금을 공유한다. 설정이 다른 중복 요청은 충돌 응답을 반환하며 저장된 결과는 덮어쓰지 않는다. 롤백된 평가는 마감 전 다음 poll에서 재시도한다. 정상 실행은 재시작해도 반복하지 않는다.
 
 가상 진입은 5초 poll에서 평가 완료 후의 체결을 확인한다. 종목별 원천→진입 지연 10초 초과, 거래정지, 누락 표식, 미래 시각은 진입하지 않는다. 평가가 늦으면 EVALUATION_DEADLINE_MISSED, 유효 체결 없이 마감하면 NO_FRESH_TICK_BEFORE_DEADLINE을 closing_paper_entry에 기록한다. 중단 중 가격을 분봉으로 소급 채우지 않는다. 중단으로 남은 PENDING은 다음 활성 구간에서 만료되며 진입으로 간주하지 않는다. 실주문은 없다.
-
-## 제거된 장중 연구 기능
-
-장중 추천 모듈은 2026-10-13 제거했다([실패 분석](../audit/2026-10-13-intraday-failure-analysis/README.md)). `INTRADAY_*` 환경변수와 `intraday.*` 설정은 더 이상 읽지 않으므로 기존 `.env`에 남아 있어도 무시된다. 장 종료 후 `intraday_recommendation` 조회로 생기던 Supabase Egress도 백엔드 재시작 후 사라진다. 기존 `intraday_input`·`intraday_recommendation` 테이블과 로컬 `.intraday-checkpoints/` 디렉터리는 자동 삭제하지 않으며, 보관·삭제는 사용자 확인 후 별도로 진행한다.
 
 ## 실시간 수집 운영시간
 
@@ -53,11 +49,11 @@ Windows Home 호스트 설정:
 
 ## 시작 순서
 
-1. .env의 DB, Redis, KIS 자격정보를 확인한다.
-2. PostgreSQL과 Redis를 시작한다.
-3. Backend health가 UP인지 확인한다.
+1. `.env`의 DB, Redis, KIS 자격정보를 확인한다.
+2. PostgreSQL과 Redis를 시작한다(`docker compose up -d` 또는 외부 DB).
+3. Backend health가 UP인지 확인한다(`/actuator/health`).
 4. Web을 시작한다.
-5. 실시간 기능이 필요하면 MARKET_REALTIME_ENABLED=true로 Backend를 재시작한다.
+5. 실시간 수집·시장 스캔·정밀 구독이 필요하면 `MARKET_REALTIME_ENABLED`, `MARKET_WIDE_SCHEDULE_ENABLED`, `MARKET_PRECISION_ENABLED`를 `true`로 두고 Backend를 재시작한다. 세 값 모두 코드 기본값은 `false`다.
 
 ## 일일 점검
 
@@ -74,7 +70,7 @@ Windows Home 호스트 설정:
 
 `closing.automation.enabled=true`이면 거래일 장 종료 15분 후(15:45, 장 종료 10분 후 후보 관측 계산 이후) 당일 행을 `closing_daily_health`(V32)에 기록한다. 당일 행만 갱신하고 지난 날짜는 다시 쓰지 않는다. 판정:
 
-- MISSING: 당일 공식 FORWARD v9 실행이 없거나 미완료. 기록 자체가 없는 거래일(백엔드 중단)도 조회 시 MISSING(`NO_HEALTH_RECORD`)으로 채운다.
+- MISSING: 당일 공식 FORWARD 실행(현재 전략 버전 `closing-recommend-v9_1-1515`)이 없거나 미완료. 기록 자체가 없는 거래일(백엔드 중단)도 조회 시 MISSING(`NO_HEALTH_RECORD`)으로 채운다.
 - DEGRADED: 실행은 완료됐으나 진입 마감 후 완료, 추천 종목 가상 진입 누락, 15:14~15:20 실시간 미관측·연결 끊김·처리 누락(`processingDropped` 증가), 당일 관측 대상 후보의 미완료·결측, 평가 구간(14:30~15:15) Scanner 탐지 0건(`SCANNER_DETECTIONS_MISSING`) 중 하나 이상.
 - COMPLETE: 위 사유가 없음. 추천 0건인 NO TRADE도 실행이 완료됐으면 COMPLETE다.
 
@@ -96,11 +92,11 @@ Windows Home 호스트 설정:
 
 WebSocket 구독 기본 한도는 41개다. 관심종목 실시간 고정(최대 10개), 수동 구독, 다음날 관측(`OVERNIGHT`)을 먼저 배정하고 남은 자리를 모두 정밀 구독으로 채운다(`MARKET_PRECISION_MAX=41`, `MARKET_SUBSCRIPTION_RESERVE=0`, 2026-10-14부터). 예비 슬롯이 없으므로 한도가 찬 상태에서 새 보호 구독은 실패할 수 있다. 정밀 구독은 다음 시장 전체 스캔에서 보호 구독 수만큼 줄어든다(15분 유지 조건 적용). 관심종목 등록 수가 곧 실시간 구독 수는 아니다. 화면에서 종목 시세를 열어도 실시간 구독을 추가하지 않는다(REST 시세, 이미 구독 중이면 최신 체결 반영). 대시보드의 '실시간 구독' 표에서 종목별 출처·상태·정밀 점수를 확인한다. REST 호출은 endpoint별 rate limiter가 적용된다.
 
-## 마감 추천
+## 마감 추천 점검
 
-Feature 기준은 15:00, 기본 입력 유예는 10초, 진입 마감은 15:20이다. 후보가 없으면 점수를 낮추기 전에 데이터 품질, 일봉 준비, 종목별 최신성, 거래가능 상태와 제외 사유를 확인한다. 비용이 모두 0이면 Net 결과는 현실 검증값이 아니다.
+평가 기준·입력 마감은 15:15(유예 0초), 가상 진입 마감은 15:20이다. 후보가 없으면 점수 기준을 낮추기 전에 데이터 품질, 일봉 준비, 종목별 최신성, 거래가능 상태와 제외 사유를 확인한다. 비용이 모두 0이면 Net 결과는 현실 검증값이 아니다.
 
-Precision 후보 교체는 기본 14:50에 동결된다. 일봉 준비는 08:10 전체 준비와 14:25/14:35 Precision 보완으로 나뉜다. 완료된 Forward 평가의 `전체 후보 성과 추적`은 최종 추천과 미선정 후보를 같은 가상 실행 규칙으로 관측하지만 추천 결과 자체를 변경하지 않는다.
+Precision 후보 교체는 기본 14:50(`MARKET_PRECISION_FREEZE_AT`)에 동결된다. 일봉 준비는 08:10 전체 준비(`CLOSING_DAILY_BACKFILL_CRON`)와 14:25/14:35 Precision 보완(`CLOSING_DAILY_PRECISION_CRON`)으로 나뉜다. 완료된 Forward 평가의 전체 후보 관측은 최종 추천과 미선정 후보를 같은 가상 실행 규칙으로 관측하지만 추천 결과 자체를 바꾸지 않는다.
 
 ## 장애 확인
 
@@ -132,3 +128,7 @@ w32tm /stripchart /computer:time.windows.com /samples:3 /dataonly
 ```
 
 기본 동기화 주기가 길면 하루 중에도 수백 ms 단위로 흐를 수 있다. 장 시작 전 `w32tm /resync`와 stripchart 오프셋 확인을 운영 점검에 포함한다.
+
+## 과거 기록: 장중 추천 설정
+
+장중 추천 모듈은 2026-10-13 제거했다([실패 분석](../audit/2026-10-13-intraday-failure-analysis/README.md)). `INTRADAY_*` 환경변수와 `intraday.*` 설정은 더 이상 읽지 않으므로 기존 `.env`에 남아 있어도 무시된다. 남은 `intraday_input`·`intraday_recommendation` 테이블의 처리는 [DATABASE](DATABASE.md#사용하지-않는-테이블)를 따른다.

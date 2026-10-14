@@ -14,7 +14,7 @@
 
 ## Project Rules
 
-- 목표 전략은 15:00까지 실제로 수신 가능한 정보로 후보를 평가하고, 평가 완료 후 장 마감 전 가상 진입해 다음 거래일 성과를 추적하는 것이다.
+- 목표 전략은 15:15(`CLOSING_FEATURE_FREEZE_AT` 기본값)까지 실제로 수신 가능한 정보로 후보를 평가하고, 평가 완료 후 장 마감 전 가상 진입해 다음 거래일 성과를 추적하는 것이다.
 - 추천 점수는 상승 확률이 아니다. 완료된 OOS/Forward 표본 없이 수익성이 검증됐다고 표현하지 않는다.
 - 실주문 API는 없다. 거래 및 체결 관련 기능은 수동 기록 또는 가상 실행이다.
 - 원천 발생시각, 수신시각, 봉 확정시각, 평가시각, 가상 체결시각을 혼동하지 않는다.
@@ -44,7 +44,10 @@ Flutter 작업을 변경했다면 `mobile`에서 `flutter test`를 추가로 실
 - 구조와 경계: `docs/ARCHITECTURE.md`
 - 실행 및 개발: `docs/DEVELOPMENT.md`, `docs/OPERATIONS.md`
 - 데이터 의미: `docs/MARKET_DATA.md`, `docs/DATABASE.md`, `docs/API.md`
+- 연구용 수집 상세: `docs/CLOSING_TRAJECTORY.md`, `docs/INVESTOR_FLOW.md`, `docs/MICROSTRUCTURE.md`
 - 전략과 검증: `docs/TRADING_STRATEGY.md`, `docs/BACKTESTING.md`
+- 기능별 켜짐/꺼짐 상태: `docs/FEATURES.md`
 - 남은 작업: `docs/ROADMAP.md`
+- 사용자·운영 영향 변경 기록: `docs/CHANGELOG.md`
 - 중요한 결정: `docs/decisions/`
 - 과거 증거: `audit/`

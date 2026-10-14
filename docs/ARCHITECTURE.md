@@ -2,40 +2,70 @@
 
 ## 목적
 
-이 플랫폼은 KIS 국내주식 데이터를 수집하고 5분봉과 Feature를 만든 뒤, 실시간 탐지, 시장 후보, 15시 마감 추천, 익일 성과를 연결하는 연구용 시스템이다. 주문 실행은 범위 밖이다.
+KIS 국내주식 데이터를 수집해 5분봉과 Feature를 만들고, 실시간 탐지 → 시장 후보 → 15:15 마감 평가 → 가상 진입 → 다음 거래일 성과를 잇는 연구용 시스템이다. 주문 실행은 범위 밖이다.
 
 ## 구성요소
 
-- **Backend**: Java 21과 Spring Boot. 수집, 집계, 평가, 저장, 스케줄과 REST/SSE API를 담당한다.
-- **Web**: React, TypeScript, Vite. 대시보드, 레이더, 시장 스캔, 마감 추천, 성과, 백테스트 화면을 제공한다.
-- **Mobile**: Flutter 보조 클라이언트로 Web보다 기능 범위가 작다.
-- **PostgreSQL**: 종목, 봉, 탐지, 추천, 성과, 거래 기록의 시스템 오브 레코드다.
-- **Redis와 메모리**: 실시간 상태와 캐시용이며 영구 이력의 근거가 아니다.
-- **KIS**: REST 현재가/분봉/일봉/랭킹과 WebSocket 체결 데이터 공급자다.
+- **Backend** (`backend/`): Java 21, Spring Boot 3.5, JPA, Flyway, Resilience4j(호출 한도·회로 차단). 수집, 집계, 평가, 저장, 스케줄, REST API와 SSE 스트림(`GET /api/v1/stream`)을 담당한다. 서버 쪽 WebSocket 엔드포인트는 없다. KIS WebSocket은 Backend가 클라이언트로 접속한다(`java.net.http`).
+- **Web** (`web/`): React 19, TypeScript, Vite, TanStack Query, lightweight-charts. 라우터 없이 `Phase9App`이 메뉴 상태로 화면을 바꾼다.
+- **Mobile** (`mobile/`): Flutter 보조 클라이언트. Web보다 기능 범위가 작다.
+- **PostgreSQL**: 종목, 봉, 탐지, 추천, 성과, 거래 기록의 시스템 오브 레코드(공식 원장)다.
+- **Redis와 프로세스 메모리**: 최신 시세, 탐지 쿨다운, 실시간 상태용이며 영구 이력의 근거가 아니다. Redis가 없거나 실패하면 탐지 쿨다운은 프로세스 내부 값으로 대체된다.
+- **KIS**: REST(현재가, 분봉, 일봉, 순위, 휴장일, 호가, 수급, 지수)와 WebSocket 체결(H0STCNT0) 공급자.
+- **DART**: 공시 목록(선택, `DART_API_KEY`가 있을 때만).
+
+## Backend 패키지
+
+`com.sunmo.stockplatform` 아래:
+
+| 패키지 | 역할 |
+| --- | --- |
+| `kis` | KIS 인증 토큰, REST 클라이언트(현재가·분봉·일봉·순위·휴장일), 종목 마스터 파일, WebSocket 클라이언트와 체결 처리 큐 |
+| `stock` | 종목 마스터와 검색 |
+| `watchlist` | 관심종목 그룹·항목, 실시간 고정 |
+| `quote` | 현재가 조회 |
+| `market` | 실시간 구독 레지스트리, 실시간 진단, SSE 게이트웨이, 시장 Feature(`market/feature`) |
+| `candle` | 5분봉 집계·확정, 분봉/일봉 보충, 수정주가 일봉 수집 |
+| `scanner` | Scanner 설정과 탐지, 점수 |
+| `analytics` | 탐지 이후 성과 추적과 집계 |
+| `backtest` | 저장된 5분봉으로 Scanner 재생 |
+| `marketwide` | 시장 전체 스캔(Broad 스냅샷), 상세시세 보강 큐, 정밀 구독 배정 |
+| `closing` | 거래일 달력, 15:15 마감 평가, 가상 진입, 다음 거래일 성과, 후보 관측, 일별 완결성, 연구 수집(`closing/trajectory`, 상한가 직전, 후보 Context, DART) |
+| `trade` | 수동 거래 원장과 투자 노트 |
+| `common` | 공통 오류 처리 |
+
+## Web 화면
+
+| 메뉴 | 컴포넌트(파일) |
+| --- | --- |
+| 대시보드 | `Phase3App` (`Phase3App.tsx`) |
+| 투자기록 | `JournalPage` (`Phase4App.tsx`) |
+| 실시간 레이더 | `ScannerPage` (`Phase6App.tsx`) |
+| 성과 분석 | `AnalyticsPage` (`Phase7App.tsx`) |
+| 시장 전체 | `MarketWidePage` (`Phase8App.tsx`) |
+| 백테스트 | `BacktestPage` (`Phase9App.tsx`) |
+| 마감 추천 | `ClosingRecommendationPage` (`ClosingRecommendationApp.tsx`) |
+
+`RealtimeBridge`가 SSE를 받아 TanStack Query 캐시를 갱신한다. 파일 이름의 `PhaseN`은 과거 개발 단계 이름이 남은 것이다.
 
 ## 데이터 흐름
 
 1. KIS 체결을 파싱해 원천 거래일·발생시각과 수신시각을 분리한다.
 2. 종목별 체결을 정규장 5분 bucket으로 집계하고 확정봉을 저장한다.
-3. 누적 시세, 확정봉, 일봉으로 시장 Feature를 계산한다.
-4. 관심종목/정밀 구독은 실시간 탐지를, 시장 전체 스캔은 Broad 후보를 만든다.
-5. 신규 v9 마감 추천은 15:15 기준시각과 입력 마감 정책을 만족한 후보를 평가한다.
-6. 추천 이후 가상 진입과 다음 거래일 관측을 별도로 저장해 비용 포함 성과를 계산한다.
+3. 누적 시세, 확정봉, 일봉으로 시장 Feature를 계산하고 Scanner가 탐지를 저장한다.
+4. 시장 전체 스캔은 Broad 후보를 만들고, 상위 후보를 정밀(Precision) 실시간 구독에 배정한다.
+5. 거래일 15:15 이후 첫 poll에서 마감 추천(v9.1)이 입력 마감 정책을 만족한 후보를 평가한다.
+6. 평가 완료 후 가상 진입(`closing_paper_entry`)과 다음 거래일 관측을 따로 저장해 비용 포함 성과를 계산한다.
 
 ## 시간 경계
 
 - 거래 시간대: Asia/Seoul
 - 정규장: 09:00–15:30
-- 정상 5분봉: 09:00부터 15:25 시작까지 78개
-- Feature 기준: 15:15까지 종료된 정보
-- 입력 마감 기본값: 15:15까지 실제 수신·확정된 자료 (유예 0초)
-- 진입 마감 기본값: 15:20 미만. v9는 평가 완료 후 신선한 체결을 closing_paper_entry에 보존한다.
+- 정상 5분봉: 09:00~15:25 시작 bucket. 15:30 종가 단일가 체결은 15:25 봉에 들어가고, 15:20 봉은 정상적으로 체결이 없다.
+- 평가 기준·입력 마감 기본값: 15:15까지 실제 수신·확정된 자료(유예 0초)
+- 가상 진입 마감 기본값: 15:20 미만
 
 가격 발생시각, 서버 수신시각, 봉 확정시각, 평가 완료시각, 가상 체결시각은 서로 다른 의미다.
-
-## 모듈 경계
-
-Backend의 주요 영역은 stock, watchlist, kis, market, candle, scanner, closing, trade다. market은 수집과 Feature, scanner는 탐지, closing은 15시 평가와 익일 성과를 소유한다.
 
 ## 신뢰성 원칙
 
@@ -45,9 +75,9 @@ Backend의 주요 영역은 stock, watchlist, kis, market, candle, scanner, clos
 - 거래 불가·핵심 결측은 높은 점수로 상쇄하지 않는다.
 - 전략 점수와 확률, 코드 수정과 수익성 검증을 구분한다.
 
-## 제거된 장중 추천 모듈
+## 과거 기록: 제거된 장중 추천 모듈
 
-독립 장중 추천 모듈(`com.sunmo.stockplatform.intraday`, `intradayScheduler`, Web 장중 추천 화면)은 2026-10-13 검증 실패 후 제거했다([진입 비교](../audit/2026-10-13-intraday-entry-comparison/README.md), [실패 분석](../audit/2026-10-13-intraday-failure-analysis/README.md)). `ObservedMarketTick`은 마감 가상 진입과 Trajectory 집계가 계속 사용한다. 기존 `intraday_input`·`intraday_recommendation` 테이블은 V27 마이그레이션과 함께 DB에 남아 있으며 어떤 코드도 읽거나 쓰지 않는다. 데이터 보관·삭제는 사용자 확인 후 별도로 진행한다.
+독립 장중 추천 모듈(`intraday` 패키지, `/api/v1/intraday/*`, Web 장중 추천 화면)은 2026-10-13 검증 실패 후 제거했다([진입 비교](../audit/2026-10-13-intraday-entry-comparison/README.md), [실패 분석](../audit/2026-10-13-intraday-failure-analysis/README.md)). 남은 `intraday_input`·`intraday_recommendation` 테이블은 어떤 코드도 읽거나 쓰지 않는다([DATABASE](DATABASE.md)). `closing` 패키지의 `IntradayMovingAverageService`는 마감 전략의 장중 이동평균 Feature이며 이 모듈과 무관하다.
 
 ## 관련 문서
 
@@ -56,4 +86,3 @@ Backend의 주요 영역은 stock, watchlist, kis, market, candle, scanner, clos
 - [API](API.md)
 - [거래 전략](TRADING_STRATEGY.md)
 - [백테스트](BACKTESTING.md)
-

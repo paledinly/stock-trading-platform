@@ -2,16 +2,18 @@
 
 ## 목표
 
-당일 15:15까지 실제 수신·확정된 정보로 후보를 평가하고, 평가 완료 후 15:20 전에 신선한 체결을 관측한 경우 가상 진입해 다음 거래일 성과를 측정한다. v9는 시간과 진입 모델을 변경한 미검증 전략이다. 이전 v8 결과와 합쳐 수익성을 주장하지 않는다.
+당일 15:15까지 실제 수신·확정된 정보로 후보를 평가하고, 평가 완료 후 15:20 전에 신선한 체결을 관측한 경우 가상 진입해 다음 거래일 성과를 측정한다. v9 계열(현재 v9.1)은 v8(15:00 기준)에서 시간과 진입 모델을 바꾼 미검증 전략이다. v8·v9·v9.1 결과를 합쳐 수익성을 주장하지 않는다.
 
 이 시스템은 투자 자문이나 자동 주문 시스템이 아니다. 추천 점수는 상대 순위용 점수이며 상승 확률이 아니다.
 
 ## 후보 Universe
 
-마감 최종 추천은 조건을 통과한 후보 중 점수순으로 최대 5종목을 선정한다. 요청 개수가 더 작으면 해당 개수를 따른다. 조건 충족 후보가 부족하면 5종목을 채우지 않는다. 동일 상한을 신규 백테스트에도 적용하며, 기존 저장 추천은 소급 변경하지 않는다.
+마감 평가는 두 종류의 후보를 함께 평가한다.
 
-- 관심종목과 실시간 탐지에서 온 Precision 후보
-- KIS 랭킹과 상세시세 예산으로 만든 Broad 후보
+- **Precision 후보**: 평가 시작(`CLOSING_EVALUATION_START`, 기본 14:30)부터 15:15까지 저장된 Scanner 탐지. Scanner는 실시간 구독 종목(관심종목 고정, 수동, 정밀 구독, 다음날 관측)의 확정 5분봉에서만 돈다. 종목별 대표 탐지 1건을 평가한다.
+- **Broad 후보**: 같은 구간의 시장 전체 스캔 스냅샷(KIS 순위 + 제한된 상세시세). 최종 추천 대상이 아니며 조건을 통과해도 관찰(WATCH, `BROAD_WATCH_ONLY`)까지만 간다. Precision과 겹치면 `PRECISION_DUPLICATE`로 제외한다.
+
+최종 추천(SELECTED)은 조건을 통과한 Precision 후보 중 점수순으로 최대 5종목이다(`ClosingPrecisionEvaluator.LIMITED_MODE_MAX_CANDIDATES`). 요청 `limit`이 더 작으면 그 수를 따르고, 조건 충족 후보가 부족하면 채우지 않는다. 같은 상한을 신규 백테스트에도 적용하며 기존 저장 추천은 소급 변경하지 않는다.
 
 Broad는 호출 제한과 QUOTE_FAILED의 영향을 받고 Precision은 WebSocket 구독 한도의 영향을 받는다. 두 후보군의 관측 품질과 포함 편향을 구분해 기록한다.
 
@@ -25,7 +27,7 @@ Broad는 호출 제한과 QUOTE_FAILED의 영향을 받고 Precision은 WebSocke
 
 ## Feature와 탐지
 
-현재 시장 Feature는 market-feature-v2, 신규 마감 추천 전략은 closing-recommend-v9_1-1515다. v9의 점수·필터·평가 시각·진입 모델을 그대로 두고, 입력 마감 이후 수신된 탐지와 입력 마감 시각에야 끝나는 봉을 늦은 수정이 아닌 미가용 입력으로 제외한다([ADR-009](decisions/ADR-009-CLOSING-V9_1-INPUT-AVAILABILITY.md)). 동일 조건의 비교 검증과 실제 장중 Forward 관측이 필요하다.
+현재 시장 Feature는 `market-feature-v2`, 마감 추천 전략은 `closing-recommend-v9_1-1515`(`ClosingRecommendation.STRATEGY_VERSION`)다. v9의 점수·필터·평가 시각·진입 모델을 그대로 두고, 입력 마감 이후 수신된 탐지와 입력 마감 시각에야 끝나는 봉을 늦은 수정이 아닌 미가용 입력으로 제외한다([ADR-009](decisions/ADR-009-CLOSING-V9_1-INPUT-AVAILABILITY.md)). 동일 조건의 비교 검증과 실제 장중 Forward 관측이 필요하다.
 
 Scanner reason은 탐지 당시 조건 설명이다. VWAP_RECLAIM, PULLBACK_REBREAK 같은 이름은 실제 확인하는 전환·순서와 일치해야 한다.
 
@@ -43,7 +45,7 @@ Scanner reason은 탐지 당시 조건 설명이다. VWAP_RECLAIM, PULLBACK_REBR
 
 2026-09-28 감사 시점 현행 전략의 공식 완료 성과 표본은 0건이었다. 구버전 표본은 시간·세션 완전성 문제가 있어 최적화 근거로 사용할 수 없다.
 
-v9의 계속·실거래 검토·중단 판단 기준과 사전 등록한 다음날 시가 청산 비교안은 [ADR-008](decisions/ADR-008-CLOSING-V9-DECISION-CRITERIA.md)을 따른다. 판단 기간 동안 v9 설정을 바꾸면 표본을 처음부터 다시 센다.
+v9.1의 계속·실거래 검토·중단 판단 기준과 사전 등록한 다음날 시가 청산 비교안은 [ADR-008](decisions/ADR-008-CLOSING-V9-DECISION-CRITERIA.md)을 따른다. 1차 표본은 최종 추천만이 아니라 공식 FORWARD run에서 평가된 정밀 후보 전체의 가상 진입이다([ADR-010](decisions/ADR-010-CLOSING-PRIMARY-SAMPLE-ALL-PRECISION.md)). 판단 기간 동안 설정을 바꾸면 표본을 처음부터 다시 센다.
 
 ### 다음 거래일 세션 완결성
 
@@ -56,8 +58,8 @@ v9의 계속·실거래 검토·중단 판단 기준과 사전 등록한 다음�
 - 일봉(1D) 종가로 빠진 종가 체결을 대체하지 않는다. 일봉 보충 시각과 출처가 다르고 저장 성과에 품질 표시 컬럼이 없어 섞이면 구분할 수 없기 때문이다.
 - 2026-10-13 규칙 변경 전 기준(09:00~15:25 전 봉)은 15:20 봉이 구조적으로 비어 어떤 표본도 완료될 수 없었다. 변경 시점에 `overnight-observation-v2` COMPLETED 행은 0건이었고, 저장된 결과 행은 일괄 수정하지 않는다. 기존 재평가 경로(COMPLETED가 아닌 공식 성과, PENDING/IN_PROGRESS 관측)만 새 규칙으로 다시 평가되며 과거 15:25 종가 체결 봉이 없으므로 결측으로 남는다.
 
-완료된 Forward 평가에서는 최종 추천뿐 아니라 관찰·제외 후보도 별도 관측할 수 있다. 동일한 평가 완료 후 진입, 다음 거래일 청산, 목표·손절, 비용 규칙을 적용하되 공식 추천 성과와 섞지 않는다. 진입 가능 가격이나 다음날 세션 데이터가 없으면 수익을 보정하지 않고 결측으로 남긴다. 마감 자동화가 켜져 있으면 거래일 정규장 종료 10분 후 하루 한 번 직전 공식 run과, 관측 세션이 지났지만 PENDING/IN_PROGRESS로 남은 과거 run을 자동 평가한다. 실시간 구독 밖 Broad 후보는 진입 체결이나 다음날 5분봉이 없어 DATA_MISSING이 많을 수 있으며 이는 결측 그대로의 결과다. 이를 줄이기 위해 공식 run의 SELECTED/WATCH 후보 중 SELECTED 우선·점수 상위 `closing.automation.observation-subscription-limit`개(기본 10)를 남는 실시간 슬롯에 OVERNIGHT로 구독해 평가 당일 15:20 진입과 다음 거래일 장 마감까지 유지한다. 슬롯이 없으면 구독하지 않으므로 관측 표본은 구독 가능 여부에 따라 선택된다.
+완료된 Forward 평가에서는 최종 추천뿐 아니라 관찰·제외 후보도 별도 관측할 수 있다. 동일한 평가 완료 후 진입, 다음 거래일 청산, 목표·손절, 비용 규칙을 적용하되 공식 추천 성과와 섞지 않는다. 진입 가능 가격이나 다음날 세션 데이터가 없으면 수익을 보정하지 않고 결측으로 남긴다. 마감 자동화가 켜져 있으면 거래일 정규장 종료 10분 후 하루 한 번 직전 공식 run과, 관측 세션이 지났지만 PENDING/IN_PROGRESS로 남은 과거 run을 자동 평가한다. 실시간 구독 밖 Broad 후보는 진입 체결이나 다음날 5분봉이 없어 DATA_MISSING이 많을 수 있으며 이는 결측 그대로의 결과다. 이를 줄이기 위해 공식 run의 SELECTED/WATCH 후보 중 SELECTED 우선·점수 상위 `closing.automation.observation-subscription-limit`개(기본 10)를 남는 실시간 슬롯에 OVERNIGHT로 구독해 평가 당일 15:20 진입과 다음 거래일 종가 체결 창(15:31)까지 유지한다. 슬롯이 없으면 구독하지 않으므로 관측 표본은 구독 가능 여부에 따라 선택된다. 실시간 구독을 받지 못한 정밀 후보의 다음 거래일 5분봉은 후보 관측 직전 KIS 분봉으로 채운다([ADR-010](decisions/ADR-010-CLOSING-PRIMARY-SAMPLE-ALL-PRECISION.md), `ObservationBackfillService`).
 
-## 제거된 장중 연구 전략
+## 과거 기록: 제거된 장중 연구 전략
 
 별도 장중 추천 전략(intraday-research-v2-optional-costs)은 2026-10-13 7세션 비교에서 비용 후 기대값이 양수가 되지 않고 목표 선도달률이 무작위 기준선보다 낮아 코드와 화면을 제거했다([진입 비교](../audit/2026-10-13-intraday-entry-comparison/README.md), [실패 분석](../audit/2026-10-13-intraday-failure-analysis/README.md)). 이 프로젝트의 추천 전략은 마감 추천 하나다. 마감 추천의 장중 이동평균(`IntradayMovingAverageService`)과 `INTRADAY_REVERSAL` 등 사유는 마감 전략 Feature이며 제거 대상이 아니다.
