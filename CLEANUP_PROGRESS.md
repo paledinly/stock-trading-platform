@@ -190,3 +190,11 @@
 - `web/src/Phase8App.tsx:197` 화면을 열 때마다 기본 조건 스캔이 바로 실행되는 것으로 보여요. 서버가 매번 KIS 조회를 하면 유량 제한에 부담이 될 수 있어요.
 - `web/src/Phase9App.tsx:40` toISOString은 UTC 기준이라 한국 시간 오전 9시 전에는 하루 전 날짜가 나오는 것으로 보여요.
 - `web/vite.config.ts:14` 특정 ngrok(외부 접속 터널) 주소가 하드코딩돼 있어요. 터널 주소가 바뀌면 접속이 막히고, 개인 주소가 저장소에 남는 것으로 보여요.
+
+## 개선 Batch 1 결과 (2026-10-14, 안정성·측정)
+
+- 브랜치 `fix/batch1-market`(시세·Scanner·5분봉 8커밋), `fix/batch1-closing`(종가·성과 6커밋)을 이 브랜치에 병합했어요.
+- 검증: backend 290 tests 통과, web test 16·build 통과, flutter test 1 통과.
+- 기본 스케줄러(`taskScheduler`)는 스레드 1개를 유지하고, 봉 확정(`closeExpired`)만 전용 `candleCloseScheduler`로 분리했어요. 종가 작업들은 예전처럼 차례로 실행돼요.
+- 요청 범위 밖 수정 1건: `PrecisionSubscriptionAllocator.trimExcess`가 응답 대기 중인 교체 구독을 초과분으로 세지 않도록 고쳤어요(무관한 정밀 구독이 잘못 해제되던 문제). 정밀 구독 배분이 달라질 수 있어요.
+- 남은 일: backtest 기본 종료일(`LocalDate.now`)·15:31 cron 미변경, Trajectory 격리는 Postgres 트랜잭션이 중단되면 효과가 제한적이에요. 다음 배치는 C(거래량 0→null, ADR-010 보완), E/G/F, mobile(B6 결정 후), D(전략, v9.2는 판단 기간 이후).
