@@ -27,6 +27,9 @@ public class KisRequestExecutor {
     private final AtomicLong requests = new AtomicLong();
     private final AtomicLong retries = new AtomicLong();
     private final AtomicLong throttled = new AtomicLong();
+    // 최종 실패를 KIS 오류 코드(msg_cd, 없으면 "HTTP 500" 같은 상태) 별로 센 값이에요. 서버 시작 이후 누적이에요.
+    private final java.util.concurrent.ConcurrentHashMap<String, AtomicLong> failures = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(KisRequestExecutor.class);
 
     /** 받는 것: 호출 간격, 쉬는 시간, 재시도 횟수 설정. 돌려주는 것: 없음(생성자). */
     public KisRequestExecutor(KisRequestProperties properties) { this.properties = properties; }
@@ -42,14 +45,17 @@ public class KisRequestExecutor {
             pace(quote);
             requests.incrementAndGet();
             // 처리: 요청을 보내고, 한도 초과만 골라 쉬는 시간을 늘린 뒤 다시 돌아요.
+            // 재시도 규칙은 그대로이고, 밖으로 나가는 최종 실패만 failed()로 오류 코드별 수와 로그를 남겨요.
             try { return request.get(); }
             catch (KisRateLimitException error) {
                 backoff(attempt);
-                if (attempt >= properties.maxRetries()) throw error;
+                if (attempt >= properties.maxRetries()) throw failed(error);
             } catch (RestClientResponseException error) {
-                if (error.getStatusCode().value() != 429) throw error;
+                if (error.getStatusCode().value() != 429) throw failed(error);
                 backoff(attempt);
-                if (attempt >= properties.maxRetries()) throw new KisRateLimitException("KIS HTTP 429");
+                if (attempt >= properties.maxRetries()) throw failed(new KisRateLimitException("KIS HTTP 429"));
+            } catch (RuntimeException error) {
+                throw failed(error);
             }
             retries.incrementAndGet();
         }
@@ -93,10 +99,27 @@ public class KisRequestExecutor {
 
     /**
      * 진단용 누적 수치를 돌려줘요.
-     * 받는 것: 없음. 돌려주는 것: requests(총 요청), rateLimitRetries(재시도), rateLimitErrors(한도 초과) 맵.
+     * 받는 것: 없음. 돌려주는 것: requests(총 요청), rateLimitRetries(재시도), rateLimitErrors(한도 초과),
+     * failure.<오류 코드>(재시도 후에도 실패해 밖으로 나간 요청 수, 예: failure.EGW00201, failure.HTTP 500) 맵.
      */
     public java.util.Map<String, Long> diagnostics() {
-        return java.util.Map.of("requests", requests.get(), "rateLimitRetries", retries.get(),
-                "rateLimitErrors", throttled.get());
+        var values = new java.util.LinkedHashMap<String, Long>();
+        values.put("requests", requests.get());
+        values.put("rateLimitRetries", retries.get());
+        values.put("rateLimitErrors", throttled.get());
+        // 최종 실패 수를 "failure.EGW00201", "failure.HTTP 500" 같은 이름으로 덧붙여요.
+        new java.util.TreeMap<>(failures).forEach((key, count) -> values.put("failure." + key, count.get()));
+        return values;
+    }
+
+    /**
+     * 하는 일: 밖으로 나가는 최종 실패 하나를 오류 코드별로 세고, 상태·코드·짧은 설명을 경고 로그로 남겨요.
+     * 응답 본문의 msg_cd·msg1만 남기고 요청 헤더(토큰·앱키)나 주소는 남기지 않아요. 받는 것: 예외. 돌려주는 것: 같은 예외(다시 던지려고).
+     */
+    private RuntimeException failed(RuntimeException error) {
+        KisErrorDetail detail = KisErrorDetail.of(error);
+        failures.computeIfAbsent(detail.key(), ignored -> new AtomicLong()).incrementAndGet();
+        log.warn("KIS request failed {} type={}", detail.describe(), error.getClass().getSimpleName());
+        return error;
     }
 }

@@ -22,7 +22,7 @@
 
 ## DTO 의미와 시점 제한
 
-foreign/institution/program 각각 NetBuyToday, NetBuy30mDelta, Observation을 제공한다. Observation은 scope/unit/status/receivedAt/sourceAt/baselineReceivedAt/deltaMeaning을 보존한다. 원본 Context 이력은 GET `/api/v1/closing-trajectory/flow?symbol=005930&date=YYYY-MM-DD`, 상태는 GET `/api/v1/closing-trajectory/flow/status`로 조회한다. 기존 Snapshot API의 investorFlow에 계산값을 제공한다.
+foreign/institution/program 각각 NetBuyToday, NetBuy30mDelta, Observation을 제공한다. Observation은 scope/unit/status/receivedAt/sourceAt/baselineReceivedAt/deltaMeaning을 보존한다. 원본 Context 이력은 GET `/api/v1/closing-trajectory/flow?symbol=005930&date=YYYY-MM-DD`, 상태는 GET `/api/v1/closing-trajectory/flow/status`로 조회한다. 상태의 `failures`는 실패 총수, `failureCodes`는 "종류 오류 코드"별 실패 수(예: `PROGRAM EGW00201`, `ESTIMATE HTTP 500`)이며 둘 다 Backend 시작 이후 누적이다. 실패 로그는 HTTP 상태·KIS `msg_cd`·`msg1` 앞부분을 남긴다(인증정보는 남기지 않는다). 기존 Snapshot API의 investorFlow에 계산값을 제공한다.
 
 30분 변화량은 평가 cutoff와 cutoff-30분 각각 이전의 마지막 관측치 차이다. 같은 종목·scope·수량 단위·거래일만 비교하며 기본 contextMaxAge=6분을 넘거나 기준 관측이 없으면 null이다. 프로그램은 sourceAt의 신선도도 검사한다. 미래 수신, 이전 거래일 값, 다른 시장 범위를 섞지 않는다. 나중에 조회한 과거 프로그램 행을 과거 수신처럼 저장하지 않는다.
 

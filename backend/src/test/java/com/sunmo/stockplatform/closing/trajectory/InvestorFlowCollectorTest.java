@@ -50,12 +50,13 @@ class InvestorFlowCollectorTest {
         var service = mock(TrajectoryService.class);
         var collector = new InvestorFlowCollector(new InvestorFlowProperties(true,20,Duration.ofMinutes(5)),
                 trajectory,store,service,builder.build(),kis,tokens,requests,calendar);
-        // 준비: 추정 순매수 1차 성공, 2차 서버 오류, 프로그램 매매 성공 순서로 응답해요.
+        // 준비: 추정 순매수 1차 성공, 2차 서버 오류(KIS가 한도 초과를 HTTP 500 본문에 담는 경우), 프로그램 매매 성공 순서로 응답해요.
         server.expect(requestTo(org.hamcrest.Matchers.containsString("foreign-institution-total")))
                 .andExpect(header("tr_id","FHPTJ04400000"))
                 .andRespond(withSuccess("{\"rt_cd\":\"0\",\"output\":[{\"mksc_shrn_iscd\":\"005930\",\"frgn_ntby_qty\":\"-10\",\"orgn_ntby_qty\":\"20\"}]}",MediaType.APPLICATION_JSON));
         server.expect(requestTo(org.hamcrest.Matchers.containsString("foreign-institution-total")))
-                .andRespond(withServerError());
+                .andRespond(withServerError().contentType(MediaType.APPLICATION_JSON)
+                        .body("{\"rt_cd\":\"1\",\"msg_cd\":\"EGW00201\",\"msg1\":\"초당 거래건수를 초과하였습니다.\"}"));
         server.expect(requestTo(org.hamcrest.Matchers.containsString("program-trade-by-stock")))
                 .andExpect(header("tr_id","FHPPG04650101"))
                 .andExpect(queryParam("FID_COND_MRKT_DIV_CODE","J"))
@@ -64,7 +65,8 @@ class InvestorFlowCollectorTest {
         collector.collect(); server.verify();
         verify(requests,times(3)).execute(eq(false),any());
         verify(service,times(3)).context(any());
-        org.assertj.core.api.Assertions.assertThat(collector.status()).containsEntry("failures",1L);
+        org.assertj.core.api.Assertions.assertThat(collector.status()).containsEntry("failures",1L)
+                .containsEntry("failureCodes", java.util.Map.of("ESTIMATE EGW00201", 1L));
         // 휴장일로 바꾸면 더 이상 호출하지 않아야 해요.
         when(calendar.isTradingDay(any())).thenReturn(false);
         collector.collect(); verifyNoMoreInteractions(requests);

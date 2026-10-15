@@ -35,6 +35,8 @@ public class InvestorFlowCollector {
     private final KisRequestExecutor requests;
     private final ClosingTradingCalendar calendar;
     private long failures;
+    // "PROGRAM EGW00201", "ESTIMATE HTTP 500" 같은 "종류 오류 코드"별 실패 수예요(서버 시작 이후 누적).
+    private final Map<String, Long> failureCodes = new java.util.HashMap<>();
     private Instant lastCompletedAt;
 
     /** 하는 일: 설정·저장소·서비스·KIS 접속 도구·달력을 받아 보관해요. 받는 것: 각 의존 객체. 돌려주는 것: 수집기 객체예요. */
@@ -104,16 +106,22 @@ public class InvestorFlowCollector {
             return response;
         });
     }
-    /** 하는 일: 실패 횟수를 올리고 종류·예외 이름만 경고 로그로 남겨요(인증정보는 남기지 않음). 받는 것: 종류, 예외. 돌려주는 것: 없어요. */
+    /**
+     * 하는 일: 실패 횟수와 KIS 오류 코드별 횟수를 올리고, 종류·예외 이름·HTTP 상태·msg_cd·짧은 설명을 경고 로그로 남겨요.
+     * 응답 본문의 오류 코드와 설명만 남기고 인증정보(토큰·앱키)는 남기지 않아요. 받는 것: 종류, 예외. 돌려주는 것: 없어요.
+     */
     private void failed(String kind, RuntimeException error) {
         failures++;
-        org.slf4j.LoggerFactory.getLogger(getClass()).warn("Flow collection failed kind={} type={}", kind, error.getClass().getSimpleName());
+        KisErrorDetail detail = KisErrorDetail.of(error);
+        failureCodes.merge(kind + " " + detail.key(), 1L, Long::sum);
+        org.slf4j.LoggerFactory.getLogger(getClass()).warn("Flow collection failed kind={} type={} {}", kind,
+                error.getClass().getSimpleName(), detail.describe());
     }
     /** 하는 일: 설정, 실패 횟수, 마지막 조회 완료 시각을 돌려줘요. 완료는 "조회 시도 완료"일 뿐 최신 자료 보장이 아니에요. */
     public synchronized Map<String, Object> status() {
         return fields("enabled", policy.enabled(), "trajectoryEnabled", trajectory.enabled(),
                 "maxSymbols", policy.maxSymbols(), "intervalSeconds", policy.interval().toSeconds(),
-                "failures", failures, "lastCompletedAt", lastCompletedAt,
+                "failures", failures, "failureCodes", new java.util.TreeMap<>(failureCodes), "lastCompletedAt", lastCompletedAt,
                 "note", "Completion is a poll attempt, not proof of fresh provider data; live endpoint only");
     }
     /**
