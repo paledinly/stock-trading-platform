@@ -1,7 +1,7 @@
 /**
  * 시장 전체 스캐너 화면 파일이에요. 시장 전체를 넓게 훑어 후보를 추리고(광역, Broad), 고른 종목만 실시간 정밀 구독(Precision)으로 넘겨요.
  * 자동 스캔 상태, KIS(한국투자증권 API) 수집 품질, 후보 보강 작업, 출처별 다음날 성과(Coverage)도 함께 보여 줘요.
- * Phase9App(전체 화면 껍데기)이 고급 모드의 "시장 전체" 메뉴에서 MarketWidePage를 보여 줘요.
+ * AppShell(전체 화면 껍데기)이 "시장 스캐너" 메뉴(#/wide)에서 MarketWidePage를 보여 줘요.
  */
 import { FormEvent, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";

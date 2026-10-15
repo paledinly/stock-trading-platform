@@ -10,6 +10,7 @@ import {
   createChart,
   type IChartApi,
   type ISeriesApi,
+  type Time,
   type UTCTimestamp,
 } from 'lightweight-charts'
 import type { Candle } from './marketData'
@@ -21,6 +22,18 @@ import type { Candle } from './marketData'
 function cssColor(name: string, fallback: string) {
   const value = typeof window === 'undefined' ? '' : getComputedStyle(document.documentElement).getPropertyValue(name).trim()
   return value || fallback
+}
+
+/**
+ * 차트 시간축 글자를 한국 시간(KST) "시:분"으로 만들어요. 차트는 UTC 초를 그대로 쓰므로 표시만 바꿔요.
+ * 받는 것: 차트 시각(UTC 초). 돌려주는 것: "09:05" 같은 글자.
+ */
+function kstLabel(time: Time) {
+  const seconds = typeof time === 'number' ? time : Date.UTC(
+    typeof time === 'string' ? Number(time.slice(0, 4)) : time.year,
+    typeof time === 'string' ? Number(time.slice(5, 7)) - 1 : time.month - 1,
+    typeof time === 'string' ? Number(time.slice(8, 10)) : time.day) / 1000
+  return new Date(seconds * 1000).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hour12: false })
 }
 
 /** 차트 바탕·글자·격자·가격축 색을 현재 테마에서 읽어요. */
@@ -57,8 +70,10 @@ export function CandleChart({ candles }: { candles: Candle[] }) {
       width: container.current.clientWidth,
       height: 194,
       ...themeOptions(),
-      timeScale: { borderColor: cssColor('--chart-axis', '#26334a'), timeVisible: true, secondsVisible: false },
-      localization: { locale: 'ko-KR', priceFormatter: (price: number) => Math.round(price).toLocaleString('ko-KR') },
+      timeScale: { borderColor: cssColor('--chart-axis', '#26334a'), timeVisible: true, secondsVisible: false,
+        tickMarkFormatter: (time: Time) => kstLabel(time) },
+      localization: { locale: 'ko-KR', timeFormatter: (time: Time) => kstLabel(time),
+        priceFormatter: (price: number) => Math.round(price).toLocaleString('ko-KR') },
     })
     // 한국식 색: 상승은 빨강, 하락은 파랑이에요(seriesColors).
     series.current = instance.addSeries(CandlestickSeries, { ...seriesColors(), borderVisible: false })

@@ -1,7 +1,7 @@
 /**
  * 장마감 추천 화면이에요. 15:00 전후까지 실제로 받은 정보로 후보를 평가하고, 추천 랭킹·다음 거래일 성과·매도/보유 판단·백테스트·전략 검증 통계를 보여줘요.
  * 추천 점수는 상승 확률이 아니고, 진입과 청산은 모두 가상 실행이에요(실주문 없음).
- * Phase9App(앱 전체 껍데기)이 '마감 추천' 메뉴에서 ClosingRecommendationPage를 띄워요.
+ * AppShell(앱 전체 껍데기)이 '마감 추천' 메뉴(#/closing)에서 ClosingRecommendationPage를 띄워요.
  */
 import { FormEvent, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'

@@ -1,7 +1,7 @@
 /**
  * 신호 성과 분석 화면 파일이에요. 실시간 레이더가 탐지한 신호가 그 뒤 5분·10분·30분·60분·종가까지 얼마나 움직였는지 모아서 보여 줘요.
  * 목표 수익률과 손절 기준 중 무엇에 먼저 닿았는지, 시간대·조건 조합별 성과, 표본 수에 따른 신뢰도도 함께 보여 줘요.
- * Phase9App(전체 화면 껍데기)이 고급 모드의 "성과 분석" 메뉴에서 AnalyticsPage를 보여 줘요.
+ * AppShell(전체 화면 껍데기)이 "성과 분석" 메뉴(#/analytics)에서 AnalyticsPage를 보여 줘요.
  */
 import { FormEvent, useState } from "react";
 import { useQuery } from "@tanstack/react-query";

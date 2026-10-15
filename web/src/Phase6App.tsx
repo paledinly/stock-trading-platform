@@ -1,7 +1,7 @@
 /**
  * 실시간 레이더(장중 탐지 후보) 화면 파일이에요. 스캐너가 포착한 종목을 점수·이유·차트로 보여 주고, 탐지 설정을 고칠 수 있어요.
  * 서버의 탐지 이벤트를 SSE(서버가 브라우저로 계속 밀어 주는 이벤트)로 듣고, 오면 목록을 다시 불러와요.
- * Phase9App(전체 화면 껍데기)이 고급 모드의 "실시간 레이더" 메뉴에서 ScannerPage를 보여 줘요.
+ * AppShell(전체 화면 껍데기)이 "실시간 레이더" 메뉴(#/scanner)에서 ScannerPage를 보여 줘요.
  */
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'

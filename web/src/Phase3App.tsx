@@ -1,7 +1,7 @@
 /**
- * 대시보드 화면(종목 검색, 관심종목, 현재가·5분봉, 실시간 구독 표)을 그리는 파일이에요.
- * React Query(서버 데이터를 가져오고 캐시하는 라이브러리)로 백엔드 API를 부르고, 관심종목 추가·삭제·실시간 고정을 서버에 요청해요.
- * Phase9App(전체 화면 껍데기)이 대시보드 탭에서 이 화면을 보여 줘요.
+ * 대시보드 화면(종목 검색, 왼쪽 탭의 관심종목·실시간 구독 목록, 현재가·5분봉)을 그리는 파일이에요.
+ * React Query(서버 데이터를 가져오고 캐시하는 라이브러리)로 백엔드 API를 부르고, 관심종목 그룹 추가·이름 변경·삭제,
+ * 종목 추가·삭제, 실시간 고정을 서버에 요청해요. AppShell(전체 화면 껍데기)이 '대시보드' 메뉴에서 이 화면을 보여 줘요.
  */
 import { type FormEvent, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -45,25 +45,18 @@ function time(value: string | null) {
 }
 
 /**
- * 실시간 구독 종목 표를 보여 주는 React 컴포넌트(화면 조각)예요. 비유하면 "지금 수신 중인 채널을 적어 둔 게시판"이에요.
- * 받는 것(props, 부모가 넘겨주는 값): select(종목을 누르면 상세 영역에 띄우는 함수).
- * 돌려주는 것: 사용량 요약과 구독 종목 표 화면.
+ * 실시간 구독 목록이에요. 대시보드 왼쪽 패널의 '실시간 구독' 탭에서 보여 줘요.
+ * 종목을 누르면 오른쪽 차트가 그 종목으로 바뀌어요(차트는 스크롤해도 화면에 고정돼 있어요).
+ * 받는 것(props): select(종목 선택 함수), selectedCode(지금 고른 종목 코드). 돌려주는 것: 요약 칸과 구독 종목 목록.
  */
-function SubscriptionPanel({ select }: { select: (stock: Stock) => void }) {
-  // 구독 현황은 30초마다 다시 가져와요.
-  const data = useQuery({
-    queryKey: ['market-subscriptions'],
-    queryFn: () => api<Subscriptions>('/api/v1/market/subscriptions'),
-    refetchInterval: 30_000,
-  })
+function SubscriptionList({ select, selectedCode }: { select: (stock: Stock) => void; selectedCode?: string }) {
+  const data = useSubscriptions()
   const items = data.data?.items ?? []
   // 특정 출처(예: PRECISION)로 구독된 종목 수를 세요.
   const count = (source: string) => items.filter(item => item.sources.includes(source)).length
   // 사용 중인 구독 수 = 한도 - 남은 자리예요.
   const used = data.data ? data.data.limit - data.data.remaining : 0
-  return <section className="panel subscriptions" aria-label="실시간 구독 종목">
-    <div className="title"><span><small>KIS 실시간 체결</small><h2>실시간 구독</h2></span>
-      <b>{used}</b></div>
+  return <section className="subscriptions" aria-label="실시간 구독 종목">
     {data.isLoading && <p>불러오는 중…</p>}
     {data.error && <div className="alert">구독 목록을 불러오지 못했습니다.</div>}
     {data.data && <>
@@ -76,21 +69,66 @@ function SubscriptionPanel({ select }: { select: (stock: Stock) => void }) {
       </div>
       {items.length === 0 ? <div className="empty"><b>구독 중인 종목이 없습니다</b>
         <p>장 시작 후 시장 전체 스캔이 정밀 구독을 채웁니다.</p></div> :
-        <table>
-          <thead><tr><th>종목</th><th>출처</th><th>상태</th><th>정밀 점수</th><th>정밀 편입</th></tr></thead>
-          <tbody>{items.map(item => <tr key={item.stockCode}>
-            <td><button onClick={() => select({ stockCode: item.stockCode, stockName: item.stockName ?? item.stockCode,
-              market: item.market ?? '' })}><b>{item.stockName ?? item.stockCode}</b><small>{item.stockCode}</small></button></td>
-            <td>{item.sources.map(source => <i key={source} className={`source ${source.toLowerCase()}`}>
-              {SOURCE_LABEL[source] ?? source}</i>)}</td>
-            <td className={`state ${(item.state ?? '').toLowerCase()}`} title={item.stateMessage ?? ''}>
-              {item.state ? STATE_LABEL[item.state] ?? item.state : '-'}</td>
-            <td>{item.precisionScore != null ? Number(item.precisionScore).toFixed(1) : '-'}</td>
-            <td>{time(item.precisionAddedAt)}</td>
-          </tr>)}</tbody>
-        </table>}
+        <ul className="subscriptionList">{items.map(item => <li key={item.stockCode}>
+          <button className={selectedCode === item.stockCode ? 'active' : undefined}
+            aria-current={selectedCode === item.stockCode ? 'true' : undefined}
+            onClick={() => select({ stockCode: item.stockCode, stockName: item.stockName ?? item.stockCode, market: item.market ?? '' })}>
+            <span className="subName"><b>{item.stockName ?? item.stockCode}</b><small>{item.stockCode}</small></span>
+            <span className="subSources">{item.sources.map(source => <i key={source} className={`source ${source.toLowerCase()}`}>
+              {SOURCE_LABEL[source] ?? source}</i>)}</span>
+            <span className="subMeta">
+              <em className={`state ${(item.state ?? '').toLowerCase()}`} title={item.stateMessage ?? ''}>
+                {item.state ? STATE_LABEL[item.state] ?? item.state : '-'}</em>
+              <small title="정밀 점수 · 정밀 편입 시각">{item.precisionScore != null ? Number(item.precisionScore).toFixed(1) : '-'}
+                {item.precisionAddedAt ? ` · ${time(item.precisionAddedAt)}` : ''}</small>
+            </span>
+          </button>
+        </li>)}</ul>}
     </>}
   </section>
+}
+
+/** 구독 현황을 30초마다 가져오는 훅이에요. 탭 옆 개수와 목록이 같은 캐시를 함께 써요. */
+function useSubscriptions() {
+  return useQuery({
+    queryKey: ['market-subscriptions'],
+    queryFn: () => api<Subscriptions>('/api/v1/market/subscriptions'),
+    refetchInterval: 30_000,
+  })
+}
+
+/**
+ * 관심종목 그룹 제목 줄이에요. 이름 변경(같은 자리에서 입력)과 삭제(확인 후, 안의 종목도 함께 지워져요)를 할 수 있어요.
+ * 받는 것(props): group(그룹), rename(새 이름 저장 함수), remove(삭제 함수), busy(요청 중이면 버튼 잠금).
+ */
+function GroupHeader({ group, rename, remove, busy }: {
+  group: Group
+  rename: (group: Group, name: string) => Promise<unknown>
+  remove: (group: Group) => void
+  busy: boolean
+}) {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState(group.name)
+  const cancel = () => { setValue(group.name); setEditing(false) }
+  if (editing) return <form className="groupHead editing" onSubmit={async event => {
+    event.preventDefault()
+    const next = value.trim()
+    if (!next || next === group.name) { cancel(); return }
+    try { await rename(group, next); setEditing(false) } catch { /* 오류는 화면 위쪽 알림으로 보여 줘요. */ }
+  }}>
+    <input aria-label={`${group.name} 새 이름`} value={value} autoFocus maxLength={60}
+      onChange={event => setValue(event.target.value)}
+      onKeyDown={event => { if (event.key === 'Escape') cancel() }} />
+    <button disabled={busy}>저장</button>
+    <button type="button" onClick={cancel}>취소</button>
+  </form>
+  return <div className="groupHead">
+    <h3>{group.name}<small>{group.items.length}</small></h3>
+    <button type="button" aria-label={`${group.name} 이름 변경`} title="이름 변경" disabled={busy}
+      onClick={() => { setValue(group.name); setEditing(true) }}>✎</button>
+    <button type="button" aria-label={`${group.name} 그룹 삭제`} title="그룹 삭제" disabled={busy}
+      onClick={() => remove(group)}>✕</button>
+  </div>
 }
 
 /**
@@ -183,15 +221,23 @@ function MarketChart({ candles, loading, error }: {
   </div>
 }
 
+const TAB_KEY = 'dashboard.tab'
+
+/** 마지막으로 본 왼쪽 탭을 꺼내요. 저장소를 못 쓰거나 값이 없으면 관심종목 탭이에요. */
+function savedTab(): 'watch' | 'subscriptions' {
+  try { return sessionStorage.getItem(TAB_KEY) === 'subscriptions' ? 'subscriptions' : 'watch' } catch { return 'watch' }
+}
+
 /**
  * 대시보드 전체 화면 컴포넌트예요. 비유하면 "종목 관찰 책상"으로, 관심종목 수첩과 시세 화면, 구독 게시판을 한 책상에 펼쳐 둬요.
- * 받는 것: 없음(props 없음). 돌려주는 것: 헤더, 관심종목, 종목 상세, 실시간 구독 표가 있는 화면.
+ * 받는 것: 없음(props 없음). 돌려주는 것: 헤더, 왼쪽 탭(관심종목·실시간 구독), 종목 상세가 있는 화면.
  */
 export function Phase3App() {
   const cache = useQueryClient()
   // 상태(state, 컴포넌트가 기억하는 값): 선택한 종목과 새 그룹 이름이에요.
   const [selected, setSelected] = useState<Stock | null>(null)
   const [name, setName] = useState('')
+  const [tab, setTab] = useState<'watch' | 'subscriptions'>(savedTab)
   const lists = useQuery({ queryKey: ['watchlists'], queryFn: () => api<{ groups: Group[] }>('/api/v1/watchlists') })
   // 현재가와 5분봉은 종목을 고른 뒤에만 조회해요. 같은 캐시 키를 RealtimeBridge가 실시간으로 고쳐 써요.
   const quote = useQuery({
@@ -221,6 +267,16 @@ export function Phase3App() {
     mutationFn: (id: number) => api(`/api/v1/watchlists/${id}`, { method: 'DELETE' }),
     onSuccess: refresh,
   })
+  const renameGroup = useMutation({
+    mutationFn: ({ group, name }: { group: Group; name: string }) => api(`/api/v1/watchlist-groups/${group.id}`, {
+      method: 'PATCH', body: JSON.stringify({ name, version: group.version }),
+    }),
+    onSuccess: refresh,
+  })
+  const deleteGroup = useMutation({
+    mutationFn: (group: Group) => api(`/api/v1/watchlist-groups/${group.id}`, { method: 'DELETE' }),
+    onSuccess: refresh,
+  })
   const realtime = useMutation({
     mutationFn: (item: Item) => api(`/api/v1/watchlists/${item.id}/realtime`, {
       method: 'PATCH', body: JSON.stringify({ enabled: !item.realtimePinned, version: item.version }),
@@ -228,8 +284,15 @@ export function Phase3App() {
     onSuccess: refresh,
   })
   const items = lists.data?.groups.flatMap(group => group.items) ?? []
+  /** 왼쪽 탭을 바꾸고 기억해요. */
+  function chooseTab(value: 'watch' | 'subscriptions') {
+    setTab(value)
+    try { sessionStorage.setItem(TAB_KEY, value) } catch { /* Storage may be disabled. */ }
+  }
   // 여러 요청 중 먼저 발견된 오류 하나만 화면 위쪽에 보여 줘요.
-  const error = create.error ?? add.error ?? remove.error ?? realtime.error
+  const error = create.error ?? add.error ?? remove.error ?? realtime.error ?? renameGroup.error ?? deleteGroup.error
+  const subscriptions = useSubscriptions()
+  const subscribed = subscriptions.data ? subscriptions.data.limit - subscriptions.data.remaining : null
 
   return <div className="phase3">
     <header>
@@ -245,28 +308,45 @@ export function Phase3App() {
       {error && <div className="alert">{error.message}</div>}
       <div className="columns">
         <section className="panel watch">
-          <section className="menuGuide"><h2>사용 안내</h2><p>관심종목은 목록 저장용입니다. 시세를 계속 받을 종목만 안테나 버튼으로 최대 10개까지 실시간 고정하세요.</p></section>
-          <div className="title"><span><small>내 관심종목</small><h2>관심종목</h2></span><b>{items.length}</b></div>
-          <form onSubmit={event => {
-            event.preventDefault()
-            if (name.trim()) create.mutate(name)
-          }}><input aria-label="새 그룹 이름" value={name} onChange={event => setName(event.target.value)}
-              placeholder="새 그룹 이름" /><button>그룹 추가</button></form>
-          {lists.isLoading && <p>불러오는 중…</p>}
-          {lists.data?.groups.length === 0 && <div className="empty"><b>첫 관심종목 그룹을 만들어보세요</b>
-            <p>검색한 종목을 그룹에 추가할 수 있습니다.</p></div>}
-          {lists.data?.groups.map(group => <div className="group" key={group.id}>
-            <h3>{group.name}<small>{group.items.length}</small></h3>
-            {group.items.map(item => <div className="item" key={item.id}>
-              <button onClick={() => setSelected(item)}><i>{item.stockName[0]}</i><span><b>{item.stockName}</b>
-                <small>{item.stockCode} · {item.market}</small></span></button>
-              <button className={item.realtimePinned ? 'realtimePin active' : 'realtimePin'}
-                aria-label={`${item.stockName} 실시간 고정 ${item.realtimePinned ? '해제' : '설정'}`}
-                aria-pressed={item.realtimePinned} title={item.realtimePinned ? '실시간 고정 해제' : '실시간 고정'}
-                onClick={() => realtime.mutate(item)}>⌁</button>
-              <button aria-label={`${item.stockName} 삭제`} onClick={() => remove.mutate(item.id)}>×</button>
+          <div className="panelTabs" role="tablist" aria-label="왼쪽 목록">
+            <button role="tab" id="tab-watch" aria-controls="tabpanel-watch" aria-selected={tab === 'watch'}
+              onClick={() => chooseTab('watch')}>관심종목 <small>{items.length}</small></button>
+            <button role="tab" id="tab-subscriptions" aria-controls="tabpanel-subscriptions" aria-selected={tab === 'subscriptions'}
+              onClick={() => chooseTab('subscriptions')}>실시간 구독 <small>{subscribed ?? '-'}</small></button>
+          </div>
+          {tab === 'watch' && <div role="tabpanel" id="tabpanel-watch" aria-labelledby="tab-watch">
+            <p className="tabHint">관심종목은 목록 저장용입니다. 시세를 계속 받을 종목만 안테나(⌁) 버튼으로 최대 10개까지 실시간 고정하세요.</p>
+            <form className="groupCreate" onSubmit={event => {
+              event.preventDefault()
+              if (name.trim()) create.mutate(name)
+            }}><input aria-label="새 그룹 이름" value={name} onChange={event => setName(event.target.value)}
+                placeholder="새 그룹 이름" /><button>그룹 추가</button></form>
+            {lists.isLoading && <p>불러오는 중…</p>}
+            {lists.data?.groups.length === 0 && <div className="empty"><b>첫 관심종목 그룹을 만들어보세요</b>
+              <p>검색한 종목을 그룹에 추가할 수 있습니다.</p></div>}
+            {lists.data?.groups.map(group => <div className="group" key={group.id}>
+              <GroupHeader group={group} busy={renameGroup.isPending || deleteGroup.isPending}
+                rename={(target, next) => renameGroup.mutateAsync({ group: target, name: next })}
+                remove={target => {
+                  const message = target.items.length
+                    ? `'${target.name}' 그룹과 안의 종목 ${target.items.length}개를 삭제할까요? 실시간 고정도 함께 해제됩니다.`
+                    : `'${target.name}' 그룹을 삭제할까요?`
+                  if (window.confirm(message)) deleteGroup.mutate(target)
+                }} />
+              {group.items.map(item => <div className={selected?.stockCode === item.stockCode ? 'item active' : 'item'} key={item.id}>
+                <button onClick={() => setSelected(item)}><i>{item.stockName[0]}</i><span><b>{item.stockName}</b>
+                  <small>{item.stockCode} · {item.market}</small></span></button>
+                <button className={item.realtimePinned ? 'realtimePin active' : 'realtimePin'}
+                  aria-label={`${item.stockName} 실시간 고정 ${item.realtimePinned ? '해제' : '설정'}`}
+                  aria-pressed={item.realtimePinned} title={item.realtimePinned ? '실시간 고정 해제' : '실시간 고정'}
+                  onClick={() => realtime.mutate(item)}>⌁</button>
+                <button aria-label={`${item.stockName} 삭제`} onClick={() => remove.mutate(item.id)}>×</button>
+              </div>)}
             </div>)}
-          </div>)}
+          </div>}
+          {tab === 'subscriptions' && <div role="tabpanel" id="tabpanel-subscriptions" aria-labelledby="tab-subscriptions">
+            <SubscriptionList select={setSelected} selectedCode={selected?.stockCode} />
+          </div>}
         </section>
         <section className="panel detail">
           {!selected ? <div className="empty large"><b>종목을 검색해 선택하세요</b>
@@ -299,7 +379,6 @@ export function Phase3App() {
           </>}
         </section>
       </div>
-      <SubscriptionPanel select={setSelected} />
     </main>
     <footer>데이터는 투자 참고용이며 실제 주문 기능을 제공하지 않습니다.</footer>
   </div>

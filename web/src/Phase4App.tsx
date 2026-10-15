@@ -1,7 +1,7 @@
 /**
  * 투자기록(매매 일지) 화면 파일이에요. 사용자가 직접 한 매수·매도를 손으로 기록하고, 거래마다 메모·목표가·손절가·진입 이유를 남겨요.
  * 실제 주문 기능은 없고, 서버의 /api/v1/trades API에 기록만 저장해요.
- * Phase9App(전체 화면 껍데기)이 "투자기록" 메뉴에서 JournalPage를 보여 줘요.
+ * AppShell(전체 화면 껍데기)이 "투자기록" 메뉴(#/journal)에서 JournalPage를 보여 줘요.
  */
 import { FormEvent, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
