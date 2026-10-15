@@ -12,6 +12,7 @@ import com.sunmo.stockplatform.market.application.RealtimeDiagnostics;
 import com.sunmo.stockplatform.market.application.RealtimeSubscriptionRegistry;
 import com.sunmo.stockplatform.market.config.RealtimeMarketProperties;
 import com.sunmo.stockplatform.market.application.RealtimeSessionPolicy;
+import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -109,11 +110,13 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
     }
 
     /**
-     * 서버가 다 켜진 뒤 한 번 실행돼요. 구독 목록이 바뀌면 KIS에 구독/해지를 보내도록 연결하고 첫 접속을 시작해요.
-     * 받는 것: 실행 인자(사용 안 함). 돌려주는 것: 없음.
+     * 객체가 만들어지자마자 구독 목록 변경을 KIS 구독/해지 요청으로 잇는 연결을 걸어요.
+     * 예전에는 이 연결을 run(기동 작업)에서 걸었는데, 앞선 기동 작업(성과 복구)이 오래 걸리는 사이 30초 연결 점검이 먼저
+     * 접속하고 시장 스캔이 정밀 종목을 추가하면, 그 종목들은 요청 없이 목록에만 남았어요(2026-10-15 13:51 재시작, 31종목).
+     * 받는 것: 없음. 돌려주는 것: 없음.
      */
-    @Override
-    public void run(ApplicationArguments args) {
+    @PostConstruct
+    void listenToSubscriptionChanges() {
         subscriptions.onChanged((code, subscribe) -> {
             if (subscribe) {
                 diagnostics.queued(code);
@@ -122,7 +125,15 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
                 send(code, false);
             }
         });
-        // 연결 전이므로 현재 구독 목록 전체를 "대기 중"으로 표시해요.
+    }
+
+    /**
+     * 서버가 다 켜진 뒤 한 번 실행돼요. 아직 연결 전인 구독을 "대기 중"으로 표시하고 첫 접속을 시작해요.
+     * 이미 연결돼 있으면(30초 점검이 먼저 접속한 경우) connect는 아무것도 하지 않고, 이미 수신 중인 종목은 대기로 바꾸지 않아요.
+     * 받는 것: 실행 인자(사용 안 함). 돌려주는 것: 없음.
+     */
+    @Override
+    public void run(ApplicationArguments args) {
         subscriptions.all().forEach(diagnostics::queued);
         connect();
     }
