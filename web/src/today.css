@@ -1,0 +1,72 @@
+/*
+ * '오늘'(운영 현황) 화면 스타일이에요. 상태 색은 정상 초록(ok)·확인 주황(warn)·문제 빨강(up)·진행 파랑(down)·예정 회색을 써요.
+ */
+.todayPage { min-height: 100vh; padding-bottom: 60px; background: var(--bg); color: var(--text); }
+.todayPage > header, .todayPage > main { width: min(1240px, calc(100% - 40px)); margin: auto; }
+.todayPage > header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 28px 0 20px; }
+.todayPage > header h1 { margin: 0 0 6px; font-size: 30px; line-height: 1.2; letter-spacing: -.02em; }
+.todayPage > header span { color: var(--text-muted); }
+.todayPage > header aside { display: flex; flex-direction: column; gap: 2px; min-width: 190px; padding: 16px 18px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.todayPage > header aside small, .todayPage > header aside span { color: var(--text-muted); font-size: 12px; }
+.todayPage > header aside b { font-size: 24px; }
+.todayPage > header aside.done b { color: var(--ok-fg); }
+.todayPage > header aside.warn { border-color: var(--warn-border); background: var(--warn-bg); }
+.todayPage > header aside.warn b { color: var(--warn-fg); }
+.todayPage > header aside.problem { border-color: var(--up-border); background: var(--up-bg); }
+.todayPage > header aside.problem b { color: var(--up-fg); }
+
+.todayNotice { margin: 0 0 14px; padding: 12px 14px; border: 1px solid var(--warn-border); border-radius: 8px; background: var(--warn-bg); color: var(--warn-fg); font-size: 13px; }
+
+.todayStats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
+.todayStats article { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 14px 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.todayStats small, .todayStats span { color: var(--text-muted); font-size: 12px; }
+.todayStats span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.todayStats b { font-size: 20px; }
+.todayStats article.done b { color: var(--ok-fg); }
+.todayStats article.warn { border-color: var(--warn-border); }
+.todayStats article.warn b { color: var(--warn-fg); }
+.todayStats article.problem { border-color: var(--up-border); }
+.todayStats article.problem b { color: var(--up-fg); }
+
+.todayTimeline, .todayHealth { margin-bottom: 16px; padding: 18px 20px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.todayTimeline h2, .todayHealth h2 { margin: 0 0 12px; font-size: 18px; }
+.todayHealth h2 small { margin-left: 8px; color: var(--text-muted); font-size: 12px; font-weight: 400; }
+.todayTimeline ol { margin: 0; padding: 0; list-style: none; }
+.todayTimeline li { position: relative; display: grid; grid-template-columns: 52px 20px minmax(0, 1fr) auto; align-items: start; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.todayTimeline li:last-child { border-bottom: 0; }
+.todayTimeline time { padding-top: 1px; color: var(--text-2); font-variant-numeric: tabular-nums; font-weight: 600; }
+.stepDot { width: 12px; height: 12px; margin: 4px auto 0; border: 2px solid var(--border-strong); border-radius: 50%; background: var(--surface); }
+.todayTimeline li div { min-width: 0; }
+.todayTimeline li b { display: block; margin-bottom: 2px; }
+.todayTimeline li p { margin: 0; color: var(--text-muted); font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+.todayTimeline li em { padding: 3px 10px; border-radius: 20px; background: var(--surface-3); color: var(--text-2); font-size: 12px; font-style: normal; white-space: nowrap; }
+.todayTimeline li.done .stepDot { border-color: var(--ok-fg); background: var(--ok-fg); }
+.todayTimeline li.done em { background: var(--ok-bg); color: var(--ok-fg); }
+.todayTimeline li.warn .stepDot { border-color: var(--warn-fg); background: var(--warn-fg); }
+.todayTimeline li.warn em { background: var(--warn-bg); color: var(--warn-fg); }
+.todayTimeline li.problem .stepDot { border-color: var(--up-fg); background: var(--up-fg); }
+.todayTimeline li.problem em { background: var(--up-bg); color: var(--up-fg); }
+.todayTimeline li.running .stepDot { border-color: var(--down-fg); }
+.todayTimeline li.running em { background: var(--down-bg); color: var(--down-fg); }
+.todayTimeline li.idle, .todayTimeline li.waiting { opacity: .75; }
+
+.todayHealth table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.todayHealth th { padding: 8px; border-bottom: 1px solid var(--border); color: var(--text-muted); font-weight: 600; text-align: left; }
+.todayHealth td { padding: 8px; border-bottom: 1px solid var(--border); vertical-align: top; overflow-wrap: anywhere; }
+.todayHealth tr:last-child td { border-bottom: 0; }
+.todayHealth td:first-child, .todayHealth td:nth-child(2), .todayHealth td:nth-child(4) { white-space: nowrap; }
+.todayHealth .verdict { padding: 2px 8px; border-radius: 20px; font-style: normal; white-space: nowrap; }
+.todayHealth .verdict.complete { background: var(--ok-bg); color: var(--ok-fg); }
+.todayHealth .verdict.degraded { background: var(--warn-bg); color: var(--warn-fg); }
+.todayHealth .verdict.missing { background: var(--up-bg); color: var(--up-fg); }
+
+@media (max-width: 1100px) {
+  .todayStats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 680px) {
+  .todayPage > header { flex-direction: column; align-items: stretch; }
+  .todayStats { grid-template-columns: 1fr; }
+  .todayTimeline li { grid-template-columns: 44px 16px minmax(0, 1fr); }
+  .todayTimeline li em { grid-column: 3; justify-self: start; }
+  .todayHealth { overflow-x: auto; }
+}

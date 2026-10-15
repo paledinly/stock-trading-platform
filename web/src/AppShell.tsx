@@ -5,6 +5,7 @@
  * main.tsx가 AppShell을 그려요.
  */
 import { useEffect, useState } from 'react'
+import { TodayPage } from './TodayPage'
 import { Phase3App } from './Phase3App'
 import { JournalPage } from './Phase4App'
 import { ScannerPage } from './Phase6App'
@@ -80,6 +81,7 @@ export function AppShell() {
         </button>
       </aside>
       <div className="appMain">
+        {route === 'today' && <TodayPage />}
         {route === 'dashboard' && <Phase3App />}
         {route === 'closing' && <ClosingRecommendationPage advanced />}
         {route === 'wide' && <MarketWidePage />}

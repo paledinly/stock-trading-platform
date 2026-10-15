@@ -38,6 +38,7 @@ KIS 국내주식 데이터를 수집해 5분봉과 Feature를 만들고, 실시�
 
 | 묶음 | 메뉴 (주소) | 컴포넌트(파일) |
 | --- | --- | --- |
+| 운영 | 오늘 (`#/today`, 기본 화면) | `TodayPage` (`TodayPage.tsx`, 판정 규칙 `todayTimeline.ts`) |
 | 운영 | 대시보드 (`#/dashboard`) | `Phase3App` (`Phase3App.tsx`) |
 | 운영 | 마감 추천 (`#/closing`) | `ClosingRecommendationPage` (`ClosingRecommendationApp.tsx`) |
 | 탐색 | 시장 스캐너 (`#/wide`) | `MarketWidePage` (`Phase8App.tsx`) |

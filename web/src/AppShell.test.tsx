@@ -55,19 +55,21 @@ test('restores the closing page from the hash after remount', () => {
   expect(screen.getByRole('link', { name: '마감 추천' })).toHaveAttribute('aria-current', 'page')
 })
 
-// 없어진 '장중 추천' 같은 주소는 대시보드로 보내는지 봐요.
-test('falls back to the dashboard for an unknown route', () => {
-  expect(routeFromHash('#/intraday')).toBe('dashboard')
+// 주소가 없거나 없어진 '장중 추천' 같은 주소는 '오늘' 화면으로 보내는지 봐요.
+test('falls back to the today page for an unknown route', () => {
+  expect(routeFromHash('')).toBe('today')
+  expect(routeFromHash('#/intraday')).toBe('today')
   expect(routeFromHash('#/backtest?x=1')).toBe('backtest')
   window.location.hash = '/intraday'
   render(app())
-  expect(screen.getByRole('link', { name: '대시보드' })).toHaveAttribute('aria-current', 'page')
+  expect(screen.getByRole('link', { name: '오늘' })).toHaveAttribute('aria-current', 'page')
+  expect(screen.getByRole('heading', { name: '오늘', level: 1 })).toBeInTheDocument()
 })
 
 // 모드 전환 없이 모든 메뉴가 보이고, 백테스트 화면이 열리는지 봐요.
 test('opens the backtesting page from the sidebar', async () => {
   render(app())
-  for (const name of ['대시보드', '마감 추천', '시장 스캐너', '실시간 레이더', '성과 분석', '백테스트', '투자기록'])
+  for (const name of ['오늘', '대시보드', '마감 추천', '시장 스캐너', '실시간 레이더', '성과 분석', '백테스트', '투자기록'])
     expect(screen.getByRole('link', { name })).toBeInTheDocument()
   fireEvent.click(screen.getByRole('link', { name: '백테스트' }))
   expect(screen.getByRole('heading', { name: '전략 재생' })).toBeInTheDocument()
