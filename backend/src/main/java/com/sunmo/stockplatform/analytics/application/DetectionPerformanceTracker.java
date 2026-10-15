@@ -74,8 +74,23 @@ public class DetectionPerformanceTracker implements ApplicationRunner {
      * 받는 것: 실행 인자(쓰지 않아요). 돌려주는 것: 없어요.
      */
     @Override
-    @Transactional
     public void run(ApplicationArguments args) {
+        // 장중 재시작이면 이 복구가 도는 동안 1초 저장(flushDirty)이 같은 행을 먼저 저장할 수 있어요.
+        // 그때 마지막 커밋이 낙관적 잠금 충돌로 실패해도 서버 기동을 멈추지 않아요(2026-10-15 13:48 기동 실패).
+        // 충돌한 행은 이미 추적 목록에 올라가 있어, 다음 저장 때 flushDirty가 DB에서 다시 읽어 봉으로 복구해요.
+        try {
+            transaction.executeWithoutResult(status -> recoverPending());
+        } catch (ObjectOptimisticLockingFailureException stale) {
+            org.slf4j.LoggerFactory.getLogger(DetectionPerformanceTracker.class)
+                    .warn("Startup performance recovery hit a concurrent update; continuing, rows are reloaded on the next flush: {}",
+                            stale.getMessage());
+            dirty.addAll(byId.keySet());
+        }
+        diagnostics.pendingPerformances(byId.size());
+    }
+
+    /** 하는 일: PENDING 성과를 불러와 봉으로 복구하고, 지난 세션은 확정·저장, 진행 중이면 추적 목록에 올려요(run의 트랜잭션 안에서 실행). */
+    private void recoverPending() {
         LocalDate today = calendar.today();
         Instant now = calendar.now();
         for (DetectionPerformance performance : repository.findWithDetectionByStatus(PerformanceStatus.PENDING)) {
@@ -89,7 +104,6 @@ public class DetectionPerformanceTracker implements ApplicationRunner {
             } else
                 register(performance);
         }
-        diagnostics.pendingPerformances(byId.size());
     }
 
     /**

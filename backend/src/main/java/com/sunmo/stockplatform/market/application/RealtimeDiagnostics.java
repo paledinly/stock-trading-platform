@@ -211,6 +211,19 @@ public class RealtimeDiagnostics {
                 : new SubscriptionStatus(code, SubscriptionState.QUEUED, "waiting for connection", Instant.now()));
     }
 
+    /**
+     * 하는 일: 연결 중인데 QUEUED로 olderThan보다 오래 남은 종목코드를 돌려줘요(요청이 전송되지 않고 멈춘 구독).
+     * 2026-10-15 13:51 장중 재시작 직후 정밀 31종목이 QUEUED로 남아 체결을 받지 못했어요.
+     * 받는 것: 기준 시각, 허용 대기 시간. 돌려주는 것: 다시 보내야 할 종목코드 목록(연결 안 됐으면 빈 목록).
+     */
+    public java.util.List<String> stuckQueued(Instant now, Duration olderThan) {
+        if (!connected)
+            return java.util.List.of();
+        return subscriptions.values().stream()
+                .filter(status -> status.state() == SubscriptionState.QUEUED && status.updatedAt().plus(olderThan).isBefore(now))
+                .map(SubscriptionStatus::stockCode).toList();
+    }
+
     /** 하는 일: KIS에 구독 요청을 보냈다고 세고 상태를 REQUESTED로 바꿔요. 받는 것: 종목코드. */
     public void subscriptionRequested(String stockCode) {
         subscriptionRequests.incrementAndGet();

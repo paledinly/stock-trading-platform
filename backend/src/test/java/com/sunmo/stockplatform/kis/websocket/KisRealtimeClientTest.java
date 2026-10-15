@@ -201,6 +201,28 @@ class KisRealtimeClientTest {
         } finally { client.shutdown(); }
     }
 
+    /**
+     * 기동 작업(run) 전에 시장 스캔이 구독을 추가해도 요청 경로에 올라가는지 봐요.
+     * 2026-10-15 13:51 장중 재시작에서 run 전에 추가된 정밀 31종목이 요청 없이 목록에만 남았어요.
+     */
+    @Test
+    void subscriptionsAddedBeforeTheRunnerStillReachTheSendPath() {
+        RealtimeDiagnostics diagnostics = new RealtimeDiagnostics();
+        var properties = new RealtimeMarketProperties(true, URI.create("ws://localhost"), Duration.ZERO,
+                Duration.ofHours(1), 10, 41, Duration.ofSeconds(60));
+        var registry = new RealtimeSubscriptionRegistry(properties);
+        KisRealtimeClient client = new KisRealtimeClient(mock(KisApprovalClient.class), mock(KisRealtimeTickParser.class),
+                mock(MarketDataService.class), registry, properties, diagnostics, new ObjectMapper(),
+                mock(RealtimeSessionPolicy.class));
+        try {
+            ReflectionTestUtils.invokeMethod(client, "listenToSubscriptionChanges");
+            registry.add("005930", RealtimeSubscriptionRegistry.Source.PRECISION);
+
+            // 연결 전이라 실제 전송 대신 대기(QUEUED)로 남지만, 변경 알림을 받았다는 증거예요(연결되면 전체 재요청 대상).
+            assertThat(diagnostics.snapshot().subscriptions()).containsOnlyKeys("005930");
+        } finally { client.shutdown(); }
+    }
+
     /** 모든 틱을 받아들이는 세션 정책 목을 만드는 도우미예요. */
     private RealtimeSessionPolicy acceptingSession() {
         var session = mock(RealtimeSessionPolicy.class);
