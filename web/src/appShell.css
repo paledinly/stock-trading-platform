@@ -2,22 +2,46 @@
  * 앱 껍데기(AppShell) 스타일이에요. 넓은 화면에서는 왼쪽 고정 메뉴, 1100px보다 좁으면 위쪽 가로 메뉴로 바뀌어요.
  * 아래쪽 "공통 화면 머리"는 각 화면의 큰 제목 영역을 같은 크기로 맞춰요(화면별 CSS보다 우선).
  */
-.appShell { display: grid; grid-template-columns: 216px minmax(0, 1fr); min-height: 100vh; background: var(--bg); color: var(--text); }
-.appSidebar { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; gap: 18px; padding: 20px 14px; border-right: 1px solid var(--border); background: var(--surface); overflow-y: auto; }
-.appBrand { display: flex; align-items: center; gap: 10px; padding: 0 6px; }
-.appBrand i { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: var(--down-solid); color: var(--on-solid); font-style: normal; font-weight: 800; }
+.appShell { display: grid; grid-template-columns: 228px minmax(0, 1fr); min-height: 100vh; background: var(--bg); color: var(--text); }
+.appSidebar { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; gap: 20px; padding: 18px 12px 14px; border-right: 1px solid var(--border); background: linear-gradient(180deg, var(--surface) 0%, var(--surface-2) 100%); overflow-y: auto; scrollbar-width: thin; }
+
+/* 로고: 그라데이션 아이콘 + 이름 */
+.appBrand { display: flex; align-items: center; gap: 11px; padding: 4px 8px 14px; border-bottom: 1px solid var(--border); }
+.appBrand i { display: grid; flex: none; place-items: center; width: 36px; height: 36px; border-radius: 11px; background: linear-gradient(135deg, var(--down-solid), var(--violet-solid)); color: var(--on-solid); box-shadow: 0 6px 16px var(--shadow-color); }
 .appBrand span { display: flex; flex-direction: column; min-width: 0; }
-.appBrand b { font-size: 15px; color: var(--text-strong); }
+.appBrand b { color: var(--text-strong); font-size: 15px; letter-spacing: -.01em; }
 .appBrand small { color: var(--text-muted); font-size: 11px; }
-.appSidebar nav { display: flex; flex-direction: column; gap: 14px; }
+
+/* 메뉴: 묶음 이름(작은 대문자풍) + 아이콘 달린 줄, 선택된 줄은 왼쪽 강조 막대 */
+.appSidebar nav { display: flex; flex-direction: column; gap: 16px; }
 .appNavGroup { display: flex; flex-direction: column; gap: 2px; }
-.appNavGroup small { padding: 0 10px 4px; color: var(--text-muted); font-size: 11px; font-weight: 700; letter-spacing: .08em; }
-.appNavGroup a { padding: 9px 10px; border-radius: 8px; color: var(--text-2); font-size: 14px; text-decoration: none; }
+.appNavGroup small { padding: 0 12px 6px; color: var(--text-muted); font-size: 10.5px; font-weight: 700; letter-spacing: .14em; opacity: .85; }
+.appNavGroup a { position: relative; display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 9px; color: var(--text-2); font-size: 14px; text-decoration: none; transition: background .12s, color .12s; }
+.appNavGroup a .navIcon { flex: none; color: var(--text-muted); transition: color .12s; }
 .appNavGroup a:hover { background: var(--surface-3); color: var(--text); }
+.appNavGroup a:hover .navIcon { color: var(--text-2); }
 .appNavGroup a[aria-current='page'] { background: var(--down-bg); color: var(--down-fg); font-weight: 700; }
-.appNavGroup a:focus-visible, .themeToggle:focus-visible { outline: 2px solid var(--down-fg); outline-offset: 1px; }
-.themeToggle { margin-top: auto; padding: 9px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); color: var(--text-2); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
-.themeToggle:hover { background: var(--surface-3); color: var(--text); }
+.appNavGroup a[aria-current='page'] .navIcon { color: var(--down-fg); }
+.appNavGroup a[aria-current='page']::before { content: ''; position: absolute; top: 8px; bottom: 8px; left: -12px; width: 4px; border-radius: 0 4px 4px 0; background: var(--down-solid); }
+.appNavGroup a:focus-visible, .themeSwitch button:focus-visible { outline: 2px solid var(--down-fg); outline-offset: 1px; }
+
+/* 아래쪽: 장 상태 칸 + 테마 스위치 */
+.appSidebarFoot { display: flex; flex-direction: column; gap: 10px; margin-top: auto; }
+.sidebarStatus { padding: 11px 12px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface); }
+.sidebarSession { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.sidebarSession b { color: var(--text-strong); font-size: 13px; }
+.sidebarSession time { color: var(--text-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.sidebarLive { display: flex; align-items: center; gap: 7px; margin: 7px 0 0; color: var(--text-2); font-size: 12px; }
+.sidebarLive i { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); }
+.sidebarLive.on i { background: var(--ok-fg); box-shadow: 0 0 0 3px var(--ok-bg); animation: livePulse 2s ease-in-out infinite; }
+.sidebarLive.off i { background: var(--up-fg); box-shadow: 0 0 0 3px var(--up-bg); }
+.sidebarNext { margin: 6px 0 0; color: var(--text-muted); font-size: 11.5px; line-height: 1.45; }
+@keyframes livePulse { 50% { box-shadow: 0 0 0 5px var(--ok-bg); } }
+@media (prefers-reduced-motion: reduce) { .sidebarLive.on i { animation: none; } }
+.themeSwitch { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; padding: 3px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
+.themeSwitch button { padding: 7px 6px; border: 0; border-radius: 7px; background: transparent; color: var(--text-muted); font: inherit; font-size: 12px; cursor: pointer; }
+.themeSwitch button:hover { color: var(--text); }
+.themeSwitch button[aria-pressed='true'] { background: var(--surface); color: var(--text-strong); font-weight: 600; box-shadow: 0 1px 3px var(--shadow-color); }
 .appMain { min-width: 0; }
 
 /* 공통 화면 머리: 화면마다 달랐던 큰 제목 영역을 같은 높이·글자 크기로 맞춰요. */
@@ -29,11 +53,16 @@
 
 @media (max-width: 1100px) {
   .appShell { grid-template-columns: 1fr; }
-  .appSidebar { position: sticky; z-index: 30; height: auto; flex-direction: row; align-items: center; gap: 12px; padding: 10px 14px; border-right: 0; border-bottom: 1px solid var(--border); overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+  .appSidebar { position: sticky; z-index: 30; height: auto; flex-direction: row; align-items: center; gap: 12px; padding: 8px 12px; border-right: 0; border-bottom: 1px solid var(--border); background: var(--surface); overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+  .appBrand { padding: 0; border-bottom: 0; }
+  .appBrand i { width: 32px; height: 32px; }
   .appBrand span { display: none; }
   .appSidebar nav { flex-direction: row; gap: 4px; }
   .appNavGroup { flex-direction: row; }
   .appNavGroup small { display: none; }
-  .appNavGroup a { white-space: nowrap; }
-  .themeToggle { margin: 0 0 0 auto; white-space: nowrap; }
+  .appNavGroup a { padding: 8px 10px; white-space: nowrap; }
+  .appNavGroup a[aria-current='page']::before { top: auto; bottom: -8px; left: 10px; right: 10px; width: auto; height: 3px; border-radius: 3px 3px 0 0; }
+  .appSidebarFoot { flex-direction: row; align-items: center; margin: 0 0 0 auto; }
+  .sidebarStatus { display: none; }
+  .themeSwitch { white-space: nowrap; }
 }

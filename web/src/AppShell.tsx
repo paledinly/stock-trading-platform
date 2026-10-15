@@ -14,6 +14,8 @@ import { MarketWidePage } from './Phase8App'
 import { BacktestPage } from './BacktestPage'
 import { ClosingRecommendationPage } from './ClosingRecommendationApp'
 import { GROUPS, ROUTES, routeFromHash, type RouteId } from './routes'
+import { NavIcon } from './NavIcon'
+import { SidebarStatus } from './SidebarStatus'
 import './appShell.css'
 
 type Theme = 'light' | 'dark'
@@ -63,22 +65,27 @@ export function AppShell() {
   return (
     <div className="appShell">
       <aside className="appSidebar">
-        <div className="appBrand"><i>주</i><span><b>주식 모니터</b><small>국내주식 · 장마감 전략</small></span></div>
+        <div className="appBrand"><i aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 17l5-6 4 3 7-8" /><path d="M15 6h5v5" /></svg>
+        </i><span><b>주식 모니터</b><small>국내주식 · 장마감 전략</small></span></div>
         <nav aria-label="주요 메뉴">
           {GROUPS.map(group => (
             <div className="appNavGroup" key={group}>
               <small>{group}</small>
               {ROUTES.filter(item => item.group === group).map(item => (
                 <a key={item.id} href={`#/${item.id}`} aria-current={route === item.id ? 'page' : undefined}
-                  onClick={event => { event.preventDefault(); open(item.id) }}>{item.label}</a>
+                  onClick={event => { event.preventDefault(); open(item.id) }}><NavIcon name={item.id} /><span>{item.label}</span></a>
               ))}
             </div>
           ))}
         </nav>
-        <button type="button" className="themeToggle" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-          aria-label={theme === 'dark' ? '밝은 화면으로 바꾸기' : '어두운 화면으로 바꾸기'}>
-          {theme === 'dark' ? '☀ 밝은 화면' : '☾ 어두운 화면'}
-        </button>
+        <div className="appSidebarFoot">
+          <SidebarStatus />
+          <div className="themeSwitch" role="group" aria-label="화면 테마">
+            <button type="button" aria-pressed={theme === 'light'} onClick={() => setTheme('light')}>☀ 밝게</button>
+            <button type="button" aria-pressed={theme === 'dark'} onClick={() => setTheme('dark')}>☾ 어둡게</button>
+          </div>
+        </div>
       </aside>
       <div className="appMain">
         {route === 'today' && <TodayPage />}

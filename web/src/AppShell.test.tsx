@@ -92,9 +92,11 @@ test('opens the closing recommendation page with full controls', async () => {
 // 테마 버튼을 누르면 html의 data-theme이 바뀌고 저장되는지 봐요.
 test('toggles and remembers the light theme', () => {
   render(app())
-  const initial = document.documentElement.dataset.theme
-  fireEvent.click(screen.getByRole('button', { name: /화면으로 바꾸기/ }))
-  const next = document.documentElement.dataset.theme
-  expect(next).not.toBe(initial)
-  expect(localStorage.getItem('ui.theme')).toBe(next)
+  fireEvent.click(screen.getByRole('button', { name: '☀ 밝게' }))
+  expect(document.documentElement.dataset.theme).toBe('light')
+  expect(screen.getByRole('button', { name: '☀ 밝게' })).toHaveAttribute('aria-pressed', 'true')
+  expect(localStorage.getItem('ui.theme')).toBe('light')
+  fireEvent.click(screen.getByRole('button', { name: '☾ 어둡게' }))
+  expect(document.documentElement.dataset.theme).toBe('dark')
+  expect(localStorage.getItem('ui.theme')).toBe('dark')
 })
