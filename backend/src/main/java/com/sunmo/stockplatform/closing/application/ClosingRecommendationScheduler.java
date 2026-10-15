@@ -175,24 +175,32 @@ public class ClosingRecommendationScheduler {
         if (today.equals(lastObservationDate) || now.isBefore(calendar.close(today).plus(OBSERVATION_DELAY)))
             return;
         lastObservationDate = today;
+        ClosingRecommendationRun previous = officialRun(calendar.previousTradingDay(today));
         // ADR-010: fill missing next-session bars of the previous run's precision candidates before judging them.
         ObservationBackfillService backfill = observationBackfill == null ? null : observationBackfill.getIfAvailable();
-        if (backfill != null)
+        if (backfill != null) {
+            // 보완 대상(정밀 후보)은 관측 행에서 찾는데, 그 행은 관측 평가가 처음 만들어요. 그래서 전 거래일 run을 먼저
+            // 한 번 평가해 행을 만든 뒤 보완하고, 아래에서 다시 평가해요(2026-10-15 15:40 첫 실행이 stocks=0으로 끝남).
+            if (previous != null)
+                trackObservations(previous.getId());
             backfill.fillTodayLogged();
-        else
+        } else
             log.warn("Observation backfill unavailable: next-session bars of unsubscribed candidates stay missing");
         // 처리: 아직 평가가 끝나지 않은 과거 run과 전 거래일 공식 run을 모아 각각 관측을 갱신해요.
         Set<Long> runIds = new TreeSet<>(observationRows
                 .findRunIdsByStatusInAndExpectedSessionDateOnOrBefore(AWAITING_EVALUATION, today));
-        ClosingRecommendationRun previous = officialRun(calendar.previousTradingDay(today));
         if (previous != null)
             runIds.add(previous.getId());
-        for (Long runId : runIds) {
-            try {
-                observations.track(runId, automationProperties.targetRate(), automationProperties.stopRate());
-            } catch (RuntimeException error) {
-                log.warn("Candidate observation tracking failed for run {}: {}", runId, rootMessage(error));
-            }
+        for (Long runId : runIds)
+            trackObservations(runId);
+    }
+
+    /** 하는 일: run 하나의 후보 관측을 평가해요. 실패해도 로그만 남기고 다음 run으로 넘어가요. 받는 것: run id. */
+    private void trackObservations(Long runId) {
+        try {
+            observations.track(runId, automationProperties.targetRate(), automationProperties.stopRate());
+        } catch (RuntimeException error) {
+            log.warn("Candidate observation tracking failed for run {}: {}", runId, rootMessage(error));
         }
     }
 
