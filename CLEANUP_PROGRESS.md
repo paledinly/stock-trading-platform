@@ -198,3 +198,14 @@
 - 기본 스케줄러(`taskScheduler`)는 스레드 1개를 유지하고, 봉 확정(`closeExpired`)만 전용 `candleCloseScheduler`로 분리했어요. 종가 작업들은 예전처럼 차례로 실행돼요.
 - 요청 범위 밖 수정 1건: `PrecisionSubscriptionAllocator.trimExcess`가 응답 대기 중인 교체 구독을 초과분으로 세지 않도록 고쳤어요(무관한 정밀 구독이 잘못 해제되던 문제). 정밀 구독 배분이 달라질 수 있어요.
 - 남은 일: backtest 기본 종료일(`LocalDate.now`)·15:31 cron 미변경, Trajectory 격리는 Postgres 트랜잭션이 중단되면 효과가 제한적이에요. 다음 배치는 C(거래량 0→null, ADR-010 보완), E/G/F, mobile(B6 결정 후), D(전략, v9.2는 판단 기간 이후).
+
+## UI 개편 4단계에서 처리한 웹 확인 필요 항목 (2026-10-15, 브랜치 feat/ui-revamp)
+
+위 '⚠️ 확인 필요' 목록 중 `web/src` 7건을 고쳤고 코드의 표시도 지웠어요.
+- 요청 함수 headers 합치기(`ClosingRecommendationApp`, `Phase6App`): headers를 마지막에 펼쳐 Content-Type과 Idempotency-Key가 함께 가요.
+- 마감 추천 카드의 탐지 시각: Asia/Seoul로 고정.
+- 투자기록 삭제: 확인 질문 추가.
+- 실시간 레이더 SSE 중복: 공용 연결 모듈 `stream.ts`로 RealtimeBridge와 연결 하나를 같이 써요.
+- 성과 분석·백테스트 기본 날짜: `kst.ts`로 한국 날짜 사용(오전 9시 전 하루 전 날짜 문제 해결).
+- 성과 분석 문구: '실제로 우위가 있는 신호만 골라냅니다' 삭제, 표본 수 기준 '신뢰도'를 '표본 충분/관찰/부족'으로 표시.
+- 시장 스캐너: 화면을 열어도 스캔하지 않고 '넓은 범위 스캔'을 누를 때만 실행.

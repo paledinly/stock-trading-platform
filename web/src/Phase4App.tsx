@@ -302,7 +302,6 @@ export function JournalPage() {
   });
   // 저장·삭제 뒤 거래 목록 캐시를 무효화해서 다시 불러와요.
   const refresh = () => cache.invalidateQueries({ queryKey: ["trades"] });
-  // ⚠️ 확인 필요: 삭제 버튼을 누르면 확인 질문 없이 바로 지워지는 것으로 보여요.
   const remove = useMutation({
     mutationFn: (id: number) =>
       api(`/api/v1/trades/${id}`, { method: "DELETE" }),
@@ -413,7 +412,10 @@ export function JournalPage() {
                 >
                   {editing === trade.id ? "닫기" : "노트 편집"}
                 </button>
-                <button onClick={() => remove.mutate(trade.id)}>삭제</button>
+                <button onClick={() => {
+                  // 거래 기록과 노트가 함께 지워지므로 확인을 받아요.
+                  if (window.confirm("이 거래 기록을 삭제할까요? 투자 노트도 함께 지워집니다.")) remove.mutate(trade.id);
+                }}>삭제</button>
               </div>
               {editing === trade.id && (
                 <JournalEditor

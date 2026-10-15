@@ -1,8 +1,10 @@
 /**
  * 신호 성과 분석 화면 파일이에요. 실시간 레이더가 탐지한 신호가 그 뒤 5분·10분·30분·60분·종가까지 얼마나 움직였는지 모아서 보여 줘요.
- * 목표 수익률과 손절 기준 중 무엇에 먼저 닿았는지, 시간대·조건 조합별 성과, 표본 수에 따른 신뢰도도 함께 보여 줘요.
+ * 목표 수익률과 손절 기준 중 무엇에 먼저 닿았는지, 시간대·조건 조합별 성과, 표본 수가 충분한지도 함께 보여 줘요.
+ * 표본 충분은 집계에 쓸 건수가 모였다는 뜻일 뿐, 수익성이 검증됐다는 뜻이 아니에요.
  * AppShell(전체 화면 껍데기)이 "성과 분석" 메뉴(#/analytics)에서 AnalyticsPage를 보여 줘요.
  */
+import { kstDayEnd, kstDayStart, kstDaysAgo, kstToday } from "./kst";
 import { FormEvent, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import "./phase7.css";
@@ -84,14 +86,6 @@ async function get<T>(url: string): Promise<T> {
   return response.json();
 }
 
-/**
- * 날짜를 "YYYY-MM-DD" 글자로 바꿔요. 받는 것: date. 돌려주는 것: 날짜 글자.
- * ⚠️ 확인 필요: toISOString은 UTC 기준이라 한국 시간 오전 9시 전에는 하루 전 날짜가 나오는 것으로 보여요.
- */
-function dateValue(date: Date) {
-  return date.toISOString().slice(0, 10);
-}
-
 /** 숫자를 "+1.23%" 같은 부호 있는 퍼센트 글자로 바꿔요. 값이 없으면 "--". */
 function pct(value: number | null | undefined) {
   return value == null ? "--" : `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
@@ -102,11 +96,14 @@ function rate(value: number | null | undefined) {
   return value == null ? "--" : `${value.toFixed(1)}%`;
 }
 
-/** 신뢰도 코드(HIGH/MEDIUM/그 외)를 "충분/관찰/부족"으로 바꿔요. */
+/**
+ * 서버의 confidence 코드(HIGH/MEDIUM/그 외)를 "표본 충분/관찰/부족"으로 바꿔요.
+ * 서버는 표본 수만으로 이 값을 정해요(최소 표본 이상 HIGH, 절반 이상 MEDIUM). 수익성 판단이 아니에요.
+ */
 function confidenceLabel(value?: string) {
-  if (value === "HIGH") return "충분";
-  if (value === "MEDIUM") return "관찰";
-  return "부족";
+  if (value === "HIGH") return "표본 충분";
+  if (value === "MEDIUM") return "표본 관찰";
+  return "표본 부족";
 }
 
 /** 점수 구간 코드(HIGH/MID/LOW/UNKNOWN)를 한국어로 바꿔요. */
@@ -152,23 +149,22 @@ function settingNameLabel(name: string) {
  * 신호 성과 분석 화면 React 컴포넌트(화면 조각)예요. 비유하면 "지난 신호들의 성적표"예요.
  * 받는 것(props): 없음. 화면 이동은 왼쪽 메뉴(AppShell)가 맡아요.
  * 돌려주는 것: 조건 입력 폼, 요약 카드, 수익률·목표/손절·시간대·조합·과거 우위 패널 화면.
- * ⚠️ 확인 필요: 사용 안내의 "실제로 우위가 있는 신호만 골라냅니다" 문구는 표본·검증 상태와 상관없이 우위를 단정하는 것으로 보여요.
  */
 export function AnalyticsPage() {
-  const today = new Date();
-  const week = new Date(Date.now() - 7 * 86400000);
+  // 기본 기간은 한국시간 기준 최근 7일이에요.
+  const week = kstDaysAgo(7);
+  const today = kstToday();
   // 상태(state, 컴포넌트가 기억하는 값): 입력 중인 조건들이에요.
-  const [from, setFrom] = useState(dateValue(week));
-  const [to, setTo] = useState(dateValue(today));
+  const [from, setFrom] = useState(week);
+  const [to, setTo] = useState(today);
   const [setting, setSetting] = useState("");
   const [targetRate, setTargetRate] = useState(3);
   const [stopRate, setStopRate] = useState(-2);
   const [minimumSampleSize, setMinimumSampleSize] = useState(20);
-  // params는 "분석"을 눌렀을 때 확정된 조회 조건이에요.
-  // 처음 값은 지금으로부터 7일 전 ~ 내일 같은 시각이라, 제출 뒤(한국 시간 하루 처음~끝)와 기간 계산 방식이 조금 달라요.
+  // params는 "분석"을 눌렀을 때 확정된 조회 조건이에요. 처음 값도 제출 때와 같이 한국시간 하루 처음~끝이에요.
   const [params, setParams] = useState({
-    from: week.toISOString(),
-    to: new Date(today.getTime() + 86400000).toISOString(),
+    from: kstDayStart(week),
+    to: kstDayEnd(today),
     setting: "",
     targetRate,
     stopRate,
@@ -196,8 +192,8 @@ export function AnalyticsPage() {
   function submit(event: FormEvent) {
     event.preventDefault();
     setParams({
-      from: new Date(from + "T00:00:00+09:00").toISOString(),
-      to: new Date(to + "T23:59:59+09:00").toISOString(),
+      from: kstDayStart(from),
+      to: kstDayEnd(to),
       setting,
       targetRate,
       stopRate,
@@ -225,7 +221,7 @@ export function AnalyticsPage() {
           </span>
         </div>
         <aside>
-          <small>신뢰도</small>
+          <small>표본 수</small>
           <b>{confidenceLabel(data?.historicalEdge?.confidence)}</b>
           <span>
             {data?.historicalEdge?.sampleSize ?? 0}/
@@ -321,8 +317,9 @@ export function AnalyticsPage() {
           <h2>사용 안내</h2>
           <p>
             분석 기간과 탐지 설정을 고른 뒤 목표 수익률·손절 기준을 입력합니다.
-            시간대별 성과와 조건 조합별 평균 수익률을 비교해 실제로 우위가 있는
-            신호만 골라냅니다.
+            시간대별 성과와 조건 조합별 평균 수익률을 비교합니다. 비용을 빼지 않은
+            과거 표본 집계이며, '표본 충분'은 건수가 모였다는 뜻일 뿐 수익성이
+            검증됐다는 뜻이 아닙니다.
           </p>
         </section>
         <section className="edgeGrid">
@@ -457,7 +454,7 @@ function TimeBucketPanel({ rows }: { rows: TimeBucket[] }) {
   );
 }
 
-/** 신호 조합별 성과 목록(상위 8개)이에요. 받는 것(props): rows. 돌려주는 것: 조합별 신뢰도·평균 수익률 줄 화면. */
+/** 신호 조합별 성과 목록(상위 8개)이에요. 받는 것(props): rows. 돌려주는 것: 조합별 표본 충분 여부·평균 수익률 줄 화면. */
 function SignalCombinationPanel({ rows }: { rows: SignalCombination[] }) {
   return (
     <section>
@@ -488,11 +485,11 @@ function SignalCombinationPanel({ rows }: { rows: SignalCombination[] }) {
   );
 }
 
-/** 과거 우위 요약 카드예요. 받는 것(props): edge. 돌려주는 것: 신뢰도, 평균 수익률, 승률, MFE·MAE 카드 화면. */
+/** 과거 표본 요약 카드예요. 받는 것(props): edge. 돌려주는 것: 표본 충분 여부, 평균 수익률, 승률, MFE·MAE 카드 화면. */
 function HistoricalEdgePanel({ edge }: { edge?: HistoricalEdge }) {
   return (
     <section>
-      <h2>과거 우위</h2>
+      <h2>과거 표본 요약</h2>
       <div className="edgeCard">
         <small>{confidenceLabel(edge?.confidence)}</small>
         <b>{pct(edge?.averageReturn)}</b>

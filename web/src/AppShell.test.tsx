@@ -74,6 +74,9 @@ test('opens the backtesting page from the sidebar', async () => {
   fireEvent.click(screen.getByRole('link', { name: '백테스트' }))
   expect(screen.getByRole('heading', { name: '전략 재생' })).toBeInTheDocument()
   expect(await screen.findByText('조회 가능한 종목')).toBeInTheDocument()
+  // 화면을 여는 것만으로는 재생하지 않고, 재생을 눌러야 결과를 조회해요.
+  expect(screen.getByText('종목과 기간을 정한 뒤 재생을 누르세요.')).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: '재생' }))
   expect(await screen.findByText('전략 통계가 없습니다')).toBeInTheDocument()
 })
 

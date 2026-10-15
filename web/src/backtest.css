@@ -17,3 +17,5 @@
 .summaryPanel dt,.virtualPanel dt{color:var(--text-muted);font-size:10px}.summaryPanel dd,.virtualPanel dd{margin:4px 0 0;font-weight:700}.virtualPanel strong{white-space:nowrap}.gain{color:var(--up-fg)}.loss{color:var(--down-fg)}
 .backtestEmpty{display:grid;place-items:center;min-height:230px;text-align:center;border:1px dashed var(--up-border);border-radius:8px;color:var(--text-muted)}
 @media(max-width:1050px){.backtestPage header aside{display:none}.backtestPage form,.backtestGrid{grid-template-columns:1fr}.backtestStockPicker>div:last-child{grid-template-columns:repeat(2,1fr)}.backtestSummary{grid-template-columns:1fr 1fr}}@media(max-width:680px){.backtestPage header h1{font-size:34px}.backtestStockPicker>div:first-child{align-items:flex-start;flex-direction:column}.backtestStockPicker>div:last-child,.backtestSummary,.summaryPanel dl,.virtualPanel dl{grid-template-columns:1fr}}
+
+.backtestMore{width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);color:var(--text-2);cursor:pointer}.backtestMore:hover{background:var(--surface-3);color:var(--text)}

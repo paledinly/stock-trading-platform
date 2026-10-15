@@ -2,7 +2,7 @@
  * 시장 전체 스캐너 화면(MarketWidePage) 테스트예요. fetch를 가짜 함수로 바꿔 상태·스캔 결과를 주소별로 돌려줘요.
  * 빈 후보 안내, 수집 통계(상세 REST 조회, 데이터 출처), 비동기 후보 보강 상태가 보이는지 확인해요.
  */
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MarketWidePage } from "./Phase8App";
 
@@ -83,7 +83,12 @@ test("opens market-wide scanner", async () => {
     screen.getByRole("heading", { name: "시장 전체 스캐너" }),
   ).toBeInTheDocument();
   expect(screen.getByText("사용 안내")).toBeInTheDocument();
+  // 화면을 여는 것만으로는 스캔(KIS 조회)을 하지 않아요.
+  expect(screen.getByText(/아직 수동 스캔을 실행하지 않았습니다/)).toBeInTheDocument();
+  expect(vi.mocked(globalThis.fetch).mock.calls.some(([url]) => String(url).includes("/market-wide/scan"))).toBe(false);
+  fireEvent.click(screen.getByRole("button", { name: "넓은 범위 스캔" }));
   expect(await screen.findByText("후보가 없습니다")).toBeInTheDocument();
+  expect(vi.mocked(globalThis.fetch).mock.calls.some(([url]) => String(url).includes("/market-wide/scan"))).toBe(true);
   expect(await screen.findByText(/상세 REST 조회 7\/30종목/)).toBeInTheDocument();
   expect(screen.getByText(/CACHE 5건/)).toBeInTheDocument();
   expect(screen.getByRole('heading', { name: '비동기 후보 보강' })).toBeInTheDocument();

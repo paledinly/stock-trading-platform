@@ -3,6 +3,7 @@
  * 서버의 탐지 이벤트를 SSE(서버가 브라우저로 계속 밀어 주는 이벤트)로 듣고, 오면 목록을 다시 불러와요.
  * AppShell(전체 화면 껍데기)이 "실시간 레이더" 메뉴(#/scanner)에서 ScannerPage를 보여 줘요.
  */
+import { subscribeStream } from './stream'
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import './phase6.css'
@@ -59,12 +60,12 @@ const emptySetting: Setting = {
 /**
  * fetch(브라우저 내장 HTTP 요청 함수)로 JSON API를 부르는 비동기(async) 도우미예요.
  * 받는 것: url, init(요청 옵션). 돌려주는 것: 응답 JSON, 204(내용 없음)이면 undefined.
- * ⚠️ 확인 필요: ...init을 headers 뒤에 펼쳐서, init에 headers를 넘기면 Content-Type 합친 값이 덮어써지는 것으로 보여요(지금 호출부는 headers를 안 넘겨요).
+ * init에 headers가 있어도 Content-Type과 합쳐지도록 headers를 마지막에 펼쳐요.
  */
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
-    headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
     ...init,
+    headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
   })
   if (!response.ok) throw new Error('실시간 레이더 데이터를 처리하지 못했습니다.')
   return response.status === 204 ? undefined as T : response.json()
@@ -248,16 +249,13 @@ export function ScannerPage() {
     return text.includes(search.toLowerCase()) && (item.opportunityScore ?? 0) >= minOpportunity && (item.riskScore ?? 0) <= maxRisk
   }).sort((left, right) => (right.opportunityScore ?? 0) - (left.opportunityScore ?? 0) || (left.riskScore ?? 0) - (right.riskScore ?? 0)) ?? [], [detections.data, search, minOpportunity, maxRisk])
 
-  // EventSource(SSE 연결 객체)로 탐지 이벤트를 듣고, 오면 탐지 목록과 운영 상태를 다시 불러오게 해요.
-  // ⚠️ 확인 필요: main.tsx의 RealtimeBridge도 같은 /api/v1/stream을 열고 있어서, 이 화면에 있는 동안 SSE 연결이 2개가 되는 것으로 보여요.
+  // 공용 SSE 연결(stream.ts, RealtimeBridge와 같은 연결)로 탐지 이벤트를 듣고, 오면 탐지 목록과 운영 상태를 다시 불러오게 해요.
   useEffect(() => {
-    if (typeof EventSource === 'undefined') return
-    const source = new EventSource('/api/v1/stream')
     const refresh = () => {
       cache.invalidateQueries({ queryKey: ['detections'] })
       cache.invalidateQueries({ queryKey: ['realtime-status'] })
     }
-    [
+    const events = [
       'scanner.volume.detected',
       'scanner.price.detected',
       'scanner.momentum.detected',
@@ -268,8 +266,8 @@ export function ScannerPage() {
       'scanner.vwap-reclaim.detected',
       'scanner.pullback-rebreak.detected',
       'scanner.performance.updated',
-    ].forEach(name => source.addEventListener(name, refresh))
-    return () => source.close()
+    ]
+    return subscribeStream(Object.fromEntries(events.map(name => [name, refresh])))
   }, [cache])
 
   // 아직 아무것도 고르지 않았으면 첫 번째 후보를 자동으로 선택해요.
@@ -453,19 +451,25 @@ function SettingPanel({ settings, draft, setDraft, save, create, remove }: { set
 
 /**
  * 기존 설정 하나의 편집 줄이에요. 저장을 누르기 전까지는 local(화면 안 사본)만 바뀌어요.
- * 받는 것(props): setting, save, remove. 돌려주는 것: 활성·등락·거래량 입력과 저장·삭제 버튼 화면.
+ * 받는 것(props): setting, save, remove. 돌려주는 것: 요약 줄(누르면 펼침)과 활성·등락·거래량 입력, 저장·삭제 버튼 화면.
  */
 function SettingEditor({ setting, save, remove }: { setting: Setting; save: (setting: Setting) => void; remove: (id: number) => void }) {
   const [local, setLocal] = useState(setting)
   // 서버에서 새 설정이 오면 화면 사본을 다시 맞춰요(저장 안 한 입력은 사라져요).
   useEffect(() => setLocal(setting), [setting])
+  // 설정 9개가 모두 펼쳐지면 패널이 길어져서, 요약 한 줄만 보이고 누르면 편집 칸이 열려요.
+  // 삭제는 운영 중인 탐지에 바로 반영되므로 확인을 받아요.
   return (
-    <div className={!local.active ? 'disabled' : ''}>
-      <span><b>{settingNameLabel(local.name, local.type)}</b><small>{scannerTypeLabel(local.type)}</small></span>
+    <details className={`settingItem${!setting.active ? ' disabled' : ''}`}>
+      <summary><b>{settingNameLabel(setting.name, setting.type)}</b>
+        <small>{setting.active ? '켜짐' : '꺼짐'} · 등락 ≥ {setting.minChangeRate} · 거래량 ≥ {setting.minVolumeRatio}배</small></summary>
+      <span><small>{scannerTypeLabel(local.type)}</small></span>
       <label>활성 <input type="checkbox" checked={local.active} onChange={event => setLocal({ ...local, active: event.target.checked })} /></label>
       <label>등락 <input type="number" step="0.1" value={local.minChangeRate} onChange={event => setLocal({ ...local, minChangeRate: Number(event.target.value) })} /></label>
       <label>거래량 <input type="number" step="0.1" value={local.minVolumeRatio} onChange={event => setLocal({ ...local, minVolumeRatio: Number(event.target.value) })} /></label>
-      <div className="settingActions"><button onClick={() => save(local)}>저장</button><button onClick={() => remove(local.id)}>삭제</button></div>
-    </div>
+      <div className="settingActions"><button onClick={() => save(local)}>저장</button><button onClick={() => {
+        if (window.confirm(`'${settingNameLabel(setting.name, setting.type)}' 탐지 설정을 삭제할까요? 장중 탐지에 바로 반영됩니다.`)) remove(local.id)
+      }}>삭제</button></div>
+    </details>
   )
 }

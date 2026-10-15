@@ -384,12 +384,12 @@ type MonitoringMetrics = {
  * 백엔드 API를 호출하는 공통 함수예요. fetch(브라우저 내장 HTTP 요청 함수)를 비동기(async, 기다렸다가 결과를 받는 방식)로 불러요.
  * 받는 것: 요청 주소와 선택 옵션. 돌려주는 것: JSON 결과(204면 null).
  * 실패하면 409(기존 실행과 조건이 다름)와 그 밖의 오류를 한국어 메시지로 바꿔 던져요.
- * ⚠️ 확인 필요: `...init`이 headers 뒤에 펼쳐져서, init에 headers가 있으면 위에서 합친 Content-Type이 덮어써져요(현재 POST 호출은 본문이 없어 영향은 작아 보여요).
+ * init에 headers(예: Idempotency-Key)가 있어도 Content-Type과 합쳐지도록 headers를 마지막에 펼쳐요.
  */
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
-    headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
     ...init,
+    headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
   })
   if (!response.ok) throw new Error(response.status === 409
     ? '기존 실행의 요청 또는 성과 기준과 다릅니다. 새 후보 평가를 생성해 주세요.'
@@ -1388,7 +1388,6 @@ function IntegrityPanel({ integrity }: { integrity: BacktestIntegrity }) {
  * 추천 종목 하나를 카드로 보여주는 컴포넌트예요. 진열대 가격표 카드처럼 순위·점수·근거·성과를 한 장에 담아요.
  * 받는 것(props): item(추천), performance(다음날 성과), decision(매도/보유 판단), advanced(고급 모드).
  * 돌려주는 것: 추천 카드 화면.
- * ⚠️ 확인 필요: 탐지 시각(detectedAt)은 timeZone 없이 표시해서 브라우저 시간대를 따라요. 다른 곳은 Asia/Seoul로 고정해요.
  */
 function RecommendationCard({ item, performance, decision, advanced = false }: {
   item: Recommendation
@@ -1405,7 +1404,7 @@ function RecommendationCard({ item, performance, decision, advanced = false }: {
         <i>{item.rank}</i>
         <span>
           <b>{item.stockName}</b>
-          <small>{item.stockCode} · {item.market} · {item.candidateSource === 'PRECISION' ? '정밀' : 'Broad'} · {scannerTypeLabel(item.scannerType)} · {new Date(item.detectedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</small>
+          <small>{item.stockCode} · {item.market} · {item.candidateSource === 'PRECISION' ? '정밀' : 'Broad'} · {scannerTypeLabel(item.scannerType)} · {new Date(item.detectedAt).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit' })}</small>
         </span>
         <strong><small>신호 가격 </small>{money(item.buyReferencePrice)}원</strong>
       </div>

@@ -14,6 +14,7 @@ import {
   type Quote,
   type QuoteEventPayload,
 } from './marketData'
+import { subscribeStream } from './stream'
 
 /** 서버가 보내는 이벤트 봉투 모양(타입)이에요. 실제 내용은 payload 안에 있어요. */
 type MarketEvent<T> = { payload: T }
@@ -26,11 +27,8 @@ type MarketEvent<T> = { payload: T }
 export function RealtimeBridge() {
   const cache = useQueryClient()
 
-  // 마운트될 때 EventSource(SSE 연결 객체)를 한 번 열고, 사라질 때 닫아요.
+  // 마운트될 때 공용 SSE 연결(stream.ts)에 처리기를 붙이고, 사라질 때 떼요.
   useEffect(() => {
-    // 테스트 환경처럼 EventSource가 없는 곳에서는 아무것도 하지 않아요.
-    if (typeof EventSource === 'undefined') return
-    const source = new EventSource('/api/v1/stream')
     const updateQuote = (message: MessageEvent) => {
       const event = JSON.parse(message.data) as MarketEvent<QuoteEventPayload>
       const payload = event.payload
@@ -46,10 +44,11 @@ export function RealtimeBridge() {
         upsertCandle(current, candleFromEvent(payload)))
     }
     // 진행 중 봉(updated)과 확정 봉(closed)은 같은 처리기로 반영해요.
-    source.addEventListener('quote.updated', updateQuote as EventListener)
-    source.addEventListener('candle.5m.updated', updateCandle as EventListener)
-    source.addEventListener('candle.5m.closed', updateCandle as EventListener)
-    return () => source.close()
+    return subscribeStream({
+      'quote.updated': updateQuote,
+      'candle.5m.updated': updateCandle,
+      'candle.5m.closed': updateCandle,
+    })
   }, [cache])
 
   return null

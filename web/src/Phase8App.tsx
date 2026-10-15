@@ -187,22 +187,18 @@ export function MarketWidePage() {
   const [limit, setLimit] = useState(40);
   const [candidates, setCandidates] = useState(12);
   const [includeEtf, setIncludeEtf] = useState(false);
-  const [params, setParams] = useState({
-    market,
-    limit,
-    candidates,
-    includeEtf,
-  });
-  // useQuery(서버 데이터를 가져와 캐시하는 훅(hook)): 확정 조건으로 스캔해요.
-  // ⚠️ 확인 필요: 화면을 열 때마다 기본 조건 스캔이 바로 실행되는 것으로 보여요. 서버가 매번 KIS 조회를 하면 유량 제한에 부담이 될 수 있어요.
+  const [params, setParams] = useState<{ market: Market; limit: number; candidates: number; includeEtf: boolean } | null>(null);
+  // useQuery(서버 데이터를 가져와 캐시하는 훅(hook)): '넓은 범위 스캔'을 눌러 조건이 확정됐을 때만 스캔해요.
+  // 수동 스캔은 KIS 순위·시세 조회를 쓰고 정밀 구독 배정에도 반영되므로, 화면을 여는 것만으로는 실행하지 않아요.
   const scan = useQuery({
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     queryKey: ["market-wide-scan", params],
     queryFn: () =>
       api<Scan>(
-        `/api/v1/market-wide/scan?limit=${params.limit}&candidates=${params.candidates}&includeEtf=${params.includeEtf}${params.market ? `&market=${params.market}` : ""}`,
+        `/api/v1/market-wide/scan?limit=${params!.limit}&candidates=${params!.candidates}&includeEtf=${params!.includeEtf}${params!.market ? `&market=${params!.market}` : ""}`,
       ),
+    enabled: params != null,
   });
   // 자동 스캔 상태는 30초마다, Coverage는 2분마다 다시 가져와요.
   const status = useQuery({
@@ -244,7 +240,7 @@ export function MarketWidePage() {
         <aside>
           <small>시장 상태</small>
           <b>{regimeLabel(data?.regime.state)}</b>
-          <span>{data ? `${data.scannedCount}개 스캔` : "스캔 대기"}</span>
+          <span>{data ? `${data.scannedCount}개 스캔` : "수동 스캔 전"}</span>
         </aside>
       </header>
       <main>
@@ -288,14 +284,15 @@ export function MarketWidePage() {
               onChange={(event) => setIncludeEtf(event.target.checked)}
             />
           </label>
-          <button>넓은 범위 스캔</button>
+          <button disabled={scan.isFetching}>{scan.isFetching ? "스캔 중..." : "넓은 범위 스캔"}</button>
         </form>
         <section className="menuGuide">
           <h2>사용 안내</h2>
           <p>
-            시장과 스캔 수를 정한 뒤 넓은 범위 스캔을 실행합니다. 점수가 높은
-            후보 중 구독 여유가 있는 종목은 정밀 구독을 눌러 실시간 감시
-            대상으로 전환합니다.
+            장중에는 자동 스캔(5분, 14:00부터 2분 간격)이 정밀 구독을 채웁니다. 이
+            화면을 여는 것만으로는 스캔하지 않고, 넓은 범위 스캔을 누를 때만
+            실행합니다. 수동 스캔도 KIS 조회를 쓰고 그 결과가 정밀 구독 배정에
+            반영됩니다(14:50 이후에는 고정).
           </p>
         </section>
         {scan.error && <div className="wideEmpty">{scan.error.message}</div>}
@@ -383,7 +380,7 @@ export function MarketWidePage() {
             <h2>후보 처리 결과</h2>
             <dl>{Object.entries(coverage.data.exclusionReasons ?? {}).map(([reason, count]) => <span key={reason}><dt>{exclusionReasonLabel(reason)}</dt><dd>{count}</dd></span>)}</dl>
             <h2>통계 주의사항</h2>
-            {(coverage.data.limitations ?? []).map(item => <p key={item}>{item}</p>)}
+            {(coverage.data.limitations ?? []).map(item => <p className="limitNote" key={item}>{item}</p>)}
           </aside>
         </section>}
         <section className="wideGrid">
@@ -395,6 +392,7 @@ export function MarketWidePage() {
               </span>
               <b>{data?.candidateCount ?? 0}</b>
             </div>
+            {!params && <div className="wideEmpty">아직 수동 스캔을 실행하지 않았습니다. 위에서 조건을 정하고 넓은 범위 스캔을 누르세요.</div>}
             {scan.isLoading && <div className="wideEmpty">스캔 중...</div>}
             {!scan.isLoading && data?.candidates.length === 0 && (
               <div className="wideEmpty">후보가 없습니다</div>
@@ -444,7 +442,7 @@ export function MarketWidePage() {
           </div>
           <aside className="regimePanel">
             <h2>정밀 구독</h2>
-            <p>{data?.precisionAllocation.state === "ACTIVE" ? "자동 할당" : data?.precisionAllocation.state === "FROZEN" ? "후보 고정" : "비활성"}</p>
+            <p>{!data ? "스캔 후 표시" : data.precisionAllocation.state === "ACTIVE" ? "자동 할당" : data.precisionAllocation.state === "FROZEN" ? "후보 고정" : "비활성"}</p>
             <dl>
               <span><dt>활성/한도</dt><dd>{data ? `${data.precisionAllocation.activeCount}/${data.precisionAllocation.capacity}` : "--"}</dd></span>
               <span><dt>예약 슬롯</dt><dd>{data?.precisionAllocation.reservedSlots ?? "--"}</dd></span>

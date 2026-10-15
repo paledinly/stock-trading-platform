@@ -3,6 +3,7 @@
  * 화면 이동과 메뉴는 AppShell.tsx가 맡아요.
  */
 import { FormEvent, useState } from 'react'
+import { kstDayEnd, kstDayStart, kstDaysAgo, kstToday } from './kst'
 import { useQuery } from '@tanstack/react-query'
 import './backtest.css'
 
@@ -26,14 +27,6 @@ async function get<T>(url: string): Promise<T> {
   const response = await fetch(url)
   if (!response.ok) throw new Error('백테스트 데이터를 불러오지 못했습니다.')
   return response.json()
-}
-
-/**
- * 날짜를 "YYYY-MM-DD" 글자로 바꿔요. 받는 것: date. 돌려주는 것: 날짜 글자.
- * ⚠️ 확인 필요: toISOString은 UTC 기준이라 한국 시간 오전 9시 전에는 하루 전 날짜가 나오는 것으로 보여요.
- */
-function dateValue(date: Date) {
-  return date.toISOString().slice(0, 10)
 }
 
 /** 숫자를 "+1.23%" 같은 퍼센트 글자로 바꿔요. 값이 없으면 "--"를 돌려줘요. */
@@ -82,6 +75,9 @@ function settingNameLabel(name: string, scannerType?: string) {
   return labels[name] ?? (scannerType ? scannerTypeLabel(scannerType) : name)
 }
 
+/** 가상 탐지 목록을 한 번에 보여 줄 건수예요. */
+const PAGE = 30
+
 /**
  * 백테스트 화면 React 컴포넌트(화면 조각)예요. 비유하면 "지난 경기 녹화 다시보기"로, 저장된 5분봉으로 탐지 조건을 다시 돌려 봐요.
  * 받는 것(props): 없음. 화면 이동은 왼쪽 메뉴(AppShell)가 맡아요.
@@ -89,29 +85,32 @@ function settingNameLabel(name: string, scannerType?: string) {
  */
 export function BacktestPage() {
   // 기본 기간은 최근 7일이에요.
-  const today = new Date()
-  const week = new Date(Date.now() - 7 * 86400000)
+  const today = kstToday()
+  const week = kstDaysAgo(7)
   const [stockCode, setStockCode] = useState('005930')
   const [stockSearch, setStockSearch] = useState('')
-  const [from, setFrom] = useState(dateValue(week))
-  const [to, setTo] = useState(dateValue(today))
+  const [from, setFrom] = useState(week)
+  const [to, setTo] = useState(today)
   const [settingId, setSettingId] = useState('')
-  // params는 "재생"을 눌렀을 때 확정된 조회 조건이에요. 입력 중인 값과 분리해서 누를 때만 다시 조회해요.
-  const [params, setParams] = useState({ stockCode, from, to, settingId })
+  // params는 "재생"을 눌렀을 때 확정된 조회 조건이에요. 화면을 여는 것만으로는 재생하지 않아요(null).
+  const [params, setParams] = useState<{ stockCode: string; from: string; to: string; settingId: string } | null>(null)
+  // 가상 탐지 목록은 길어서 처음 30건만 보여 주고 '더 보기'로 늘려요.
+  const [visible, setVisible] = useState(PAGE)
   // useQuery(서버 데이터를 가져와 캐시하는 훅(hook)): 설정 목록, 백테스트 가능 종목, 백테스트 결과예요.
   const settings = useQuery({ queryKey: ['scanner-settings'], queryFn: () => get<Setting[]>('/api/v1/scanner-settings') })
   const backtestStocks = useQuery({ queryKey: ['backtest-stocks'], queryFn: () => get<BacktestableStock[]>('/api/v1/backtests/stocks') })
   const backtest = useQuery({
     queryKey: ['backtest', params],
     // 입력 날짜를 한국 시간(+09:00) 하루 처음과 끝으로 바꿔 서버에 보내요.
-    queryFn: () => get<Backtest>(`/api/v1/backtests/run?stockCode=${params.stockCode}&from=${encodeURIComponent(new Date(params.from + 'T00:00:00+09:00').toISOString())}&to=${encodeURIComponent(new Date(params.to + 'T23:59:59+09:00').toISOString())}${params.settingId ? `&settingId=${params.settingId}` : ''}&limit=80`),
-    enabled: !!params.stockCode,
+    queryFn: () => get<Backtest>(`/api/v1/backtests/run?stockCode=${params!.stockCode}&from=${encodeURIComponent(kstDayStart(params!.from))}&to=${encodeURIComponent(kstDayEnd(params!.to))}${params!.settingId ? `&settingId=${params!.settingId}` : ''}&limit=80`),
+    enabled: !!params?.stockCode,
   })
 
   /** 폼 제출 시 입력값을 조회 조건으로 확정해요. 받는 것: event(폼 제출 이벤트). 돌려주는 것: 없음. */
   function submit(event: FormEvent) {
     event.preventDefault()
     setParams({ stockCode: stockCode.trim(), from, to, settingId })
+    setVisible(PAGE)
   }
 
   const data = backtest.data
@@ -183,6 +182,7 @@ export function BacktestPage() {
         <section className="backtestGrid">
           <div className="summaryPanel">
             <h2>설정별 전략 통계</h2>
+            {!params && <div className="backtestEmpty">종목과 기간을 정한 뒤 재생을 누르세요.</div>}
             {data?.summaries.length === 0 && <div className="backtestEmpty">전략 통계가 없습니다</div>}
             {data?.summaries.map(row => <article key={row.settingId}><span><b>{settingNameLabel(row.settingName, row.scannerType)}</b><small>{scannerTypeLabel(row.scannerType)} · {row.detections}건 탐지</small></span><dl><span><dt>5분 승률</dt><dd>{pct(row.winRate5m)}</dd></span><span><dt>30분 평균</dt><dd className={(row.averageReturn30m ?? 0) >= 0 ? 'gain' : 'loss'}>{pct(row.averageReturn30m)}</dd></span><span><dt>60분 평균</dt><dd className={(row.averageReturn60m ?? 0) >= 0 ? 'gain' : 'loss'}>{pct(row.averageReturn60m)}</dd></span><span><dt>최대낙폭</dt><dd>{pct(row.averageMaxDrawdown)}</dd></span></dl></article>)}
           </div>
@@ -190,7 +190,9 @@ export function BacktestPage() {
             <h2>가상 탐지 목록</h2>
             {backtest.isLoading && <div className="backtestEmpty">재생 중...</div>}
             {data?.detections.length === 0 && <div className="backtestEmpty">가상 탐지가 없습니다</div>}
-            {data?.detections.map((item, index) => <article key={`${item.settingId}-${item.detectedAt}-${index}`}><div><span><b>{settingNameLabel(item.settingName, item.scannerType)}</b><small>{new Date(item.detectedAt).toLocaleString('ko-KR')} · {scannerTypeLabel(item.scannerType)}</small></span><strong>{Math.round(item.detectedPrice).toLocaleString('ko-KR')}원</strong></div><dl><span><dt>등락</dt><dd>{pct(item.changeRate)}</dd></span><span><dt>거래량</dt><dd>{num(item.volumeRatio)}배</dd></span><span><dt>30분</dt><dd className={(item.performance.return30m ?? 0) >= 0 ? 'gain' : 'loss'}>{pct(item.performance.return30m)}</dd></span><span><dt>60분</dt><dd className={(item.performance.return60m ?? 0) >= 0 ? 'gain' : 'loss'}>{pct(item.performance.return60m)}</dd></span></dl></article>)}
+            {data?.detections.slice(0, visible).map((item, index) => <article key={`${item.settingId}-${item.detectedAt}-${index}`}><div><span><b>{settingNameLabel(item.settingName, item.scannerType)}</b><small>{new Date(item.detectedAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })} · {scannerTypeLabel(item.scannerType)}</small></span><strong>{Math.round(item.detectedPrice).toLocaleString('ko-KR')}원</strong></div><dl><span><dt>등락</dt><dd>{pct(item.changeRate)}</dd></span><span><dt>거래량</dt><dd>{num(item.volumeRatio)}배</dd></span><span><dt>30분</dt><dd className={(item.performance.return30m ?? 0) >= 0 ? 'gain' : 'loss'}>{pct(item.performance.return30m)}</dd></span><span><dt>60분</dt><dd className={(item.performance.return60m ?? 0) >= 0 ? 'gain' : 'loss'}>{pct(item.performance.return60m)}</dd></span></dl></article>)}
+            {data && data.detections.length > visible && <button type="button" className="backtestMore" onClick={() => setVisible(visible + PAGE)}>
+              더 보기 ({visible}/{data.detections.length})</button>}
           </div>
         </section>
       </main>
