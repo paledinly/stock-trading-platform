@@ -57,6 +57,8 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
     private final ObjectMapper objectMapper;
     private final RealtimeSessionPolicy session;
     // 재연결과 구독 요청 예약에 쓰는 스케줄러(정해진 시간에 작업을 실행해 주는 장치)예요. 스레드 하나로 순서대로 실행해요.
+    // 연결 중 QUEUED로 이 시간보다 오래 남은 구독은 전송이 빠진 것으로 보고 다시 보내요.
+    static final Duration STUCK_QUEUED_AFTER = Duration.ofSeconds(10);
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
         Thread thread = new Thread(r, "kis-ws-scheduler");
         thread.setDaemon(true);
@@ -210,14 +212,30 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
             return;
         }
         // 연결은 있지만 staleTimeout 동안 메시지가 없으면 죽은 연결로 보고 끊은 뒤 재연결해요.
-        if (!diagnostics.isConnectionStale(now, properties.staleTimeout()))
+        if (!diagnostics.isConnectionStale(now, properties.staleTimeout())) {
+            resendStuckSubscriptions(now);
             return;
+        }
         WebSocket current = socket;
         socket = null;
         if (current != null)
             current.abort();
         diagnostics.error("WebSocket stale timeout: " + properties.staleTimeout());
         scheduleReconnect(new IllegalStateException("no KIS realtime message for " + properties.staleTimeout()));
+    }
+
+    /**
+     * 안전장치: 연결돼 있는데 구독 목록에 있는 종목이 QUEUED(전송 안 됨)로 10초 넘게 남아 있으면 다시 보내요.
+     * 왜 전송이 빠졌는지와 상관없이, 연결 점검(30초)마다 멈춘 구독을 복구해요. 받는 것: 현재 시각. 돌려주는 것: 없음.
+     */
+    private void resendStuckSubscriptions(Instant now) {
+        java.util.Set<String> wanted = subscriptions.all();
+        java.util.List<String> stuck = diagnostics.stuckQueued(now, STUCK_QUEUED_AFTER).stream()
+                .filter(wanted::contains).sorted().toList();
+        if (stuck.isEmpty())
+            return;
+        log.warn("Resending {} realtime subscriptions stuck in QUEUED while connected", stuck.size());
+        stuck.forEach(code -> send(code, true));
     }
 
     /**
