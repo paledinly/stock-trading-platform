@@ -63,5 +63,39 @@ class ClosingObservationOrderTest {
         verifyNoMoreInteractions(backfill);
     }
 
+    /** 18:00 이후 하루 한 번만 보완을 다시 하고 전일 run을 재평가하는지 봐요(KIS 15:30 분봉 체결량이 늦게 채워지는 문제). */
+    @Test
+    @SuppressWarnings("unchecked")
+    void retriesBackfillOnceAfterSixPm() {
+        Instant now = Instant.parse("2026-10-02T09:00:00Z");
+        var calendar = new ClosingTradingCalendar(new MarketWideScheduleProperties(false, 120, 30, false, null, null,
+                null, null, null, List.of()), Clock.fixed(now, ZoneOffset.UTC));
+        var observations = mock(ClosingCandidateObservationService.class);
+        var runs = mock(ClosingRecommendationRunRepository.class);
+        var run = mock(ClosingRecommendationRun.class);
+        when(run.getId()).thenReturn(64L);
+        when(runs.findByRequestKey(anyString())).thenReturn(Optional.of(run));
+        var scheduler = new ClosingRecommendationScheduler(mock(ClosingRecommendationService.class),
+                mock(OvernightPerformanceService.class), observations, mock(ClosingCandidateObservationRepository.class),
+                mock(ClosingRecommendationRepository.class), runs, mock(RealtimeSubscriptionRegistry.class), calendar,
+                new ClosingRecommendationProperties(20, 4, null, null, null, null, null),
+                new ClosingAutomationProperties(true, 10, null, null, new BigDecimal("3"), new BigDecimal("-2"), null));
+        var backfill = mock(ObservationBackfillService.class);
+        ObjectProvider<ObservationBackfillService> provider = mock(ObjectProvider.class);
+        when(provider.getIfAvailable()).thenReturn(backfill);
+        ReflectionTestUtils.invokeMethod(scheduler, "setObservationBackfill", provider);
+        LocalDate today = LocalDate.of(2026, 10, 2);
+
+        ReflectionTestUtils.invokeMethod(scheduler, "retryLateObservations", today, java.time.LocalTime.of(17, 59));
+        verifyNoInteractions(backfill, observations);
+
+        ReflectionTestUtils.invokeMethod(scheduler, "retryLateObservations", today, java.time.LocalTime.of(18, 0));
+        ReflectionTestUtils.invokeMethod(scheduler, "retryLateObservations", today, java.time.LocalTime.of(18, 30));
+        InOrder order = inOrder(backfill, observations);
+        order.verify(backfill).fillTodayLogged();
+        order.verify(observations).track(eq(64L), any(), any());
+        verifyNoMoreInteractions(backfill, observations);
+    }
+
     private static long eq(long value) { return org.mockito.ArgumentMatchers.eq(value); }
 }

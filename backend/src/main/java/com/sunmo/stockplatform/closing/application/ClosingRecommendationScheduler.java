@@ -46,6 +46,9 @@ public class ClosingRecommendationScheduler {
      * 장 마감(15:30) 뒤 후보 관측까지 기다리는 시간(10분)이에요.
      */
     private static final Duration OBSERVATION_DELAY = Duration.ofMinutes(10);
+    // KIS가 일부 종목의 15:30 종가 단일가 분봉 체결량을 장 마감 뒤 30분 넘게 지나서 채워요(2026-10-15 008970: 15:53·16:00엔 0,
+    // 16:20엔 19,138). 그래서 이 시각에 분봉 보완과 전일 후보 관측 재평가를 한 번 더 해요(ADR-010 보완 기록).
+    static final LocalTime LATE_OBSERVATION_AT = LocalTime.of(18, 0);
     // 다시 평가해야 하는 관측 상태(아직 시작 전, 진행 중)예요.
     private static final List<OvernightPerformanceStatus> AWAITING_EVALUATION =
             List.of(OvernightPerformanceStatus.PENDING, OvernightPerformanceStatus.IN_PROGRESS);
@@ -76,6 +79,7 @@ public class ClosingRecommendationScheduler {
     private long lastSubscriptionBucket = Long.MIN_VALUE;
     private long lastPerformanceBucket = Long.MIN_VALUE;
     private LocalDate lastObservationDate;
+    private LocalDate lastLateObservationDate;
 
     /**
      * 추천·성과·관측 서비스, 저장소, 실시간 구독 등록부, 거래일 달력, 추천 정책과 자동화 설정을 받아요.
@@ -121,6 +125,7 @@ public class ClosingRecommendationScheduler {
         // 전날 추천의 성과 추적과 후보 관측은 따로 조건을 보고 실행돼요.
         trackPreviousSession(today, time, now);
         trackCandidateObservations(today, now);
+        retryLateObservations(today, time);
     }
 
     /**
@@ -193,6 +198,23 @@ public class ClosingRecommendationScheduler {
             runIds.add(previous.getId());
         for (Long runId : runIds)
             trackObservations(runId);
+    }
+
+    /**
+     * 하는 일: 거래일 18:00 이후 하루 한 번, 전일 공식 run 정밀 후보의 분봉 보완을 다시 하고 관측을 다시 평가해요.
+     * 15:40 보완 때 KIS가 아직 0으로 주던 15:30 종가 단일가 체결량(거래량 0인 15:25 봉)과 남은 빈칸만 채워요.
+     * 실시간으로 확정된 봉은 덮어쓰지 않아요(ObservationBackfillService 규칙). 받는 것: 오늘 날짜, 현재 KST 시각.
+     */
+    private void retryLateObservations(LocalDate today, LocalTime time) {
+        if (today.equals(lastLateObservationDate) || time.isBefore(LATE_OBSERVATION_AT))
+            return;
+        lastLateObservationDate = today;
+        ObservationBackfillService backfill = observationBackfill == null ? null : observationBackfill.getIfAvailable();
+        ClosingRecommendationRun previous = officialRun(calendar.previousTradingDay(today));
+        if (backfill == null || previous == null)
+            return;
+        backfill.fillTodayLogged();
+        trackObservations(previous.getId());
     }
 
     /** 하는 일: run 하나의 후보 관측을 평가해요. 실패해도 로그만 남기고 다음 run으로 넘어가요. 받는 것: run id. */
