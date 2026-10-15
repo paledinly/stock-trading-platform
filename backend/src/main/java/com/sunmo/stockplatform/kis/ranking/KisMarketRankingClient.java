@@ -70,10 +70,28 @@ public class KisMarketRankingClient implements MarketRankingProvider {
     @RateLimiter(name = "kisRanking")
     @CircuitBreaker(name = "kisRanking")
     public List<KisRankingEntry> fetch(RankingType type, Market market, int limit) {
+        return fetch(type, market, limit, false);
+    }
+
+    /**
+     * 오늘 전일 대비 상승률 상위 종목을 받아요(상한가 감시 전용, 순위 이벤트는 내보내지 않아요).
+     * 2026-10-15 실호출 확인: FID_INPUT_CNT_1은 받을 개수가 아니라 누적 일수(100이면 100일 누적)이고, FID_PRC_CLS_CODE 0은
+     * 오늘 등락률 순서가 아니었어요. 누적 0일·가격 구분 1이어야 +29.88%, +22.28% 종목까지 상승률 내림차순으로 나와요(최대 30행).
+     * 시장 전체 스캔의 PRICE_RISE 조건은 ADR-010 판단 기간 동안 바꾸지 않아요.
+     */
+    @Override
+    @RateLimiter(name = "kisRanking")
+    @CircuitBreaker(name = "kisRanking")
+    public List<KisRankingEntry> fetchDailyGainers(Market market, int limit) {
+        return fetch(RankingType.PRICE_RISE, market, limit, true);
+    }
+
+    /** 하는 일: 순위 하나를 받아요. 받는 것: 종류, 시장, 최대 개수, 오늘 상승률 조건 여부. 돌려주는 것: 순위 목록. */
+    private List<KisRankingEntry> fetch(RankingType type, Market market, int limit, boolean dailyGain) {
         try {
             // 준비: 인증정보를 확인하고, 순위 종류에 맞는 KIS 주소와 거래 ID(tr_id)를 골라요.
             properties.requireCredentials();
-            Endpoint endpoint = Endpoint.forType(type);
+            Endpoint endpoint = Endpoint.forType(type, dailyGain);
             // 요청: 재시도 실행기를 통해 KIS를 부르고, 응답이 성공 형식인지 바로 검사해요.
             JsonNode response = requests.execute(false, () -> {
                 JsonNode body = client.get()
@@ -106,7 +124,8 @@ public class KisMarketRankingClient implements MarketRankingProvider {
             // publishEvent는 같은 스레드에서 리스너(예: TrajectoryContextCollector)를 바로 실행해요. 리스너가 예외를 던져도
             // 이미 받은 순위 결과는 그대로 돌려주도록 여기서 잡아 경고 로그만 남겨요(서킷 브레이커 실패로 세지 않아요).
             var result = List.copyOf(entries);
-            if (publisher != null) {
+            // 오늘 상승률 조회는 PRICE_RISE와 조건이 달라 같은 이름의 순위 관측으로 섞지 않아요.
+            if (publisher != null && !dailyGain) {
                 try {
                     publisher.publishEvent(new ObservedRanking(type, market, java.time.Instant.now(), result));
                 } catch (RuntimeException listenerFailure) {
@@ -179,21 +198,22 @@ public class KisMarketRankingClient implements MarketRankingProvider {
      * 순위 종류별 KIS 주소, 거래 ID, 요청 파라미터를 묶어 둔 내부 기록이에요.
      * 같은 "순위표 보기"라도 전광판마다 버튼이 다르듯, 순위 종류마다 눌러야 할 주소와 설정을 정리해 둔 안내표예요.
      */
-    private record Endpoint(String path, String trId, RankingType type) {
+    private record Endpoint(String path, String trId, RankingType type, boolean dailyGain) {
         /**
          * 순위 종류에 맞는 주소와 거래 ID를 골라요.
-         * 받는 것: 순위 종류. 돌려주는 것: 해당 Endpoint. 거래대금(TURNOVER)과 거래량(VOLUME)은 같은 거래량순위 API를 써요.
+         * 받는 것: 순위 종류, 오늘 상승률 조건 여부(PRICE_RISE에만 의미가 있어요). 돌려주는 것: 해당 Endpoint.
+         * 거래대금(TURNOVER)과 거래량(VOLUME)은 같은 거래량순위 API를 써요.
          */
-        private static Endpoint forType(RankingType type) {
+        private static Endpoint forType(RankingType type, boolean dailyGain) {
             return switch (type) {
                 case TURNOVER, VOLUME -> new Endpoint("/uapi/domestic-stock/v1/quotations/volume-rank",
-                        "FHPST01710000", type);
+                        "FHPST01710000", type, false);
                 case PRICE_RISE -> new Endpoint("/uapi/domestic-stock/v1/ranking/fluctuation",
-                        "FHPST01700000", type);
+                        "FHPST01700000", type, dailyGain);
                 case TRADE_STRENGTH -> new Endpoint("/uapi/domestic-stock/v1/ranking/volume-power",
-                        "FHPST01680000", type);
+                        "FHPST01680000", type, false);
                 case HIGH_PROXIMITY -> new Endpoint("/uapi/domestic-stock/v1/ranking/near-new-highlow",
-                        "FHPST01870000", type);
+                        "FHPST01870000", type, false);
             };
         }
 
@@ -228,10 +248,12 @@ public class KisMarketRankingClient implements MarketRankingProvider {
                         .queryParam("FID_APLY_RANG_PRC_1", "")
                         .queryParam("FID_APLY_RANG_PRC_2", "");
             }
-            // 상승률 순위 API는 받을 개수를 직접 지정해요(1~100개 사이로 제한).
+            // 상승률 순위 API의 FID_INPUT_CNT_1은 누적 일수, FID_PRC_CLS_CODE는 가격 기준이에요(2026-10-15 실호출 확인).
+            // 오늘 상승률 조회(dailyGain)는 누적 0일·가격 구분 1이에요. 시장 스캔 PRICE_RISE는 기존 값(누적=limit, 구분 0)을
+            // ADR-010 판단 기간 동안 그대로 둬요. 기존 값은 오늘 상승률 순서가 아니라는 것이 확인됐어요(별도 결정 필요).
             if (type == RankingType.PRICE_RISE) {
-                builder.queryParam("FID_INPUT_CNT_1", String.valueOf(Math.min(100, Math.max(1, limit))))
-                        .queryParam("FID_PRC_CLS_CODE", "0")
+                builder.queryParam("FID_INPUT_CNT_1", dailyGain ? "0" : String.valueOf(Math.min(100, Math.max(1, limit))))
+                        .queryParam("FID_PRC_CLS_CODE", dailyGain ? "1" : "0")
                         .queryParam("FID_RSFL_RATE1", "")
                         .queryParam("FID_RSFL_RATE2", "");
             }

@@ -18,4 +18,13 @@ public interface MarketRankingProvider {
      * 받는 것: 순위 종류, 시장(null이면 전체), 최대 개수. 돌려주는 것: 순위 순서의 KisRankingEntry 목록.
      */
     List<KisRankingEntry> fetch(RankingType type, Market market, int limit);
+
+    /**
+     * 오늘 전일 대비 상승률 상위 종목을 가져와요(상한가 감시 전용). 기본 구현은 PRICE_RISE 순위를 그대로 써요.
+     * KIS 구현은 등락률 순위의 누적 일수 0·가격 구분 1 조건으로 오늘 상승률 순서를 받아요. 시장 스캔의 PRICE_RISE는 바꾸지 않아요.
+     * 받는 것: 시장, 최대 개수. 돌려주는 것: 상승률 내림차순 목록.
+     */
+    default List<KisRankingEntry> fetchDailyGainers(Market market, int limit) {
+        return fetch(RankingType.PRICE_RISE, market, limit);
+    }
 }

@@ -10,7 +10,6 @@ import com.sunmo.stockplatform.closing.trajectory.MicrostructureModel.Level;
 import com.sunmo.stockplatform.kis.config.KisProperties;
 import com.sunmo.stockplatform.kis.ranking.KisRankingEntry;
 import com.sunmo.stockplatform.kis.ranking.MarketRankingProvider;
-import com.sunmo.stockplatform.kis.ranking.RankingType;
 import com.sunmo.stockplatform.market.config.MarketWideScheduleProperties;
 import com.sunmo.stockplatform.stock.domain.Market;
 import com.sunmo.stockplatform.stock.infrastructure.StockRepository;
@@ -57,9 +56,9 @@ class LimitUpWatchServiceTest {
     void recordsStocksUpTwentyPercentWithTheirBookAndKeepsFailedBooksAsRows() {
         // 준비: 순위 응답과 호가 공급원을 정해요.
         when(stocks.findByStockCode(anyString())).thenReturn(Optional.empty());
-        when(rankings.fetch(RankingType.PRICE_RISE, Market.KOSPI, 100)).thenReturn(List.of(
+        when(rankings.fetchDailyGainers(Market.KOSPI, 100)).thenReturn(List.of(
                 entry("000010", "29.9"), entry("000020", "22.0"), entry("000030", "15.0")));
-        when(rankings.fetch(RankingType.PRICE_RISE, Market.KOSDAQ, 100)).thenReturn(List.of(entry("000040", "25.0")));
+        when(rankings.fetchDailyGainers(Market.KOSDAQ, 100)).thenReturn(List.of(entry("000040", "25.0")));
         Instant at = Instant.parse("2026-10-02T06:16:16Z");
         LimitUpWatchService.BookSource books = code -> {
             if (code.equals("000020")) throw new IllegalStateException("EGW00201");
@@ -93,8 +92,8 @@ class LimitUpWatchServiceTest {
     @Test
     void addsNearLimitStocksSeenOnlyInMarketWideSnapshotsAndRecordsTheSource() throws Exception {
         when(stocks.findByStockCode(anyString())).thenReturn(Optional.empty());
-        when(rankings.fetch(RankingType.PRICE_RISE, Market.KOSPI, 100)).thenReturn(List.of(entry("011330", "30.0")));
-        when(rankings.fetch(RankingType.PRICE_RISE, Market.KOSDAQ, 100)).thenThrow(new IllegalStateException("EGW00201"));
+        when(rankings.fetchDailyGainers(Market.KOSPI, 100)).thenReturn(List.of(entry("011330", "30.0")));
+        when(rankings.fetchDailyGainers(Market.KOSDAQ, 100)).thenThrow(new IllegalStateException("EGW00201"));
         java.sql.ResultSet row = mock(java.sql.ResultSet.class);
         when(row.getString(1)).thenReturn("010580");
         when(row.getString(2)).thenReturn("snapshot only");

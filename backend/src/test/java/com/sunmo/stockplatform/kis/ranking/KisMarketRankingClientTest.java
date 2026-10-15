@@ -30,6 +30,43 @@ class KisMarketRankingClientTest {
      * 준비: MockRestServiceServer(가짜 외부 서버)가 쉼표가 들어간 가격("70,000")의 행과 필드가 부족한 행을 돌려주게 하고, 요청 수는 1로 해요.
      * 기대: 1건만 남고 종목코드 005930, 현재가 70000(쉼표 제거), 거래대금이 그대로 들어가요.
      */
+    /**
+     * 상한가 감시용 오늘 상승률 조회는 누적 0일·가격 구분 1로, 시장 스캔 PRICE_RISE는 기존 조건(누적=개수, 구분 0)으로 요청하는지 봐요.
+     * 2026-10-15 실호출에서 기존 조건은 오늘 상승률 순서가 아니어서 +22%·+30% 종목을 놓쳤어요.
+     */
+    @Test
+    void dailyGainersUseTodaysChangeWhileMarketScanKeepsItsParameters() {
+        RestClient.Builder builder = RestClient.builder().baseUrl("https://example.test");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        KisTokenManager tokens = mock(KisTokenManager.class);
+        when(tokens.getAccessToken()).thenReturn("access-token");
+        KisMarketRankingClient client = new KisMarketRankingClient(builder.build(), properties(), tokens,
+                new com.sunmo.stockplatform.kis.config.KisRequestExecutor(
+                    new com.sunmo.stockplatform.kis.config.KisRequestProperties(Duration.ZERO, Duration.ZERO, Duration.ZERO, 1)));
+        String body = """
+                {"rt_cd":"0","msg_cd":"MCA00000","output":[
+                  {"stck_shrn_iscd":"011155","hts_kor_isnm":"A","stck_prpr":"1000","prdy_ctrt":"29.88"},
+                  {"stck_shrn_iscd":"010580","hts_kor_isnm":"B","stck_prpr":"3175","prdy_ctrt":"22.28"}]}
+                """;
+        server.expect(requestTo(startsWith("https://example.test/uapi/domestic-stock/v1/ranking/fluctuation?")))
+                .andExpect(queryParam("FID_INPUT_ISCD", "0001"))
+                .andExpect(queryParam("FID_RANK_SORT_CLS_CODE", "0"))
+                .andExpect(queryParam("FID_INPUT_CNT_1", "0"))
+                .andExpect(queryParam("FID_PRC_CLS_CODE", "1"))
+                .andExpect(header("tr_id", "FHPST01700000"))
+                .andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
+        server.expect(requestTo(startsWith("https://example.test/uapi/domestic-stock/v1/ranking/fluctuation?")))
+                .andExpect(queryParam("FID_INPUT_CNT_1", "100"))
+                .andExpect(queryParam("FID_PRC_CLS_CODE", "0"))
+                .andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
+
+        var gainers = client.fetchDailyGainers(Market.KOSPI, 100);
+        client.fetch(RankingType.PRICE_RISE, Market.KOSPI, 100);
+
+        assertThat(gainers).extracting(KisRankingEntry::stockCode).containsExactly("011155", "010580");
+        server.verify();
+    }
+
     @Test
     void requestsTurnoverRankingAndMapsRows() {
         // 준비: 토큰 관리자는 목(mock, 가짜 객체)으로 둬요.

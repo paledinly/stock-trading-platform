@@ -167,7 +167,7 @@ public class LimitUpWatchService {
         for (Market market : Market.values()) {
             List<KisRankingEntry> entries;
             try {
-                entries = rankings.fetch(RankingType.PRICE_RISE, market, RANKING_LIMIT);
+                entries = rankings.fetchDailyGainers(market, RANKING_LIMIT);
             } catch (RuntimeException failure) {
                 rows.add(market + "=ERR");
                 continue;
