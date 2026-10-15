@@ -27,7 +27,7 @@ test('restores excluded candidate evaluation without generating recommendations'
   }))
   globalThis.fetch = mockFetch as typeof fetch
   render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-    <ClosingRecommendationPage back={() => {}} />
+    <ClosingRecommendationPage />
   </QueryClientProvider>)
   expect(await screen.findByText('생성 당시 후보 평가')).toBeInTheDocument()
   expect(screen.getByText(/카카오 \(035720\).*50.8/)).toBeInTheDocument()
@@ -46,7 +46,7 @@ test('shows account performance as unavailable without a paper execution ledger'
     } : [],
   })) as typeof fetch
   render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-    <ClosingRecommendationPage back={() => {}} advanced />
+    <ClosingRecommendationPage advanced />
   </QueryClientProvider>)
   expect(await screen.findByText(/미산출: 모의 체결/)).toBeInTheDocument()
   expect(screen.queryByText(/계좌 MDD/)).not.toBeInTheDocument()
@@ -63,7 +63,7 @@ test('prefers the official forward run over a newer replay', async () => {
   })) as typeof fetch
 
   render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-    <ClosingRecommendationPage back={() => {}} />
+    <ClosingRecommendationPage />
   </QueryClientProvider>)
 
   await waitFor(() => expect(screen.getByLabelText('평가 이력')).toHaveValue('27'))
@@ -85,7 +85,7 @@ test('shows the daily completeness table with Korean labels and missing days', a
   })) as typeof fetch
 
   render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-    <ClosingRecommendationPage back={() => {}} />
+    <ClosingRecommendationPage />
   </QueryClientProvider>)
 
   expect(await screen.findByText('일별 수집 완결성')).toBeInTheDocument()

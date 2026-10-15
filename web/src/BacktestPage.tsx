@@ -1,17 +1,10 @@
 /**
- * 웹 앱 전체의 껍데기(shell) 화면이에요. 위쪽 메뉴로 대시보드, 투자기록, 레이더, 성과 분석, 시장 전체, 백테스트, 마감 추천 화면을 바꿔 보여 줘요.
- * 초보자/고급 모드를 나누고, 마지막으로 본 화면을 sessionStorage(탭이 열려 있는 동안 남는 브라우저 저장소)에 기억해요.
- * 백테스트 화면(BacktestPage)도 이 파일에 들어 있어요. main.tsx가 Phase9App을 그려요.
+ * 백테스트(전략 재생) 화면(BacktestPage)이에요. 저장된 5분봉으로 탐지 설정을 다시 평가하고 가상 탐지 성과를 보여 줘요.
+ * 화면 이동과 메뉴는 AppShell.tsx가 맡아요.
  */
-import { FormEvent, useEffect, useState } from 'react'
+import { FormEvent, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Phase3App } from './Phase3App'
-import { JournalPage } from './Phase4App'
-import { ScannerPage } from './Phase6App'
-import { AnalyticsPage } from './Phase7App'
-import { MarketWidePage } from './Phase8App'
-import { ClosingRecommendationPage } from './ClosingRecommendationApp'
-import './phase9.css'
+import './backtest.css'
 
 // 아래 타입(데이터 모양 정의)들은 백테스트 API 응답 모양이에요.
 /** 탐지 설정(스캐너 설정) 하나의 id와 이름이에요. */
@@ -91,10 +84,10 @@ function settingNameLabel(name: string, scannerType?: string) {
 
 /**
  * 백테스트 화면 React 컴포넌트(화면 조각)예요. 비유하면 "지난 경기 녹화 다시보기"로, 저장된 5분봉으로 탐지 조건을 다시 돌려 봐요.
- * 받는 것(props, 부모가 넘겨주는 값): back(대시보드로 돌아가는 함수).
+ * 받는 것(props): 없음. 화면 이동은 왼쪽 메뉴(AppShell)가 맡아요.
  * 돌려주는 것: 조건 입력 폼, 종목 고르기, 설정별 통계, 가상 탐지 목록 화면.
  */
-export function BacktestPage({ back }: { back: () => void }) {
+export function BacktestPage() {
   // 기본 기간은 최근 7일이에요.
   const today = new Date()
   const week = new Date(Date.now() - 7 * 86400000)
@@ -132,9 +125,7 @@ export function BacktestPage({ back }: { back: () => void }) {
   return (
     <div className="backtestPage">
       <header>
-        <button onClick={back}>← 대시보드</button>
         <div>
-          <p>8단계 · 백테스트</p>
           <h1>전략 재생</h1>
           <span>저장된 5분봉으로 탐지 설정을 재생하고 가상 탐지 성과를 비교합니다.</span>
         </div>
@@ -207,75 +198,3 @@ export function BacktestPage({ back }: { back: () => void }) {
   )
 }
 
-/**
- * sessionStorage에 저장된 선택값을 꺼내요. 허용 목록에 없거나 저장소를 못 쓰면 기본값을 써요.
- * 받는 것: key(저장 이름), choices(허용 값 목록), fallback(기본값). 돌려주는 것: 고른 값.
- */
-function savedSelection<T extends string>(key: string, choices: readonly T[], fallback: T): T {
-  try {
-    const saved = sessionStorage.getItem(key)
-    return choices.find(choice => choice === saved) ?? fallback
-  } catch {
-    return fallback
-  }
-}
-
-/**
- * 전체 앱 껍데기 컴포넌트예요. 비유하면 "건물 안내 데스크와 층별 안내판"으로, 메뉴를 눌러 원하는 화면으로 보내 줘요.
- * 받는 것: 없음(props 없음). 돌려주는 것: 위쪽 메뉴와 현재 선택된 화면.
- */
-export function Phase9App() {
-  // 상태(state, 컴포넌트가 기억하는 값): 현재 화면(page)과 사용 모드(mode)예요. 새로고침해도 같은 탭이면 복원해요.
-  const [page, setPage] = useState(() => savedSelection('workspace.page', ['dashboard', 'journal', 'scanner', 'analytics', 'wide', 'backtest', 'closing'] as const, 'dashboard'))
-  const [mode, setMode] = useState(() => savedSelection('workspace.mode', ['beginner', 'advanced'] as const, 'beginner'))
-  // 화면이나 모드가 바뀔 때마다 sessionStorage에 저장해요.
-  useEffect(() => {
-    try {
-      sessionStorage.setItem('workspace.page', page)
-      sessionStorage.setItem('workspace.mode', mode)
-    } catch {
-      // Storage may be disabled; navigation still works for the current mount.
-    }
-  }, [page, mode])
-  const goDashboard = () => setPage('dashboard')
-  const advanced = mode === 'advanced'
-
-  /**
-   * 사용 모드를 바꿔요. 초보자 모드로 바꾸면 고급 전용 화면에 있던 경우 마감 추천 화면으로 옮겨요.
-   * 받는 것: value(초보자 또는 고급). 돌려주는 것: 없음.
-   */
-  function changeMode(value: 'beginner' | 'advanced') {
-    setMode(value)
-    if (value === 'beginner' && !['dashboard', 'journal', 'closing'].includes(page)) {
-      setPage('closing')
-    }
-  }
-
-  // 고급 모드에서만 백테스트, 시장 전체, 성과 분석, 실시간 레이더 메뉴가 보여요.
-  return (
-    <>
-      <nav className="workspaceNav" aria-label="주요 메뉴">
-        <span className="modeSwitch" aria-label="사용 모드">
-          <button className={mode === 'beginner' ? 'active' : ''} onClick={() => changeMode('beginner')}>초보자</button>
-          <button className={mode === 'advanced' ? 'active' : ''} onClick={() => changeMode('advanced')}>고급</button>
-        </span>
-        <button className={`closingLaunch ${page === 'closing' ? 'active' : ''}`} onClick={() => setPage('closing')}>마감 추천</button>
-        {advanced && <button className={`backtestLaunch ${page === 'backtest' ? 'active' : ''}`} onClick={() => setPage('backtest')}>백테스트</button>}
-        {advanced && <button className={`wideLaunch ${page === 'wide' ? 'active' : ''}`} onClick={() => setPage('wide')}>시장 전체</button>}
-        {advanced && <button className={`analyticsLaunch ${page === 'analytics' ? 'active' : ''}`} onClick={() => setPage('analytics')}>성과 분석</button>}
-        {advanced && <button className={`scannerLaunch ${page === 'scanner' ? 'active' : ''}`} onClick={() => setPage('scanner')}>실시간 레이더</button>}
-        <span className="phaseNav">
-          <button className={page === 'dashboard' ? 'active' : ''} onClick={() => setPage('dashboard')}>대시보드</button>
-          <button className={page === 'journal' ? 'active' : ''} onClick={() => setPage('journal')}>투자기록</button>
-        </span>
-      </nav>
-      {page === 'dashboard' && <Phase3App />}
-      {page === 'journal' && <JournalPage />}
-      {page === 'scanner' && <ScannerPage back={goDashboard} />}
-      {page === 'analytics' && <AnalyticsPage back={goDashboard} />}
-      {page === 'wide' && <MarketWidePage back={goDashboard} />}
-      {page === 'backtest' && <BacktestPage back={goDashboard} />}
-      {page === 'closing' && <ClosingRecommendationPage back={goDashboard} advanced={advanced} />}
-    </>
-  )
-}

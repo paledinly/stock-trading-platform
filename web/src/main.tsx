@@ -6,19 +6,20 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { Phase9App } from './Phase9App'
+import { AppShell } from './AppShell'
 import { RealtimeBridge } from './RealtimeBridge'
+import './theme.css'
 import './styles.css'
 
 // 앱 전체가 함께 쓰는 쿼리 캐시(서버 응답을 잠시 보관하는 저장소)예요.
 const queryClient = new QueryClient()
 
-// RealtimeBridge는 실시간 시세를 캐시에 반영하고(화면 없음), Phase9App은 전체 화면 껍데기(shell)예요.
+// RealtimeBridge는 실시간 시세를 캐시에 반영하고(화면 없음), AppShell은 왼쪽 메뉴가 있는 전체 화면 껍데기(shell)예요.
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <RealtimeBridge />
-      <Phase9App />
+      <AppShell />
     </QueryClientProvider>
   </StrictMode>,
 )

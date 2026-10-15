@@ -15,6 +15,31 @@ import {
 import type { Candle } from './marketData'
 
 /**
+ * html에 정의된 CSS 변수(theme.css) 값을 읽어요. 테스트 환경처럼 값이 없으면 기본 색을 써요.
+ * 받는 것: 변수 이름, 기본 색. 돌려주는 것: 색 문자열.
+ */
+function cssColor(name: string, fallback: string) {
+  const value = typeof window === 'undefined' ? '' : getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+  return value || fallback
+}
+
+/** 차트 바탕·글자·격자·가격축 색을 현재 테마에서 읽어요. */
+function themeOptions() {
+  return {
+    layout: { background: { type: ColorType.Solid, color: cssColor('--chart-bg', '#0b121d') }, textColor: cssColor('--chart-text', '#758296') },
+    grid: { vertLines: { color: cssColor('--chart-grid', '#182235') }, horzLines: { color: cssColor('--chart-grid', '#182235') } },
+    rightPriceScale: { borderColor: cssColor('--chart-axis', '#26334a') },
+  }
+}
+
+/** 한국식 봉 색(상승 빨강, 하락 파랑)을 현재 테마에서 읽어요. */
+function seriesColors() {
+  const up = cssColor('--up-fg', '#ff6778')
+  const down = cssColor('--down-fg', '#529fff')
+  return { upColor: up, downColor: down, wickUpColor: up, wickDownColor: down }
+}
+
+/**
  * 5분봉 캔들 차트를 보여 주는 React 컴포넌트(화면 조각)예요. 비유하면 "주가 그래프 액자"예요.
  * 받는 것(props, 부모가 넘겨주는 값): candles(5분봉 목록).
  * 돌려주는 것: 차트가 그려질 div 화면.
@@ -31,17 +56,12 @@ export function CandleChart({ candles }: { candles: Candle[] }) {
     const instance = createChart(container.current, {
       width: container.current.clientWidth,
       height: 194,
-      layout: { background: { type: ColorType.Solid, color: '#0b121d' }, textColor: '#758296' },
-      grid: { vertLines: { color: '#182235' }, horzLines: { color: '#182235' } },
-      rightPriceScale: { borderColor: '#26334a' },
-      timeScale: { borderColor: '#26334a', timeVisible: true, secondsVisible: false },
+      ...themeOptions(),
+      timeScale: { borderColor: cssColor('--chart-axis', '#26334a'), timeVisible: true, secondsVisible: false },
       localization: { locale: 'ko-KR', priceFormatter: (price: number) => Math.round(price).toLocaleString('ko-KR') },
     })
-    // 한국식 색: 상승은 빨강, 하락은 파랑이에요.
-    series.current = instance.addSeries(CandlestickSeries, {
-      upColor: '#ff6778', downColor: '#529fff', borderVisible: false,
-      wickUpColor: '#ff6778', wickDownColor: '#529fff',
-    })
+    // 한국식 색: 상승은 빨강, 하락은 파랑이에요(seriesColors).
+    series.current = instance.addSeries(CandlestickSeries, { ...seriesColors(), borderVisible: false })
     chart.current = instance
     // 부모 너비가 바뀌면 차트 너비도 맞춰요.
     const observer = new ResizeObserver(entries => {
@@ -49,7 +69,14 @@ export function CandleChart({ candles }: { candles: Candle[] }) {
       if (width) instance.applyOptions({ width })
     })
     observer.observe(container.current)
+    // 밝은/어두운 화면을 바꾸면(AppShell이 'themechange'를 보내요) 차트 색도 다시 읽어 바꿔요.
+    const retheme = () => {
+      instance.applyOptions({ ...themeOptions(), timeScale: { borderColor: cssColor('--chart-axis', '#26334a') } })
+      series.current?.applyOptions(seriesColors())
+    }
+    window.addEventListener('themechange', retheme)
     return () => {
+      window.removeEventListener('themechange', retheme)
       observer.disconnect()
       instance.remove()
       chart.current = null

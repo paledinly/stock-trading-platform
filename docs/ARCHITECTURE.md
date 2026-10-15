@@ -7,7 +7,7 @@ KIS 국내주식 데이터를 수집해 5분봉과 Feature를 만들고, 실시�
 ## 구성요소
 
 - **Backend** (`backend/`): Java 21, Spring Boot 3.5, JPA, Flyway, Resilience4j(호출 한도·회로 차단). 수집, 집계, 평가, 저장, 스케줄, REST API와 SSE 스트림(`GET /api/v1/stream`)을 담당한다. 서버 쪽 WebSocket 엔드포인트는 없다. KIS WebSocket은 Backend가 클라이언트로 접속한다(`java.net.http`).
-- **Web** (`web/`): React 19, TypeScript, Vite, TanStack Query, lightweight-charts. 라우터 없이 `Phase9App`이 메뉴 상태로 화면을 바꾼다.
+- **Web** (`web/`): React 19, TypeScript, Vite, TanStack Query, lightweight-charts. 라우터 라이브러리 없이 `AppShell`이 왼쪽 메뉴와 해시 주소(`#/closing` 등, `routes.ts`)로 화면을 바꾼다. 색은 `theme.css`의 토큰만 쓰며 밝은/어두운 화면을 지원한다.
 - **Mobile** (`mobile/`): Flutter 보조 클라이언트. Web보다 기능 범위가 작다.
 - **PostgreSQL**: 종목, 봉, 탐지, 추천, 성과, 거래 기록의 시스템 오브 레코드(공식 원장)다.
 - **Redis와 프로세스 메모리**: 최신 시세, 탐지 쿨다운, 실시간 상태용이며 영구 이력의 근거가 아니다. Redis가 없거나 실패하면 탐지 쿨다운은 프로세스 내부 값으로 대체된다.
@@ -36,15 +36,15 @@ KIS 국내주식 데이터를 수집해 5분봉과 Feature를 만들고, 실시�
 
 ## Web 화면
 
-| 메뉴 | 컴포넌트(파일) |
-| --- | --- |
-| 대시보드 | `Phase3App` (`Phase3App.tsx`) |
-| 투자기록 | `JournalPage` (`Phase4App.tsx`) |
-| 실시간 레이더 | `ScannerPage` (`Phase6App.tsx`) |
-| 성과 분석 | `AnalyticsPage` (`Phase7App.tsx`) |
-| 시장 전체 | `MarketWidePage` (`Phase8App.tsx`) |
-| 백테스트 | `BacktestPage` (`Phase9App.tsx`) |
-| 마감 추천 | `ClosingRecommendationPage` (`ClosingRecommendationApp.tsx`) |
+| 묶음 | 메뉴 (주소) | 컴포넌트(파일) |
+| --- | --- | --- |
+| 운영 | 대시보드 (`#/dashboard`) | `Phase3App` (`Phase3App.tsx`) |
+| 운영 | 마감 추천 (`#/closing`) | `ClosingRecommendationPage` (`ClosingRecommendationApp.tsx`) |
+| 탐색 | 시장 스캐너 (`#/wide`) | `MarketWidePage` (`Phase8App.tsx`) |
+| 탐색 | 실시간 레이더 (`#/scanner`) | `ScannerPage` (`Phase6App.tsx`) |
+| 검증 | 성과 분석 (`#/analytics`) | `AnalyticsPage` (`Phase7App.tsx`) |
+| 검증 | 백테스트 (`#/backtest`) | `BacktestPage` (`BacktestPage.tsx`) |
+| 기록 | 투자기록 (`#/journal`) | `JournalPage` (`Phase4App.tsx`) |
 
 `RealtimeBridge`가 SSE를 받아 TanStack Query 캐시를 갱신한다. 파일 이름의 `PhaseN`은 과거 개발 단계 이름이 남은 것이다.
 

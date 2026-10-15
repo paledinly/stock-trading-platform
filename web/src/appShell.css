@@ -1,0 +1,39 @@
+/*
+ * 앱 껍데기(AppShell) 스타일이에요. 넓은 화면에서는 왼쪽 고정 메뉴, 1100px보다 좁으면 위쪽 가로 메뉴로 바뀌어요.
+ * 아래쪽 "공통 화면 머리"는 각 화면의 큰 제목 영역을 같은 크기로 맞춰요(화면별 CSS보다 우선).
+ */
+.appShell { display: grid; grid-template-columns: 216px minmax(0, 1fr); min-height: 100vh; background: var(--bg); color: var(--text); }
+.appSidebar { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; gap: 18px; padding: 20px 14px; border-right: 1px solid var(--border); background: var(--surface); overflow-y: auto; }
+.appBrand { display: flex; align-items: center; gap: 10px; padding: 0 6px; }
+.appBrand i { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: var(--down-solid); color: var(--on-solid); font-style: normal; font-weight: 800; }
+.appBrand span { display: flex; flex-direction: column; min-width: 0; }
+.appBrand b { font-size: 15px; color: var(--text-strong); }
+.appBrand small { color: var(--text-muted); font-size: 11px; }
+.appSidebar nav { display: flex; flex-direction: column; gap: 14px; }
+.appNavGroup { display: flex; flex-direction: column; gap: 2px; }
+.appNavGroup small { padding: 0 10px 4px; color: var(--text-muted); font-size: 11px; font-weight: 700; letter-spacing: .08em; }
+.appNavGroup a { padding: 9px 10px; border-radius: 8px; color: var(--text-2); font-size: 14px; text-decoration: none; }
+.appNavGroup a:hover { background: var(--surface-3); color: var(--text); }
+.appNavGroup a[aria-current='page'] { background: var(--down-bg); color: var(--down-fg); font-weight: 700; }
+.appNavGroup a:focus-visible, .themeToggle:focus-visible { outline: 2px solid var(--down-fg); outline-offset: 1px; }
+.themeToggle { margin-top: auto; padding: 9px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); color: var(--text-2); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.themeToggle:hover { background: var(--surface-3); color: var(--text); }
+.appMain { min-width: 0; }
+
+/* 공통 화면 머리: 화면마다 달랐던 큰 제목 영역을 같은 높이·글자 크기로 맞춰요. */
+.appMain :is(.journalPage, .scannerPage, .analyticsPage, .widePage, .backtestPage, .closingPage) > header { min-height: 0; padding: 28px 0 20px; }
+.appMain :is(.journalPage, .scannerPage, .analyticsPage, .widePage, .backtestPage, .closingPage) > header h1 { margin: 0 0 6px; font-size: 30px; line-height: 1.2; letter-spacing: -.02em; }
+.appMain .phase3 .hero { min-height: 0; padding: 28px 0 20px; }
+.appMain .phase3 .hero h1 { margin: 0 0 6px; font-size: 30px; line-height: 1.2; letter-spacing: -.02em; }
+.appMain .phase3 .hero h1 span { color: inherit; }
+
+@media (max-width: 1100px) {
+  .appShell { grid-template-columns: 1fr; }
+  .appSidebar { position: sticky; z-index: 30; height: auto; flex-direction: row; align-items: center; gap: 12px; padding: 10px 14px; border-right: 0; border-bottom: 1px solid var(--border); overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+  .appBrand span { display: none; }
+  .appSidebar nav { flex-direction: row; gap: 4px; }
+  .appNavGroup { flex-direction: row; }
+  .appNavGroup small { display: none; }
+  .appNavGroup a { white-space: nowrap; }
+  .themeToggle { margin: 0 0 0 auto; white-space: nowrap; }
+}

@@ -233,13 +233,12 @@ export function Phase3App() {
 
   return <div className="phase3">
     <header>
-      <a href="/"><i>주</i><span><b>주식 모니터</b><small>국내주식 모니터링</small></span></a>
       <Search select={setSelected} />
       <em>● KRX 데이터</em>
     </header>
     <main>
       <section className="hero">
-        <div><p>3단계 · 종목 모니터링</p><h1>오늘의 시장을<br /><span>한눈에.</span></h1>
+        <div><h1>오늘의 시장을 <span>한눈에.</span></h1>
           <small>관심 종목을 모으고 현재 흐름을 빠르게 확인하세요.</small></div>
         <aside><small>관심 종목</small><b>{items.length}</b><span>{lists.data?.groups.length ?? 0}개 그룹</span></aside>
       </section>

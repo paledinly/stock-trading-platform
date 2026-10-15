@@ -76,7 +76,7 @@ test("opens market-wide scanner", async () => {
         new QueryClient({ defaultOptions: { queries: { retry: false } } })
       }
     >
-      <MarketWidePage back={() => {}} />
+      <MarketWidePage />
     </QueryClientProvider>,
   );
   expect(

@@ -728,11 +728,11 @@ function intradayMaLabels(ma: {
 
 /**
  * 장마감 추천 화면 전체를 그리는 React 컴포넌트예요. 마감 직전 장보기 목록처럼 오늘 살펴볼 후보를 순위대로 정리해요.
- * 받는 것(props): back(대시보드로 돌아가기), advanced(고급 모드면 백테스트·전략 통계까지 표시).
+ * 받는 것(props): advanced(true면 백테스트·전략 통계까지 표시. AppShell은 항상 true로 넘겨요).
  * 돌려주는 것: 평가 실행 폼, 평가 이력, 추천 랭킹, 성과·판단, 고급 분석 패널이 담긴 화면.
  * React Query(서버 데이터를 가져와 쿼리 캐시(메모리 보관소)에 저장하는 도구)로 조회와 실행을 처리해요.
  */
-export function ClosingRecommendationPage({ back, advanced = false }: { back: () => void; advanced?: boolean }) {
+export function ClosingRecommendationPage({ advanced = false }: { advanced?: boolean }) {
   const cache = useQueryClient()
   // 화면 입력값을 상태(state, 바뀌면 화면이 다시 그려지는 값)로 들고 있어요.
   const [date, setDate] = useState(today())
@@ -881,9 +881,7 @@ export function ClosingRecommendationPage({ back, advanced = false }: { back: ()
   return (
     <div className="closingPage">
       <header>
-        <button onClick={back}>← 대시보드</button>
         <div>
-          <p>9단계 · 장마감 추천</p>
           <h1>오늘의 마감 추천</h1>
           <span>{advanced ? '오후 장중 탐지 흐름을 기준으로 종가 매수 후보를 랭킹으로 정리합니다.' : '오늘 장마감에 살펴볼 후보와 다음날 매도 판단을 간단히 정리합니다.'}</span>
         </div>

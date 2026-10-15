@@ -150,11 +150,11 @@ function settingNameLabel(name: string) {
 
 /**
  * 신호 성과 분석 화면 React 컴포넌트(화면 조각)예요. 비유하면 "지난 신호들의 성적표"예요.
- * 받는 것(props, 부모가 넘겨주는 값): back(대시보드로 돌아가는 함수).
+ * 받는 것(props): 없음. 화면 이동은 왼쪽 메뉴(AppShell)가 맡아요.
  * 돌려주는 것: 조건 입력 폼, 요약 카드, 수익률·목표/손절·시간대·조합·과거 우위 패널 화면.
  * ⚠️ 확인 필요: 사용 안내의 "실제로 우위가 있는 신호만 골라냅니다" 문구는 표본·검증 상태와 상관없이 우위를 단정하는 것으로 보여요.
  */
-export function AnalyticsPage({ back }: { back: () => void }) {
+export function AnalyticsPage() {
   const today = new Date();
   const week = new Date(Date.now() - 7 * 86400000);
   // 상태(state, 컴포넌트가 기억하는 값): 입력 중인 조건들이에요.
@@ -218,9 +218,7 @@ export function AnalyticsPage({ back }: { back: () => void }) {
   return (
     <div className="analyticsPage">
       <header>
-        <button onClick={back}>← 대시보드</button>
         <div>
-          <p>6단계 · 고급 성과 분석</p>
           <h1>신호 성과 분석</h1>
           <span>
             탐지 이후 수익률을 시간, 조건 조합, 목표·손절 기준으로 비교합니다.

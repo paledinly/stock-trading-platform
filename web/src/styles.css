@@ -1,14 +1,14 @@
 :root {
-  font-family: Inter, Pretendard, system-ui, sans-serif;
-  color: #e8edf7;
-  background: #07111f;
+  font-family: var(--font-sans);
+  color: var(--text);
+  background: var(--bg);
   font-synthesis: none;
 }
 
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; min-height: 100vh; }
 h1 { margin: 12px 0; font-size: clamp(2rem, 6vw, 4rem); line-height: 1.05; }
-.status { display: inline-block; margin-top: 18px; padding: 8px 12px; border-radius: 999px; color: #7ff0b8; background: #153b32; }
-.menuGuide { margin-bottom: 14px; padding: 14px 16px; border: 1px solid #27364c; border-radius: 8px; background: #101926; color: #aebbd0; }
-.menuGuide h2 { margin: 0 0 6px; font-size: 15px; color: #e8edf7; }
+.status { display: inline-block; margin-top: 18px; padding: 8px 12px; border-radius: 999px; color: var(--ok-fg); background: var(--ok-bg); }
+.menuGuide { margin-bottom: 14px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); color: var(--text-2); }
+.menuGuide h2 { margin: 0 0 6px; font-size: 15px; color: var(--text); }
 .menuGuide p { margin: 0; line-height: 1.6; font-size: 13px; }

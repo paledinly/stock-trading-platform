@@ -314,7 +314,6 @@ export function JournalPage() {
     <div className="journalPage">
       <header>
         <div>
-          <p>4단계 · 투자 기록</p>
           <h1>투자기록</h1>
           <span>결과보다 과정을 기록하세요.</span>
         </div>

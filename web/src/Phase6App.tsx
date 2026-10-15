@@ -181,10 +181,10 @@ function detectionTimeLabel(value: string, includeHistory: boolean) {
 
 /**
  * 실시간 레이더 화면 React 컴포넌트(화면 조각)예요. 비유하면 "관제실 레이더 화면"으로, 포착된 후보를 목록·상세·설정 세 칸에 보여 줘요.
- * 받는 것(props, 부모가 넘겨주는 값): back(대시보드로 돌아가는 함수).
+ * 받는 것(props): 없음. 화면 이동은 왼쪽 메뉴(AppShell)가 맡아요.
  * 돌려주는 것: 탭, 필터, 후보 목록, 상세, 탐지 설정 화면.
  */
-export function ScannerPage({ back }: { back: () => void }) {
+export function ScannerPage() {
   const cache = useQueryClient()
   // 상태(state, 컴포넌트가 기억하는 값): 탭, 검색어, 이력 포함 여부, 점수 필터, 선택한 탐지, 새 설정 초안이에요.
   const [tab, setTab] = useState<ScannerType>('MOMENTUM')
@@ -280,9 +280,7 @@ export function ScannerPage({ back }: { back: () => void }) {
   return (
     <div className="scannerPage">
       <header>
-        <button onClick={back}>← 대시보드</button>
         <div>
-          <p>5단계 · 실시간 레이더</p>
           <h1>실시간 레이더</h1>
           <span>실시간 탐지 후보를 점수, 이유, 차트 흐름으로 함께 확인합니다.</span>
         </div>
@@ -319,7 +317,7 @@ function StatusCard({ status }: { status?: Status }) {
   return (
     <aside className="opsCard">
       <small>운영 상태</small>
-      <b className={realtime?.connected ? 'hot' : 'cold'}>{realtime?.connected ? '연결중' : '대기'}</b>
+      <b className={realtime?.connected ? 'statusOk' : 'statusIdle'}>{realtime?.connected ? '연결됨' : '대기'}</b>
       <span>구독 {status?.subscriptionCount ?? 0}/{status?.subscriptionLimit ?? 0}</span>
       <span>실시간 캐시 {status?.redisStatus ?? '--'}</span>
       <span>수신 체결 {(realtime?.receivedTicks ?? 0).toLocaleString('ko-KR')}</span>

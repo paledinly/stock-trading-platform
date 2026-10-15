@@ -178,10 +178,10 @@ function exclusionReasonLabel(value: string) {
 
 /**
  * 시장 전체 스캐너 화면 React 컴포넌트(화면 조각)예요. 비유하면 "그물로 넓게 건진 뒤 쓸 만한 것만 수조로 옮기는 선별대"예요.
- * 받는 것(props, 부모가 넘겨주는 값): back(대시보드로 돌아가는 함수).
+ * 받는 것(props): 없음. 화면 이동은 왼쪽 메뉴(AppShell)가 맡아요.
  * 돌려주는 것: 스캔 조건 폼, 요약 카드, 수집 품질, Coverage 성과, 후보 목록, 정밀 구독·시장 상태 화면.
  */
-export function MarketWidePage({ back }: { back: () => void }) {
+export function MarketWidePage() {
   // 상태(state, 컴포넌트가 기억하는 값): 입력 중인 스캔 조건이에요. params는 제출로 확정된 조건이에요.
   const [market, setMarket] = useState<Market>("");
   const [limit, setLimit] = useState(40);
@@ -234,9 +234,7 @@ export function MarketWidePage({ back }: { back: () => void }) {
   return (
     <div className="widePage">
       <header>
-        <button onClick={back}>← 대시보드</button>
         <div>
-          <p>7단계 · 시장 전체 스캐너</p>
           <h1>시장 전체 스캐너</h1>
           <span>
             넓은 범위의 시세 조회로 후보를 줄이고, 선별된 종목만 정밀
