@@ -21,7 +21,7 @@
 .performanceControls label{display:flex;flex-direction:column;gap:6px;color:var(--text-muted);font-size:11px}.performanceControls button{border:1px solid var(--ok-border);border-radius:6px;background:var(--ok-bg);color:var(--ok-fg);padding:10px;cursor:pointer}.performanceControls button:disabled{opacity:.5;cursor:not-allowed}
 .backtestControls{display:grid;grid-template-columns:170px 170px 180px;gap:10px;margin-top:10px;padding:14px;border:1px solid var(--violet-border);border-radius:8px;background:var(--surface)}
 .backtestControls label{display:flex;flex-direction:column;gap:6px;color:var(--text-muted);font-size:11px}.backtestControls button{border:1px solid var(--violet-border);border-radius:6px;background:var(--violet-bg);color:var(--violet-fg);padding:10px;cursor:pointer}.backtestControls button:disabled{opacity:.5;cursor:not-allowed}
-.closingSummary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0}.closingSummary article,.closingList{padding:18px;border:1px solid var(--warn-bg);border-radius:8px;background:var(--surface)}
+.closingSummary{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px;margin:16px 0}.closingSummary article,.closingList{padding:18px;border:1px solid var(--warn-bg);border-radius:8px;background:var(--surface)}
 .closingSummary b{display:block;margin-top:5px;font-size:24px}
 .closingGrid{display:grid;grid-template-columns:1fr;gap:14px}.closingList h2{margin:0 0 14px}
 .recommendationCard{margin-bottom:12px;padding:16px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2)}
@@ -41,3 +41,33 @@
 .closingEmpty{display:grid;place-items:center;min-height:210px;text-align:center;border:1px dashed var(--warn-border);border-radius:8px;color:var(--text-muted)}.closingEmpty p{margin:6px 0 0}
 @media(max-width:1050px){.closingPage header aside{display:none}.closingPage form,.closingPage form.simpleForm,.performanceControls,.backtestControls{grid-template-columns:1fr 1fr}.closingPage form button,.performanceControls button,.backtestControls button{grid-column:1/-1}.closingSummary{grid-template-columns:1fr 1fr}.recommendationCard dl{grid-template-columns:repeat(3,1fr)}.beginnerSummary,.performancePanel,.decisionPanel,.backtestMetrics,.integrityPanel>div{grid-template-columns:repeat(3,1fr)}.algorithmRows article,.strategyRows article,.backtestRows article{grid-template-columns:1fr 1fr}}
 @media(max-width:680px){.closingPage header h1{font-size:34px}.closingPage form,.closingPage form.simpleForm,.performanceControls,.backtestControls,.closingSummary,.recommendationCard dl,.beginnerSummary,.closingFactors,.performancePanel,.decisionPanel,.backtestMetrics,.integrityPanel>div,.algorithmRows article,.strategyRows article,.backtestRows article{grid-template-columns:1fr}.strategyTitle{align-items:flex-start;flex-direction:column}}
+
+/* 3단계 배치: 조회 줄 · 안내 문구 · 접는 영역(details) · 도구 */
+.closingToolbar{display:flex;align-items:flex-end;flex-wrap:wrap;gap:10px;padding:14px 16px;border:1px solid var(--border);border-radius:8px;background:var(--surface)}
+.closingToolbar>label{display:flex;flex-direction:column;gap:6px;color:var(--text-muted);font-size:11px}
+.closingToolbar>label.evaluationHistory{flex:1 1 320px;min-width:0;margin:0}
+.closingToolbar select{width:100%;min-width:0;padding:10px;border:1px solid var(--border);border-radius:6px;background:var(--surface-2);color:var(--text)}
+.closingToolbar input{border-color:var(--border);background:var(--surface-2)}
+.runChip{padding:6px 10px;border-radius:20px;background:var(--surface-3);color:var(--text-2);font-size:12px;overflow-wrap:anywhere}
+.runChip.health.complete{background:var(--ok-bg);color:var(--ok-fg)}.runChip.health.degraded{background:var(--warn-bg);color:var(--warn-fg)}.runChip.health.missing{background:var(--up-bg);color:var(--up-fg)}
+.closingNote{margin:10px 2px 0;color:var(--text-muted);font-size:12px;line-height:1.55}
+.closingSection{margin-top:14px;border:1px solid var(--border);border-radius:8px;background:var(--surface)}
+.closingSection>summary{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 12px;padding:14px 16px;cursor:pointer;list-style:none}
+.closingSection>summary::-webkit-details-marker{display:none}
+.closingSection>summary::before{content:'▸';color:var(--text-muted);transition:transform .15s}
+.closingSection[open]>summary::before{transform:rotate(90deg)}
+.closingSection>summary b{font-size:15px}.closingSection>summary span{color:var(--text-muted);font-size:12px}
+.closingSection>summary:hover{background:var(--surface-2)}
+.closingSection>summary:focus-visible{outline:2px solid var(--down-fg);outline-offset:-2px}
+.closingSection>:not(summary){margin-left:16px;margin-right:16px}
+.closingSection>:last-child{margin-bottom:16px}
+.closingSection>p{color:var(--text-2);font-size:13px;line-height:1.6}
+.closingSection>.menuGuide{margin-top:4px}
+.closingTools h3{margin:18px 16px 8px;font-size:14px;color:var(--text-2)}
+.closingTools>p{margin-top:0;color:var(--text-muted);font-size:12px}
+.closingTools input[readonly]{color:var(--text-muted)}
+@media(max-width:1100px){.closingSummary{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:680px){.closingSummary{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.closingNotice{margin-top:10px;padding:10px 14px;border:1px solid var(--warn-border);border-left-width:4px;border-radius:8px;background:var(--warn-bg);color:var(--text-2);font-size:13px}
+.closingNotice b{color:var(--warn-fg)}.closingNotice p{margin:4px 0 0;line-height:1.55}
+.closingListEmpty{margin:0;padding:14px;border:1px dashed var(--border);border-radius:8px;color:var(--text-muted);font-size:13px}

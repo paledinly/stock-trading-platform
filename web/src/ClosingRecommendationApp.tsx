@@ -428,12 +428,11 @@ const healthReasonLabels: Record<string, string> = {
 
 /**
  * 일별 수집 완결성 표를 그리는 React 컴포넌트(화면 조각을 만드는 함수)예요. 출석부처럼 거래일마다 정상/불완전/누락을 보여줘요.
- * 받는 것(props, 부모가 넘겨주는 값): rows(거래일별 점검 결과). 돌려주는 것: 표 화면.
+ * 받는 것(props, 부모가 넘겨주는 값): rows(거래일별 점검 결과). 돌려주는 것: 표 화면(제목은 감싸는 접는 영역이 붙여요).
  */
 export function DailyHealthTable({ rows }: { rows: DailyHealth[] }) {
   return (
     <section className="menuGuide">
-      <h2>일별 수집 완결성</h2>
       {rows.length === 0 ? <p>기록된 거래일이 없습니다.</p> : <table>
         <thead><tr><th>거래일</th><th>판정</th><th>평가 완료</th><th>추천/진입</th><th>후보 관측</th><th>실시간</th><th>사유</th></tr></thead>
         <tbody>{rows.map(row => {
@@ -729,7 +728,8 @@ function intradayMaLabels(ma: {
 /**
  * 장마감 추천 화면 전체를 그리는 React 컴포넌트예요. 마감 직전 장보기 목록처럼 오늘 살펴볼 후보를 순위대로 정리해요.
  * 받는 것(props): advanced(true면 백테스트·전략 통계까지 표시. AppShell은 항상 true로 넘겨요).
- * 돌려주는 것: 평가 실행 폼, 평가 이력, 추천 랭킹, 성과·판단, 고급 분석 패널이 담긴 화면.
+ * 돌려주는 것: 위에서부터 조회 줄(추천일·평가 이력), 오늘 결과(요약·추천 랭킹·성과·판단), 접는 영역(후보 관측·생성 당시
+ * 후보 평가·검증 요약·수집 완결성), 도구(후보 평가 실행·성과 추적·백테스트·일봉 준비)가 담긴 화면.
  * React Query(서버 데이터를 가져와 쿼리 캐시(메모리 보관소)에 저장하는 도구)로 조회와 실행을 처리해요.
  */
 export function ClosingRecommendationPage({ advanced = false }: { advanced?: boolean }) {
@@ -878,32 +878,43 @@ export function ClosingRecommendationPage({ advanced = false }: { advanced?: boo
   const performanceRows = performances.data ?? []
   const performanceByRecommendation = new Map(performanceRows.map(row => [row.recommendationId, row]))
   const top = rows[0]
+  const errors = [
+    generate.error && `후보 평가 실패: ${generate.error.message}`,
+    track.error && `다음날 성과 추적 실패: ${track.error.message}`,
+    trackCandidates.error && `전체 후보 성과 추적 실패: ${trackCandidates.error.message}`,
+    evaluateDecisions.error && `매도/보유 판단 실패: ${evaluateDecisions.error.message}`,
+    runBacktest.error && `백테스트 실패: ${runBacktest.error.message}`,
+  ].filter(Boolean) as string[]
+  const loadErrors = [
+    history.error && `평가 이력 조회 실패: ${history.error.message}`,
+    evaluation.error && `후보 평가 내역 조회 실패: ${evaluation.error.message}`,
+    recommendations.error && `추천 조회 실패: ${recommendations.error.message}`,
+    performances.error && `성과 조회 실패: ${performances.error.message}`,
+    dailyHealth.error && `수집 완결성 조회 실패: ${dailyHealth.error.message}`,
+  ].filter(Boolean) as string[]
+  const latestHealth = Array.isArray(dailyHealth.data) ? dailyHealth.data[0] : undefined
+  // 화면 순서: 조회 줄 → 오늘 결과(요약·안내·추천 랭킹) → 후보 관측·평가 내역 → 검증 요약 → 수집 완결성 → 도구(실행 버튼 모음).
+  // 연구·도구 영역은 <details>로 접어 두어, 매일 보는 결과가 맨 위에 오게 해요.
   return (
     <div className="closingPage">
       <header>
         <div>
           <h1>오늘의 마감 추천</h1>
-          <span>{advanced ? '오후 장중 탐지 흐름을 기준으로 종가 매수 후보를 랭킹으로 정리합니다.' : '오늘 장마감에 살펴볼 후보와 다음날 매도 판단을 간단히 정리합니다.'}</span>
+          <span>{advanced ? '15:15까지 수신된 정보로 후보를 평가하고, 장 마감 전 가상 진입 후 다음 거래일 성과를 추적합니다.' : '오늘 장마감에 살펴볼 후보와 다음날 매도 판단을 간단히 정리합니다.'}</span>
         </div>
         <aside>
-          <small>추천 후보</small>
+          <small>최종 추천</small>
           <b>{rows.length}</b>
-          <span>{top ? `1위 ${top.stockName}` : '생성 대기'}</span>
+          <span>{top ? `1위 ${top.stockName}` : selectedRun ? '조건 충족 종목 없음' : '평가 전'}</span>
         </aside>
       </header>
       <main>
-        <form className={advanced ? 'advancedForm' : 'simpleForm'} onSubmit={submit}>
+        <section className="closingToolbar" aria-label="조회할 평가">
           <label>추천일<input type="date" value={date} onChange={event => {
             setDate(event.target.value); setSelection(undefined)
             generate.reset(); track.reset(); evaluateDecisions.reset()
           }} /></label>
-          {advanced && <label>후보 수<input type="number" min="1" max="30" value={limit} onChange={event => setLimit(Number(event.target.value))} /></label>}
-          {advanced && <label>최소 기회점수<input type="number" min="0" max="100" value={minOpportunity} onChange={event => setMinOpportunity(Number(event.target.value))} /></label>}
-          {advanced && <label>최대 위험점수<input type="number" min="0" max="100" value={maxRisk} onChange={event => setMaxRisk(Number(event.target.value))} /></label>}
-          <button disabled={generate.isPending}>{generate.isPending ? '평가 중...' : '후보 평가'}</button>
-        </form>
-        <section className="evaluationHistory">
-          <label>평가 이력<select value={runId ?? ''} onChange={event => {
+          <label className="evaluationHistory">평가 이력<select value={runId ?? ''} onChange={event => {
             setSelection({ date, id: Number(event.target.value) }); track.reset(); evaluateDecisions.reset()
           }} disabled={!history.data?.length}>
             {!history.data?.length && <option value="">평가 이력 없음</option>}
@@ -911,64 +922,15 @@ export function ClosingRecommendationPage({ advanced = false }: { advanced?: boo
               #{run.id} · {new Date(run.generatedAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })} · {executionLabel(run.executionMode)}
             </option>)}
           </select></label>
-          {selectedRun && <span>{executionLabel(selectedRun.executionMode)} · {selectedRun.strategyVersion}</span>}
+          {selectedRun && <span className="runChip">{executionLabel(selectedRun.executionMode)} · {selectedRun.strategyVersion}
+            {selectedRun.completedAt ? ` · 완료 ${new Date(selectedRun.completedAt).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' })}` : ''}</span>}
+          {latestHealth && <span className={`runChip health ${latestHealth.verdict.toLowerCase()}`} title={latestHealth.reasons.join(', ')}>
+            최근 완결성 {latestHealth.tradeDate.slice(5)} {healthVerdictLabels[latestHealth.verdict]}</span>}
         </section>
-        <section className="performanceControls">
-          <label>목표 수익률 %<input type="number" step="0.1" value={targetRate} onChange={event => setTargetRate(Number(event.target.value))} /></label>
-          <label>손절 기준 %<input type="number" step="0.1" value={stopRate} onChange={event => setStopRate(Number(event.target.value))} /></label>
-          <button onClick={() => track.mutate()} disabled={track.isPending || rows.length === 0}>{track.isPending ? '추적 중...' : '다음날 성과 추적'}</button>
-          <button onClick={() => evaluateDecisions.mutate()} disabled={evaluateDecisions.isPending || rows.length === 0}>{evaluateDecisions.isPending ? '판단 중...' : '매도/보유 판단'}</button>
-          {advanced && <button onClick={() => trackCandidates.mutate()}
-            disabled={trackCandidates.isPending || runId == null || selectedRun?.executionMode !== 'FORWARD'}>
-            {trackCandidates.isPending ? '전체 후보 추적 중...' : '전체 후보 성과 추적'}
-          </button>}
-        </section>
-        {advanced && candidateObservations.data && <section className="menuGuide">
-          <h2>선택 편향 관측</h2>
-          <p>동일한 가상 진입·익일 청산·비용 규칙으로 최종 추천 {candidateObservations.data.selected}건과 미선정 {candidateObservations.data.unselected}건을 분리 관측합니다. 완료 {candidateObservations.data.completed}/{candidateObservations.data.candidates}건입니다.</p>
-          {candidateObservations.data.rows.map(row => <p key={row.id}>
-            {row.stockName} ({row.stockCode}) · {row.disposition === 'SELECTED' ? '최종 추천' : '미선정'} · {row.status} · 총수익 {pct(row.grossReturnRate)} · 순수익 {row.netReturnRate == null ? '미산출' : pct(row.netReturnRate)}
-          </p>)}
-        </section>}
-        {advanced && <section className="backtestControls">
-          <label>백테스트 시작일<input type="date" value={backtestFrom} onChange={event => setBacktestFrom(event.target.value)} /></label>
-          <label>백테스트 종료일<input type="date" value={backtestTo} onChange={event => setBacktestTo(event.target.value)} /></label>
-          <button onClick={() => runBacktest.mutate()} disabled={runBacktest.isPending}>{runBacktest.isPending ? '검증 중...' : '오버나잇 백테스트'}</button>
-        </section>}
-        {advanced && <section className="performanceControls">
-          <button type="button" onClick={() => prepareDaily.mutate()} disabled={prepareDaily.isPending}>
-            {prepareDaily.isPending ? '일봉 수집 중...' : '일봉 데이터 준비'}
-          </button>
-          {prepareDaily.data && <span>{prepareDaily.data.recommendationDate} 기준 · {prepareDaily.data.readyStocks}종목 준비 · {prepareDaily.data.savedCandles}봉 저장 · 실패 {prepareDaily.data.failedStocks}종목</span>}
-          {prepareDaily.error && <span>일봉 수집 실패: {prepareDaily.error.message}</span>}
-        </section>}
-        <section className="menuGuide">
-          <h2>사용 안내</h2>
-          <p>시장 관측과 가상 체결은 분리됩니다. 가상 진입가는 추천 완료 후 첫 확정 5분봉 시가이며, 비용이 검증되지 않으면 순수익을 표시하지 않습니다.</p>
-        </section>
-        {Array.isArray(dailyHealth.data) && <DailyHealthTable rows={dailyHealth.data.slice(0, 10)} />}
-        {dailyHealth.error && <div className="closingEmpty">수집 완결성 조회 실패: {dailyHealth.error.message}</div>}
-        {generate.error && <div className="closingEmpty">{generate.error.message}</div>}
-        {track.error && <div className="closingEmpty">{track.error.message}</div>}
-        {trackCandidates.error && <div className="closingEmpty">전체 후보 성과 추적 실패: {trackCandidates.error.message}</div>}
-        {evaluateDecisions.error && <div className="closingEmpty">{evaluateDecisions.error.message}</div>}
-        {runBacktest.error && <div className="closingEmpty">{runBacktest.error.message}</div>}
-        {recommendations.error && <div className="closingEmpty">{recommendations.error.message}</div>}
-        {evaluation.error && <div className="closingEmpty">후보 평가 내역 조회 실패: {evaluation.error.message}</div>}
-        {history.error && <div className="closingEmpty">평가 이력 조회 실패: {history.error.message}</div>}
-        {performances.error && <div className="closingEmpty">성과 조회 실패: {performances.error.message}</div>}
-        {advanced && backtest && <BacktestResult data={backtest} />}
-        {advanced && <section className="menuGuide">
-          <h2>모의 계좌 성과</h2>
-          {accountPerformance.isLoading && <p>계좌 자료 확인 중...</p>}
-          {accountPerformance.error && <p>계좌 상태 조회 실패: {accountPerformance.error.message}</p>}
-          {accountPerformance.data?.status !== 'READY' && !accountPerformance.isLoading && !accountPerformance.error &&
-            <p>미산출: 모의 체결·비용 원장과 일별 순자산이 아직 없습니다. KOSPI/KOSDAQ 비교용 동일 보유시간 지수 데이터도 없어 수익률·MDD·샤프·시장 초과수익을 표시하지 않습니다.</p>}
-          {accountPerformance.data?.status === 'READY' && <p>누적수익 {pct(accountPerformance.data.cumulativeReturnRate)} · 계좌 MDD {pct(accountPerformance.data.maxDrawdownRate)} · 손익비 {num(accountPerformance.data.profitFactor)} · 샤프 {num(accountPerformance.data.sharpeRatio)} · 소르티노 {num(accountPerformance.data.sortinoRatio)} · 시장 초과수익 {accountPerformance.data.excessReturnRate == null ? '미산출' : pct(accountPerformance.data.excessReturnRate)}</p>}
-        </section>}
-        {advanced && <StrategyAnalyticsPanel data={strategyAnalytics.data} loading={strategyAnalytics.isLoading}
-          error={strategyAnalytics.error?.message} />}
-        <section className="closingSummary">
+        <p className="closingNote">시장 관측과 가상 체결은 분리됩니다. 가상 진입가는 추천 완료 후 첫 확정 5분봉 시가이며, 비용이 검증되지 않으면 순수익을 표시하지 않습니다. 추천 점수는 상승 확률이 아닙니다.</p>
+        {[...loadErrors, ...errors].map(message => <div className="closingEmpty" key={message}>{message}</div>)}
+
+        <section className="closingSummary" aria-label="평가 요약">
           <article><small>원본 탐지</small><b>{lastRun?.sourceDetections ?? '--'}</b></article>
           <article><small>Broad 원본</small><b>{lastRun?.sourceBroadSnapshots ?? '--'}</b></article>
           <article><small>저장 후보</small><b>{lastRun?.storedCandidates ?? rows.length}</b></article>
@@ -978,19 +940,29 @@ export function ClosingRecommendationPage({ advanced = false }: { advanced?: boo
           <article><small>보유 연장</small><b>{(decisions.data ?? []).filter(row => row.decision === 'EXTEND_HOLD').length}</b></article>
         </section>
         {lastRun?.criteria?.marketSectorAccountChecks === 'UNVERIFIED' &&
-          <div className="closingEmpty"><b>제한 모드: 주문 자격 미확인</b><p>조건을 충족한 종목을 최대 5종목까지 추천합니다. 시장 지표·업종 집중·계좌 노출은 미검증이며 추천 순위는 매수 가능 판정이나 수익 확률이 아닙니다.</p></div>}
+          <div className="closingNotice"><b>제한 모드: 주문 자격 미확인</b><p>조건을 충족한 종목을 최대 5종목까지 추천합니다. 시장 지표·업종 집중·계좌 노출은 미검증이며 추천 순위는 매수 가능 판정이나 수익 확률이 아닙니다.</p></div>}
         {lastRun && lastRun.storedCandidates === 0 && lastRun.watchCandidates + lastRun.excludedCandidates > 0 &&
-          <div className="closingEmpty"><b>조건을 충족한 최종 추천이 없습니다</b><p>{Object.entries(lastRun.exclusionReasons).map(([reason, count]) => `${closingExclusionLabel(reason)} ${count}건`).join(' · ')}</p></div>}
+          <div className="closingNotice"><b>조건을 충족한 최종 추천이 없습니다</b><p>{Object.entries(lastRun.exclusionReasons).map(([reason, count]) => `${closingExclusionLabel(reason)} ${count}건`).join(' · ')}</p></div>}
         <section className="closingGrid">
           <div className="closingList">
             <h2>추천 랭킹</h2>
             {recommendations.isLoading && <div className="closingEmpty">불러오는 중...</div>}
-            {!recommendations.isLoading && rows.length === 0 && <div className="closingEmpty"><b>추천 후보가 없습니다</b><p>장중 탐지가 쌓인 뒤 추천 생성을 실행하세요.</p></div>}
+            {!recommendations.isLoading && rows.length === 0 && (lastRun
+              ? <p className="closingListEmpty">이 평가에는 최종 추천 종목이 없습니다. 제외 사유는 위 안내와 '생성 당시 후보 평가'에서 확인하세요.</p>
+              : <div className="closingEmpty"><b>추천 후보가 없습니다</b><p>공식 평가는 15:15에 자동 실행됩니다. 평가 이력이 없으면 아래 '도구'에서 후보 평가를 실행할 수 있습니다.</p></div>)}
             {rows.map(item => <RecommendationCard key={item.id} item={item} performance={performanceByRecommendation.get(item.id)} decision={(decisions.data ?? []).find(row => row.recommendationId === item.id)} advanced={advanced} />)}
           </div>
         </section>
-        {lastRun?.evaluations && <section className="menuGuide">
-          <h2>생성 당시 후보 평가</h2>
+
+        {advanced && candidateObservations.data && <details className="closingSection">
+          <summary><b>전체 후보 관측 (선택 편향 확인)</b><span>최종 추천 {candidateObservations.data.selected} · 미선정 {candidateObservations.data.unselected} · 완료 {candidateObservations.data.completed}/{candidateObservations.data.candidates}</span></summary>
+          <p>동일한 가상 진입·익일 청산·비용 규칙으로 최종 추천과 미선정 후보를 분리 관측합니다.</p>
+          {candidateObservations.data.rows.map(row => <p key={row.id}>
+            {row.stockName} ({row.stockCode}) · {row.disposition === 'SELECTED' ? '최종 추천' : '미선정'} · {row.status} · 총수익 {pct(row.grossReturnRate)} · 순수익 {row.netReturnRate == null ? '미산출' : pct(row.netReturnRate)}
+          </p>)}
+        </details>}
+        {lastRun?.evaluations && <details className="closingSection">
+          <summary><b>생성 당시 후보 평가</b><span>최종 {lastRun.evaluations.filter(row => row.disposition === 'SELECTED').length} · 관찰 {lastRun.evaluations.filter(row => row.disposition === 'WATCH').length} · 제외 {lastRun.evaluations.filter(row => row.disposition === 'EXCLUDED').length}</span></summary>
           <p>{new Date(lastRun.generatedAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })} · {lastRun.strategyVersion} · 평가 종료 {new Date(lastRun.evaluationEnd).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul' })}</p>
           <p>{Object.entries(lastRun.criteria).map(([key, value]) => `${key}: ${value}`).join(' · ')}</p>
           <p>관찰·제외 후보는 최종 추천이 아니며 오버나잇 성과 추적 대상에 포함되지 않습니다. 관측 분수는 봉의 시간 범위이며 연속 수신 시간을 보장하지 않습니다.</p>
@@ -1009,7 +981,68 @@ export function ClosingRecommendationPage({ advanced = false }: { advanced?: boo
               {row.featureSnapshot && <details><summary>탐지 당시 Feature 원본</summary><pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{row.featureSnapshot}</pre></details>}
             </details>)}
           </div>)}
-        </section>}
+        </details>}
+
+        {advanced && <details className="closingSection">
+          <summary><b>검증 요약</b><span>전략 승격 조건 · 시간순 표본 외 검증 · 모의 계좌 성과</span></summary>
+          <section className="menuGuide">
+            <h2>모의 계좌 성과</h2>
+            {accountPerformance.isLoading && <p>계좌 자료 확인 중...</p>}
+            {accountPerformance.error && <p>계좌 상태 조회 실패: {accountPerformance.error.message}</p>}
+            {accountPerformance.data?.status !== 'READY' && !accountPerformance.isLoading && !accountPerformance.error &&
+              <p>미산출: 모의 체결·비용 원장과 일별 순자산이 아직 없습니다. KOSPI/KOSDAQ 비교용 동일 보유시간 지수 데이터도 없어 수익률·MDD·샤프·시장 초과수익을 표시하지 않습니다.</p>}
+            {accountPerformance.data?.status === 'READY' && <p>누적수익 {pct(accountPerformance.data.cumulativeReturnRate)} · 계좌 MDD {pct(accountPerformance.data.maxDrawdownRate)} · 손익비 {num(accountPerformance.data.profitFactor)} · 샤프 {num(accountPerformance.data.sharpeRatio)} · 소르티노 {num(accountPerformance.data.sortinoRatio)} · 시장 초과수익 {accountPerformance.data.excessReturnRate == null ? '미산출' : pct(accountPerformance.data.excessReturnRate)}</p>}
+          </section>
+          <StrategyAnalyticsPanel data={strategyAnalytics.data} loading={strategyAnalytics.isLoading}
+            error={strategyAnalytics.error?.message} />
+        </details>}
+
+        {Array.isArray(dailyHealth.data) && <details className="closingSection">
+          <summary><b>일별 수집 완결성</b><span>최근 {Math.min(10, dailyHealth.data.length)}거래일 · 자세한 하루 현황은 '오늘' 화면</span></summary>
+          <DailyHealthTable rows={dailyHealth.data.slice(0, 10)} />
+        </details>}
+
+        <details className="closingSection closingTools">
+          <summary><b>도구</b><span>후보 평가 실행 · 성과 추적 · 매도/보유 판단{advanced ? ' · 오버나잇 백테스트 · 일봉 준비' : ''}</span></summary>
+          <h3>후보 평가 실행</h3>
+          <p>공식 평가는 15:15에 자동 실행됩니다. 같은 날짜·설정의 공식 평가는 하나로 공유되고, 장 마감 뒤에는 과거 재생(REPLAY)으로 따로 저장됩니다.</p>
+          <form className={advanced ? 'advancedForm' : 'simpleForm'} onSubmit={submit}>
+            <label>추천일<input type="date" value={date} readOnly aria-readonly="true" /></label>
+            {advanced && <label>후보 수<input type="number" min="1" max="30" value={limit} onChange={event => setLimit(Number(event.target.value))} /></label>}
+            {advanced && <label>최소 기회점수<input type="number" min="0" max="100" value={minOpportunity} onChange={event => setMinOpportunity(Number(event.target.value))} /></label>}
+            {advanced && <label>최대 위험점수<input type="number" min="0" max="100" value={maxRisk} onChange={event => setMaxRisk(Number(event.target.value))} /></label>}
+            <button disabled={generate.isPending}>{generate.isPending ? '평가 중...' : '후보 평가'}</button>
+          </form>
+          <h3>성과 추적 · 매도/보유 판단</h3>
+          <section className="performanceControls">
+            <label>목표 수익률 %<input type="number" step="0.1" value={targetRate} onChange={event => setTargetRate(Number(event.target.value))} /></label>
+            <label>손절 기준 %<input type="number" step="0.1" value={stopRate} onChange={event => setStopRate(Number(event.target.value))} /></label>
+            <button onClick={() => track.mutate()} disabled={track.isPending || rows.length === 0}>{track.isPending ? '추적 중...' : '다음날 성과 추적'}</button>
+            <button onClick={() => evaluateDecisions.mutate()} disabled={evaluateDecisions.isPending || rows.length === 0}>{evaluateDecisions.isPending ? '판단 중...' : '매도/보유 판단'}</button>
+            {advanced && <button onClick={() => trackCandidates.mutate()}
+              disabled={trackCandidates.isPending || runId == null || selectedRun?.executionMode !== 'FORWARD'}>
+              {trackCandidates.isPending ? '전체 후보 추적 중...' : '전체 후보 성과 추적'}
+            </button>}
+          </section>
+          {advanced && <>
+            <h3>오버나잇 백테스트</h3>
+            <section className="backtestControls">
+              <label>백테스트 시작일<input type="date" value={backtestFrom} onChange={event => setBacktestFrom(event.target.value)} /></label>
+              <label>백테스트 종료일<input type="date" value={backtestTo} onChange={event => setBacktestTo(event.target.value)} /></label>
+              <button onClick={() => runBacktest.mutate()} disabled={runBacktest.isPending}>{runBacktest.isPending ? '검증 중...' : '오버나잇 백테스트'}</button>
+            </section>
+            {backtest && <BacktestResult data={backtest} />}
+            <h3>일봉 데이터 준비</h3>
+            <section className="performanceControls">
+              <button type="button" onClick={() => prepareDaily.mutate()} disabled={prepareDaily.isPending}>
+                {prepareDaily.isPending ? '일봉 수집 중...' : '일봉 데이터 준비'}
+              </button>
+              {prepareDaily.data && <span>{prepareDaily.data.recommendationDate} 기준 · {prepareDaily.data.readyStocks}종목 준비 · {prepareDaily.data.savedCandles}봉 저장 · 실패 {prepareDaily.data.failedStocks}종목</span>}
+              {prepareDaily.error && <span>일봉 수집 실패: {prepareDaily.error.message}</span>}
+            </section>
+          </>}
+          {errors.map(message => <div className="closingEmpty" key={`tool-${message}`}>{message}</div>)}
+        </details>
       </main>
     </div>
   )

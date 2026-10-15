@@ -3,7 +3,7 @@
  * 평가 내역 복원, 모의 계좌 미산출 표시, 공식 평가 우선 선택, 일별 수집 완결성 표를 확인해요.
  * Vitest(테스트 실행 도구)가 npm test로 실행해요.
  */
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ClosingRecommendationPage } from './ClosingRecommendationApp'
 
@@ -97,4 +97,20 @@ test('shows the daily completeness table with Korean labels and missing days', a
   expect(missing).toHaveTextContent('누락')
   expect(missing).toHaveTextContent('기록 없음(백엔드 중단 추정)')
   expect(missing).toHaveTextContent('미관측')
+})
+// 오늘 결과(추천 랭킹)가 위에 오고, 실행 버튼은 접힌 '도구' 영역 안에 있는지 봐요.
+test('puts the ranking first and keeps the run buttons inside the collapsed tools section', async () => {
+  globalThis.fetch = vi.fn().mockImplementation(async (url: string) => ({
+    ok: true, status: 200, json: async () => url.includes('/runs') ? [] : url.includes('/daily-health') ? [] : [],
+  })) as typeof fetch
+  render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+    <ClosingRecommendationPage advanced />
+  </QueryClientProvider>)
+
+  const ranking = await screen.findByRole('heading', { name: '추천 랭킹' })
+  const tools = screen.getByText('도구').closest('details')!
+  expect(tools).not.toHaveAttribute('open')
+  expect(ranking.compareDocumentPosition(tools) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  expect(within(tools).getByRole('button', { name: '후보 평가' })).toBeInTheDocument()
+  expect(within(tools).getByRole('button', { name: '오버나잇 백테스트' })).toBeInTheDocument()
 })
