@@ -15,6 +15,7 @@ import { BacktestPage } from './BacktestPage'
 import { ClosingRecommendationPage } from './ClosingRecommendationApp'
 import { GROUPS, ROUTES, routeFromHash, type RouteId } from './routes'
 import { NavIcon } from './NavIcon'
+import { MarketIndices } from './MarketIndices'
 import { SidebarStatus } from './SidebarStatus'
 import './appShell.css'
 
@@ -80,6 +81,7 @@ export function AppShell() {
           ))}
         </nav>
         <div className="appSidebarFoot">
+          <MarketIndices />
           <SidebarStatus />
           <div className="themeSwitch" role="group" aria-label="화면 테마">
             <button type="button" aria-pressed={theme === 'light'} onClick={() => setTheme('light')}>☀ 밝게</button>

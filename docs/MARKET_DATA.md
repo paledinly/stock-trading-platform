@@ -65,6 +65,7 @@ Broad 후보는 KIS 순위와 제한된 상세 현재가 조회(`MARKET_WIDE_DET
 - **장마감 Trajectory(V28)**: 기존 체결에서 1분 Aggregate와 기본 5분 간격 Snapshot을 만든다. [장마감 Trajectory](CLOSING_TRAJECTORY.md).
 - **투자자 수급**: 외국인·기관 가집계와 KRX 프로그램 누적 수량을 Trajectory의 `investorFlow`로 제공한다. [투자자 수급](INVESTOR_FLOW.md).
 - **호가·대량체결(V29)**: 10단계 호가는 기본 5초 간격의 제한된 REST 표본, 대량체결은 기존 WebSocket 체결에서 집계한다. [호가·대량체결](MICROSTRUCTURE.md).
+- **지수 일봉(V37, 기록 전용·기본 켜짐)**: KOSPI·KOSDAQ 일봉을 KIS 국내업종 기간별 시세(`FHKUP03500100`)로 받아 `market_index_daily`에 저장한다. 한 번에 최근 쪽 50행만 오고 다음 페이지 표시가 없어 끝 날짜를 앞으로 옮겨 가며 받는다. 거래일 16:05(설정 `market.index-daily.cron`)에 최근 20일을 갱신한다. 왼쪽 메뉴의 고정 지수 칸은 장중 지수 관측(5분 간격, `CLOSING_TRAJECTORY_INDEX_ENABLED`)을 먼저 쓰고 없으면 이 일봉 종가를 쓴다.
 - **상한가 직전 호가(V34·V36)**, **후보 시장경고·DART 공시(V35)**: [운영 가이드](OPERATIONS.md#상한가-직전-매수-연구-수집), [DATABASE](DATABASE.md).
 
 연구용 데이터는 추천 점수·선정에 쓰지 않는다.

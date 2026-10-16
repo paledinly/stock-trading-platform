@@ -26,7 +26,7 @@ PostgreSQL은 영구 데이터의 시스템 오브 레코드다. Redis와 프로
 | 연구: 호가·대량체결 | `closing_microstructure_minute`(V29) |
 | 연구: 수정주가 일봉 | `daily_adjusted_candle`, `daily_adjusted_sweep_state`(V33) |
 | 연구: 상한가 직전 | `limit_up_watch`(V34, V36) |
-| 기록 전용: 외부 요인 | `closing_candidate_context`, `dart_filing`(V35) |
+| 기록 전용: 외부 요인 | `closing_candidate_context`, `dart_filing`(V35), `market_index_daily`(V37) |
 | 사용하지 않음 | `platform_schema_version`(V1), `intraday_input`, `intraday_recommendation`(V27) |
 
 ## 주요 테이블 설명
@@ -56,6 +56,10 @@ KIS 국내휴장일조회로 받은 날짜별 개장 여부(`market_open`), 출�
 - `closing_candidate_context`: 공식 마감 평가 직후(15:16:45, 미수집분 15:19:00) 그 run의 후보마다 KIS 현재가 응답의 시장경고(`mrkt_warn_cls_code`), 투자유의, VI 적용, 단기과열, 정리매매, 관리종목, 임시정지, 종목상태 코드를 저장한다. `received_at`은 수신시각이다. 조회 실패는 `error`와 함께 남기고 다음 회차에 다시 읽는다.
 - `dart_filing`: DART 공시 목록(유가·코스닥 상장사)을 접수번호 기본키로 저장한다. DART는 접수 **날짜**만 주므로 15:15 판단에 쓸 수 있는 공시는 `rcept_dt`가 판단일보다 이전인 것뿐이다. 평일 07:40과 매일 18:10에 최근 3일을 다시 읽고, 이미 있는 행은 유지한다. `DART_API_KEY`가 없으면 수집하지 않는다.
 - 두 테이블 모두 추천 점수·선정에 쓰지 않는다. ADR-010 판단 기간 동안 외부 요인 가설을 나중에 사전 등록해 검증하기 위한 기록이다.
+
+### market_index_daily (V37, 기록 전용)
+
+KOSPI(`0001`)·KOSDAQ(`1001`) 지수 일봉(KIS `FHKUP03500100`). 키는 (`index_code`, `trade_date`). `volume`·`trading_value`는 KIS 단위 그대로(`acml_vol`, `acml_tr_pbmn`), `fetched_at`은 호스트 수집 시각이다. 거래일 16:05에 최근 20일을 다시 받아 갱신하고 과거는 `POST /market-data/index-daily/backfill`로 채운다. 시장 국면 가설 검증과 화면의 전일 종가 표시에 쓰며 추천 점수·선정에는 쓰지 않는다.
 
 ### Trajectory · Microstructure (V28·V29, 연구용)
 

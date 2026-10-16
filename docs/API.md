@@ -148,6 +148,19 @@ ScannerType: `VOLUME`, `PRICE_RISE`, `MOMENTUM`, `VOLUME_BREAKOUT`, `TURNOVER_BR
 
 상태 필드: `running`, `startedAt`/`finishedAt`, `latestSession`(수집 기준 마지막 완료 거래일), `universe`, `processed`, `upToDate`, `fullFetches`, `calls`, `savedRows`, `revisedRows`(가격이 다시 계산된 행), `failed`, `lastStockCode`, `stoppedReason`(`SESSION_GUARD` 등). 메모리 값이며 재시작하면 초기화된다.
 
+## 지수 (화면 표시·연구 기록)
+
+**MarketIndexController**
+
+| 메서드 | 경로 | 용도 | 주요 파라미터 |
+| --- | --- | --- | --- |
+| GET | `/market-data/indices` | **[운영]** KOSPI·KOSDAQ 최신 값. 왼쪽 메뉴 고정 지수 칸이 1분마다 읽는다. | 없음 |
+| POST | `/market-data/index-daily/backfill` | **[연구]** 지수 일봉을 KIS(`FHKUP03500100`)에서 받아 `market_index_daily`에 저장(있으면 갱신). 지수마다 50행씩 거꾸로 나눠 받는다(1년 ≈ 지수당 5~6회). 장 마감 10분 뒤 전에는 오늘 일봉을 저장하지 않는다. | `from`, `to`(기본 오늘) |
+
+`indices` 응답 필드(지수마다 한 행): `name`, `value`, `changePct`(전일 대비 %), `observedAt`(호스트 수신·수집 시각, KIS 원천 시각 아님), `source`(`INTRADAY`: 오늘 장중 지수 관측 `closing_context_observation` kind=INDEX의 최신값, `DAILY_CLOSE`: 오늘 관측이 없을 때 마지막 일봉 종가와 그 전 일봉 대비 등락률, `NONE`: 자료 없음), `previousDate`/`previousClose`(비교 기준 일봉). 장중 관측은 `CLOSING_TRAJECTORY_INDEX_ENABLED=true`일 때만 쌓인다. 강세·약세 같은 국면 판정은 하지 않는다.
+
+`backfill` 응답: 지수별 `name`, `requests`, `saved`, `oldest`, `newest`.
+
 ## 장마감 Trajectory (연구)
 
 **TrajectoryController** (`/closing-trajectory` 아래, 모두 **[연구]**)
