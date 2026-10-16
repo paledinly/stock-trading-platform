@@ -41,7 +41,7 @@ class DailyCollectionStatusServiceTest {
         jdbc.execute("create table closing_candidate_context(run_id bigint, stock_code varchar(12), "
                 + "received_at timestamp with time zone, error text)");
         jdbc.execute("create table stock_candle(stock_id bigint, timeframe varchar(5), start_time timestamp with time zone, "
-                + "volume bigint, source varchar(20))");
+                + "volume bigint, source varchar(20), updated_at timestamp with time zone)");
         jdbc.execute("create table closing_candidate_observation(run_id bigint, expected_session_date date, "
                 + "status varchar(30), evaluated_at timestamp with time zone)");
         jdbc.execute("create table dart_filing(rcept_no varchar(20), rcept_dt date, fetched_at timestamp with time zone)");
@@ -73,10 +73,17 @@ class DailyCollectionStatusServiceTest {
         jdbc.update("insert into closing_candidate_context values (11, 'A', ?, null), (11, 'B', ?, 'timeout'), (10, 'C', ?, null)",
                 at("2026-10-02T06:16:46Z"), at("2026-10-02T06:19:01Z"), at("2026-10-02T06:16:46Z"));
         // 15:25(KST) 봉 3종목 중 2종목만 거래량이 있고, 같은 날 분봉 보완 봉이 2개 있어요(다른 날 보완 봉은 세지 않아요).
-        jdbc.update("insert into stock_candle values (1, '5M', ?, 100, 'REALTIME'), (2, '5M', ?, 0, 'REALTIME'), "
-                + "(3, '5M', ?, 50, 'BACKFILL'), (3, '5M', ?, 20, 'BACKFILL'), (4, '5M', ?, 10, 'BACKFILL')",
+        jdbc.update("insert into stock_candle(stock_id, timeframe, start_time, volume, source) values (1, '5M', ?, 100, 'REALTIME'), "
+                + "(2, '5M', ?, 0, 'REALTIME'), (3, '5M', ?, 50, 'BACKFILL'), (3, '5M', ?, 20, 'BACKFILL'), (4, '5M', ?, 10, 'BACKFILL')",
                 at("2026-10-02T06:25:00Z"), at("2026-10-02T06:25:00Z"), at("2026-10-02T06:25:00Z"),
                 at("2026-10-02T01:00:00Z"), at("2026-10-01T01:00:00Z"));
+        // 08:10(KST) 일봉 준비가 2종목에 3개, 14:25 정밀 보완이 1종목에 1개 저장했고, 전날 저장분은 세지 않아요.
+        jdbc.update("insert into stock_candle(stock_id, timeframe, start_time, volume, source, updated_at) values "
+                + "(1, '1D', ?, 1, 'KIS', ?), (1, '1D', ?, 1, 'KIS', ?), (2, '1D', ?, 1, 'KIS', ?), (3, '1D', ?, 1, 'KIS', ?), "
+                + "(4, '1D', ?, 1, 'KIS', ?)",
+                at("2026-09-30T15:00:00Z"), at("2026-10-01T23:10:05Z"), at("2026-10-01T15:00:00Z"), at("2026-10-01T23:10:06Z"),
+                at("2026-10-01T15:00:00Z"), at("2026-10-01T23:10:09Z"), at("2026-10-01T15:00:00Z"), at("2026-10-02T05:25:01Z"),
+                at("2026-09-29T15:00:00Z"), at("2026-09-30T23:10:00Z"));
         // 이 날을 관측 세션으로 갖는 전일 후보 관측과, 다른 세션 관측(세지 않음)이에요.
         jdbc.update("insert into closing_candidate_observation values (9, ?, 'COMPLETED', ?), (9, ?, 'DATA_MISSING', ?), "
                 + "(9, ?, 'COMPLETED', ?)", FRIDAY, at("2026-10-02T06:40:02Z"), FRIDAY, at("2026-10-02T06:40:03Z"),
@@ -114,6 +121,10 @@ class DailyCollectionStatusServiceTest {
         assertThat(status.dart().lastAt()).isEqualTo(Instant.parse("2026-10-02T22:40:00Z"));
         assertThat(status.adjustedDaily()).isEqualTo(new DailyCollectionStatusService.Counted(2, 0,
                 Instant.parse("2026-10-02T09:31:00Z")));
+        assertThat(status.morningDaily()).isEqualTo(new DailyCollectionStatusService.DailyCandles(3, 2,
+                Instant.parse("2026-10-01T23:10:09Z")));
+        assertThat(status.precisionDaily()).isEqualTo(new DailyCollectionStatusService.DailyCandles(1, 1,
+                Instant.parse("2026-10-02T05:25:01Z")));
     }
 
     @Test
@@ -129,6 +140,7 @@ class DailyCollectionStatusServiceTest {
         assertThat(status.observation().statuses()).isEmpty();
         assertThat(status.dart().rows()).isZero();
         assertThat(status.adjustedDaily().rows()).isZero();
+        assertThat(status.morningDaily().rows()).isZero();
     }
 
     @Test

@@ -11,7 +11,8 @@ const collection = (overrides: Partial<Collection> = {}): Collection => ({
   date: '2026-10-02', tradingDay: true, previousTradingDay: '2026-10-01', checkedAt: '2026-10-02T07:00:00Z',
   run: null, paperEntries: {}, limitUp: [], candidateContext: { rows: 0, errors: 0, lastAt: null },
   closingBar: { stocks: 0, withVolume: 0 }, observation: { statuses: {}, lastEvaluatedAt: null, backfilledBars: 0 },
-  dart: { rows: 0, errors: 0, lastAt: null }, adjustedDaily: { rows: 0, errors: 0, lastAt: null }, ...overrides,
+  dart: { rows: 0, errors: 0, lastAt: null }, adjustedDaily: { rows: 0, errors: 0, lastAt: null },
+  morningDaily: { rows: 0, stocks: 0, lastAt: null }, precisionDaily: { rows: 0, stocks: 0, lastAt: null }, ...overrides,
 })
 
 const realtime: TodayInputs['realtime'] = { realtime: {
@@ -40,7 +41,17 @@ test('marks afternoon jobs as waiting during the session', () => {
   expect(state(steps, 'evaluate')).toBe('waiting')
   expect(state(steps, 'observation')).toBe('waiting')
   expect(state(steps, 'dart')).toBe('waiting')
-  expect(state(steps, 'daily-prepare')).toBe('unknown')
+  expect(state(steps, 'daily-prepare')).toBe('warn')
+})
+
+// 08:10 일봉 준비는 그 시간대 저장 흔적이 있으면 정상, 예전 Backend(필드 없음)면 기록 없음이에요.
+test('shows the 08:10 daily preparation from stored daily candles', () => {
+  const ran = buildTimeline({ clock: clockAt('09:30'), collection: collection({
+    morningDaily: { rows: 62, stocks: 40, lastAt: '2026-10-01T23:10:09Z' } }) })
+  expect(state(ran, 'daily-prepare')).toBe('done')
+  expect(ran.find(step => step.id === 'daily-prepare')?.detail).toContain('40종목 일봉 62개 저장 · 마지막 08:10:09')
+  const old = buildTimeline({ clock: clockAt('09:30'), collection: collection({ morningDaily: undefined }) })
+  expect(state(old, 'daily-prepare')).toBe('unknown')
 })
 
 // 장 마감 뒤(16:00) 수집이 다 됐으면 정상, 관측에 누락이 있으면 확인 필요, 완결성 DEGRADED는 확인 필요예요.

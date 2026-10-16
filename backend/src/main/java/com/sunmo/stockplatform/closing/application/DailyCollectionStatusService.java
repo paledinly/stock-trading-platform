@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -18,7 +19,7 @@ import java.util.Map;
 
 /**
  * 한 거래일의 자동 수집 결과(공식 run, 가상 진입, 상한가 감시, 후보 맥락, 15:25 종가 봉, 전일 후보 관측과 분봉 보완, DART 공시,
- * 18:30 수정주가 일봉)를
+ * 18:30 수정주가 일봉, 08:10 후보 일봉 준비와 14:25·14:35 정밀 후보 일봉 보완의 저장 흔적)를
  * 개수와 마지막 시각으로 모아 돌려줘요. 시각은 모두 호스트 수신·저장 시각이며 원천(체결) 시각이 아니에요.
  * Read-only counts for the operations page; absence of rows is reported as zero counts, never inferred as success.
  */
@@ -49,10 +50,17 @@ public class DailyCollectionStatusService {
     /** 이 날을 관측 세션으로 갖는 전일 후보 관측의 상태별 수와, 이 날 분봉 보완(BACKFILL)으로 저장된 5분봉 수예요. */
     public record Observation(Map<String, Integer> statuses, Instant lastEvaluatedAt, int backfilledBars) { }
 
+    /**
+     * 그 시간대(한국시간)에 저장된 일봉 수예요. 일봉 준비는 빠진 일봉만 새로 저장하므로, 아침 준비(08:10)는 보통 전 거래일 일봉을
+     * 종목마다 하나 이상 남겨요. 실행 기록 테이블이 없어서 이 저장 흔적으로 실행 여부를 판단해요(0이면 미실행 또는 저장할 것 없음).
+     */
+    public record DailyCandles(int rows, int stocks, Instant lastAt) { }
+
     /** 화면에 그대로 내려주는 하루 수집 현황이에요. tradingDay가 false면 나머지는 비어 있어요. */
     public record DailyCollection(LocalDate date, boolean tradingDay, LocalDate previousTradingDay, Instant checkedAt,
             Run run, Map<String, Integer> paperEntries, List<LimitUpSample> limitUp, Counted candidateContext,
-            ClosingBar closingBar, Observation observation, Counted dart, Counted adjustedDaily) { }
+            ClosingBar closingBar, Observation observation, Counted dart, Counted adjustedDaily,
+            DailyCandles morningDaily, DailyCandles precisionDaily) { }
 
     /**
      * 하는 일: 날짜(없으면 오늘, 한국시간)의 수집 현황을 세어요.
@@ -64,7 +72,7 @@ public class DailyCollectionStatusService {
         if (!calendar.isTradingDay(date))
             return new DailyCollection(date, false, calendar.previousTradingDay(date), checkedAt, null, Map.of(),
                     List.of(), new Counted(0, 0, null), new ClosingBar(0, 0), new Observation(Map.of(), null, 0),
-                    dart(date), adjustedDaily(date));
+                    dart(date), adjustedDaily(date), new DailyCandles(0, 0, null), new DailyCandles(0, 0, null));
         Run run = run(date);
         Instant dayStart = date.atStartOfDay(ClosingTradingCalendar.ZONE).toInstant();
         Instant dayEnd = date.plusDays(1).atStartOfDay(ClosingTradingCalendar.ZONE).toInstant();
@@ -83,7 +91,9 @@ public class DailyCollectionStatusService {
                         integer(jdbc.queryForObject("select count(*) from stock_candle where timeframe = '5M' "
                                 + "and source = 'BACKFILL' and start_time >= ? and start_time < ?", Long.class,
                                 Timestamp.from(dayStart), Timestamp.from(dayEnd)))),
-                dart(date), adjustedDaily(date));
+                dart(date), adjustedDaily(date),
+                dailyCandles(date, LocalTime.of(7, 0), LocalTime.of(9, 0)),
+                dailyCandles(date, LocalTime.of(14, 20), LocalTime.of(14, 50)));
     }
 
     /** 그날의 가장 최근 공식 FORWARD run을 찾아요. 없으면 null이에요. */
@@ -141,6 +151,18 @@ public class DailyCollectionStatusService {
         return jdbc.queryForObject("select count(*), 0, max(swept_at) from daily_adjusted_sweep_state "
                 + "where swept_at >= ? and swept_at < ?", (rs, i) -> new Counted(rs.getInt(1), rs.getInt(2),
                 instant(rs.getTimestamp(3))), start, end);
+    }
+
+    /**
+     * 그날 from~to(한국시간)에 저장·갱신된 일봉(1D) 수와 종목 수, 마지막 시각이에요.
+     * 07:00~09:00은 08:10 후보 일봉 준비(아침 수동 실행 포함), 14:20~14:50은 14:25·14:35 정밀 후보 일봉 보완을 봐요.
+     */
+    private DailyCandles dailyCandles(LocalDate date, LocalTime from, LocalTime to) {
+        Timestamp start = Timestamp.from(date.atTime(from).atZone(ClosingTradingCalendar.ZONE).toInstant());
+        Timestamp end = Timestamp.from(date.atTime(to).atZone(ClosingTradingCalendar.ZONE).toInstant());
+        return jdbc.queryForObject("select count(*), count(distinct stock_id), max(updated_at) from stock_candle "
+                + "where timeframe = '1D' and updated_at >= ? and updated_at < ?",
+                (rs, i) -> new DailyCandles(rs.getInt(1), rs.getInt(2), instant(rs.getTimestamp(3))), start, end);
     }
 
     /** "상태, 개수" 두 열 결과를 순서 있는 맵으로 바꿔요. */

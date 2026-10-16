@@ -113,7 +113,7 @@ ScannerType: `VOLUME`, `PRICE_RISE`, `MOMENTUM`, `VOLUME_BREAKOUT`, `TURNOVER_BR
 | GET | `/closing-recommendations/strategy-analytics` | 기간별 전략 분석 | `from`, `to` |
 | GET | `/closing-recommendations/account-performance` | 계좌 성과. 현재 항상 "사용 불가" 응답을 돌려준다. | 없음 |
 | GET | `/closing-recommendations/daily-health` | 마감 파이프라인 일별 완결성 | `from`, `to` |
-| GET | `/closing-recommendations/daily-collection` | 하루 자동 수집 개수(조회 전용, Web '오늘' 화면용): 공식 FORWARD run, 가상 진입 상태별 수, 상한가 감시 표본별·출처별 수, 후보 맥락 행 수, 15:25 봉 종목 수·거래량 있는 수, 그날이 관측 세션인 후보 관측 상태별 수와 분봉 보완(BACKFILL) 5분봉 수, 그날 접수 DART 공시 수, 그날 수정주가 수집 확인 종목 수. 시각은 호스트 수신·저장 시각이다. | `date`(기본 오늘 KST) |
+| GET | `/closing-recommendations/daily-collection` | 하루 자동 수집 개수(조회 전용, Web '오늘' 화면용): 공식 FORWARD run, 가상 진입 상태별 수, 상한가 감시 표본별·출처별 수, 후보 맥락 행 수, 15:25 봉 종목 수·거래량 있는 수, 그날이 관측 세션인 후보 관측 상태별 수와 분봉 보완(BACKFILL) 5분봉 수, 그날 접수 DART 공시 수, 그날 수정주가 수집 확인 종목 수, 07:00~09:00(08:10 후보 일봉 준비)·14:20~14:50(정밀 후보 일봉 보완)에 저장된 일봉 수(`morningDaily`, `precisionDaily`, 실행 기록이 아니라 저장 흔적). 시각은 호스트 수신·저장 시각이다. | `date`(기본 오늘 KST) |
 | POST | `/closing-recommendations/daily-data/prepare` | 후보용 일봉 준비 실행 | 없음 |
 | GET | `/closing-recommendations/backtest` | **[운영]** 저장 데이터로 마감 전략 재생 | `from`, `to`, `limit`, `minOpportunity`, `maxRisk`, `targetRate`, `stopRate` |
 | GET | `/closing-recommendations/trading-calendar` | **[운영]** 거래일 달력 상태(KIS 갱신 결과) | 없음 |

@@ -21,7 +21,11 @@ export type Collection = {
   observation: { statuses: Record<string, number>; lastEvaluatedAt: string | null; backfilledBars: number }
   dart: Counted
   adjustedDaily?: Counted
+  /** 07:00~09:00·14:20~14:50에 저장된 일봉 수(08:10 후보 일봉 준비, 14:25·14:35 정밀 보완의 흔적). 예전 Backend에는 없어요. */
+  morningDaily?: DailyCandles
+  precisionDaily?: DailyCandles
 }
+type DailyCandles = { rows: number; stocks: number; lastAt: string | null }
 export type Health = {
   tradeDate: string; verdict: string; reasons: string[]; runId: number | null; runCompletedAt: string | null
   paperEntryStatuses: Record<string, number> | null; observationStatuses: Record<string, number> | null
@@ -109,9 +113,16 @@ export function buildTimeline(input: TodayInputs): Step[] {
     calendarDay === clock.date ? 'done' : before('07:40') ? 'waiting' : input.calendar ? 'warn' : 'unknown',
     input.calendar ? `마지막 갱신 ${calendarDay ?? '-'} ${hms(input.calendar.lastFetchedAt)} · ${input.calendar.lastDate ?? '-'}까지 확보` : failed)
 
-  // 08:10 후보 일봉 준비: 실행 기록을 남기지 않아 상태를 알 수 없어요.
-  add('daily-prepare', '08:10', '후보 일봉 준비', before('08:10') ? 'waiting' : 'unknown',
-    '실행 기록이 남지 않아 화면에서 확인할 수 없어요. 08:10에 Backend가 꺼져 있었다면 마감 추천 화면의 "일봉 데이터 준비"로 다시 실행하세요.')
+  // 08:10 후보 일봉 준비: 실행 기록 테이블이 없어서, 그 시간대(07:00~09:00)에 새로 저장된 일봉 수로 실행 여부를 봐요.
+  // 준비는 빠진 일봉만 저장하므로 보통 전 거래일 일봉이 종목마다 하나 이상 남아요.
+  const morning = collection?.morningDaily
+  const manualHint = '마감 추천 > 도구 > "일봉 데이터 준비"로 실행하세요.'
+  add('daily-prepare', '08:10', '후보 일봉 준비',
+    !morning ? 'unknown' : morning.rows > 0 ? 'done' : before('08:10') ? 'waiting' : due('08:10', 5) ? 'warn' : 'running',
+    !collection ? pending
+      : !morning ? `실행 기록을 읽을 수 없어요(Backend 재시작 후 표시). 08:10에 Backend가 꺼져 있었다면 ${manualHint}`
+        : morning.rows > 0 ? `${morning.stocks}종목 일봉 ${morning.rows}개 저장 · 마지막 ${hms(morning.lastAt)}`
+          : `08:10 실행 흔적(새 일봉 저장)이 없어요. 그 시각 Backend가 꺼져 있었다면 ${manualHint} 이미 최신이라 저장할 게 없었을 수도 있어요.`)
 
   // 08:59 실시간 연결.
   const live = input.realtime?.realtime
@@ -128,6 +139,14 @@ export function buildTimeline(input: TodayInputs): Step[] {
         : wide.completedRuns > 0 ? 'done' : 'problem'
   add('scan', '09:00', '시장 전체 스캔 (09:00~15:20)', scanState,
     wide ? `완료 ${wide.completedRuns} · 실패 ${wide.failedRuns} · 마지막 완료 ${hms(wide.lastCompletedAt)}${wide.lastError ? ` · 오류 ${wide.lastError}` : ''} (재시작 후 누적)` : failed)
+
+  // 14:25·14:35 정밀 후보 일봉 보완: 저장된 게 없으면 이미 최신이었을 수 있어 '확인 필요'로 두지 않아요.
+  const precisionDaily = collection?.precisionDaily
+  add('precision-daily', '14:25', '정밀 후보 일봉 보완 (14:25 · 14:35)',
+    !precisionDaily ? 'unknown' : precisionDaily.rows > 0 ? 'done' : before('14:25') ? 'waiting' : due('14:35', 5) ? 'unknown' : 'running',
+    !collection ? pending : !precisionDaily ? 'Backend 재시작 후 표시'
+      : precisionDaily.rows > 0 ? `${precisionDaily.stocks}종목 일봉 ${precisionDaily.rows}개 저장 · 마지막 ${hms(precisionDaily.lastAt)}`
+        : '새로 저장된 일봉이 없어요(이미 최신이었거나 실행되지 않음).')
 
   // 14:50 정밀 구독 고정.
   const subs = input.subscriptions
