@@ -51,9 +51,12 @@ public class KisRequestExecutor {
                 backoff(attempt);
                 if (attempt >= properties.maxRetries()) throw failed(error);
             } catch (RestClientResponseException error) {
-                if (error.getStatusCode().value() != 429) throw failed(error);
+                // KIS는 초당 한도 초과(EGW00201)를 HTTP 429가 아니라 HTTP 500 본문에 담아 주기도 해요(2026-10-16 수급 수집
+                // 실패 9건이 모두 이 경우). 그래서 500이라도 본문 코드가 EGW00201이면 429와 똑같이 쉬었다가 다시 시도해요.
+                if (!isRateLimit(error)) throw failed(error);
                 backoff(attempt);
-                if (attempt >= properties.maxRetries()) throw failed(new KisRateLimitException("KIS HTTP 429"));
+                if (attempt >= properties.maxRetries()) throw failed(error.getStatusCode().value() == 429
+                        ? new KisRateLimitException("KIS HTTP 429") : error);
             } catch (RuntimeException error) {
                 throw failed(error);
             }
@@ -110,6 +113,11 @@ public class KisRequestExecutor {
         // 최종 실패 수를 "failure.EGW00201", "failure.HTTP 500" 같은 이름으로 덧붙여요.
         new java.util.TreeMap<>(failures).forEach((key, count) -> values.put("failure." + key, count.get()));
         return values;
+    }
+
+    /** 하는 일: HTTP 오류가 호출 한도 초과인지 봐요. 429이거나, 본문 오류 코드(msg_cd)가 EGW00201이면 한도 초과예요. */
+    private static boolean isRateLimit(RestClientResponseException error) {
+        return error.getStatusCode().value() == 429 || "EGW00201".equals(KisErrorDetail.of(error).code());
     }
 
     /**

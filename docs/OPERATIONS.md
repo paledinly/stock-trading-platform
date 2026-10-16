@@ -111,7 +111,7 @@ Precision 후보 교체는 기본 14:50(`MARKET_PRECISION_FREEZE_AT`)에 동결�
 
 1. /actuator/health
 2. DB/Redis 연결
-3. KIS 인증과 rate limit
+3. KIS 인증과 rate limit (KIS는 초당 호출 한도 초과를 HTTP 429 외에 HTTP 500 + `msg_cd=EGW00201`로도 돌려준다. 공통 요청 장치는 둘 다 같은 방식으로 기다렸다 재시도하고, 재시도 후에도 실패하면 `KIS request failed status=500 msg_cd=EGW00201` 경고를 남긴다)
 4. WebSocket과 종목별 최신성
 5. 수집 원문 규격과 파싱 실패 표본
 6. 봉 저장과 확정 상태

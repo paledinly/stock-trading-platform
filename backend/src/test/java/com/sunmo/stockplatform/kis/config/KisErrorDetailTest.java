@@ -51,11 +51,42 @@ class KisErrorDetailTest {
         assertThat(KisErrorDetail.of(new IllegalStateException()).key()).isEqualTo("OTHER");
     }
 
+    /** HTTP 500 본문이 EGW00201(초당 한도 초과)이면 429처럼 한 번 쉬었다가 다시 시도하고, 다른 500은 바로 실패해요. */
     @Test
-    void countsFinalFailuresByCodeWithoutChangingRetries() {
+    void retriesHttp500RateLimitButNotOtherServerErrors() {
+        var executor = new KisRequestExecutor(new KisRequestProperties(Duration.ZERO, Duration.ZERO, Duration.ZERO, 1));
+        var calls = new java.util.concurrent.atomic.AtomicInteger();
+
+        String result = executor.execute(false, () -> {
+            if (calls.incrementAndGet() == 1)
+                throw serverError("{\"rt_cd\":\"1\",\"msg_cd\":\"EGW00201\",\"msg1\":\"초당 거래건수를 초과하였습니다.\"}");
+            return "ok";
+        });
+        assertThat(result).isEqualTo("ok");
+        assertThat(calls).hasValue(2);
+        assertThat(executor.diagnostics()).containsEntry("rateLimitRetries", 1L).containsEntry("rateLimitErrors", 1L);
+
+        calls.set(0);
+        assertThatThrownBy(() -> executor.execute(false, () -> {
+            calls.incrementAndGet();
+            throw serverError("{\"rt_cd\":\"1\",\"msg_cd\":\"EGW00123\",\"msg1\":\"기간이 만료된 token 입니다.\"}");
+        })).isInstanceOf(HttpServerErrorException.class);
+        assertThat(calls).as("token errors are not retried").hasValue(1);
+
+        calls.set(0);
+        assertThatThrownBy(() -> executor.execute(false, () -> {
+            calls.incrementAndGet();
+            throw serverError("{\"msg_cd\":\"EGW00201\"}");
+        })).isInstanceOf(HttpServerErrorException.class);
+        assertThat(calls).as("retries stop at maxRetries=1").hasValue(2);
+        assertThat(executor.diagnostics()).containsEntry("failure.EGW00201", 1L);
+    }
+
+    @Test
+    void countsFinalFailuresByCode() {
         var executor = new KisRequestExecutor(new KisRequestProperties(Duration.ZERO, Duration.ZERO, Duration.ZERO, 1));
 
-        // HTTP 500(본문 EGW00201)은 지금처럼 재시도하지 않고 바로 실패해요. 집계만 남아요.
+        // HTTP 500(본문 EGW00201)은 한 번 재시도한 뒤에도 실패하면 오류 코드별로 집계돼요.
         assertThatThrownBy(() -> executor.execute(false, () -> {
             throw serverError("{\"msg_cd\":\"EGW00201\",\"msg1\":\"초당 거래건수를 초과하였습니다.\"}");
         })).isInstanceOf(HttpServerErrorException.class);
@@ -64,8 +95,8 @@ class KisErrorDetailTest {
         assertThat(executor.execute(false, () -> "ok")).isEqualTo("ok");
 
         assertThat(executor.diagnostics())
-                .containsEntry("requests", 3L)
-                .containsEntry("rateLimitRetries", 0L)
+                .containsEntry("requests", 4L)
+                .containsEntry("rateLimitRetries", 1L)
                 .containsEntry("failure.EGW00201", 1L)
                 .containsEntry("failure.OTHER", 1L);
     }
