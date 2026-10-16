@@ -23,9 +23,14 @@ KIS WebSocket은 `ClosingTradingCalendar`의 거래일에만 기본 08:59부터 
 거래일 누락은 표본 손실이므로 백엔드는 로그온 시 자동 시작하고 종료되면 재시작한다.
 
 - `scripts/run-backend.ps1`: `bootJar`를 한 번 빌드해 `.run/backend.jar`로 복사하고 `backend/`를 작업 디렉터리로 `java -jar` 실행한다. `spring.config.import`가 작업 디렉터리 기준 `.env`, `../.env`를 읽으므로 bootRun과 같은 `.env`가 적용된다. 종료 시 30초 후 재시작하며 시간당 6회를 넘으면 대기한다. 이미 8080 포트를 쓰는 프로세스(수동 bootRun 등)가 있으면 시작하지 않고 기다린다. 로그는 `.run/logs/`(git 제외)의 `runner.log`, `backend-<시각>.out.log/.err.log`이며 14일 후 삭제한다. 환경변수·인증정보는 출력하지 않는다. 대체 실행: `-UseBootRun`.
+- `scripts/backend.ps1`: 감시자 관리 명령. `start`(감시자를 별도 최소화 창에서 실행, jar 재빌드, health UP까지 대기) · `stop`(감시자 → 백엔드 순서로 종료) · `restart`(코드 변경 반영) · `status`(PID·시작 시각·health·실시간 연결) · `logs`(현재 백엔드 로그, `-Lines`). 평일 08:55~15:45 KST에 `stop`/`restart`를 하면 확인을 받는다(`-Force`로 생략). 감시자를 터미널에서 직접 실행했다면 그 창에서 Ctrl+C로 멈출 수 있고, 이때 감시자가 띄운 백엔드도 함께 끝난다(`-KeepBackendOnExit`로 유지).
 - `scripts/register-backend-task.ps1`: 현재 사용자 로그온 시 실행되는 작업 `StockPlatformBackend`를 등록한다(실패 시 1분 간격 재시작, 실행 시간 제한 없음, 배터리에서도 시작·유지, 중복 실행 무시). 다시 실행하면 정의를 갱신한다. 로그온한 동안에만 실행되므로 재부팅 후 로그온이 필요하다.
 
 ```powershell
+# 관리 명령(저장소 폴더에서)
+.\scriptsackend.ps1 status
+.\scriptsackend.ps1 restart   # 장 마감 뒤 코드 반영
+.\scriptsackend.ps1 logs -Lines 100
 # 등록(수동 bootRun은 먼저 종료) / 즉시 시작
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\register-backend-task.ps1 -StartNow
 # 상태 확인

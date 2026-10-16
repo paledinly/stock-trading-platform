@@ -24,6 +24,8 @@
 .PARAMETER SkipBuild
     Reuse .run/backend.jar instead of running gradlew bootJar first.
 
+.PARAMETER KeepBackendOnExit
+    On Ctrl+C or a runner error, leave the started backend running (default: stop it with the runner).
 .PARAMETER UseBootRun
     Run gradlew bootRun instead of java -jar (fallback; slower to start and holds gradle resources).
 #>
@@ -36,7 +38,8 @@ param(
     [long]$RunnerLogMaxBytes = 10MB,
     [string]$JavaOptions = '',
     [switch]$SkipBuild,
-    [switch]$UseBootRun
+    [switch]$UseBootRun,
+    [switch]$KeepBackendOnExit
 )
 
 # 경로 계산: 모든 산출물(jar, pid, 로그)은 gitignore 된 .run 폴더에 모아요.
@@ -175,7 +178,8 @@ try {
     $previous = Get-PreviousBackend
     if ($null -ne $previous) {
         Write-RunnerLog "Adopting running backend pid $($previous.Id); waiting for it to exit"
-        $previous.WaitForExit()
+        # 1초씩 끊어 기다려야 Ctrl+C가 바로 먹어요(무한 WaitForExit()는 Windows PowerShell 5.1에서 Ctrl+C를 막아요).
+        while (-not $previous.WaitForExit(1000)) { }
         Write-RunnerLog "Adopted backend pid $($previous.Id) exited"
     }
 
@@ -210,7 +214,8 @@ try {
         }
         $starts += Get-Date
         $process = Start-Backend
-        $process.WaitForExit()
+        $script:currentBackend = $process
+        while (-not $process.WaitForExit(1000)) { }
         Write-RunnerLog "Backend pid $($process.Id) exited with code $($process.ExitCode); restarting in ${RestartDelaySeconds}s"
         Remove-Item -Path $pidFile -Force -ErrorAction SilentlyContinue
         Start-Sleep -Seconds $RestartDelaySeconds
@@ -219,6 +224,14 @@ try {
     Write-RunnerLog "Runner stopped: $($_.Exception.Message)"
     exit 1
 } finally {
+    # Ctrl+C 등으로 실행기가 멈추면, -KeepBackendOnExit가 아닌 한 이 실행기가 띄운 백엔드도 함께 끝내요.
+    # 그래야 'Ctrl+C → 다시 실행'만으로 새 jar가 적용돼요(강제 종료된 실행기는 이 블록을 거치지 않아요).
+    $running = $script:currentBackend
+    if (-not $KeepBackendOnExit -and $null -ne $running -and -not $running.HasExited) {
+        Write-RunnerLog "Runner stopping; stopping backend pid $($running.Id)"
+        Stop-Process -Id $running.Id -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path $pidFile -Force -ErrorAction SilentlyContinue
+    }
     # 어떤 경로로 끝나든 mutex 를 풀어 다음 실행기가 시작될 수 있게 해요.
     $mutex.ReleaseMutex()
     $mutex.Dispose()
