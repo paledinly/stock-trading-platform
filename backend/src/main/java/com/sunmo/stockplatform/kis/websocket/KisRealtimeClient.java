@@ -74,6 +74,8 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
     private final Object subscriptionLock = new Object();
     // WebSocket 메시지가 여러 조각으로 나뉘어 올 때 이어 붙이는 버퍼예요.
     private final StringBuilder fragments = new StringBuilder();
+    // 구독 성공·해지·연결 끊김을 실시간 수신 장부(장중 재시작·재연결 빈 구간)에 알릴 때 써요.
+    private final MarketDataService market;
     private volatile WebSocket socket;
     private volatile String approvalKey;
     private long nextSubscriptionAt;
@@ -101,6 +103,7 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
             @org.springframework.beans.factory.annotation.Value("${market.realtime.processing-queue-capacity:20000}") int queueCapacity) {
         this.approval = approval;
         this.parser = parser;
+        this.market = market;
         this.subscriptions = subscriptions;
         this.properties = properties;
         this.diagnostics = diagnostics;
@@ -181,6 +184,7 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
      */
     private void scheduleReconnect(Throwable error) {
         processor.disconnected();
+        market.realtimeDisconnected(Instant.now());
         diagnostics.disconnected();
         diagnostics.error("WebSocket disconnect: " + error.getClass().getSimpleName());
         if (stopping.get() || !session.connectionAllowed())
@@ -210,6 +214,7 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
             socket = null;
             approvalKey = null;
             pendingSubscriptions.clear();
+            market.realtimePaused();
             if (current != null) {
                 current.abort();
                 diagnostics.disconnected();
@@ -419,6 +424,10 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
             else
                 diagnostics.subscriptionRemoved(code, success, resultMessage);
             subscriptions.acknowledge(code, subscribing, success, resultMessage);
+            if (success && subscribing)
+                market.realtimeSubscribed(code, Instant.now());
+            else if (success)
+                market.realtimeUnsubscribed(code);
             if (success)
                 log.info("KIS H0STCNT0 subscription accepted for {}: {}", code, resultMessage);
             else

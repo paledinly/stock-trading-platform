@@ -178,6 +178,7 @@ market:
     subscription-limit: ${KIS_WEBSOCKET_SUBSCRIPTION_LIMIT:41}
     stale-timeout: ${MARKET_REALTIME_STALE_TIMEOUT:60s}
     health-check-interval: ${MARKET_REALTIME_HEALTH_CHECK_INTERVAL:30s}
+    gap-repair-enabled: ${MARKET_GAP_REPAIR_ENABLED:true}
 
 watchlist:
   initial:

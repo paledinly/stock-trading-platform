@@ -39,6 +39,7 @@ public class MarketDataService {
     private final MarketFeatureEngine features;
     private final org.springframework.context.ApplicationEventPublisher publisher;
     private final org.springframework.transaction.support.TransactionTemplate transaction;
+    private final RealtimeCoverage coverage;
     // 봉 집계·확정봉 저장·Scanner 평가·봉 SSE 구간을 한 번에 한 스레드만 지나가게 하는 잠금이에요.
     // 틱 작업자 스레드(onTick)와 스케줄러 스레드(closeExpired)가 같은 잠금을 써서 Scanner가 동시에 돌지 않아요.
     private final ReentrantLock candleLock = new ReentrantLock();
@@ -53,6 +54,20 @@ public class MarketDataService {
             DetectionPerformanceTracker performance, RealtimeDiagnostics diagnostics, MarketFeatureEngine features,
             org.springframework.context.ApplicationEventPublisher publisher,
             org.springframework.transaction.PlatformTransactionManager transactions) {
+        this(quotes, stocks, candles, events, properties, scanner, performance, diagnostics, features, publisher,
+                transactions, RealtimeCoverage.untracked());
+    }
+
+    /**
+     * 하는 일: 위 생성자와 같고, 장중 재시작·재연결 빈 구간을 알려 주는 실시간 수신 장부(coverage)를 함께 받아요.
+     */
+    @org.springframework.beans.factory.annotation.Autowired
+    public MarketDataService(QuoteStateStore quotes, StockRepository stocks, StockCandleRepository candles,
+            MarketEventGateway events, RealtimeMarketProperties properties, ScannerEngine scanner,
+            DetectionPerformanceTracker performance, RealtimeDiagnostics diagnostics, MarketFeatureEngine features,
+            org.springframework.context.ApplicationEventPublisher publisher,
+            org.springframework.transaction.PlatformTransactionManager transactions, RealtimeCoverage coverage) {
+        this.coverage = coverage;
         this.transaction = new org.springframework.transaction.support.TransactionTemplate(transactions);
         this.quotes = quotes;
         this.stocks = stocks;
@@ -114,6 +129,18 @@ public class MarketDataService {
         } finally { diagnostics.timing("tickBody", System.nanoTime() - bodyStart); }
     }
 
+    /** 하는 일: KIS 구독 성공을 실시간 수신 장부에 알려요. 받는 것: 종목코드, 응답 수신시각. */
+    public void realtimeSubscribed(String code, Instant at) { coverage.subscribed(code, at); }
+
+    /** 하는 일: KIS 구독 해지를 실시간 수신 장부에 알려요. */
+    public void realtimeUnsubscribed(String code) { coverage.unsubscribed(code); }
+
+    /** 하는 일: 예상하지 못한 연결 끊김을 실시간 수신 장부에 알려요. 받는 것: 끊김을 알아챈 시각. */
+    public void realtimeDisconnected(Instant at) { coverage.disconnected(at); }
+
+    /** 하는 일: 장 운영시간 밖이라 연결을 쉬는 것을 알려요(빈 구간으로 보지 않아요). */
+    public void realtimePaused() { coverage.paused(); }
+
     /**
      * 하는 일: 1초마다 돌면서 시간이 지나(봉 끝 + watermark) 더 기다릴 필요가 없는 봉을 확정해요.
      * 다음 틱이 오지 않는 종목도 봉이 닫히도록 하는 스케줄러(정해진 주기로 자동 실행되는 작업)예요.
@@ -163,6 +190,8 @@ public class MarketDataService {
     /**
      * 하는 일: 확정 5분봉을 stock_candle 테이블에 저장해요. 같은 시작시각의 행이 있으면 실시간 값으로 고쳐 써요.
      * 받는 것: 확정봉 스냅샷. 돌려주는 것: 없음. 활성 종목이 아니면 저장하지 않아요.
+     * 장중 재시작·재연결 빈 구간에 걸친 봉(일부 체결만 담은 봉)은 미확정(is_final=false)으로 저장해 KIS 분봉 보충이 바꿀 수 있게 하고,
+     * 이미 확정봉이 있으면 건드리지 않아요. Scanner 평가·SSE는 지금처럼 메모리 스냅샷으로 해요.
      */
     private void persist(CandleSnapshot c) {
         long start = System.nanoTime();
@@ -170,10 +199,13 @@ public class MarketDataService {
         var stock = stocks.findByStockCodeAndActiveTrue(c.stockCode()).orElse(null);
         if (stock == null)
             return;
-        StockCandle entity = candles.findByStockIdAndTimeframeAndStartTime(stock.getId(), "5M", c.startTime())
-                .orElseGet(() -> new StockCandle(stock, c.startTime(), c.open(), c.high(), c.low(), c.close(),
-                        c.volume(), c.tradingValue(), true, c.revision()));
-        entity.revise(c.open(), c.high(), c.low(), c.close(), c.volume(), c.tradingValue(), true, c.revision());
+        boolean partial = coverage.partial(c.stockCode(), c.startTime());
+        var existing = candles.findByStockIdAndTimeframeAndStartTime(stock.getId(), "5M", c.startTime());
+        if (partial && existing.isPresent() && existing.get().isFinalCandle())
+            return;
+        StockCandle entity = existing.orElseGet(() -> new StockCandle(stock, c.startTime(), c.open(), c.high(), c.low(),
+                c.close(), c.volume(), c.tradingValue(), !partial, c.revision()));
+        entity.revise(c.open(), c.high(), c.low(), c.close(), c.volume(), c.tradingValue(), !partial, c.revision());
         candles.save(entity);
         diagnostics.candlePersisted(c.startTime());
         } finally { diagnostics.timing("candleRepository", System.nanoTime() - start); }

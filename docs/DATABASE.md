@@ -22,6 +22,7 @@ PostgreSQL은 영구 데이터의 시스템 오브 레코드다. Redis와 프로
 | 가상 진입 | `closing_paper_entry`(V30) |
 | 거래일 달력 | `trading_calendar_day`(V31) |
 | 일별 완결성 | `closing_daily_health`(V32) |
+| 실시간 빈 구간 기록 | `realtime_coverage_gap`(V38) |
 | 연구: Trajectory | `closing_minute_feature`, `closing_context_observation`, `closing_trajectory_snapshot`(V28) |
 | 연구: 호가·대량체결 | `closing_microstructure_minute`(V29) |
 | 연구: 수정주가 일봉 | `daily_adjusted_candle`, `daily_adjusted_sweep_state`(V33) |
@@ -56,6 +57,10 @@ KIS 국내휴장일조회로 받은 날짜별 개장 여부(`market_open`), 출�
 - `closing_candidate_context`: 공식 마감 평가 직후(15:16:45, 미수집분 15:19:00) 그 run의 후보마다 KIS 현재가 응답의 시장경고(`mrkt_warn_cls_code`), 투자유의, VI 적용, 단기과열, 정리매매, 관리종목, 임시정지, 종목상태 코드를 저장한다. `received_at`은 수신시각이다. 조회 실패는 `error`와 함께 남기고 다음 회차에 다시 읽는다.
 - `dart_filing`: DART 공시 목록(유가·코스닥 상장사)을 접수번호 기본키로 저장한다. DART는 접수 **날짜**만 주므로 15:15 판단에 쓸 수 있는 공시는 `rcept_dt`가 판단일보다 이전인 것뿐이다. 평일 07:40과 매일 18:10에 최근 3일을 다시 읽고, 이미 있는 행은 유지한다. `DART_API_KEY`가 없으면 수집하지 않는다.
 - 두 테이블 모두 추천 점수·선정에 쓰지 않는다. ADR-010 판단 기간 동안 외부 요인 가설을 나중에 사전 등록해 검증하기 위한 기록이다.
+
+### realtime_coverage_gap (V38, 기록 전용)
+
+장중 재시작(`RESTART`)·연결 끊김(`DISCONNECT`)으로 실시간 수신이 끊긴 구간이 종목·재구독마다 한 행이다. 키는 (`stock_code`, `resumed_at`). `lost_from`은 빈 구간 첫 5분 칸, `resumed_at`은 다시 구독된 시각(호스트 수신시각), `target_bars`는 대상 칸 수, `repaired_bars`는 끝났을 때 확정봉이 있는 칸 수, `still_missing`은 남은 칸 수(체결이 없던 칸 포함)다. 그날 표본이 연속 관측이 아니었음을 구분하는 데 쓴다.
 
 ### market_index_daily (V37, 기록 전용)
 
