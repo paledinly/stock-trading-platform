@@ -20,12 +20,20 @@ const STATE_LABEL: Record<StepState, string> = {
   done: '정상', warn: '확인 필요', problem: '문제', running: '진행 중', waiting: '예정', unknown: '기록 없음', idle: '해당 없음',
 }
 const VERDICT_LABEL: Record<string, string> = { COMPLETE: '완결', DEGRADED: '불완전', MISSING: '기록 없음' }
+const STAGE_LABEL: Record<string, string> = { PRELIMINARY: '1차', FINAL: '최종' }
 const REFRESH = 30_000
 
 /** 상태별 개수 맵을 "완료 3 · 누락 1" 같은 글자로 줄여요. */
 function statusLine(values?: Record<string, number> | null) {
   const entries = Object.entries(values ?? {})
   return entries.length ? entries.map(([key, count]) => `${key} ${count}`).join(' · ') : '-'
+}
+
+/** 전일 후보 관측 칸이에요. V39 이후 행은 판정에 쓰는 정밀 후보와 참고용 Broad를 나눠 보여 주고, 이전 행은 합계만 있어요. */
+function observationCell(row: Health) {
+  if (!row.precisionObservationStatuses) return statusLine(row.observationStatuses)
+  const broad = Object.values(row.broadObservationStatuses ?? {}).reduce((sum, count) => sum + count, 0)
+  return <>정밀 {statusLine(row.precisionObservationStatuses)}{broad ? <small> · Broad 참고 완료 {row.broadObservationStatuses?.COMPLETED ?? 0}/{broad}</small> : null}</>
 }
 
 /** '오늘' 화면 컴포넌트예요. 받는 것: 없음. 돌려주는 것: 요약 칸, 하루 시간표, 최근 일별 완결성 표. */
@@ -124,7 +132,7 @@ export function TodayPage() {
         </section>
 
         <section className="todayHealth" aria-label="최근 일별 완결성">
-          <h2>최근 일별 완결성 <small>15:45 기록 · {todayHealth ? `오늘 ${VERDICT_LABEL[todayHealth.verdict] ?? todayHealth.verdict}` : '오늘 기록 전'}</small></h2>
+          <h2>최근 일별 완결성 <small>15:45 1차 · 18:15 최종 · 정밀 후보 기준 · {todayHealth ? `오늘 ${VERDICT_LABEL[todayHealth.verdict] ?? todayHealth.verdict}${todayHealth.stage ? ` (${STAGE_LABEL[todayHealth.stage]})` : ''}` : '오늘 기록 전'}</small></h2>
           {health.isLoading && <p>불러오는 중…</p>}
           {health.data && health.data.length === 0 && <p>기록이 없습니다.</p>}
           {health.data && health.data.length > 0 && (
@@ -134,11 +142,11 @@ export function TodayPage() {
                 {health.data.slice(0, 10).map(row => (
                   <tr key={row.tradeDate}>
                     <td>{row.tradeDate}</td>
-                    <td><i className={`verdict ${row.verdict.toLowerCase()}`}>{VERDICT_LABEL[row.verdict] ?? row.verdict}</i></td>
+                    <td><i className={`verdict ${row.verdict.toLowerCase()}`}>{VERDICT_LABEL[row.verdict] ?? row.verdict}</i>{row.stage ? <small> {STAGE_LABEL[row.stage]}</small> : null}</td>
                     <td>{row.reasons.join(', ') || '-'}</td>
                     <td>{row.runId ? `#${row.runId} · ${hms(row.runCompletedAt)}` : '-'}</td>
                     <td>{statusLine(row.paperEntryStatuses)}</td>
-                    <td>{statusLine(row.observationStatuses)}</td>
+                    <td>{observationCell(row)}</td>
                   </tr>
                 ))}
               </tbody>

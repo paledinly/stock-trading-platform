@@ -18,7 +18,8 @@ export type Collection = {
   limitUp: { sampleLabel: string; rows: number; errors: number; rankingRows: number; sources: Record<string, number>; firstReceivedAt: string | null }[]
   candidateContext: Counted
   closingBar: { stocks: number; withVolume: number }
-  observation: { statuses: Record<string, number>; lastEvaluatedAt: string | null; backfilledBars: number }
+  // statuses는 정밀(PRECISION, ADR-010 표본) 후보만, broadStatuses는 Broad 후보(원래 결측이 많아 참고용)예요.
+  observation: { statuses: Record<string, number>; lastEvaluatedAt: string | null; backfilledBars: number; broadStatuses?: Record<string, number> }
   dart: Counted
   adjustedDaily?: Counted
   /** 07:00~09:00·14:20~14:50에 저장된 일봉 수(08:10 후보 일봉 준비, 14:25·14:35 정밀 보완의 흔적). 예전 Backend에는 없어요. */
@@ -29,7 +30,16 @@ type DailyCandles = { rows: number; stocks: number; lastAt: string | null }
 export type Health = {
   tradeDate: string; verdict: string; reasons: string[]; runId: number | null; runCompletedAt: string | null
   paperEntryStatuses: Record<string, number> | null; observationStatuses: Record<string, number> | null
+  // V39부터: 판정에 쓰는 정밀 후보 관측, 참고용 Broad 관측, 기록 단계(15:45 1차 PRELIMINARY · 18:15 최종 FINAL). 이전 행은 null이에요.
+  precisionObservationStatuses?: Record<string, number> | null; broadObservationStatuses?: Record<string, number> | null
+  stage?: 'PRELIMINARY' | 'FINAL' | null
 }
+/** Broad 후보 관측 건수를 참고용 꼬리 문구로 만들어요. 없으면 빈 글자예요. */
+function broadLine(values?: Record<string, number>) {
+  const total = Object.values(values ?? {}).reduce((sum, count) => sum + count, 0)
+  return total ? ` (Broad 참고: 완료 ${values?.COMPLETED ?? 0}/${total})` : ''
+}
+
 export type TodayInputs = {
   clock: Clock
   realtime?: {
@@ -192,7 +202,7 @@ export function buildTimeline(input: TodayInputs): Step[] {
   const missing = (observation?.statuses.DATA_MISSING ?? 0) + (observation?.statuses.DATA_INCOMPLETE ?? 0)
   add('observation', '15:40', '전일 후보 관측 + 분봉 보완',
     !collection ? 'unknown' : before('15:40') ? 'waiting' : observed === 0 ? (due('15:40', 5) ? 'problem' : 'running') : missing > 0 ? 'warn' : 'done',
-    !collection ? pending : observed ? `${Object.entries(observation!.statuses).map(([key, count]) => `${key} ${count}`).join(' · ')} · 보완 봉 ${observation!.backfilledBars} · 마지막 ${hms(observation!.lastEvaluatedAt)}`
+    !collection ? pending : observed ? `정밀 ${Object.entries(observation!.statuses).map(([key, count]) => `${key} ${count}`).join(' · ')}${broadLine(observation!.broadStatuses)} · 보완 봉 ${observation!.backfilledBars} · 마지막 ${hms(observation!.lastEvaluatedAt)}`
       : `아직 관측 결과가 없어요 (전 거래일 ${collection.previousTradingDay ?? '-'} 후보 대상).`)
 
   // 15:45 일별 완결성 기록.

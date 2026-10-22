@@ -35,6 +35,12 @@ public class ClosingDailyHealthRecorder {
      * 입력 마감 전 몇 분 안을 "직전"으로 볼지 정하는 간격이에요(1분).
      */
     static final Duration SAMPLE_LEAD = Duration.ofMinutes(1);
+    /**
+     * The final record waits for the 18:00 late minute backfill and observation re-evaluation
+     * (ClosingRecommendationScheduler.LATE_OBSERVATION_AT) to finish.
+     * 18:00 분봉 재보완·관측 재평가가 끝난 뒤 최종 기록을 남기는 시각이에요.
+     */
+    static final LocalTime FINAL_CHECK_AT = ClosingRecommendationScheduler.LATE_OBSERVATION_AT.plusMinutes(15);
 
     /** 한 시점의 실시간 상태 사진이에요. 시각, 연결 여부, 누적 버려진 메시지 수, 마지막 끊김 시각을 담아요. */
     private record Sample(Instant at, boolean connected, long dropped, Instant disconnectedAt) { }
@@ -48,6 +54,7 @@ public class ClosingDailyHealthRecorder {
     private Sample beforeFreeze;
     private Sample afterDeadline;
     private LocalDate recordedDate;
+    private ClosingDailyHealthService.Stage recordedStage;
 
     /**
      * 일일 점검 서비스, 실시간 진단, 거래일 달력, 마감 정책(입력 마감·진입 마감 시각)을 받아요.
@@ -84,13 +91,19 @@ public class ClosingDailyHealthRecorder {
         else if (beforeFreeze != null && afterDeadline == null && !time.isBefore(policy.entryDeadline()))
             afterDeadline = sample(now);
 
-        // 결과: 오늘 이미 기록했거나 아직 장 마감+15분 전이면 기다려요. 그 뒤 한 번만 기록해요.
-        if (today.equals(recordedDate) || now.isBefore(calendar.close(today).plus(ClosingDailyHealthService.CHECK_DELAY)))
+        // 결과: 장 마감+15분 뒤 1차(PRELIMINARY), 18:15 뒤 최종(FINAL)을 하루 한 번씩 기록해요.
+        // 18:15 뒤에 처음 기록하게 되면(그 사이 재시작 등) 최종만 남겨요.
+        if (now.isBefore(calendar.close(today).plus(ClosingDailyHealthService.CHECK_DELAY)))
+            return;
+        ClosingDailyHealthService.Stage stage = time.isBefore(FINAL_CHECK_AT)
+                ? ClosingDailyHealthService.Stage.PRELIMINARY : ClosingDailyHealthService.Stage.FINAL;
+        if (today.equals(recordedDate) && (recordedStage == stage || recordedStage == ClosingDailyHealthService.Stage.FINAL))
             return;
         try {
-            ClosingDailyHealthService.DailyHealth row = health.recordToday(window());
+            ClosingDailyHealthService.DailyHealth row = health.recordToday(window(), stage);
             recordedDate = today;
-            log.info("Closing daily health {}: {} {}", today, row.verdict(), row.reasons());
+            recordedStage = stage;
+            log.info("Closing daily health {} {}: {} {}", today, stage, row.verdict(), row.reasons());
         } catch (RuntimeException error) {
             log.warn("Closing daily health record failed for {}: {}", today, error.getMessage());
         }

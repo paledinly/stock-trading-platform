@@ -48,7 +48,12 @@ public class DailyCollectionStatusService {
     public record ClosingBar(int stocks, int withVolume) { }
 
     /** 이 날을 관측 세션으로 갖는 전일 후보 관측의 상태별 수와, 이 날 분봉 보완(BACKFILL)으로 저장된 5분봉 수예요. */
-    public record Observation(Map<String, Integer> statuses, Instant lastEvaluatedAt, int backfilledBars) { }
+    /**
+     * 전일 후보 관측이에요. statuses는 정밀(PRECISION, ADR-010 표본) 후보만, broadStatuses는 Broad 후보(실시간 구독·분봉
+     * 보완이 없어 원래 결측이 많아요)예요.
+     */
+    public record Observation(Map<String, Integer> statuses, Instant lastEvaluatedAt, int backfilledBars,
+            Map<String, Integer> broadStatuses) { }
 
     /**
      * 그 시간대(한국시간)에 저장된 일봉 수예요. 일봉 준비는 빠진 일봉만 새로 저장하므로, 아침 준비(08:10)는 보통 전 거래일 일봉을
@@ -71,7 +76,7 @@ public class DailyCollectionStatusService {
         Instant checkedAt = calendar.now();
         if (!calendar.isTradingDay(date))
             return new DailyCollection(date, false, calendar.previousTradingDay(date), checkedAt, null, Map.of(),
-                    List.of(), new Counted(0, 0, null), new ClosingBar(0, 0), new Observation(Map.of(), null, 0),
+                    List.of(), new Counted(0, 0, null), new ClosingBar(0, 0), new Observation(Map.of(), null, 0, Map.of()),
                     dart(date), adjustedDaily(date), new DailyCandles(0, 0, null), new DailyCandles(0, 0, null));
         Run run = run(date);
         Instant dayStart = date.atStartOfDay(ClosingTradingCalendar.ZONE).toInstant();
@@ -85,12 +90,14 @@ public class DailyCollectionStatusService {
                         + "from closing_candidate_context where run_id = ?", run.runId()),
                 closingBar(date),
                 new Observation(counts("select status, count(*) from closing_candidate_observation "
-                        + "where expected_session_date = ? group by status", date),
+                        + "where expected_session_date = ? and candidate_source = 'PRECISION' group by status", date),
                         instant(jdbc.queryForObject("select max(evaluated_at) from closing_candidate_observation "
                                 + "where expected_session_date = ?", Timestamp.class, date)),
                         integer(jdbc.queryForObject("select count(*) from stock_candle where timeframe = '5M' "
                                 + "and source = 'BACKFILL' and start_time >= ? and start_time < ?", Long.class,
-                                Timestamp.from(dayStart), Timestamp.from(dayEnd)))),
+                                Timestamp.from(dayStart), Timestamp.from(dayEnd))),
+                        counts("select status, count(*) from closing_candidate_observation "
+                                + "where expected_session_date = ? and candidate_source <> 'PRECISION' group by status", date)),
                 dart(date), adjustedDaily(date),
                 dailyCandles(date, LocalTime.of(7, 0), LocalTime.of(9, 0)),
                 dailyCandles(date, LocalTime.of(14, 20), LocalTime.of(14, 50)));

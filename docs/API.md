@@ -113,7 +113,7 @@ ScannerType: `VOLUME`, `PRICE_RISE`, `MOMENTUM`, `VOLUME_BREAKOUT`, `TURNOVER_BR
 | GET | `/closing-recommendations/strategy-analytics` | 기간별 전략 분석 | `from`, `to` |
 | GET | `/closing-recommendations/account-performance` | 계좌 성과. 현재 항상 "사용 불가" 응답을 돌려준다. | 없음 |
 | GET | `/closing-recommendations/daily-health` | 마감 파이프라인 일별 완결성 | `from`, `to` |
-| GET | `/closing-recommendations/daily-collection` | 하루 자동 수집 개수(조회 전용, Web '오늘' 화면용): 공식 FORWARD run, 가상 진입 상태별 수, 상한가 감시 표본별·출처별 수, 후보 맥락 행 수, 15:25 봉 종목 수·거래량 있는 수, 그날이 관측 세션인 후보 관측 상태별 수와 분봉 보완(BACKFILL) 5분봉 수, 그날 접수 DART 공시 수, 그날 수정주가 수집 확인 종목 수, 07:00~09:00(08:10 후보 일봉 준비)·14:20~14:50(정밀 후보 일봉 보완)에 저장된 일봉 수(`morningDaily`, `precisionDaily`, 실행 기록이 아니라 저장 흔적). 시각은 호스트 수신·저장 시각이다. | `date`(기본 오늘 KST) |
+| GET | `/closing-recommendations/daily-collection` | 하루 자동 수집 개수(조회 전용, Web '오늘' 화면용): 공식 FORWARD run, 가상 진입 상태별 수, 상한가 감시 표본별·출처별 수, 후보 맥락 행 수, 15:25 봉 종목 수·거래량 있는 수, 그날이 관측 세션인 정밀 후보 관측 상태별 수(`observation.statuses`)와 참고용 Broad 후보 상태별 수(`observation.broadStatuses`), 분봉 보완(BACKFILL) 5분봉 수, 그날 접수 DART 공시 수, 그날 수정주가 수집 확인 종목 수, 07:00~09:00(08:10 후보 일봉 준비)·14:20~14:50(정밀 후보 일봉 보완)에 저장된 일봉 수(`morningDaily`, `precisionDaily`, 실행 기록이 아니라 저장 흔적). 시각은 호스트 수신·저장 시각이다. | `date`(기본 오늘 KST) |
 | POST | `/closing-recommendations/daily-data/prepare` | 후보용 일봉 준비 실행 | 없음 |
 | GET | `/closing-recommendations/backtest` | **[운영]** 저장 데이터로 마감 전략 재생 | `from`, `to`, `limit`, `minOpportunity`, `maxRisk`, `targetRate`, `stopRate` |
 | GET | `/closing-recommendations/trading-calendar` | **[운영]** 거래일 달력 상태(KIS 갱신 결과) | 없음 |
@@ -131,7 +131,9 @@ ScannerType: `VOLUME`, `PRICE_RISE`, `MOMENTUM`, `VOLUME_BREAKOUT`, `TURNOVER_BR
 - `runId`, `runCompletedAt`: 현재 전략 버전의 공식 FORWARD 평가와 평가 완료시각(체결·원천시각 아님)
 - `selectedCount`, `selectedEntered`: 최종 추천 수와 그중 `ENTERED` 가상 진입 수
 - `paperEntryStatuses`: 해당 run 전체 후보의 `closing_paper_entry` 상태별 수
-- `observationStatuses`: 당일이 관측 세션인 FORWARD 후보 관측의 상태별 수
+- `observationStatuses`: 당일이 관측 세션인 FORWARD 후보 관측의 상태별 수(정밀·Broad 합계)
+- `precisionObservationStatuses`, `broadObservationStatuses`: 판정에 쓰는 정밀 후보와 참고용 Broad 후보의 상태별 수. V39(2026-10-22) 이전 행은 null
+- `stage`: `PRELIMINARY`(15:45 1차), `FINAL`(18:15, 18:00 재보완 뒤 최종). V39 이전 행은 null
 - `realtimeConnected`, `realtimeDroppedDelta`, `realtimeWindowStart/End`: 15:15 직전~15:20 이후 호스트 표본 사이 연결 유지 여부와 `processingDropped` 증가량. 미관측이면 null
 - `checkedAt`: 판정 기록시각
 

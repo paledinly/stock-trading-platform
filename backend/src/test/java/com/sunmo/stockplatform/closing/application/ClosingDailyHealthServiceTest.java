@@ -50,9 +50,10 @@ class ClosingDailyHealthServiceTest {
                 + "detected_at timestamp with time zone)");
         jdbc.execute("create table closing_recommendation(id bigint primary key, run_id bigint, stock_id bigint)");
         jdbc.execute("create table closing_candidate_observation(id bigint primary key, run_id bigint, "
-                + "expected_session_date date, status varchar(20))");
+                + "expected_session_date date, status varchar(20), candidate_source varchar(20))");
         new ResourceDatabasePopulator(new ClassPathResource("db/migration/V30__closing_paper_entry.sql"),
-                new ClassPathResource("db/migration/V32__create_closing_daily_health.sql")).execute(db);
+                new ClassPathResource("db/migration/V32__create_closing_daily_health.sql"),
+                new ClassPathResource("db/migration/V39__split_daily_health_observations.sql")).execute(db);
     }
     /** 테스트가 끝나면 메모리 DB를 내려요. */
     @AfterEach void close() { db.shutdown(); }
@@ -66,7 +67,7 @@ class ClosingDailyHealthServiceTest {
 
     /** run 7, 진입 마감 DEADLINE, Scanner 탐지 3건을 기본으로 둔 판정 입력(Facts)을 만들어요. */
     Facts facts(Instant completed, int selected, int entered, Map<String, Integer> observations, RealtimeWindow realtime) {
-        return new Facts(7L, completed, DEADLINE, selected, entered, Map.of(), observations, realtime, 3, null);
+        return new Facts(7L, completed, DEADLINE, selected, entered, Map.of(), observations, Map.of(), realtime, 3, null);
     }
 
     /**
@@ -87,7 +88,7 @@ class ClosingDailyHealthServiceTest {
      * 기대: 각각 OFFICIAL_RUN_MISSING, OFFICIAL_RUN_INCOMPLETE 사유의 MISSING이에요.
      */
     @Test void missingWithoutACompletedOfficialRun() {
-        assertThat(ClosingDailyHealthService.judge(new Facts(null, null, DEADLINE, 0, 0, Map.of(), Map.of(), HEALTHY, 0, null)))
+        assertThat(ClosingDailyHealthService.judge(new Facts(null, null, DEADLINE, 0, 0, Map.of(), Map.of(), Map.of(), HEALTHY, 0, null)))
                 .isEqualTo(new Judgement(Verdict.MISSING, List.of("OFFICIAL_RUN_MISSING")));
         assertThat(ClosingDailyHealthService.judge(facts(null, 0, 0, Map.of(), HEALTHY)))
                 .isEqualTo(new Judgement(Verdict.MISSING, List.of("OFFICIAL_RUN_INCOMPLETE")));
@@ -109,14 +110,26 @@ class ClosingDailyHealthServiceTest {
     }
 
     /**
+     * Broad 후보 관측의 결측은 판정에 쓰지 않는지 확인해요(실시간 구독·분봉 보완이 없어 원래 결측이 많아요).
+     * 입력: 정밀 관측은 모두 완료, Broad는 결측·불완전. 기대: COMPLETE, 합계 건수에는 Broad도 들어가요.
+     */
+    @Test void broadObservationGapsDoNotDegradeTheDay() {
+        Facts facts = new Facts(7L, COMPLETED, DEADLINE, 0, 0, Map.of(), Map.of("COMPLETED", 3),
+                Map.of("DATA_MISSING", 4, "DATA_INCOMPLETE", 1), HEALTHY, 3, null);
+        assertThat(ClosingDailyHealthService.judge(facts)).isEqualTo(new Judgement(Verdict.COMPLETE, List.of()));
+        assertThat(facts.observationStatuses()).containsExactlyInAnyOrderEntriesOf(
+                Map.of("COMPLETED", 3, "DATA_MISSING", 4, "DATA_INCOMPLETE", 1));
+    }
+
+    /**
      * 평가 구간에 Scanner 탐지가 0건이면 DEGRADED인지 확인해요.
      * 입력: 탐지 수 0인 경우 / 탐지 수를 세지 않은(null) 경우.
      * 기대: 0건은 SCANNER_DETECTIONS_MISSING, 세지 않은 경우는 빈틈으로 보지 않고 COMPLETE예요.
      */
     @Test void noScannerDetectionInTheEvaluationWindowIsDegraded() {
-        assertThat(ClosingDailyHealthService.judge(new Facts(7L, COMPLETED, DEADLINE, 0, 0, Map.of(), Map.of(),
+        assertThat(ClosingDailyHealthService.judge(new Facts(7L, COMPLETED, DEADLINE, 0, 0, Map.of(), Map.of(), Map.of(),
                 HEALTHY, 0, null))).isEqualTo(new Judgement(Verdict.DEGRADED, List.of("SCANNER_DETECTIONS_MISSING")));
-        assertThat(ClosingDailyHealthService.judge(new Facts(7L, COMPLETED, DEADLINE, 0, 0, Map.of(), Map.of(),
+        assertThat(ClosingDailyHealthService.judge(new Facts(7L, COMPLETED, DEADLINE, 0, 0, Map.of(), Map.of(), Map.of(),
                 HEALTHY, null, null)).verdict()).as("not counted is not a gap").isEqualTo(Verdict.COMPLETE);
     }
 
@@ -145,14 +158,15 @@ class ClosingDailyHealthServiceTest {
                 + "(7, '005930', ?, ?, 'ENTERED'), (7, '000660', ?, ?, 'NO_FRESH_TICK_BEFORE_DEADLINE'), "
                 + "(7, '035720', ?, ?, 'ENTERED')", Timestamp.from(COMPLETED), Timestamp.from(DEADLINE),
                 Timestamp.from(COMPLETED), Timestamp.from(DEADLINE), Timestamp.from(COMPLETED), Timestamp.from(DEADLINE));
-        jdbc.update("insert into closing_candidate_observation values (1, 6, ?, 'COMPLETED'), (2, 6, ?, 'COMPLETED'), "
-                + "(3, 8, ?, 'PENDING')", FRIDAY, FRIDAY, FRIDAY);
+        jdbc.update("insert into closing_candidate_observation values (1, 6, ?, 'COMPLETED', 'PRECISION'), "
+                + "(2, 6, ?, 'COMPLETED', 'PRECISION'), (3, 8, ?, 'PENDING', 'PRECISION'), (4, 6, ?, 'DATA_MISSING', 'BROAD')",
+                FRIDAY, FRIDAY, FRIDAY, FRIDAY);
         jdbc.update("insert into closing_daily_health(trade_date, verdict, reasons, strategy_version, checked_at) "
                 + "values (?, 'MISSING', 'OFFICIAL_RUN_MISSING', 'closing-recommend-v9_1-1515', ?)",
                 FRIDAY.minusDays(1), Timestamp.from(CHECK.minusSeconds(86400)));
 
         // 실행: 첫 기록
-        DailyHealth first = service(CHECK).recordToday(HEALTHY);
+        DailyHealth first = service(CHECK).recordToday(HEALTHY, Stage.PRELIMINARY);
 
         // 확인(어서션, 기대값 검사): 035720은 추천이 아니라서 진입 상태 집계에만 들어가고 추천 진입 수에는 빠져요.
         // 관측은 오늘 세션을 기대하는 run 6(어제) 것만 세고, REPLAY run 8의 PENDING은 빠져요.
@@ -164,10 +178,15 @@ class ClosingDailyHealthServiceTest {
         assertThat(first.selectedEntered()).isEqualTo(1);
         assertThat(first.paperEntryStatuses()).containsExactlyInAnyOrderEntriesOf(
                 Map.of("ENTERED", 2, "NO_FRESH_TICK_BEFORE_DEADLINE", 1));
-        assertThat(first.observationStatuses()).containsExactlyEntriesOf(Map.of("COMPLETED", 2));
+        assertThat(first.precisionObservationStatuses()).containsExactlyEntriesOf(Map.of("COMPLETED", 2));
+        assertThat(first.broadObservationStatuses()).as("broad gaps are kept but do not degrade")
+                .containsExactlyEntriesOf(Map.of("DATA_MISSING", 1));
+        assertThat(first.observationStatuses()).containsExactlyInAnyOrderEntriesOf(Map.of("COMPLETED", 2, "DATA_MISSING", 1));
+        assertThat(first.stage()).isEqualTo(Stage.PRELIMINARY);
 
         // 실행: 한 시간 뒤 재시작해 실시간 구간을 관측하지 못한 상태로 다시 기록
-        DailyHealth restarted = service(CHECK.plusSeconds(3600)).recordToday(RealtimeWindow.UNOBSERVED);
+        DailyHealth restarted = service(CHECK.plusSeconds(3600)).recordToday(RealtimeWindow.UNOBSERVED, Stage.FINAL);
+        assertThat(restarted.stage()).isEqualTo(Stage.FINAL);
         assertThat(restarted.realtimeConnected()).isTrue();
         assertThat(restarted.realtimeWindowStart()).isEqualTo(HEALTHY.start());
         assertThat(restarted.checkedAt()).isEqualTo(CHECK.plusSeconds(3600));
@@ -193,7 +212,7 @@ class ClosingDailyHealthServiceTest {
         jdbc.update("insert into closing_recommendation_run values (9, ?, ?, 'REPLAY', 'closing-recommend-v9_1-1515', null)",
                 FRIDAY, Timestamp.from(CHECK));
 
-        DailyHealth row = service(CHECK).recordToday(HEALTHY);
+        DailyHealth row = service(CHECK).recordToday(HEALTHY, Stage.PRELIMINARY);
 
         assertThat(row.runId()).as("the official key of the earlier version wins over a later non-official run")
                 .isEqualTo(7L);
@@ -207,7 +226,7 @@ class ClosingDailyHealthServiceTest {
      * 기대: 사유는 OFFICIAL_RUN_MISSING 하나뿐이고 탐지 누락은 중복 보고하지 않으며 추천 수는 0이에요.
      */
     @Test void recordsMissingWhenNoOfficialRunExists() {
-        DailyHealth row = service(CHECK).recordToday(HEALTHY);
+        DailyHealth row = service(CHECK).recordToday(HEALTHY, Stage.PRELIMINARY);
         assertThat(row.verdict()).isEqualTo(Verdict.MISSING);
         assertThat(row.reasons()).as("a missing run is not also reported as missing detections")
                 .doesNotContain("SCANNER_DETECTIONS_MISSING");
@@ -257,7 +276,7 @@ class ClosingDailyHealthServiceTest {
         var diagnostics = new RealtimeDiagnostics();
         when(calendar.isTradingDay(FRIDAY)).thenReturn(true);
         when(calendar.close(FRIDAY)).thenReturn(Instant.parse("2026-10-02T06:30:00Z"));
-        when(health.recordToday(any())).thenReturn(DailyHealth.missing(FRIDAY));
+        when(health.recordToday(any(), any())).thenReturn(DailyHealth.missing(FRIDAY));
         var recorder = new ClosingDailyHealthRecorder(health, diagnostics, calendar, policy);
         diagnostics.connected();
 
@@ -267,8 +286,17 @@ class ClosingDailyHealthServiceTest {
             if (at.equals("06:14:30")) { diagnostics.droppedTick(); diagnostics.droppedTick(); }
         }
 
-        verify(health, times(1)).recordToday(new RealtimeWindow(true, 2L,
-                Instant.parse("2026-10-02T06:14:30Z"), Instant.parse("2026-10-02T06:20:10Z")));
+        RealtimeWindow window = new RealtimeWindow(true, 2L,
+                Instant.parse("2026-10-02T06:14:30Z"), Instant.parse("2026-10-02T06:20:10Z"));
+        verify(health, times(1)).recordToday(window, Stage.PRELIMINARY);
+
+        // 18:15 뒤 최종 기록을 한 번 더 남기고, 그 뒤로는 다시 기록하지 않아요.
+        for (String at : List.of("09:14:30", "09:15:00", "09:20:00")) {
+            when(calendar.now()).thenReturn(Instant.parse("2026-10-02T" + at + "Z"));
+            recorder.poll();
+        }
+        verify(health, times(1)).recordToday(window, Stage.FINAL);
+        verify(health, times(2)).recordToday(any(), any());
 
         var restarted = new ClosingDailyHealthRecorder(health, diagnostics, calendar, policy);
         when(calendar.now()).thenReturn(Instant.parse("2026-10-02T06:20:10Z"));

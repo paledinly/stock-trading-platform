@@ -52,6 +52,9 @@ public class ClosingDailyHealthService {
     /** 하루 판정 결과예요. COMPLETE는 정상, DEGRADED는 일부 결함, MISSING은 공식 run이나 기록이 없음을 뜻해요. */
     public enum Verdict { COMPLETE, DEGRADED, MISSING }
 
+    /** 기록 단계예요. PRELIMINARY는 장 마감 15분 뒤 1차, FINAL은 18:00 분봉 재보완·관측 재평가 뒤 최종이에요. */
+    public enum Stage { PRELIMINARY, FINAL }
+
     /**
      * Realtime state sampled just before the feature freeze and after the entry deadline; nulls mean not observed.
      * 받는 것: 연결 유지 여부, 그 사이 버려진 메시지 증가량, 두 샘플 시각. UNOBSERVED는 관측 못 한 상태예요.
@@ -62,10 +65,22 @@ public class ClosingDailyHealthService {
         boolean observed() { return connected != null; }
     }
 
-    /** 판정에 쓰는 하루치 사실이에요. 공식 run, 진입 마감, 선정·진입 수, 상태별 건수, 실시간 상태, 스캐너 탐지 수, 전략 버전을 담아요. */
+    /**
+     * 판정에 쓰는 하루치 사실이에요. 공식 run, 진입 마감, 선정·진입 수, 상태별 건수, 실시간 상태, 스캐너 탐지 수, 전략 버전을 담아요.
+     * 후보 관측은 정밀(PRECISION, ADR-010 표본)과 Broad로 나눠 세요. 판정은 정밀만 보고, Broad는 실시간 구독·분봉 보완이
+     * 없어 원래 결측이 많으므로 참고로만 남겨요.
+     */
     public record Facts(Long runId, Instant runCompletedAt, Instant entryDeadline, int selected, int selectedEntered,
-            Map<String, Integer> paperEntryStatuses, Map<String, Integer> observationStatuses, RealtimeWindow realtime,
-            Integer scannerDetections, String strategyVersion) { }
+            Map<String, Integer> paperEntryStatuses, Map<String, Integer> precisionObservationStatuses,
+            Map<String, Integer> broadObservationStatuses, RealtimeWindow realtime,
+            Integer scannerDetections, String strategyVersion) {
+        /** 정밀·Broad를 합친 상태별 건수예요(예전 observation_statuses와 같은 의미). */
+        Map<String, Integer> observationStatuses() {
+            Map<String, Integer> total = new TreeMap<>(precisionObservationStatuses);
+            broadObservationStatuses.forEach((status, count) -> total.merge(status, count, Integer::sum));
+            return total;
+        }
+    }
 
     /** 판정 결과와 이유 목록이에요. */
     public record Judgement(Verdict verdict, List<String> reasons) { }
@@ -79,14 +94,15 @@ public class ClosingDailyHealthService {
             String strategyVersion, Long runId, Instant runCompletedAt, Integer selectedCount, Integer selectedEntered,
             Map<String, Integer> paperEntryStatuses, Map<String, Integer> observationStatuses,
             Boolean realtimeConnected, Long realtimeDroppedDelta, Instant realtimeWindowStart,
-            Instant realtimeWindowEnd, Instant checkedAt) {
+            Instant realtimeWindowEnd, Instant checkedAt, Map<String, Integer> precisionObservationStatuses,
+            Map<String, Integer> broadObservationStatuses, Stage stage) {
         /**
          * 기록이 없는 거래일용 MISSING 행을 만들어요.
          * 받는 것: 날짜. 돌려주는 것: 이유 NO_HEALTH_RECORD인 DailyHealth.
          */
         static DailyHealth missing(LocalDate date) {
             return new DailyHealth(date, Verdict.MISSING, List.of("NO_HEALTH_RECORD"), false, null, null, null,
-                    null, null, Map.of(), Map.of(), null, null, null, null, null);
+                    null, null, Map.of(), Map.of(), null, null, null, null, null, null, null, null);
         }
     }
 
@@ -133,8 +149,8 @@ public class ClosingDailyHealthService {
         // No scanner detection between the evaluation start and the freeze means no precision candidate could exist.
         if (facts.scannerDetections() != null && facts.scannerDetections() == 0)
             reasons.add("SCANNER_DETECTIONS_MISSING");
-        // 오늘이 측정일인 후보 관측 중 COMPLETED가 아닌 상태가 하나라도 있으면 관측 미완료로 봐요.
-        if (facts.observationStatuses().entrySet().stream()
+        // 오늘이 측정일인 정밀 후보 관측 중 COMPLETED가 아닌 상태가 하나라도 있으면 관측 미완료로 봐요(Broad는 보지 않아요).
+        if (facts.precisionObservationStatuses().entrySet().stream()
                 .anyMatch(entry -> !"COMPLETED".equals(entry.getKey()) && entry.getValue() > 0))
             reasons.add("OBSERVATION_INCOMPLETE");
         return new Judgement(reasons.isEmpty() ? Verdict.COMPLETE : Verdict.DEGRADED, List.copyOf(reasons));
@@ -142,10 +158,10 @@ public class ClosingDailyHealthService {
 
     /**
      * Computes and upserts the current KST trade date only. Past dates are never rewritten.
-     * 받는 것: 레코더가 찍은 실시간 구간(관측 못 했으면 오늘 이미 저장된 값을 재사용해요).
-     * 돌려주는 것: 저장한 오늘의 DailyHealth.
+     * 받는 것: 레코더가 찍은 실시간 구간(관측 못 했으면 오늘 이미 저장된 값을 재사용해요), 기록 단계(1차·최종).
+     * 돌려주는 것: 저장한 오늘의 DailyHealth. 최종 기록은 같은 날 1차 기록을 덮어써요.
      */
-    public synchronized DailyHealth recordToday(RealtimeWindow window) {
+    public synchronized DailyHealth recordToday(RealtimeWindow window, Stage stage) {
         // 준비: 오늘 날짜와 실시간 구간을 정하고, DB에서 사실을 모아 판정해요.
         Instant now = calendar.now();
         LocalDate today = now.atZone(ClosingTradingCalendar.ZONE).toLocalDate();
@@ -157,7 +173,8 @@ public class ClosingDailyHealthService {
                 facts.strategyVersion() == null ? ClosingRecommendation.STRATEGY_VERSION : facts.strategyVersion(),
                 facts.runId(), facts.runCompletedAt(), facts.selected(),
                 facts.selectedEntered(), facts.paperEntryStatuses(), facts.observationStatuses(),
-                realtime.connected(), realtime.droppedDelta(), realtime.start(), realtime.end(), now);
+                realtime.connected(), realtime.droppedDelta(), realtime.start(), realtime.end(), now,
+                facts.precisionObservationStatuses(), facts.broadObservationStatuses(), stage);
         upsert(health);
         return health;
     }
@@ -209,11 +226,13 @@ public class ClosingDailyHealthService {
                  where market_session_date = ? and detected_at >= ? and detected_at <= ?""", Integer.class, today,
                 Timestamp.from(today.atTime(policy.evaluationStart()).atZone(ClosingTradingCalendar.ZONE).toInstant()),
                 Timestamp.from(today.atTime(policy.featureFreezeAt()).atZone(ClosingTradingCalendar.ZONE).toInstant()));
-        Map<String, Integer> observations = counts("""
+        String observationSql = """
                 select o.status, count(*) from closing_candidate_observation o
                   join closing_recommendation_run r on r.id = o.run_id
-                 where o.expected_session_date = ? and r.execution_mode = 'FORWARD'
-                 group by o.status""", today);
+                 where o.expected_session_date = ? and r.execution_mode = 'FORWARD' and o.candidate_source %s 'PRECISION'
+                 group by o.status""";
+        Map<String, Integer> precision = counts(observationSql.formatted("="), today);
+        Map<String, Integer> broad = counts(observationSql.formatted("<>"), today);
         // The current version's official key wins. A restart after a version change must still find the run
         // that actually executed today, so the fallback is the latest official or FORWARD run of any version.
         RowMapper<RunRow> runRow = (rs, index) -> new RunRow(rs.getLong(1), instant(rs, 2), rs.getString(3));
@@ -227,7 +246,7 @@ public class ClosingDailyHealthService {
                      order by case when request_key like ? then 0 else 1 end, id desc""",
                     runRow, today, "official-" + today + "-%");
         if (runs.isEmpty())
-            return new Facts(null, null, deadline, 0, 0, Map.of(), observations, realtime, detections, null);
+            return new Facts(null, null, deadline, 0, 0, Map.of(), precision, broad, realtime, detections, null);
         // 공식 run이 있으면 선정 수, 선정 종목 중 가상 진입 성공 수, 가상 진입 상태별 건수를 세요.
         RunRow run = runs.getFirst();
         long runId = run.id();
@@ -241,7 +260,7 @@ public class ClosingDailyHealthService {
         Map<String, Integer> entries = counts(
                 "select status, count(*) from closing_paper_entry where run_id = ? group by status", runId);
         return new Facts(runId, run.completedAt(), deadline, selected == null ? 0 : selected,
-                entered == null ? 0 : entered, entries, observations, realtime, detections, run.strategyVersion());
+                entered == null ? 0 : entered, entries, precision, broad, realtime, detections, run.strategyVersion());
     }
 
     /** 공식 run 조회 결과 한 줄(ID, 완료 시각, 전략 버전)이에요. */
@@ -269,19 +288,21 @@ public class ClosingDailyHealthService {
                 timestamp(row.runCompletedAt()), row.selectedCount(), row.selectedEntered(),
                 write(row.paperEntryStatuses()), write(row.observationStatuses()), row.realtimeConnected(),
                 row.realtimeDroppedDelta(), timestamp(row.realtimeWindowStart()), timestamp(row.realtimeWindowEnd()),
-                timestamp(row.checkedAt()), row.tradeDate() };
+                timestamp(row.checkedAt()), write(row.precisionObservationStatuses()),
+                write(row.broadObservationStatuses()), row.stage() == null ? null : row.stage().name(), row.tradeDate() };
         int updated = jdbc.update("""
                 update closing_daily_health set verdict=?, reasons=?, strategy_version=?, run_id=?, run_completed_at=?,
                     selected_count=?, selected_entered=?, paper_entry_statuses=?, observation_statuses=?,
                     realtime_connected=?, realtime_dropped_delta=?, realtime_window_start=?, realtime_window_end=?,
-                    checked_at=?
+                    checked_at=?, precision_observation_statuses=?, broad_observation_statuses=?, record_stage=?
                  where trade_date=?""", values);
         if (updated == 0)
             jdbc.update("""
                     insert into closing_daily_health(verdict, reasons, strategy_version, run_id, run_completed_at,
                         selected_count, selected_entered, paper_entry_statuses, observation_statuses,
                         realtime_connected, realtime_dropped_delta, realtime_window_start, realtime_window_end,
-                        checked_at, trade_date) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", values);
+                        checked_at, precision_observation_statuses, broad_observation_statuses, record_stage, trade_date)
+                        values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", values);
     }
 
     /**
@@ -297,7 +318,10 @@ public class ClosingDailyHealthService {
                 parse(rs.getString("paper_entry_statuses")), parse(rs.getString("observation_statuses")),
                 (Boolean) rs.getObject("realtime_connected"),
                 rs.getObject("realtime_dropped_delta") == null ? null : rs.getLong("realtime_dropped_delta"),
-                instant(rs, "realtime_window_start"), instant(rs, "realtime_window_end"), instant(rs, "checked_at"));
+                instant(rs, "realtime_window_start"), instant(rs, "realtime_window_end"), instant(rs, "checked_at"),
+                nullableCounts(rs.getString("precision_observation_statuses")),
+                nullableCounts(rs.getString("broad_observation_statuses")),
+                rs.getString("record_stage") == null ? null : Stage.valueOf(rs.getString("record_stage")));
     }
 
     /**
@@ -310,11 +334,18 @@ public class ClosingDailyHealthService {
         return result;
     }
 
+    /** V39 이전 행은 정밀·Broad 구분이 없어 null로 돌려줘요(화면은 합계 observationStatuses를 보여 줘요). */
+    private Map<String, Integer> nullableCounts(String value) {
+        return value == null ? null : parse(value);
+    }
+
     /**
      * 상태별 건수를 이름순 JSON 문자열로 바꿔요.
      * 받는 것: 건수 Map. 돌려주는 것: JSON 문자열.
      */
     private String write(Map<String, Integer> value) {
+        if (value == null)
+            return null;
         try {
             return json.writeValueAsString(new TreeMap<>(value));
         } catch (JsonProcessingException error) {

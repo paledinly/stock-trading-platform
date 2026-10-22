@@ -84,6 +84,17 @@ test('judges the closing pipeline after the close', () => {
   expect(steps.find(step => step.id === 'paper')?.detail).toContain('진입 30 / 후보 41')
 })
 
+// Broad 후보의 결측은 참고로만 보여 주고, 정밀 후보가 모두 완료면 15:40 관측은 정상이에요.
+test('ignores broad observation gaps for the 15:40 step', () => {
+  const steps = buildTimeline({
+    clock: clockAt('16:00'), realtime, subscriptions: { limit: 41, remaining: 0, precisionState: 'FROZEN' },
+    collection: collection({ observation: { statuses: { COMPLETED: 35 }, lastEvaluatedAt: '2026-10-02T06:40:03Z',
+      backfilledBars: 60, broadStatuses: { COMPLETED: 6, DATA_MISSING: 40 } } }),
+  })
+  expect(state(steps, 'observation')).toBe('done')
+  expect(steps.find(step => step.id === 'observation')?.detail).toContain('Broad 참고: 완료 6/46')
+})
+
 // 예약 시각이 지났는데 자료가 없으면 문제로 보여요(15:15 평가, 14:50 고정).
 test('flags missing official evaluation and freeze', () => {
   const steps = buildTimeline({

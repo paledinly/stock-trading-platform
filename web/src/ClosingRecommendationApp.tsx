@@ -409,6 +409,9 @@ export type DailyHealth = {
   runId: number | null; runCompletedAt: string | null; selectedCount: number | null; selectedEntered: number | null
   observationStatuses: Record<string, number>; realtimeConnected: boolean | null
   realtimeDroppedDelta: number | null; checkedAt: string | null
+  // V39부터: 판정에 쓰는 정밀 후보 관측, 참고용 Broad 관측, 기록 단계(1차·최종). 이전 행은 null이에요.
+  precisionObservationStatuses?: Record<string, number> | null; broadObservationStatuses?: Record<string, number> | null
+  stage?: 'PRELIMINARY' | 'FINAL' | null
 }
 
 // 판정 코드와 사유 코드를 화면에 보여줄 한국어 문구로 바꾸는 표예요.
@@ -422,7 +425,7 @@ const healthReasonLabels: Record<string, string> = {
   REALTIME_UNOBSERVED: '15:15 전후 실시간 상태 미관측',
   REALTIME_DISCONNECTED: '15:15 전후 실시간 연결 끊김',
   REALTIME_TICKS_DROPPED: '15:15 전후 틱 처리 누락',
-  OBSERVATION_INCOMPLETE: '후보 관측 미완료·결측',
+  OBSERVATION_INCOMPLETE: '정밀 후보 관측 미완료·결측',
   SCANNER_DETECTIONS_MISSING: '14:30~15:15 스캐너 탐지 0건',
 }
 
@@ -436,14 +439,16 @@ export function DailyHealthTable({ rows }: { rows: DailyHealth[] }) {
       {rows.length === 0 ? <p>기록된 거래일이 없습니다.</p> : <table>
         <thead><tr><th>거래일</th><th>판정</th><th>평가 완료</th><th>추천/진입</th><th>후보 관측</th><th>실시간</th><th>사유</th></tr></thead>
         <tbody>{rows.map(row => {
-          // 후보 관측 상태별 건수를 모두 더해 전체 관측 수를 구해요.
-          const observed = Object.values(row.observationStatuses ?? {}).reduce((sum, count) => sum + count, 0)
+          // 판정에 쓰는 정밀 후보 관측 수예요. V39 이전 행은 정밀·Broad 구분이 없어 합계를 써요.
+          const judged = row.precisionObservationStatuses ?? row.observationStatuses ?? {}
+          const observed = Object.values(judged).reduce((sum, count) => sum + count, 0)
+          const broad = Object.values(row.broadObservationStatuses ?? {}).reduce((sum, count) => sum + count, 0)
           return <tr key={row.tradeDate}>
             <td>{row.tradeDate}</td>
-            <td>{healthVerdictLabels[row.verdict] ?? row.verdict}</td>
+            <td>{healthVerdictLabels[row.verdict] ?? row.verdict}{row.stage ? ` (${row.stage === 'FINAL' ? '최종' : '1차'})` : ''}</td>
             <td>{row.runCompletedAt ? new Date(row.runCompletedAt).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul' }) : '--'}</td>
             <td>{row.selectedCount == null ? '--' : `${row.selectedEntered ?? 0}/${row.selectedCount}`}</td>
-            <td>{row.recorded ? `완료 ${row.observationStatuses?.COMPLETED ?? 0}/${observed}` : '--'}</td>
+            <td>{row.recorded ? `${row.precisionObservationStatuses ? '정밀 ' : ''}완료 ${judged.COMPLETED ?? 0}/${observed}${broad ? ` · Broad 참고 ${row.broadObservationStatuses?.COMPLETED ?? 0}/${broad}` : ''}` : '--'}</td>
             <td>{row.realtimeConnected == null ? '미관측' : row.realtimeConnected ? `연결 · 누락 ${row.realtimeDroppedDelta ?? 0}` : '끊김'}</td>
             <td>{row.reasons.map(reason => healthReasonLabels[reason] ?? reason).join(', ') || '--'}</td>
           </tr>

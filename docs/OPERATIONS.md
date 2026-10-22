@@ -73,10 +73,10 @@ Windows Home 호스트 설정:
 
 ## 마감 파이프라인 일별 완결성
 
-`closing.automation.enabled=true`이면 거래일 장 종료 15분 후(15:45, 장 종료 10분 후 후보 관측 계산 이후) 당일 행을 `closing_daily_health`(V32)에 기록한다. 당일 행만 갱신하고 지난 날짜는 다시 쓰지 않는다. 판정:
+`closing.automation.enabled=true`이면 거래일 장 종료 15분 후(15:45, 장 종료 10분 후 후보 관측 계산 이후) 당일 행을 `closing_daily_health`(V32·V39)에 1차(`PRELIMINARY`)로 기록하고, 18:00 분봉 재보완·관측 재평가 뒤 18:15에 최종(`FINAL`)으로 다시 기록한다. 18:15 뒤에 처음 기록하게 되면(재시작 등) 최종만 남긴다. 당일 행만 갱신하고 지난 날짜는 다시 쓰지 않는다. 판정:
 
 - MISSING: 당일 공식 FORWARD 실행(현재 전략 버전 `closing-recommend-v9_1-1515`)이 없거나 미완료. 기록 자체가 없는 거래일(백엔드 중단)도 조회 시 MISSING(`NO_HEALTH_RECORD`)으로 채운다.
-- DEGRADED: 실행은 완료됐으나 진입 마감 후 완료, 추천 종목 가상 진입 누락, 15:14~15:20 실시간 미관측·연결 끊김·처리 누락(`processingDropped` 증가), 당일 관측 대상 후보의 미완료·결측, 평가 구간(14:30~15:15) Scanner 탐지 0건(`SCANNER_DETECTIONS_MISSING`) 중 하나 이상.
+- DEGRADED: 실행은 완료됐으나 진입 마감 후 완료, 추천 종목 가상 진입 누락, 15:14~15:20 실시간 미관측·연결 끊김·처리 누락(`processingDropped` 증가), 당일 관측 대상 **정밀(PRECISION) 후보**의 미완료·결측(2026-10-22부터. Broad 후보는 실시간 구독·분봉 보완이 없어 원래 결측이 많으므로 판정에 쓰지 않고 참고로만 기록한다. 이전 기록은 Broad까지 포함해 거의 매일 DEGRADED였다), 평가 구간(14:30~15:15) Scanner 탐지 0건(`SCANNER_DETECTIONS_MISSING`) 중 하나 이상.
 - COMPLETE: 위 사유가 없음. 추천 0건인 NO TRADE도 실행이 완료됐으면 COMPLETE다.
 
 실시간 상태는 프로세스 메모리 표본(15:14~15:15 직전, 15:20 이후 첫 poll)이므로 그 사이 재시작하면 미관측이다. 15:45 이후 재시작해 다시 기록할 때는 먼저 기록된 실시간 표본을 유지한다. 조회: `GET /api/v1/closing-recommendations/daily-health?from=&to=`, 마감 추천 화면의 ‘일별 수집 완결성’ 표(최근 10거래일). 이 판정은 수집 완결성이며 전략 성과나 표본 품질 승인이 아니다.
