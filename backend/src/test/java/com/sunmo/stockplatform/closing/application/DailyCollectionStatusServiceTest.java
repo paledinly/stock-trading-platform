@@ -46,6 +46,7 @@ class DailyCollectionStatusServiceTest {
                 + "status varchar(30), evaluated_at timestamp with time zone, candidate_source varchar(20))");
         jdbc.execute("create table dart_filing(rcept_no varchar(20), rcept_dt date, fetched_at timestamp with time zone)");
         jdbc.execute("create table daily_adjusted_sweep_state(stock_id bigint, swept_at timestamp with time zone)");
+        jdbc.execute("create table market_index_daily(index_code varchar(10), trade_date date, fetched_at timestamp with time zone)");
     }
 
     @AfterEach void close() { db.shutdown(); }
@@ -89,7 +90,14 @@ class DailyCollectionStatusServiceTest {
         jdbc.update("insert into closing_candidate_observation values (9, ?, 'COMPLETED', ?, 'PRECISION'), "
                 + "(9, ?, 'DATA_MISSING', ?, 'PRECISION'), (9, ?, 'COMPLETED', ?, 'PRECISION'), (9, ?, 'DATA_MISSING', ?, 'BROAD')",
                 FRIDAY, at("2026-10-02T06:40:02Z"), FRIDAY, at("2026-10-02T06:40:03Z"),
-                LocalDate.of(2026, 10, 1), at("2026-10-01T06:40:00Z"), FRIDAY, at("2026-10-02T06:40:01Z"));
+                LocalDate.of(2026, 10, 1), at("2026-10-01T06:40:00Z"), FRIDAY, at("2026-10-02T09:01:00Z"));
+        // 18:00(KST) 재보완이 그날 5분봉 1개를 다시 저장했어요(그날 보완 봉 수에도 들어가요).
+        jdbc.update("insert into stock_candle(stock_id, timeframe, start_time, volume, source, updated_at) values "
+                + "(5, '5M', ?, 7, 'BACKFILL', ?)", at("2026-10-02T01:05:00Z"), at("2026-10-02T09:00:30Z"));
+        // 16:05(KST) 지수 일봉이 그날 일봉 2개를 저장했고, 전날 일봉 갱신은 세지 않아요.
+        jdbc.update("insert into market_index_daily values ('0001', ?, ?), ('1001', ?, ?), ('0001', ?, ?)",
+                FRIDAY, at("2026-10-02T07:05:00Z"), FRIDAY, at("2026-10-02T07:05:01Z"),
+                LocalDate.of(2026, 10, 1), at("2026-10-02T07:05:02Z"));
         jdbc.update("insert into dart_filing values ('1', ?, ?), ('2', ?, ?), ('3', ?, ?)", FRIDAY, at("2026-10-02T09:10:00Z"),
                 FRIDAY, at("2026-10-02T22:40:00Z"), LocalDate.of(2026, 10, 1), at("2026-10-01T09:10:00Z"));
 
@@ -118,8 +126,12 @@ class DailyCollectionStatusServiceTest {
         assertThat(status.closingBar()).isEqualTo(new DailyCollectionStatusService.ClosingBar(3, 2));
         assertThat(status.observation().statuses()).isEqualTo(Map.of("COMPLETED", 1, "DATA_MISSING", 1));
         assertThat(status.observation().broadStatuses()).isEqualTo(Map.of("DATA_MISSING", 1));
-        assertThat(status.observation().lastEvaluatedAt()).isEqualTo(Instant.parse("2026-10-02T06:40:03Z"));
-        assertThat(status.observation().backfilledBars()).isEqualTo(2);
+        assertThat(status.observation().lastEvaluatedAt()).isEqualTo(Instant.parse("2026-10-02T09:01:00Z"));
+        assertThat(status.observation().backfilledBars()).isEqualTo(3);
+        assertThat(status.lateObservation()).isEqualTo(new DailyCollectionStatusService.LateObservation(1,
+                Instant.parse("2026-10-02T09:01:00Z")));
+        assertThat(status.indexDaily()).isEqualTo(new DailyCollectionStatusService.Counted(2, 0,
+                Instant.parse("2026-10-02T07:05:01Z")));
         assertThat(status.dart().rows()).isEqualTo(2);
         assertThat(status.dart().lastAt()).isEqualTo(Instant.parse("2026-10-02T22:40:00Z"));
         assertThat(status.adjustedDaily()).isEqualTo(new DailyCollectionStatusService.Counted(2, 0,

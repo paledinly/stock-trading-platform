@@ -95,6 +95,39 @@ test('ignores broad observation gaps for the 15:40 step', () => {
   expect(steps.find(step => step.id === 'observation')?.detail).toContain('Broad 참고: 완료 6/46')
 })
 
+// 저녁 작업: 16:05 지수 일봉, 18:00 분봉 재보완·관측 재평가, 18:15 완결성 최종 기록을 시간표에 보여 줘요.
+test('shows the evening jobs after 18:15', () => {
+  const steps = buildTimeline({
+    clock: clockAt('18:20'), realtime, subscriptions: { limit: 41, remaining: 0, precisionState: 'FROZEN' },
+    collection: collection({
+      indexDaily: { rows: 2, errors: 0, lastAt: '2026-10-02T07:05:01Z' },
+      lateObservation: { refilledBars: 19, lastEvaluatedAt: '2026-10-02T09:01:00Z' },
+    }),
+    health: [{ tradeDate: '2026-10-02', verdict: 'COMPLETE', reasons: [], runId: 70, runCompletedAt: null,
+      paperEntryStatuses: null, observationStatuses: null, stage: 'FINAL' }],
+  })
+  expect(state(steps, 'index-daily')).toBe('done')
+  expect(state(steps, 'late-observation')).toBe('done')
+  expect(steps.find(step => step.id === 'late-observation')?.detail).toContain('다시 채운 5분봉 19')
+  expect(state(steps, 'health-final')).toBe('done')
+  expect(steps.map(step => step.time)).toEqual([...steps.map(step => step.time)].sort())
+})
+
+// 18:15가 지났는데 최종 기록이 없으면 확인 필요, 18:00 전에는 재보완이 예정이에요.
+test('flags a missing final health record', () => {
+  const evening = buildTimeline({
+    clock: clockAt('18:25'), realtime, collection: collection({ indexDaily: { rows: 2, errors: 0, lastAt: null },
+      lateObservation: { refilledBars: 0, lastEvaluatedAt: null } }),
+    health: [{ tradeDate: '2026-10-02', verdict: 'COMPLETE', reasons: [], runId: 70, runCompletedAt: null,
+      paperEntryStatuses: null, observationStatuses: null, stage: 'PRELIMINARY' }],
+  })
+  expect(state(evening, 'health-final')).toBe('warn')
+  expect(state(evening, 'late-observation')).toBe('warn')
+  const afternoon = buildTimeline({ clock: clockAt('17:00'), realtime,
+    collection: collection({ lateObservation: { refilledBars: 0, lastEvaluatedAt: null } }), health: [] })
+  expect(state(afternoon, 'late-observation')).toBe('waiting')
+})
+
 // 예약 시각이 지났는데 자료가 없으면 문제로 보여요(15:15 평가, 14:50 고정).
 test('flags missing official evaluation and freeze', () => {
   const steps = buildTimeline({

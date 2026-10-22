@@ -61,11 +61,17 @@ public class DailyCollectionStatusService {
      */
     public record DailyCandles(int rows, int stocks, Instant lastAt) { }
 
+    /**
+     * 18:00 분봉 재보완·관측 재평가 흔적이에요. refilledBars는 그날 5분봉 중 18:00 이후 보완(BACKFILL)으로 저장·갱신된 수,
+     * lastEvaluatedAt은 18:00 이후 그날 관측 세션 후보 관측을 마지막으로 평가한 시각이에요(없으면 null).
+     */
+    public record LateObservation(int refilledBars, Instant lastEvaluatedAt) { }
+
     /** 화면에 그대로 내려주는 하루 수집 현황이에요. tradingDay가 false면 나머지는 비어 있어요. */
     public record DailyCollection(LocalDate date, boolean tradingDay, LocalDate previousTradingDay, Instant checkedAt,
             Run run, Map<String, Integer> paperEntries, List<LimitUpSample> limitUp, Counted candidateContext,
             ClosingBar closingBar, Observation observation, Counted dart, Counted adjustedDaily,
-            DailyCandles morningDaily, DailyCandles precisionDaily) { }
+            DailyCandles morningDaily, DailyCandles precisionDaily, Counted indexDaily, LateObservation lateObservation) { }
 
     /**
      * 하는 일: 날짜(없으면 오늘, 한국시간)의 수집 현황을 세어요.
@@ -77,7 +83,8 @@ public class DailyCollectionStatusService {
         if (!calendar.isTradingDay(date))
             return new DailyCollection(date, false, calendar.previousTradingDay(date), checkedAt, null, Map.of(),
                     List.of(), new Counted(0, 0, null), new ClosingBar(0, 0), new Observation(Map.of(), null, 0, Map.of()),
-                    dart(date), adjustedDaily(date), new DailyCandles(0, 0, null), new DailyCandles(0, 0, null));
+                    dart(date), adjustedDaily(date), new DailyCandles(0, 0, null), new DailyCandles(0, 0, null),
+                    new Counted(0, 0, null), new LateObservation(0, null));
         Run run = run(date);
         Instant dayStart = date.atStartOfDay(ClosingTradingCalendar.ZONE).toInstant();
         Instant dayEnd = date.plusDays(1).atStartOfDay(ClosingTradingCalendar.ZONE).toInstant();
@@ -100,7 +107,26 @@ public class DailyCollectionStatusService {
                                 + "where expected_session_date = ? and candidate_source <> 'PRECISION' group by status", date)),
                 dart(date), adjustedDaily(date),
                 dailyCandles(date, LocalTime.of(7, 0), LocalTime.of(9, 0)),
-                dailyCandles(date, LocalTime.of(14, 20), LocalTime.of(14, 50)));
+                dailyCandles(date, LocalTime.of(14, 20), LocalTime.of(14, 50)),
+                indexDaily(date), lateObservation(date, dayStart, dayEnd));
+    }
+
+    /** 16:05 지수 일봉: 그날 16:00 이후 받아 저장·갱신한 그날 지수 일봉 수(KOSPI·KOSDAQ이면 2)와 마지막 수집 시각이에요. */
+    private Counted indexDaily(LocalDate date) {
+        Instant after = date.atTime(16, 0).atZone(ClosingTradingCalendar.ZONE).toInstant();
+        return counted("select count(*), 0, max(fetched_at) from market_index_daily where trade_date = ? and fetched_at >= ?",
+                date, Timestamp.from(after));
+    }
+
+    /** 18:00 분봉 재보완·관측 재평가 흔적을 세어요(그날이 관측 세션인 후보 기준). */
+    private LateObservation lateObservation(LocalDate date, Instant dayStart, Instant dayEnd) {
+        Timestamp after = Timestamp.from(date.atTime(18, 0).atZone(ClosingTradingCalendar.ZONE).toInstant());
+        return new LateObservation(
+                integer(jdbc.queryForObject("select count(*) from stock_candle where timeframe = '5M' and source = 'BACKFILL' "
+                        + "and start_time >= ? and start_time < ? and updated_at >= ?", Long.class,
+                        Timestamp.from(dayStart), Timestamp.from(dayEnd), after)),
+                instant(jdbc.queryForObject("select max(evaluated_at) from closing_candidate_observation "
+                        + "where expected_session_date = ? and evaluated_at >= ?", Timestamp.class, date, after)));
     }
 
     /** 그날의 가장 최근 공식 FORWARD run을 찾아요. 없으면 null이에요. */
@@ -180,7 +206,7 @@ public class DailyCollectionStatusService {
     }
 
     /** "개수, 오류 수, 마지막 시각" 한 줄 결과를 읽어요. */
-    private Counted counted(String sql, Object arg) {
+    private Counted counted(String sql, Object... arg) {
         return jdbc.queryForObject(sql, (rs, i) -> new Counted(rs.getInt(1), rs.getInt(2), instant(rs.getTimestamp(3))), arg);
     }
 

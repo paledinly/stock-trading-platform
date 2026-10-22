@@ -25,6 +25,9 @@ export type Collection = {
   /** 07:00~09:00·14:20~14:50에 저장된 일봉 수(08:10 후보 일봉 준비, 14:25·14:35 정밀 보완의 흔적). 예전 Backend에는 없어요. */
   morningDaily?: DailyCandles
   precisionDaily?: DailyCandles
+  // 16:05 지수 일봉(그날 일봉을 16:00 뒤 저장한 수)과 18:00 분봉 재보완·관측 재평가 흔적이에요. 예전 백엔드에는 없어요.
+  indexDaily?: Counted
+  lateObservation?: { refilledBars: number; lastEvaluatedAt: string | null }
 }
 type DailyCandles = { rows: number; stocks: number; lastAt: string | null }
 export type Health = {
@@ -207,16 +210,35 @@ export function buildTimeline(input: TodayInputs): Step[] {
 
   // 15:45 일별 완결성 기록.
   const today = input.health?.find(row => row.tradeDate === clock.date)
-  add('health', '15:45', '일별 완결성 기록',
+  add('health', '15:45', '일별 완결성 1차 기록',
     !input.health ? 'unknown' : !today ? (before('15:45') ? 'waiting' : due('15:45', 5) ? 'problem' : 'running')
       : today.verdict === 'COMPLETE' ? 'done' : today.verdict === 'DEGRADED' ? 'warn' : 'problem',
-    today ? `${today.verdict}${today.reasons.length ? ` · ${today.reasons.join(', ')}` : ''}` : '아직 오늘 기록이 없어요.')
+    today ? `${today.verdict}${today.reasons.length ? ` · ${today.reasons.join(', ')}` : ''}${today.stage === 'FINAL' ? ' (최종 기록으로 갱신됨)' : ''}` : '아직 오늘 기록이 없어요.')
+
+  // 16:05 지수 일봉(KOSPI·KOSDAQ 최근 20일 갱신). 그날 일봉 2개가 저장되면 정상이에요.
+  const indexDaily = collection?.indexDaily
+  add('index-daily', '16:05', '지수 일봉 갱신 (KOSPI·KOSDAQ)',
+    !collection || !indexDaily ? 'unknown' : indexDaily.rows >= 2 ? 'done' : before('16:05') ? 'waiting' : due('16:05', 10) ? 'warn' : 'running',
+    !collection ? pending : !indexDaily ? '백엔드 재시작 후 표시' : `오늘 일봉 ${indexDaily.rows}/2 · 마지막 ${hms(indexDaily.lastAt)}`)
+
+  // 18:00 분봉 재보완 + 관측 재평가(늦게 채워지는 15:30 종가 단일가 분봉 반영).
+  const late = collection?.lateObservation
+  add('late-observation', '18:00', '분봉 재보완 + 관측 재평가',
+    !collection || !late ? 'unknown' : late.lastEvaluatedAt ? 'done' : before('18:00') ? 'waiting' : due('18:00', 10) ? 'warn' : 'running',
+    !collection ? pending : !late ? '백엔드 재시작 후 표시' : late.lastEvaluatedAt ? `다시 채운 5분봉 ${late.refilledBars} · 재평가 ${hms(late.lastEvaluatedAt)}` : '아직 재평가 기록이 없어요.')
 
   // 18:10 DART 공시(다음 날 07:40에 보충). 휴장일에도 18:10에 돌아요.
   const dart = collection?.dart
   add('dart', '18:10', 'DART 공시 수집',
     !collection ? 'unknown' : dart && dart.rows > 0 ? 'done' : before('18:10') ? 'waiting' : due('18:10', 5) ? 'warn' : 'running',
     !collection ? pending : `오늘 접수 공시 ${dart?.rows ?? 0}건 · 마지막 수집 ${hms(dart?.lastAt)}`)
+
+  // 18:15 일별 완결성 최종 기록(18:00 재보완 반영).
+  add('health-final', '18:15', '일별 완결성 최종 기록',
+    !input.health ? 'unknown' : today?.stage === 'FINAL'
+      ? (today.verdict === 'COMPLETE' ? 'done' : today.verdict === 'DEGRADED' ? 'warn' : 'problem')
+      : before('18:15') ? 'waiting' : due('18:15', 5) ? 'warn' : 'running',
+    today?.stage === 'FINAL' ? `${today.verdict}${today.reasons.length ? ` · ${today.reasons.join(', ')}` : ''}` : '아직 최종 기록이 없어요.')
 
   // 18:30 수정주가 일봉(연구).
   const adjusted = collection?.adjustedDaily
