@@ -8,6 +8,8 @@ package com.sunmo.stockplatform.marketwide.application;
 import com.sunmo.stockplatform.market.application.RealtimeSubscriptionRegistry;
 import com.sunmo.stockplatform.market.config.PrecisionSubscriptionProperties;
 import jakarta.annotation.PostConstruct;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -22,6 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Component
 public class PrecisionSubscriptionAllocator {
+    private static final Logger log = LoggerFactory.getLogger(PrecisionSubscriptionAllocator.class);
     private static final ZoneId MARKET_ZONE = ZoneId.of("Asia/Seoul");
     // 교체용 새 구독의 KIS 확인(ack)을 기다리는 최대 시간이에요. 넘으면 실패로 보고 새 구독을 거둬요.
     static final Duration REPLACEMENT_ACK_TIMEOUT = Duration.ofSeconds(60);
@@ -121,6 +124,10 @@ public class PrecisionSubscriptionAllocator {
     /**
      * 하는 일: 자리가 꽉 찼을 때, 가장 약한 배정보다 점수가 replaceMargin 이상 높은 후보가 있으면 한 건만 교체를 시작해요.
      * 이미 진행 중인 교체가 있으면 기다려요.
+     * 등록부(KIS 한도)에 빈 자리가 있으면 새 종목을 먼저 구독하고 확인 응답 뒤 옛 종목을 빼요(데이터 공백 없음).
+     * 등록부가 꽉 찼으면 새 종목을 먼저 넣을 수 없으므로 옛 종목을 먼저 빼고 새 종목을 넣어요. 이때 옛 종목은 정밀 출처만
+     * 가진 종목에서 골라야 실제로 자리가 비어요. 예비 자리 0(2026-10-14~)에서는 예전 방식이 매번 한도 초과로 조용히 실패해
+     * 10-16 무렵부터 교체가 멈췄어요(ADR-010 보완 기록 2026-10-22).
      * 받는 것: 점수순 후보, 자리 수, 기준 시각.
      * 돌려주는 것: 없음.
      */
@@ -129,40 +136,58 @@ public class PrecisionSubscriptionAllocator {
         // expirePendingReplacements가 60초 뒤 실패로 정리하므로, 대기가 영원히 교체를 막지는 않아요.
         if (capacity == 0 || precisionCount() < capacity || frozen(now) || !pendingReplacements.isEmpty())
             return;
-        Allocation weakest = removable(now).orElse(null);
-        if (weakest == null)
+        boolean registryFull = registry.all().size() >= registry.limit();
+        Allocation target = removable(now, code -> !registryFull || precisionOnly(code)).orElse(null);
+        if (target == null)
             return;
         Candidate replacement = candidates.stream()
                 .filter(candidate -> !hasPrecision(candidate.stockCode()))
-                .filter(candidate -> candidate.score().subtract(weakest.score())
+                .filter(candidate -> candidate.score().subtract(target.score())
                         .compareTo(properties.replaceMargin()) >= 0)
                 .findFirst().orElse(null);
         if (replacement == null)
             return;
-        add(replacement, now, weakest.stockCode());
+        // 새 종목이 다른 출처로 이미 구독 중이면 자리가 더 필요 없어요(add가 바로 옛 종목을 빼요).
+        if (registryFull && !registry.all().contains(replacement.stockCode())) {
+            remove(target.stockCode());
+            if (!add(replacement, now, null))
+                log.warn("Precision replacement {} -> {} could not subscribe the new code; the slot is refilled on the next scan",
+                        target.stockCode(), replacement.stockCode());
+            return;
+        }
+        add(replacement, now, target.stockCode());
+    }
+
+    /** 하는 일: 이 종목이 정밀 출처만 가진(빼면 등록부 자리가 실제로 비는) 종목인지 알려 줘요. */
+    private boolean precisionOnly(String stockCode) {
+        Set<RealtimeSubscriptionRegistry.Source> sources = registry.entries().get(stockCode);
+        return sources != null && sources.size() == 1 && sources.contains(RealtimeSubscriptionRegistry.Source.PRECISION);
     }
 
     /**
      * 하는 일: 후보 하나를 정밀 구독으로 등록하고 이력·배정 정보를 남겨요.
      * 교체라면, 이미 구독 중이던 종목은 바로 옛 종목을 빼고, 새 구독이면 확인 응답을 기다리도록 대기 목록에 넣어요.
      * 받는 것: 후보, 기준 시각, 교체될 옛 종목코드(단순 추가면 null).
-     * 돌려주는 것: 없음. 등록부가 자리 부족 등으로 거절하면(IllegalStateException) 배정만 지우고 조용히 넘어가요.
+     * 돌려주는 것: 등록했으면 true. 등록부가 자리 부족 등으로 거절하면(IllegalStateException) 배정만 지우고 경고를 남긴 뒤 false.
      */
-    private void add(Candidate candidate, Instant now, String replaceCode) {
+    private boolean add(Candidate candidate, Instant now, String replaceCode) {
         boolean alreadySubscribed = registry.all().contains(candidate.stockCode());
         try {
             registry.add(candidate.stockCode(), RealtimeSubscriptionRegistry.Source.PRECISION);
             recordHistory(() -> history.requested(candidate.stockCode(), now, alreadySubscribed));
             allocations.put(candidate.stockCode(), new Allocation(candidate.stockCode(), candidate.score(), now, now));
             if (replaceCode == null)
-                return;
+                return true;
             if (alreadySubscribed) {
                 remove(replaceCode);
             } else {
                 pendingReplacements.put(candidate.stockCode(), new PendingReplacement(replaceCode, now));
             }
-        } catch (IllegalStateException ignored) {
+            return true;
+        } catch (IllegalStateException rejected) {
             allocations.remove(candidate.stockCode());
+            log.warn("Precision subscription for {} rejected by the registry: {}", candidate.stockCode(), rejected.getMessage());
+            return false;
         }
     }
 
@@ -189,7 +214,13 @@ public class PrecisionSubscriptionAllocator {
      * 돌려주는 것: 뺄 배정(없으면 빈 Optional).
      */
     private Optional<Allocation> removable(Instant now) {
+        return removable(now, code -> true);
+    }
+
+    /** 하는 일: removable과 같고, 조건(eligible)을 통과한 종목 중에서만 골라요. */
+    private Optional<Allocation> removable(Instant now, java.util.function.Predicate<String> eligible) {
         return allocations.values().stream()
+                .filter(allocation -> eligible.test(allocation.stockCode()))
                 .filter(allocation -> !pendingReplacements.containsKey(allocation.stockCode()))
                 .filter(allocation -> pendingReplacements.values().stream()
                         .noneMatch(pending -> pending.oldCode().equals(allocation.stockCode())))

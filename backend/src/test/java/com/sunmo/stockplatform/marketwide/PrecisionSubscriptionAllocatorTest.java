@@ -94,6 +94,45 @@ class PrecisionSubscriptionAllocatorTest {
     }
 
     /**
+     * 예비 자리 0으로 KIS 한도(등록부)가 꽉 찼을 때도 교체가 되는지 확인해요(2026-10-16~10-22 교체 멈춤 회귀 방지).
+     * 준비: 한도 3, 예비 0으로 A00001(90)·A00002(80)·A00003(70)을 채우고, 20분 뒤 B00001(95)이 와요.
+     * 기대: 새 종목을 먼저 넣을 수 없으니 가장 약한 A00003을 먼저 빼고 B00001을 넣어요. 확인 응답 대기는 없어요.
+     */
+    @Test
+    void replacesTheWeakestWhenTheRegistryIsFull() {
+        RealtimeSubscriptionRegistry registry = registry(3);
+        PrecisionSubscriptionAllocator allocator = fullAllocator(registry);
+        Instant first = Instant.parse("2026-09-07T01:00:00Z");
+        allocator.reconcile(List.of(candidate("A00001", "90"), candidate("A00002", "80"), candidate("A00003", "70")), first);
+        assertThat(registry.remaining()).isZero();
+
+        var replaced = allocator.reconcile(List.of(candidate("B00001", "95"), candidate("A00001", "90")),
+                first.plus(Duration.ofMinutes(20)));
+
+        assertThat(registry.all()).containsExactlyInAnyOrder("A00001", "A00002", "B00001");
+        assertThat(replaced.allocations()).noneMatch(PrecisionSubscriptionAllocator.AllocationView::awaitingAcknowledgement);
+    }
+
+    /**
+     * 한도가 꽉 찼을 때 다른 출처도 가진 정밀 종목은 빼도 자리가 비지 않으므로 교체 대상에서 빼는지 확인해요.
+     * 준비: 한도 3, P00001은 OVERNIGHT+정밀(50점), A00001(90)·A00002(80). 20분 뒤 B00001(95).
+     * 기대: 가장 약한 P00001 대신 정밀만 가진 A00002를 빼고 B00001을 넣어요. P00001은 그대로예요.
+     */
+    @Test
+    void skipsProtectedPrecisionCodesWhenTheRegistryIsFull() {
+        RealtimeSubscriptionRegistry registry = registry(3);
+        registry.add("P00001", RealtimeSubscriptionRegistry.Source.OVERNIGHT);
+        PrecisionSubscriptionAllocator allocator = fullAllocator(registry);
+        Instant first = Instant.parse("2026-09-07T01:00:00Z");
+        allocator.reconcile(List.of(candidate("A00001", "90"), candidate("A00002", "80"), candidate("P00001", "50")), first);
+        assertThat(registry.remaining()).isZero();
+
+        allocator.reconcile(List.of(candidate("B00001", "95")), first.plus(Duration.ofMinutes(20)));
+
+        assertThat(registry.all()).containsExactlyInAnyOrder("P00001", "A00001", "B00001");
+    }
+
+    /**
      * 새 후보 구독이 거절되면 그 후보만 빼고 기존 후보는 남기는지 확인해요.
      * 준비: A00001, A00002 배분 뒤 A00003으로 교체를 요청하고, A00003 구독이 "limit exceeded"로 거절되게 해요.
      * 기대: A00001, A00002는 남고 A00003은 없어요.
@@ -174,6 +213,15 @@ class PrecisionSubscriptionAllocatorTest {
         PrecisionSubscriptionAllocator allocator = new PrecisionSubscriptionAllocator(registry,
                 new PrecisionSubscriptionProperties(true, 2, 1, minHold, new BigDecimal(margin),
                         LocalTime.of(14, 50)), org.mockito.Mockito.mock(PrecisionSubscriptionHistory.class));
+        allocator.initialize();
+        return allocator;
+    }
+
+    /** 운영 설정과 같은 예비 자리 0, 정밀 최대 41, 최소 유지 15분, 교체 10점 차이의 배분기예요. */
+    private PrecisionSubscriptionAllocator fullAllocator(RealtimeSubscriptionRegistry registry) {
+        PrecisionSubscriptionAllocator allocator = new PrecisionSubscriptionAllocator(registry,
+                new PrecisionSubscriptionProperties(true, 41, 0, Duration.ofMinutes(15), BigDecimal.TEN, LocalTime.of(14, 50)),
+                org.mockito.Mockito.mock(PrecisionSubscriptionHistory.class));
         allocator.initialize();
         return allocator;
     }
