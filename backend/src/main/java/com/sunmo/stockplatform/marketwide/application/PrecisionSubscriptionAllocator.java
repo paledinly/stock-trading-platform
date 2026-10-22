@@ -35,6 +35,8 @@ public class PrecisionSubscriptionAllocator {
     private final Map<String, Allocation> allocations = new ConcurrentHashMap<>();
     // 새 종목코드 → (교체될 옛 종목코드, 대기 시작 시각). 새 구독이 KIS 확인(ack)을 받으면 옛 종목을 빼요.
     private final Map<String, PendingReplacement> pendingReplacements = new ConcurrentHashMap<>();
+    // 마지막으로 배정을 조정한 날짜(KST)예요. 날짜가 바뀌면 이어진 배정을 오늘 세션으로 다시 기록해요.
+    private LocalDate lastReconcileDate;
 
     /**
      * 하는 일: 실시간 구독 등록부, 정밀 구독 설정, 구독 이력 기록기를 받아 둬요.
@@ -85,6 +87,11 @@ public class PrecisionSubscriptionAllocator {
     synchronized Snapshot reconcile(List<Candidate> incoming, Instant now) {
         if (!properties.enabled())
             return snapshot("DISABLED", capacity(), now);
+        // 재시작 없이 날짜가 바뀌었으면, 전날부터 이어진 배정을 오늘 날짜 세션으로 기록해요(배정·규칙은 그대로).
+        LocalDate today = now.atZone(MARKET_ZONE).toLocalDate();
+        if (lastReconcileDate != null && !today.equals(lastReconcileDate))
+            allocations.keySet().forEach(code -> recordHistory(() -> history.rolledOver(code, now)));
+        lastReconcileDate = today;
 
         // 준비: 점수 높은 순으로 정렬하고, 같은 종목이 여러 번 오면 가장 높은 점수 하나만 남겨요.
         Map<String, Candidate> candidates = new LinkedHashMap<>();

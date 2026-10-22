@@ -81,6 +81,48 @@ class DailyCandleBackfillServiceTest {
     }
 
     /**
+     * 14:25·14:35 정밀 후보 일봉 보완이 오늘 세션 기록이 없는, 전날부터 이어진 정밀 종목도 대상에 넣는지 확인해요.
+     * 준비: 10-20(화) 14:25, 등록부에는 정밀 000660(전날부터 이어짐)과 005930, 오늘 세션 기록은 005930만 있어요.
+     * 기대: 두 종목 모두 전 거래일(10-19)까지 일봉을 요청하고, 관심종목 전용 035720은 요청하지 않아요.
+     */
+    @Test
+    void precisionPreparationIncludesPrecisionCodesCarriedOverFromYesterday() {
+        var kis = mock(KisProperties.class);
+        when(kis.enabled()).thenReturn(true);
+        var calendar = new ClosingTradingCalendar(new MarketWideScheduleProperties(false, 0, 0, false,
+                null, null, null, null, null, List.of()),
+                Clock.fixed(Instant.parse("2026-10-20T05:25:00Z"), ZoneOffset.UTC));
+        var stocks = mock(StockRepository.class);
+        var client = mock(KisDailyCandleClient.class);
+        var persistence = mock(DailyCandlePersistence.class);
+        var precisionSessions = mock(PrecisionSubscriptionSessionRepository.class);
+        var registry = new com.sunmo.stockplatform.market.application.RealtimeSubscriptionRegistry(
+                new com.sunmo.stockplatform.market.config.RealtimeMarketProperties(true, java.net.URI.create("ws://localhost"),
+                        Duration.ZERO, Duration.ofHours(1), 10, 41, Duration.ofMinutes(1)));
+        registry.add("000660", com.sunmo.stockplatform.market.application.RealtimeSubscriptionRegistry.Source.PRECISION);
+        registry.add("005930", com.sunmo.stockplatform.market.application.RealtimeSubscriptionRegistry.Source.PRECISION);
+        registry.add("035720", com.sunmo.stockplatform.market.application.RealtimeSubscriptionRegistry.Source.WATCHLIST);
+        when(precisionSessions.findBySessionDateAndStatusOrderByRequestedAtAsc(LocalDate.of(2026, 10, 20),
+                PrecisionSubscriptionSession.Status.ACTIVE))
+                .thenReturn(List.of(new PrecisionSubscriptionSession("005930", Instant.parse("2026-10-20T00:00:00Z"), true)));
+        for (String code : List.of("000660", "005930")) {
+            Stock stock = mock(Stock.class);
+            when(stocks.findByStockCodeAndActiveTrue(code)).thenReturn(Optional.of(stock));
+            when(persistence.ready(stock, LocalDate.of(2026, 10, 19))).thenReturn(false, true);
+        }
+        when(client.fetch(any(), any(), any())).thenReturn(List.of(mock(DailyCandle.class)));
+        var service = new DailyCandleBackfillService(new DailyCandleBackfillProperties(true, 40, 120, Duration.ofHours(1)),
+                kis, calendar, mock(ScannerDetectionRepository.class), mock(WatchlistItemRepository.class), stocks, client,
+                persistence, precisionSessions, registry);
+
+        service.preparePrecision();
+
+        verify(client).fetch(eq("000660"), any(), eq(LocalDate.of(2026, 10, 19)));
+        verify(client).fetch(eq("005930"), any(), eq(LocalDate.of(2026, 10, 19)));
+        verify(client, never()).fetch(eq("035720"), any(), any());
+    }
+
+    /**
      * 기능이 꺼져 있으면 예약 실행이 KIS를 전혀 부르지 않는지 확인해요.
      * 준비: enabled=false 설정으로 서비스를 만들고 scheduledPrepare를 호출해요.
      * 기대: 일봉 클라이언트와 상호작용이 없어요.

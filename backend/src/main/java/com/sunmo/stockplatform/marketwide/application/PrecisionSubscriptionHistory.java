@@ -7,9 +7,14 @@ package com.sunmo.stockplatform.marketwide.application;
 
 import com.sunmo.stockplatform.marketwide.domain.PrecisionSubscriptionSession;
 import com.sunmo.stockplatform.marketwide.infrastructure.PrecisionSubscriptionSessionRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
+import java.util.List;
 
 /**
  * 정밀 구독 세션의 상태 변화를 기록하는 서비스예요.
@@ -17,7 +22,10 @@ import java.time.Instant;
  */
 @Service
 public class PrecisionSubscriptionHistory {
+    private static final Logger log = LoggerFactory.getLogger(PrecisionSubscriptionHistory.class);
     private final PrecisionSubscriptionSessionRepository sessions;
+    // 이 프로세스가 만들어진 시각이에요. 이보다 먼저 신청된 열린 세션은 이전 프로세스가 남긴 기록이에요.
+    private final Instant processStart = Instant.now();
     /**
      * 하는 일: 세션 레포지토리(DB에 읽고 쓰는 창구)를 받아 둬요.
      * 받는 것: 정밀 구독 세션 레포지토리.
@@ -60,6 +68,36 @@ public class PrecisionSubscriptionHistory {
      */
     @Transactional
     public void ended(String code, Instant at, String reason) {
+        endLatestActive(code, at, reason);
+    }
+
+    /**
+     * 하는 일: 재시작 없이 날짜가 바뀌어 이어진 정밀 구독을 오늘 날짜 세션으로 다시 기록해요.
+     * 전날 활성 세션은 DAY_ROLLOVER로 닫고, 오늘 날짜의 활성 세션을 새로 만들어요(이미 구독 중이므로 바로 활성).
+     * 받는 것: 종목코드, 기록 시각(그날 첫 배정 조정 시각).
+     */
+    @Transactional
+    public void rolledOver(String code, Instant at) {
+        endLatestActive(code, at, "DAY_ROLLOVER");
+        sessions.save(new PrecisionSubscriptionSession(code, at, true));
+    }
+
+    /**
+     * 하는 일: 앱 시작 직후, 이전 프로세스가 강제 종료되며 열어 둔 채 남긴 신청·활성 세션을 PROCESS_RESTART로 닫아요.
+     * 이 프로세스 시작 전에 신청된 것만 닫으므로, 시작 직후 새로 신청한 세션은 건드리지 않아요.
+     */
+    @EventListener(ApplicationReadyEvent.class)
+    @Transactional
+    public void closeLeftovers() {
+        List<PrecisionSubscriptionSession> open = sessions.findByStatusInAndRequestedAtBefore(
+                List.of(PrecisionSubscriptionSession.Status.REQUESTED, PrecisionSubscriptionSession.Status.ACTIVE),
+                processStart);
+        open.forEach(session -> session.end(processStart, "PROCESS_RESTART"));
+        if (!open.isEmpty())
+            log.info("Closed {} precision subscription sessions left open by the previous process", open.size());
+    }
+
+    private void endLatestActive(String code, Instant at, String reason) {
         sessions.findFirstByStockCodeAndStatusOrderByRequestedAtDesc(code, PrecisionSubscriptionSession.Status.ACTIVE)
                 .ifPresent(value -> value.end(at, reason));
     }

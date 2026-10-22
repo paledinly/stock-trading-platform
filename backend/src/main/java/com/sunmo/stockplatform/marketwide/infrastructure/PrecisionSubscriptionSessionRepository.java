@@ -32,4 +32,7 @@ public interface PrecisionSubscriptionSessionRepository extends JpaRepository<Pr
      */
     List<PrecisionSubscriptionSession> findBySessionDateAndStatusOrderByRequestedAtAsc(
             LocalDate date, PrecisionSubscriptionSession.Status status);
+    /** 하는 일: 주어진 상태이면서 기준 시각 전에 신청된 세션을 모두 찾아요(재시작 전 프로세스가 남긴 기록 정리용). */
+    List<PrecisionSubscriptionSession> findByStatusInAndRequestedAtBefore(
+            Collection<PrecisionSubscriptionSession.Status> statuses, java.time.Instant before);
 }

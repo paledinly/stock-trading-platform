@@ -133,6 +133,31 @@ class PrecisionSubscriptionAllocatorTest {
     }
 
     /**
+     * 재시작 없이 날짜가 바뀌면 이어진 배정을 오늘 날짜 세션으로 다시 기록하는지 확인해요(배정은 그대로).
+     * 준비: 10-19 배정 2종목, 10-20 09:00 첫 조정. 기대: 두 종목 모두 rolledOver가 한 번씩, 같은 날 두 번째 조정에서는 다시 안 불려요.
+     */
+    @Test
+    void recordsCarriedOverAllocationsOnTheFirstReconcileOfANewDay() {
+        RealtimeSubscriptionRegistry registry = registry(5);
+        PrecisionSubscriptionHistory history = org.mockito.Mockito.mock(PrecisionSubscriptionHistory.class);
+        PrecisionSubscriptionAllocator allocator = new PrecisionSubscriptionAllocator(registry,
+                new PrecisionSubscriptionProperties(true, 41, 0, Duration.ofMinutes(15), BigDecimal.TEN, LocalTime.of(14, 50)),
+                history);
+        allocator.initialize();
+        allocator.reconcile(List.of(candidate("A00001", "90"), candidate("A00002", "80")), Instant.parse("2026-10-19T04:00:00Z"));
+        Instant nextMorning = Instant.parse("2026-10-20T00:00:30Z");
+
+        allocator.reconcile(List.of(candidate("A00001", "20")), nextMorning);
+        allocator.reconcile(List.of(candidate("A00001", "20")), nextMorning.plusSeconds(300));
+
+        org.mockito.Mockito.verify(history).rolledOver("A00001", nextMorning);
+        org.mockito.Mockito.verify(history).rolledOver("A00002", nextMorning);
+        org.mockito.Mockito.verify(history, org.mockito.Mockito.times(2))
+                .rolledOver(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any());
+        assertThat(registry.all()).contains("A00001", "A00002");
+    }
+
+    /**
      * 새 후보 구독이 거절되면 그 후보만 빼고 기존 후보는 남기는지 확인해요.
      * 준비: A00001, A00002 배분 뒤 A00003으로 교체를 요청하고, A00003 구독이 "limit exceeded"로 거절되게 해요.
      * 기대: A00001, A00002는 남고 A00003은 없어요.

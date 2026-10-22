@@ -5,6 +5,7 @@
  */
 package com.sunmo.stockplatform.candle.application;
 
+import com.sunmo.stockplatform.market.application.RealtimeSubscriptionRegistry;
 import com.sunmo.stockplatform.candle.config.DailyCandleBackfillProperties;
 import com.sunmo.stockplatform.closing.application.ClosingTradingCalendar;
 import com.sunmo.stockplatform.kis.candle.KisDailyCandleClient;
@@ -48,6 +49,8 @@ public class DailyCandleBackfillService {
     private final PrecisionSubscriptionSessionRepository precisionSessions;
     private final KisDailyCandleClient client;
     private final DailyCandlePersistence persistence;
+    // 지금 실제로 정밀 구독 중인 종목을 알려 주는 실시간 구독 등록부예요(없으면 오늘 세션 기록만 봐요).
+    private final RealtimeSubscriptionRegistry registry;
     private final Map<String, Instant> lastAttempt = new ConcurrentHashMap<>();
 
     /**
@@ -57,6 +60,17 @@ public class DailyCandleBackfillService {
             ClosingTradingCalendar calendar, ScannerDetectionRepository detections,
             WatchlistItemRepository watchlist, StockRepository stocks, KisDailyCandleClient client,
             DailyCandlePersistence persistence, PrecisionSubscriptionSessionRepository precisionSessions) {
+        this(settings, kis, calendar, detections, watchlist, stocks, client, persistence, precisionSessions, null);
+    }
+
+    /** 위와 같고, 지금 정밀 구독 중인 종목을 알려 주는 실시간 구독 등록부를 함께 받아요. */
+    @org.springframework.beans.factory.annotation.Autowired
+    public DailyCandleBackfillService(DailyCandleBackfillProperties settings, KisProperties kis,
+            ClosingTradingCalendar calendar, ScannerDetectionRepository detections,
+            WatchlistItemRepository watchlist, StockRepository stocks, KisDailyCandleClient client,
+            DailyCandlePersistence persistence, PrecisionSubscriptionSessionRepository precisionSessions,
+            RealtimeSubscriptionRegistry registry) {
+        this.registry = registry;
         this.settings = settings;
         this.kis = kis;
         this.calendar = calendar;
@@ -117,11 +131,19 @@ public class DailyCandleBackfillService {
      */
     public synchronized PrepareResult preparePrecision() {
         TargetWindow window = targetWindow();
-        List<String> codes = precisionSessions
-                .findBySessionDateAndStatusOrderByRequestedAtAsc(window.target(),
+        // 대상은 지금 실제로 정밀 구독 중인 종목(등록부)과 오늘 날짜의 활성 세션 기록을 합친 것이에요.
+        // 예전에는 오늘 세션 기록만 봐서, 재시작 없이 전날부터 이어진 정밀 종목이 빠지고 전 거래일 일봉을 못 받아
+        // 15:15 평가에서 DAILY_DATA_STALE로 걸렸어요(2026-10-20 15건, 10-21 11건).
+        java.util.LinkedHashSet<String> codes = new java.util.LinkedHashSet<>();
+        if (registry != null)
+            registry.entries().forEach((code, sources) -> {
+                if (sources.contains(RealtimeSubscriptionRegistry.Source.PRECISION))
+                    codes.add(code);
+            });
+        precisionSessions.findBySessionDateAndStatusOrderByRequestedAtAsc(window.target(),
                         PrecisionSubscriptionSession.Status.ACTIVE)
-                .stream().map(PrecisionSubscriptionSession::getStockCode).distinct().toList();
-        return prepare(window, codes);
+                .forEach(session -> codes.add(session.getStockCode()));
+        return prepare(window, List.copyOf(codes));
     }
 
     /**
