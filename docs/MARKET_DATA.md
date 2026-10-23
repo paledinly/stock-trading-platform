@@ -77,6 +77,7 @@ Broad 후보는 KIS 순위와 제한된 상세 현재가 조회(`MARKET_WIDE_DET
 - **투자자 수급**: 외국인·기관 가집계와 KRX 프로그램 누적 수량을 Trajectory의 `investorFlow`로 제공한다. [투자자 수급](INVESTOR_FLOW.md).
 - **호가·대량체결(V29)**: 10단계 호가는 기본 5초 간격의 제한된 REST 표본, 대량체결은 기존 WebSocket 체결에서 집계한다. [호가·대량체결](MICROSTRUCTURE.md).
 - **지수 일봉(V37, 기록 전용·기본 켜짐)**: KOSPI·KOSDAQ 일봉을 KIS 국내업종 기간별 시세(`FHKUP03500100`)로 받아 `market_index_daily`에 저장한다. 한 번에 최근 쪽 50행만 오고 다음 페이지 표시가 없어 끝 날짜를 앞으로 옮겨 가며 받는다. 거래일 16:05(설정 `market.index-daily.cron`)에 최근 20일을 갱신한다. 왼쪽 메뉴의 고정 지수 칸은 장중 지수 관측(5분 간격, `CLOSING_TRAJECTORY_INDEX_ENABLED`)을 먼저 쓰고 없으면 이 일봉 종가를 쓴다.
+- **해외 일봉(V40, 기록 전용·기본 켜짐)**: 미국 지수 S&P500(`SPX`)·나스닥 종합(`COMP`)·나스닥100(`NDX`)·다우(`.DJI`→`DJI`)·VIX·필라델피아 반도체(`SOX`)와 원/달러(`FX@KRW`→`USDKRW`)는 KIS `FHKST03030100`, EWY ETF(AMEX)는 `HHDFS76240000`(수정주가)으로 받아 `overseas_daily`에 저장한다. 날짜는 거래소 현지 거래일이다. 미국 거래일 D의 일봉은 한국시간 D+1 05:00~06:00 장 마감 뒤에 확정되므로, 월~토 07:50(`market.overseas-daily.cron`)에 최근 15일을 갱신하고 한국 날짜 오늘 이후 일봉은 저장하지 않는다. 15:15 평가 시점에 알 수 있는 미국 자료는 전날 밤 세션까지다. 점수에 쓰지 않는다.
 - **상한가 직전 호가(V34·V36)**, **후보 시장경고·DART 공시(V35)**: [운영 가이드](OPERATIONS.md#상한가-직전-매수-연구-수집), [DATABASE](DATABASE.md).
 
 연구용 데이터는 추천 점수·선정에 쓰지 않는다.

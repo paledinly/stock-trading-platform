@@ -163,6 +163,8 @@ ScannerType: `VOLUME`, `PRICE_RISE`, `MOMENTUM`, `VOLUME_BREAKOUT`, `TURNOVER_BR
 
 `backfill` 응답: 지수별 `name`, `requests`, `saved`, `oldest`, `newest`.
 
+`POST /market-data/overseas-daily/backfill?from=&to=`(**[연구]**): 미국 지수(SPX·COMP·NDX·DJI·VIX·SOX)·원/달러(USDKRW)·EWY 일봉을 KIS에서 받아 `overseas_daily`에 저장(있으면 갱신)한다. 한국 날짜 오늘 이후 일봉은 받지 않는다. 한 종목이 실패해도 다음 종목을 계속한다. 응답: 종목별 `symbol`, `requests`, `saved`, `oldest`, `newest`, `error`.
+
 ## 장마감 Trajectory (연구)
 
 **TrajectoryController** (`/closing-trajectory` 아래, 모두 **[연구]**)

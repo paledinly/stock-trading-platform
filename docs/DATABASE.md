@@ -27,7 +27,7 @@ PostgreSQL은 영구 데이터의 시스템 오브 레코드다. Redis와 프로
 | 연구: 호가·대량체결 | `closing_microstructure_minute`(V29) |
 | 연구: 수정주가 일봉 | `daily_adjusted_candle`, `daily_adjusted_sweep_state`(V33) |
 | 연구: 상한가 직전 | `limit_up_watch`(V34, V36) |
-| 기록 전용: 외부 요인 | `closing_candidate_context`, `dart_filing`(V35), `market_index_daily`(V37) |
+| 기록 전용: 외부 요인 | `closing_candidate_context`, `dart_filing`(V35), `market_index_daily`(V37), `overseas_daily`(V40) |
 | 사용하지 않음 | `platform_schema_version`(V1), `intraday_input`, `intraday_recommendation`(V27) |
 
 ## 주요 테이블 설명
@@ -61,6 +61,10 @@ KIS 국내휴장일조회로 받은 날짜별 개장 여부(`market_open`), 출�
 ### realtime_coverage_gap (V38, 기록 전용)
 
 장중 재시작(`RESTART`)·연결 끊김(`DISCONNECT`)으로 실시간 수신이 끊긴 구간이 종목·재구독마다 한 행이다. 키는 (`stock_code`, `resumed_at`). `lost_from`은 빈 구간 첫 5분 칸, `resumed_at`은 다시 구독된 시각(호스트 수신시각), `target_bars`는 대상 칸 수, `repaired_bars`는 끝났을 때 확정봉이 있는 칸 수, `still_missing`은 남은 칸 수(체결이 없던 칸 포함)다. 그날 표본이 연속 관측이 아니었음을 구분하는 데 쓴다.
+
+### overseas_daily (V40, 기록 전용)
+
+미국 지수·원/달러·EWY 일봉. 키는 (`symbol`, `trade_date`). `symbol`은 SPX·COMP·NDX·DJI·VIX·SOX·USDKRW·EWY, `source_code`는 KIS 조회 구분(`N:SPX`, `X:FX@KRW`, `AMS:EWY` 등)이다. `trade_date`는 거래소 현지 거래일, `fetched_at`은 호스트 수집 시각이다. 미국 거래일 D의 일봉은 한국시간 D+1 아침에야 확정되므로, 평가 시점에 쓸 수 있었는지는 `fetched_at`이 아니라 이 규칙으로 판단한다. 외부 요인 가설(H-D 등) 검증용이며 점수에 쓰지 않는다.
 
 ### market_index_daily (V37, 기록 전용)
 
