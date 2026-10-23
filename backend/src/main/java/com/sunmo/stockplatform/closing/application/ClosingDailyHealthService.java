@@ -95,14 +95,14 @@ public class ClosingDailyHealthService {
             Map<String, Integer> paperEntryStatuses, Map<String, Integer> observationStatuses,
             Boolean realtimeConnected, Long realtimeDroppedDelta, Instant realtimeWindowStart,
             Instant realtimeWindowEnd, Instant checkedAt, Map<String, Integer> precisionObservationStatuses,
-            Map<String, Integer> broadObservationStatuses, Stage stage) {
+            Map<String, Integer> broadObservationStatuses, Stage stage, Map<String, Object> indicators) {
         /**
          * 기록이 없는 거래일용 MISSING 행을 만들어요.
          * 받는 것: 날짜. 돌려주는 것: 이유 NO_HEALTH_RECORD인 DailyHealth.
          */
         static DailyHealth missing(LocalDate date) {
             return new DailyHealth(date, Verdict.MISSING, List.of("NO_HEALTH_RECORD"), false, null, null, null,
-                    null, null, Map.of(), Map.of(), null, null, null, null, null, null, null, null);
+                    null, null, Map.of(), Map.of(), null, null, null, null, null, null, null, null, null);
         }
     }
 
@@ -174,9 +174,72 @@ public class ClosingDailyHealthService {
                 facts.runId(), facts.runCompletedAt(), facts.selected(),
                 facts.selectedEntered(), facts.paperEntryStatuses(), facts.observationStatuses(),
                 realtime.connected(), realtime.droppedDelta(), realtime.start(), realtime.end(), now,
-                facts.precisionObservationStatuses(), facts.broadObservationStatuses(), stage);
+                facts.precisionObservationStatuses(), facts.broadObservationStatuses(), stage,
+                indicators(today, facts.runId()));
         upsert(health);
         return health;
+    }
+
+    /**
+     * 판정에 쓰지 않는 참고 지표예요. 판정은 정상인데 속은 잘못된 경우(2026-10-16~22 정밀 교체 멈춤, 전날 일봉 누락)를
+     * 빨리 알아채려고 남겨요. 지표 하나를 못 세도 기록은 계속하고 그 값만 비워요.
+     * - precisionReplacements: 그날 정밀 구독 교체로 빠진 종목 수(ALLOCATOR_REMOVED). 0이면 notes에 REPLACEMENTS_NONE.
+     * - dailyDataFlagged: 그날 공식 평가에서 일봉 결함(DAILY_DATA_STALE·DAILY_DATA_MISSING)이 붙은 정밀 후보 수.
+     * - coverageGaps, coverageStillMissing: 그날 장중 재시작·재연결 빈 구간 수와 채우지 못한 5분봉 수.
+     */
+    Map<String, Object> indicators(LocalDate today, Long runId) {
+        Map<String, Object> values = new TreeMap<>();
+        List<String> notes = new ArrayList<>();
+        Integer replacements = quietly(() -> jdbc.queryForObject("select count(*) from precision_subscription_session "
+                + "where session_date = ? and end_reason = 'ALLOCATOR_REMOVED'", Integer.class, today));
+        values.put("precisionReplacements", replacements);
+        if (replacements != null && replacements == 0 && runId != null)
+            notes.add("REPLACEMENTS_NONE");
+        Integer flagged = runId == null ? null : quietly(() -> dailyDataFlagged(runId));
+        values.put("dailyDataFlagged", flagged);
+        if (flagged != null && flagged > 0)
+            notes.add("DAILY_DATA_FLAGGED");
+        Map<String, Object> gaps = quietly(() -> jdbc.queryForMap("select count(*) gaps, coalesce(sum(still_missing), 0) "
+                + "missing from realtime_coverage_gap where session_date = ?", today));
+        values.put("coverageGaps", gaps == null ? null : ((Number) gaps.get("gaps")).intValue());
+        values.put("coverageStillMissing", gaps == null ? null : ((Number) gaps.get("missing")).intValue());
+        if (gaps != null && ((Number) gaps.get("missing")).intValue() > 0)
+            notes.add("COVERAGE_GAP_UNFILLED");
+        values.put("notes", notes);
+        return values;
+    }
+
+    /** 공식 run의 평가 결과에서 일봉 결함이 붙은 정밀 후보 수를 세요. */
+    private int dailyDataFlagged(long runId) {
+        String snapshot = jdbc.queryForObject("select response_snapshot from closing_recommendation_run where id = ?",
+                String.class, runId);
+        if (snapshot == null)
+            return 0;
+        int count = 0;
+        try {
+            for (var evaluation : json.readTree(snapshot).path("evaluations")) {
+                if (!"PRECISION".equals(evaluation.path("candidateSource").asText()))
+                    continue;
+                boolean flagged = List.of("DAILY_DATA_STALE", "DAILY_DATA_MISSING")
+                        .contains(evaluation.path("decisionReason").asText());
+                for (var missing : evaluation.path("missingFeatures"))
+                    flagged |= missing.asText().startsWith("DAILY_DATA_");
+                if (flagged)
+                    count++;
+            }
+        } catch (JsonProcessingException error) {
+            throw new IllegalStateException("Unreadable run snapshot " + runId, error);
+        }
+        return count;
+    }
+
+    /** 참고 지표를 셀 때 실패하면(테이블 없음 등) null을 돌려줘요. 판정 기록을 막지 않기 위해서예요. */
+    private static <T> T quietly(java.util.function.Supplier<T> query) {
+        try {
+            return query.get();
+        } catch (RuntimeException ignored) {
+            return null;
+        }
     }
 
     /**
@@ -289,20 +352,22 @@ public class ClosingDailyHealthService {
                 write(row.paperEntryStatuses()), write(row.observationStatuses()), row.realtimeConnected(),
                 row.realtimeDroppedDelta(), timestamp(row.realtimeWindowStart()), timestamp(row.realtimeWindowEnd()),
                 timestamp(row.checkedAt()), write(row.precisionObservationStatuses()),
-                write(row.broadObservationStatuses()), row.stage() == null ? null : row.stage().name(), row.tradeDate() };
+                write(row.broadObservationStatuses()), row.stage() == null ? null : row.stage().name(),
+                writeObject(row.indicators()), row.tradeDate() };
         int updated = jdbc.update("""
                 update closing_daily_health set verdict=?, reasons=?, strategy_version=?, run_id=?, run_completed_at=?,
                     selected_count=?, selected_entered=?, paper_entry_statuses=?, observation_statuses=?,
                     realtime_connected=?, realtime_dropped_delta=?, realtime_window_start=?, realtime_window_end=?,
-                    checked_at=?, precision_observation_statuses=?, broad_observation_statuses=?, record_stage=?
+                    checked_at=?, precision_observation_statuses=?, broad_observation_statuses=?, record_stage=?,
+                    indicators=?
                  where trade_date=?""", values);
         if (updated == 0)
             jdbc.update("""
                     insert into closing_daily_health(verdict, reasons, strategy_version, run_id, run_completed_at,
                         selected_count, selected_entered, paper_entry_statuses, observation_statuses,
                         realtime_connected, realtime_dropped_delta, realtime_window_start, realtime_window_end,
-                        checked_at, precision_observation_statuses, broad_observation_statuses, record_stage, trade_date)
-                        values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", values);
+                        checked_at, precision_observation_statuses, broad_observation_statuses, record_stage, indicators,
+                        trade_date) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", values);
     }
 
     /**
@@ -321,7 +386,26 @@ public class ClosingDailyHealthService {
                 instant(rs, "realtime_window_start"), instant(rs, "realtime_window_end"), instant(rs, "checked_at"),
                 nullableCounts(rs.getString("precision_observation_statuses")),
                 nullableCounts(rs.getString("broad_observation_statuses")),
-                rs.getString("record_stage") == null ? null : Stage.valueOf(rs.getString("record_stage")));
+                rs.getString("record_stage") == null ? null : Stage.valueOf(rs.getString("record_stage")),
+                readObject(rs.getString("indicators")));
+    }
+
+    private String writeObject(Map<String, Object> value) {
+        if (value == null)
+            return null;
+        try {
+            return json.writeValueAsString(value);
+        } catch (JsonProcessingException error) {
+            throw new IllegalStateException("Unable to serialize closing health indicators", error);
+        }
+    }
+
+    private Map<String, Object> readObject(String value) {
+        try {
+            return value == null || value.isBlank() ? null : json.readValue(value, new TypeReference<Map<String, Object>>() { });
+        } catch (JsonProcessingException error) {
+            return null;
+        }
     }
 
     /**

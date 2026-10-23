@@ -6,7 +6,7 @@
  */
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
-import { buildTimeline, hms, kstClock, type Collection, type Health, type StepState, type TodayInputs } from './todayTimeline'
+import { buildTimeline, hms, indicatorLine, kstClock, type Collection, type Health, type StepState, type TodayInputs } from './todayTimeline'
 import './today.css'
 
 /** 서버 JSON을 가져와요. 실패하면 상태 코드를 담은 오류를 던져요(404면 아직 재시작 전인 새 API예요). */
@@ -137,7 +137,7 @@ export function TodayPage() {
           {health.data && health.data.length === 0 && <p>기록이 없습니다.</p>}
           {health.data && health.data.length > 0 && (
             <table>
-              <thead><tr><th>거래일</th><th>판정</th><th>사유</th><th>공식 run</th><th>가상 진입</th><th>전일 후보 관측</th></tr></thead>
+              <thead><tr><th>거래일</th><th>판정</th><th>사유</th><th>공식 run</th><th>가상 진입</th><th>전일 후보 관측</th><th>참고 지표</th></tr></thead>
               <tbody>
                 {health.data.slice(0, 10).map(row => (
                   <tr key={row.tradeDate}>
@@ -147,6 +147,7 @@ export function TodayPage() {
                     <td>{row.runId ? `#${row.runId} · ${hms(row.runCompletedAt)}` : '-'}</td>
                     <td>{statusLine(row.paperEntryStatuses)}</td>
                     <td>{observationCell(row)}</td>
+                    <td>{indicatorLine(row.indicators)}</td>
                   </tr>
                 ))}
               </tbody>

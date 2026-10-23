@@ -3,6 +3,7 @@
  * 추천 점수는 상승 확률이 아니고, 진입과 청산은 모두 가상 실행이에요(실주문 없음).
  * AppShell(앱 전체 껍데기)이 '마감 추천' 메뉴(#/closing)에서 ClosingRecommendationPage를 띄워요.
  */
+import { indicatorLine, type HealthIndicators } from './todayTimeline'
 import { FormEvent, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import './closingRecommendation.css'
@@ -412,6 +413,7 @@ export type DailyHealth = {
   // V39부터: 판정에 쓰는 정밀 후보 관측, 참고용 Broad 관측, 기록 단계(1차·최종). 이전 행은 null이에요.
   precisionObservationStatuses?: Record<string, number> | null; broadObservationStatuses?: Record<string, number> | null
   stage?: 'PRELIMINARY' | 'FINAL' | null
+  indicators?: HealthIndicators | null
 }
 
 // 판정 코드와 사유 코드를 화면에 보여줄 한국어 문구로 바꾸는 표예요.
@@ -437,7 +439,7 @@ export function DailyHealthTable({ rows }: { rows: DailyHealth[] }) {
   return (
     <section className="menuGuide">
       {rows.length === 0 ? <p>기록된 거래일이 없습니다.</p> : <table>
-        <thead><tr><th>거래일</th><th>판정</th><th>평가 완료</th><th>추천/진입</th><th>후보 관측</th><th>실시간</th><th>사유</th></tr></thead>
+        <thead><tr><th>거래일</th><th>판정</th><th>평가 완료</th><th>추천/진입</th><th>후보 관측</th><th>실시간</th><th>사유</th><th>참고 지표</th></tr></thead>
         <tbody>{rows.map(row => {
           // 판정에 쓰는 정밀 후보 관측 수예요. V39 이전 행은 정밀·Broad 구분이 없어 합계를 써요.
           const judged = row.precisionObservationStatuses ?? row.observationStatuses ?? {}
@@ -451,6 +453,7 @@ export function DailyHealthTable({ rows }: { rows: DailyHealth[] }) {
             <td>{row.recorded ? `${row.precisionObservationStatuses ? '정밀 ' : ''}완료 ${judged.COMPLETED ?? 0}/${observed}${broad ? ` · Broad 참고 ${row.broadObservationStatuses?.COMPLETED ?? 0}/${broad}` : ''}` : '--'}</td>
             <td>{row.realtimeConnected == null ? '미관측' : row.realtimeConnected ? `연결 · 누락 ${row.realtimeDroppedDelta ?? 0}` : '끊김'}</td>
             <td>{row.reasons.map(reason => healthReasonLabels[reason] ?? reason).join(', ') || '--'}</td>
+            <td>{indicatorLine(row.indicators)}</td>
           </tr>
         })}</tbody>
       </table>}

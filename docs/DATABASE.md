@@ -21,7 +21,7 @@ PostgreSQL은 영구 데이터의 시스템 오브 레코드다. Redis와 프로
 | 후보 관측 | `closing_candidate_observation`(V26) |
 | 가상 진입 | `closing_paper_entry`(V30) |
 | 거래일 달력 | `trading_calendar_day`(V31) |
-| 일별 완결성 | `closing_daily_health`(V32, V39) |
+| 일별 완결성 | `closing_daily_health`(V32, V39, V41) |
 | 실시간 빈 구간 기록 | `realtime_coverage_gap`(V38) |
 | 연구: Trajectory | `closing_minute_feature`, `closing_context_observation`, `closing_trajectory_snapshot`(V28) |
 | 연구: 호가·대량체결 | `closing_microstructure_minute`(V29) |
@@ -38,7 +38,7 @@ PostgreSQL은 영구 데이터의 시스템 오브 레코드다. Redis와 프로
 
 ### closing_daily_health (V32, V39)
 
-`trade_date` 기본키로 마감 파이프라인 일별 완결성 판정을 저장한다. 당일 행만 갱신하고 지난 날짜는 다시 쓰지 않는다. 평가 완료시각(`run_completed_at`), 실시간 표본시각(`realtime_window_start/end`), 판정 기록시각(`checked_at`)을 구분한다. 가상 진입·후보 관측 상태별 수는 JSON 텍스트다. V39에서 판정에 쓰는 정밀 후보 관측(`precision_observation_statuses`), 참고용 Broad 관측(`broad_observation_statuses`), 기록 단계(`record_stage`: `PRELIMINARY` 15:45 · `FINAL` 18:15)를 더했다. `observation_statuses`는 합계로 남는다. [판정 기준](OPERATIONS.md#마감-파이프라인-일별-완결성).
+`trade_date` 기본키로 마감 파이프라인 일별 완결성 판정을 저장한다. 당일 행만 갱신하고 지난 날짜는 다시 쓰지 않는다. 평가 완료시각(`run_completed_at`), 실시간 표본시각(`realtime_window_start/end`), 판정 기록시각(`checked_at`)을 구분한다. 가상 진입·후보 관측 상태별 수는 JSON 텍스트다. V39에서 판정에 쓰는 정밀 후보 관측(`precision_observation_statuses`), 참고용 Broad 관측(`broad_observation_statuses`), 기록 단계(`record_stage`: `PRELIMINARY` 15:45 · `FINAL` 18:15)를 더했다. `observation_statuses`는 합계로 남는다. V41의 `indicators`(JSON)는 판정에 쓰지 않는 참고 지표다. [판정 기준](OPERATIONS.md#마감-파이프라인-일별-완결성).
 
 ### trading_calendar_day (V31)
 

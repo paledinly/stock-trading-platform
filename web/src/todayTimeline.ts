@@ -36,6 +36,27 @@ export type Health = {
   // V39부터: 판정에 쓰는 정밀 후보 관측, 참고용 Broad 관측, 기록 단계(15:45 1차 PRELIMINARY · 18:15 최종 FINAL). 이전 행은 null이에요.
   precisionObservationStatuses?: Record<string, number> | null; broadObservationStatuses?: Record<string, number> | null
   stage?: 'PRELIMINARY' | 'FINAL' | null
+  indicators?: HealthIndicators | null
+}
+
+/** 일별 완결성의 참고 지표예요(판정에 쓰지 않아요). V41 이전 행은 없어요. */
+export type HealthIndicators = {
+  precisionReplacements?: number | null; dailyDataFlagged?: number | null
+  coverageGaps?: number | null; coverageStillMissing?: number | null; notes?: string[]
+}
+
+const INDICATOR_NOTE_LABEL: Record<string, string> = {
+  REPLACEMENTS_NONE: '정밀 교체 0건', DAILY_DATA_FLAGGED: '일봉 결함 후보 있음', COVERAGE_GAP_UNFILLED: '재연결 빈칸 남음',
+}
+
+/** 참고 지표를 한 줄 문구로 만들어요. 주의할 점이 있으면 앞에 ⚠와 이름을 붙여요. 없으면 '-'예요. */
+export function indicatorLine(indicators?: HealthIndicators | null) {
+  if (!indicators) return '-'
+  const value = (n?: number | null) => (n == null ? '?' : String(n))
+  const parts = [`교체 ${value(indicators.precisionReplacements)}`, `일봉 결함 ${value(indicators.dailyDataFlagged)}`,
+    `재연결 빈칸 ${value(indicators.coverageGaps)}(남음 ${value(indicators.coverageStillMissing)})`]
+  const notes = (indicators.notes ?? []).map(note => INDICATOR_NOTE_LABEL[note] ?? note)
+  return `${notes.length ? `⚠ ${notes.join(', ')} · ` : ''}${parts.join(' · ')}`
 }
 /** Broad 후보 관측 건수를 참고용 꼬리 문구로 만들어요. 없으면 빈 글자예요. */
 function broadLine(values?: Record<string, number>) {
@@ -238,7 +259,7 @@ export function buildTimeline(input: TodayInputs): Step[] {
     !input.health ? 'unknown' : today?.stage === 'FINAL'
       ? (today.verdict === 'COMPLETE' ? 'done' : today.verdict === 'DEGRADED' ? 'warn' : 'problem')
       : before('18:15') ? 'waiting' : due('18:15', 5) ? 'warn' : 'running',
-    today?.stage === 'FINAL' ? `${today.verdict}${today.reasons.length ? ` · ${today.reasons.join(', ')}` : ''}` : '아직 최종 기록이 없어요.')
+    today?.stage === 'FINAL' ? `${today.verdict}${today.reasons.length ? ` · ${today.reasons.join(', ')}` : ''} · 참고: ${indicatorLine(today.indicators)}` : '아직 최종 기록이 없어요.')
 
   // 18:30 수정주가 일봉(연구).
   const adjusted = collection?.adjustedDaily

@@ -2,7 +2,7 @@
  * '오늘' 화면 시간표 판정 규칙(todayTimeline.ts) 테스트예요.
  * 브라우저 시간대와 상관없이 한국시간으로 계산되는지, 시각·자료에 따라 예정/진행/정상/문제가 맞게 정해지는지 확인해요.
  */
-import { buildTimeline, kstClock, type Collection, type TodayInputs } from './todayTimeline'
+import { buildTimeline, indicatorLine, kstClock, type Collection, type TodayInputs } from './todayTimeline'
 
 /** 2026-10-02(금) 한국시간 hh:mm의 시계예요. */
 const clockAt = (time: string) => kstClock(new Date(`2026-10-02T${time}:00+09:00`))
@@ -111,6 +111,14 @@ test('shows the evening jobs after 18:15', () => {
   expect(steps.find(step => step.id === 'late-observation')?.detail).toContain('다시 채운 5분봉 19')
   expect(state(steps, 'health-final')).toBe('done')
   expect(steps.map(step => step.time)).toEqual([...steps.map(step => step.time)].sort())
+})
+
+// 참고 지표 문구: 주의할 점은 앞에 붙이고, 값이 없으면 '-'예요.
+test('formats daily health reference indicators', () => {
+  expect(indicatorLine(null)).toBe('-')
+  expect(indicatorLine({ precisionReplacements: 0, dailyDataFlagged: 2, coverageGaps: 41, coverageStillMissing: 0,
+    notes: ['REPLACEMENTS_NONE', 'DAILY_DATA_FLAGGED'] }))
+    .toBe('⚠ 정밀 교체 0건, 일봉 결함 후보 있음 · 교체 0 · 일봉 결함 2 · 재연결 빈칸 41(남음 0)')
 })
 
 // 18:15가 지났는데 최종 기록이 없으면 확인 필요, 18:00 전에는 재보완이 예정이에요.

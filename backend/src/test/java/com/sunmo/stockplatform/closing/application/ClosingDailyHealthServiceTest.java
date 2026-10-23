@@ -53,7 +53,8 @@ class ClosingDailyHealthServiceTest {
                 + "expected_session_date date, status varchar(20), candidate_source varchar(20))");
         new ResourceDatabasePopulator(new ClassPathResource("db/migration/V30__closing_paper_entry.sql"),
                 new ClassPathResource("db/migration/V32__create_closing_daily_health.sql"),
-                new ClassPathResource("db/migration/V39__split_daily_health_observations.sql")).execute(db);
+                new ClassPathResource("db/migration/V39__split_daily_health_observations.sql"),
+                new ClassPathResource("db/migration/V41__add_daily_health_indicators.sql")).execute(db);
     }
     /** 테스트가 끝나면 메모리 DB를 내려요. */
     @AfterEach void close() { db.shutdown(); }
@@ -197,6 +198,35 @@ class ClosingDailyHealthServiceTest {
         assertThat(rows.get(1).reasons()).containsExactly("OFFICIAL_RUN_MISSING");
         assertThat(rows.get(1).checkedAt()).as("earlier days are never rewritten").isEqualTo(CHECK.minusSeconds(86400));
         assertThat(jdbc.queryForObject("select count(*) from closing_daily_health", Integer.class)).isEqualTo(2);
+    }
+
+    /**
+     * 참고 지표(정밀 교체 수, 일봉 결함 정밀 후보 수, 재연결 빈 구간)를 판정과 따로 기록하는지 확인해요.
+     * 입력: 교체 0건, 일봉 결함 정밀 후보 1건(Broad 결함은 세지 않음), 빈 구간 2개 중 채우지 못한 봉 1개.
+     * 기대: 판정 사유에는 없고, indicators에 값과 notes(REPLACEMENTS_NONE, DAILY_DATA_FLAGGED, COVERAGE_GAP_UNFILLED)가 남아요.
+     */
+    @Test void recordsReferenceIndicatorsWithoutChangingTheVerdict() {
+        jdbc.execute("alter table closing_recommendation_run add column response_snapshot text");
+        jdbc.execute("create table precision_subscription_session(session_date date, end_reason varchar(40))");
+        jdbc.execute("create table realtime_coverage_gap(session_date date, still_missing integer)");
+        jdbc.update("insert into closing_recommendation_run values (7, ?, ?, 'FORWARD', 'closing-recommend-v9_1-1515', "
+                + "'official-2026-10-02-closing-recommend-v9_1-1515', ?)", FRIDAY, Timestamp.from(COMPLETED),
+                "{\"evaluations\":[{\"candidateSource\":\"PRECISION\",\"decisionReason\":\"OPPORTUNITY_OR_RISK_FILTERED\","
+                        + "\"missingFeatures\":[\"DAILY_DATA_STALE\"]},{\"candidateSource\":\"PRECISION\",\"decisionReason\":"
+                        + "\"OVEREXTENDED\",\"missingFeatures\":[]},{\"candidateSource\":\"BROAD\",\"decisionReason\":"
+                        + "\"DAILY_DATA_MISSING\",\"missingFeatures\":[]}]}");
+        jdbc.update("insert into precision_subscription_session values (?, 'PROCESS_RESTART'), (?, 'ALLOCATOR_REMOVED')",
+                FRIDAY, FRIDAY.minusDays(1));
+        jdbc.update("insert into realtime_coverage_gap values (?, 0), (?, 1)", FRIDAY, FRIDAY);
+
+        DailyHealth row = service(CHECK).recordToday(HEALTHY, Stage.PRELIMINARY);
+
+        assertThat(row.reasons()).doesNotContain("REPLACEMENTS_NONE", "DAILY_DATA_FLAGGED", "COVERAGE_GAP_UNFILLED");
+        assertThat(row.indicators()).containsEntry("precisionReplacements", 0).containsEntry("dailyDataFlagged", 1)
+                .containsEntry("coverageGaps", 2).containsEntry("coverageStillMissing", 1);
+        assertThat(row.indicators().get("notes")).isEqualTo(List.of("REPLACEMENTS_NONE", "DAILY_DATA_FLAGGED", "COVERAGE_GAP_UNFILLED"));
+        DailyHealth stored = service(CHECK).list(FRIDAY, FRIDAY).getFirst();
+        assertThat(stored.indicators()).containsEntry("dailyDataFlagged", 1);
     }
 
     /**

@@ -1,10 +1,11 @@
 /*
  * 지금 시각이 시장 전체 스캔을 돌려도 되는 시간인지 판단하는 파일이에요.
- * 주말, 설정된 휴장일, 장 시간 밖이면 거절하고, 가능하면 "몇 시 몇 분 회차"인지(버킷)를 계산해 줘요.
+ * 주말, 휴장일(ClosingTradingCalendar 기준: KIS 공식 거래일 정보, 확인된 임시 휴장일, 설정 휴장일), 장 시간 밖이면 거절하고, 가능하면 "몇 시 몇 분 회차"인지(버킷)를 계산해 줘요.
  * MarketWideScanScheduler가 주기적으로 이 판단을 물어봐요.
  */
 package com.sunmo.stockplatform.marketwide.application;
 
+import com.sunmo.stockplatform.closing.application.ClosingTradingCalendar;
 import com.sunmo.stockplatform.market.config.MarketWideScheduleProperties;
 import org.springframework.stereotype.Component;
 import java.time.*;
@@ -17,13 +18,24 @@ import java.time.*;
 public class MarketSessionPolicy {
     private static final ZoneId MARKET_ZONE = ZoneId.of("Asia/Seoul");
     private final MarketWideScheduleProperties properties;
+    private final ClosingTradingCalendar calendar;
 
     /**
-     * 하는 일: 스캔 일정 설정을 받아 정책 객체를 만들어요.
+     * 하는 일: 스캔 일정 설정만으로 정책 객체를 만들어요(공식 거래일 정보 없이 주말·확인된 임시 휴장일·설정 휴장일로 판단).
      * 받는 것: 장 시작/마감 시각, 간격, 휴장일 목록이 담긴 설정값.
      */
     public MarketSessionPolicy(MarketWideScheduleProperties properties) {
+        this(properties, new ClosingTradingCalendar(properties));
+    }
+
+    /**
+     * 하는 일: 휴장일 판단을 마감 추천과 같은 거래일 달력(ClosingTradingCalendar)에 맡기는 정책 객체를 만들어요.
+     * 예전에는 설정 휴장일 목록만 봐서 목록에 없는 임시 휴장일에도 스캔이 돌 수 있었어요(AGENTS: 휴장일은 ClosingTradingCalendar 정책).
+     */
+    @org.springframework.beans.factory.annotation.Autowired
+    public MarketSessionPolicy(MarketWideScheduleProperties properties, ClosingTradingCalendar calendar) {
         this.properties = properties;
+        this.calendar = calendar;
     }
 
     /**
@@ -38,10 +50,9 @@ public class MarketSessionPolicy {
         DayOfWeek day = marketNow.getDayOfWeek();
         if (day == DayOfWeek.SATURDAY || day == DayOfWeek.SUNDAY)
             return new Decision(false, null, "WEEKEND");
-        // ⚠️ 확인 필요: 설정에 적힌 정적 휴장일 목록만 보고 있어요.
-        // 프로젝트 규칙상 휴장일은 ClosingTradingCalendar 정책을 따라야 하므로, 목록에 없는 임시 휴장일엔 스캔이 돌 수 있어요.
-        if (properties.holidays().contains(date))
-            return new Decision(false, null, "CONFIGURED_HOLIDAY");
+        // 휴장일은 거래일 달력(공식 KIS 정보 우선, 없으면 확인된 임시 휴장일·설정 휴장일)으로 판단해요.
+        if (!calendar.isTradingDay(date))
+            return new Decision(false, null, properties.holidays().contains(date) ? "CONFIGURED_HOLIDAY" : "MARKET_CLOSED");
         LocalTime time = marketNow.toLocalTime();
         if (time.isBefore(properties.open()) || time.isAfter(properties.close()))
             return new Decision(false, null, "OUTSIDE_SESSION");

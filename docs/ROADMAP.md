@@ -20,7 +20,6 @@
 - 미사용 테이블 `platform_schema_version`, `intraday_input`, `intraday_recommendation` 삭제(새 migration 필요)
 - `web/vite.config.ts`의 하드코딩된 ngrok 허용 호스트
 - Mobile 앱 유지 여부(2026-09-28 이후 변경 없음, Android 릴리스 manifest에 `INTERNET` 권한 없음)
-- `MarketSessionPolicy`와 `ClosingTradingCalendar`의 거래일 판단 중복
 - `application.yml`에만 있고 `.env.example`에 없는 설정 키 보완
 - 실시간 레이더(`ScannerPage`)가 `RealtimeBridge`와 별도로 SSE 연결을 하나 더 여는 구조
 
@@ -38,8 +37,8 @@ ADR-010 1차 표본은 2026-10-23 평가부터 다시 센다(완료 60건·15거
 - 해외 요인: KIS 해외 지수·환율(`FHKST03030100`)·EWY(`HHDFS76240000`) 조회 확인과 07:50 수집기(V40 `overseas_daily`)는 2026-10-23에 만들었다. H-D는 데이터를 보기 전에 [사전 등록](../audit/2026-10-23-overseas-h-d-preregistration/README.md)했다. 남은 일: 운영 반영 뒤 과거 일봉 받기(2026-03부터), 과거 검증 스크립트 실행.
 - 업종 쏠림 기록(KIS 종목 마스터 업종 코드), 투자자 수급 수집 대상과 정밀 후보 겹침 비율.
 - 18:00 재보완 시각 측정(15:25 봉 거래량을 16:00·16:30·17:00·18:00에 조회).
-- 일별 완결성 참고 지표: 정밀 교체 건수(0건 경고), `DAILY_DATA_STALE` 건수, 재시작 빈 구간 수. 판정 기준은 그대로 둔다.
-- 시장 스캔 휴장일 판단을 `ClosingTradingCalendar`로 통일(아래 정리 보류 항목과 같은 일), DB 연결 풀 크기 조정(Supabase session mode 15개 한도), 휴장일·주말에 도는 작업 정리.
+- 일별 완결성 참고 지표(V41)와 시장 스캔 휴장일 판단 통일은 2026-10-23에 했다.
+- DB 연결 풀 크기 조정(Supabase session mode 15개 한도), 휴장일·주말에 도는 작업 정리.
 - 정밀 점수 추이 표시(표시 전용), 079650 종가 단일가 체결 재확인, `scripts/remote.ps1`(원격 접속) 사용 여부 결정.
 
 **체크포인트 뒤 (새 ADR과 비교 검증 필요)**

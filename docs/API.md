@@ -134,6 +134,7 @@ ScannerType: `VOLUME`, `PRICE_RISE`, `MOMENTUM`, `VOLUME_BREAKOUT`, `TURNOVER_BR
 - `observationStatuses`: 당일이 관측 세션인 FORWARD 후보 관측의 상태별 수(정밀·Broad 합계)
 - `precisionObservationStatuses`, `broadObservationStatuses`: 판정에 쓰는 정밀 후보와 참고용 Broad 후보의 상태별 수. V39(2026-10-22) 이전 행은 null
 - `stage`: `PRELIMINARY`(15:45 1차), `FINAL`(18:15, 18:00 재보완 뒤 최종). V39 이전 행은 null
+- `indicators`: 판정에 쓰지 않는 참고 지표 `precisionReplacements`, `dailyDataFlagged`, `coverageGaps`, `coverageStillMissing`, `notes`. 못 센 값은 null. V41 이전 행은 null
 - `realtimeConnected`, `realtimeDroppedDelta`, `realtimeWindowStart/End`: 15:15 직전~15:20 이후 호스트 표본 사이 연결 유지 여부와 `processingDropped` 증가량. 미관측이면 null
 - `checkedAt`: 판정 기록시각
 

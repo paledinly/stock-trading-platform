@@ -79,6 +79,13 @@ Windows Home 호스트 설정:
 - DEGRADED: 실행은 완료됐으나 진입 마감 후 완료, 추천 종목 가상 진입 누락, 15:14~15:20 실시간 미관측·연결 끊김·처리 누락(`processingDropped` 증가), 당일 관측 대상 **정밀(PRECISION) 후보**의 미완료·결측(2026-10-22부터. Broad 후보는 실시간 구독·분봉 보완이 없어 원래 결측이 많으므로 판정에 쓰지 않고 참고로만 기록한다. 이전 기록은 Broad까지 포함해 거의 매일 DEGRADED였다), 평가 구간(14:30~15:15) Scanner 탐지 0건(`SCANNER_DETECTIONS_MISSING`) 중 하나 이상.
 - COMPLETE: 위 사유가 없음. 추천 0건인 NO TRADE도 실행이 완료됐으면 COMPLETE다.
 
+판정과 별도로 참고 지표(`indicators`, V41)를 함께 남긴다. 판정은 바꾸지 않는다. 판정은 정상인데 후보군이나 데이터 준비가 잘못된 경우(2026-10-16~22 정밀 교체 멈춤, 전날 일봉 누락)를 빨리 알아채기 위한 것이다.
+
+- `precisionReplacements`: 그날 정밀 구독 교체로 빠진 종목 수. 공식 run이 있는데 0이면 `REPLACEMENTS_NONE`
+- `dailyDataFlagged`: 그날 공식 평가에서 일봉 결함(`DAILY_DATA_STALE`·`DAILY_DATA_MISSING`)이 붙은 정밀 후보 수. 1 이상이면 `DAILY_DATA_FLAGGED`
+- `coverageGaps`, `coverageStillMissing`: 그날 장중 재시작·재연결 빈 구간 수와 채우지 못한 5분봉 수. 남은 봉이 있으면 `COVERAGE_GAP_UNFILLED`
+- 주의할 점은 `notes`에 모인다. '오늘' 화면과 마감 추천 화면의 완결성 표 '참고 지표' 열에 ⚠로 보인다.
+
 실시간 상태는 프로세스 메모리 표본(15:14~15:15 직전, 15:20 이후 첫 poll)이므로 그 사이 재시작하면 미관측이다. 15:45 이후 재시작해 다시 기록할 때는 먼저 기록된 실시간 표본을 유지한다. 조회: `GET /api/v1/closing-recommendations/daily-health?from=&to=`, 마감 추천 화면의 ‘일별 수집 완결성’ 표(최근 10거래일). 이 판정은 수집 완결성이며 전략 성과나 표본 품질 승인이 아니다.
 
 ## 수정주가 일봉 수집 (연구용)
@@ -103,7 +110,7 @@ WebSocket 구독 기본 한도는 41개다. 관심종목 실시간 고정(최대
 
 전일 후보 관측은 장 종료 10분 후(15:40) 분봉 보완 직후 계산하고, KIS가 15:30 종가 단일가 분봉 체결량을 늦게 채우는 종목이 있어 18:00에 보완과 관측 재평가를 한 번 더 한다(ADR-010 보완 기록). 로그 `Observation backfill: Result[...]`로 확인한다.
 
-Precision 후보 교체는 기본 14:50(`MARKET_PRECISION_FREEZE_AT`)에 동결된다. 일봉 준비는 08:10 전체 준비(`CLOSING_DAILY_BACKFILL_CRON`)와 14:25/14:35 Precision 보완(`CLOSING_DAILY_PRECISION_CRON`, 지금 정밀 구독 중인 종목 기준)으로 나뉜다. 정밀 배정은 날짜가 바뀌어도 비우지 않으므로, 재시작 없이 넘어가면 전날 정밀 종목이 다음 날에도 이어진다. 이때 그날 첫 배정 조정에서 전날 세션을 `DAY_ROLLOVER`로 닫고 오늘 날짜 세션을 새로 남긴다. 백엔드가 시작하면 이전 프로세스가 열어 둔 정밀 세션을 `PROCESS_RESTART`로 닫는다. 완료된 Forward 평가의 전체 후보 관측은 최종 추천과 미선정 후보를 같은 가상 실행 규칙으로 관측하지만 추천 결과 자체를 바꾸지 않는다.
+시장 전체 스캔은 평일 09:00~15:20(`MARKET_WIDE_OPEN`·`MARKET_WIDE_CLOSE`)에 돌고, 휴장일은 `ClosingTradingCalendar`(KIS 공식 거래일 정보 우선, 확인된 임시 휴장일, `MARKET_WIDE_HOLIDAYS`)로 판단한다(2026-10-23부터. 그 전에는 `MARKET_WIDE_HOLIDAYS` 목록만 봤다). Precision 후보 교체는 기본 14:50(`MARKET_PRECISION_FREEZE_AT`)에 동결된다. 일봉 준비는 08:10 전체 준비(`CLOSING_DAILY_BACKFILL_CRON`)와 14:25/14:35 Precision 보완(`CLOSING_DAILY_PRECISION_CRON`, 지금 정밀 구독 중인 종목 기준)으로 나뉜다. 정밀 배정은 날짜가 바뀌어도 비우지 않으므로, 재시작 없이 넘어가면 전날 정밀 종목이 다음 날에도 이어진다. 이때 그날 첫 배정 조정에서 전날 세션을 `DAY_ROLLOVER`로 닫고 오늘 날짜 세션을 새로 남긴다. 백엔드가 시작하면 이전 프로세스가 열어 둔 정밀 세션을 `PROCESS_RESTART`로 닫는다. 완료된 Forward 평가의 전체 후보 관측은 최종 추천과 미선정 후보를 같은 가상 실행 규칙으로 관측하지만 추천 결과 자체를 바꾸지 않는다.
 
 ## 장애 확인
 

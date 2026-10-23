@@ -45,6 +45,17 @@ class MarketSessionPolicyTest {
         assertThat(policy.evaluate(at("2026-09-07T15:21:00")).reason()).isEqualTo("OUTSIDE_SESSION");
     }
 
+    /**
+     * 설정 목록에 없어도 거래일 달력이 휴장으로 보는 날(확인된 임시 휴장일 2026-09-24)에는 스캔하지 않는지 확인해요.
+     */
+    @Test
+    void rejectsClosuresKnownOnlyToTheTradingCalendar() {
+        MarketSessionPolicy policy = policy(List.of());
+        var closed = policy.evaluate(at("2026-09-24T10:00:00"));
+        assertThat(closed.eligible()).isFalse();
+        assertThat(closed.reason()).isEqualTo("MARKET_CLOSED");
+    }
+
     /** 09:00~15:20 장, 14:00 이후 2분 구간을 쓰는 테스트용 정책을 만드는 도우미예요. */
     private MarketSessionPolicy policy(List<LocalDate> holidays) {
         return new MarketSessionPolicy(new MarketWideScheduleProperties(true, 120, 30, false,
