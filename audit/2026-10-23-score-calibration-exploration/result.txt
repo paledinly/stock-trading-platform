@@ -1,0 +1,44 @@
+candidates 413 (dropped 25) days 17 2026-09-22..2026-10-21
+day mean NEXT_OPEN/BASELINE/CC: 09-22 -0.10/-1.41 | 09-23 +0.98/+1.53 | 09-28 -0.66/-1.23 | 09-29 +0.98/+0.75 | 09-30 -0.96/-1.35 | 10-01 -0.45/-0.24 | 10-02 +0.76/+0.94 | 10-06 +0.08/-0.91 | 10-07 -1.24/-2.12 | 10-08 -1.37/-1.91 | 10-13 -0.86/-1.35 | 10-14 -3.43/-3.97 | 10-15 +0.16/+0.11 | 10-16 -1.66/-1.61 | 10-19 -1.13/-2.43 | 10-20 +0.97/+0.48 | 10-21 -0.65/-1.44
+
+== final score, within-day terciles (mean within-day excess Net, 95% day-resampled)
+  score within-day low             n=143 days=17 | next_open +0.17% [-0.20,+0.55] | baseline +0.32% [-0.10,+0.74]
+  score within-day mid             n=138 days=17 | next_open -0.12% [-0.58,+0.28] | baseline -0.25% [-0.75,+0.19]
+  score within-day high            n=132 days=17 | next_open -0.06% [-0.49,+0.45] | baseline -0.09% [-0.57,+0.47]
+
+== opportunity score, within-day terciles (mean within-day excess Net, 95% day-resampled)
+  opp within-day low               n=143 days=17 | next_open -0.08% [-0.43,+0.30] | baseline +0.05% [-0.33,+0.42]
+  opp within-day mid               n=138 days=17 | next_open -0.02% [-0.29,+0.31] | baseline +0.10% [-0.18,+0.43]
+  opp within-day high              n=132 days=17 | next_open +0.10% [-0.31,+0.54] | baseline -0.15% [-0.64,+0.34]
+
+== risk score, within-day terciles (mean within-day excess Net, 95% day-resampled)
+  risk within-day low              n=143 days=17 | next_open -0.20% [-0.66,+0.21] | baseline -0.35% [-0.81,+0.09]
+  risk within-day mid              n=138 days=17 | next_open +0.02% [-0.31,+0.48] | baseline +0.09% [-0.35,+0.63]
+  risk within-day high             n=132 days=17 | next_open +0.20% [-0.18,+0.58] | baseline +0.29% [-0.16,+0.74]
+
+== final score, absolute bands (mean within-day excess Net, 95% day-resampled)
+  score < 30                       n=260 days=17 | next_open +0.02% [-0.20,+0.18] | baseline +0.03% [-0.21,+0.21]
+  30 <= score < 55                 n= 93 days=17 | next_open +0.21% [-0.25,+0.83] | baseline +0.13% [-0.34,+0.75]
+  score >= 55                      n= 60 days=16 | next_open -0.42% [-1.00,-0.13] | baseline -0.33% [-1.04,+0.20]
+
+== decision reason (gate that excluded the candidate) (mean within-day excess Net, 95% day-resampled)
+  OPPORTUNITY_OR_RISK_FILTERED     n=311 days=17 | next_open -0.08% [-0.24,+0.06] | baseline -0.00% [-0.17,+0.15]
+  RECEIVED_AFTER_EVALUATION        n= 26 days= 6 | next_open -0.27% [-0.79,+0.52] | baseline -0.70% [-1.74,+0.29]
+  OVEREXTENDED                     n= 22 days= 9 | next_open +0.46% [-0.88,+1.54] | baseline -0.03% [-1.20,+0.91]
+  DAILY_TREND_WEAK                 n= 20 days= 4 | next_open +1.01% [+0.29,+4.56] | baseline +0.86% [-0.02,+4.81]
+  DAILY_DATA_STALE                 n= 17 days= 7 | next_open +0.51% [-0.89,+4.12] | baseline +0.46% [-1.02,+4.25]
+  LOW_LIQUIDITY                    n=  5 days= 3 | next_open -0.13% [-1.77,+1.52] | baseline -0.24% [-2.49,+2.01]
+  STALE_FEATURE                    n=  4 days= 2 | next_open -0.44% | baseline -0.12%
+  CANDLE_GAP                       n=  3 days= 3 | next_open -0.13% [-2.67,+3.46] | baseline +0.09% [-1.68,+2.91]
+  QUALIFIED                        n=  2 days= 2 | next_open -1.33% | baseline -1.93%
+  INTRADAY_REVERSAL                n=  2 days= 2 | next_open -0.64% | baseline -1.92%
+  LOW_FINAL_SCORE                  n=  1 days= 1 | next_open -0.21% | baseline +2.84%
+
+== version (mean within-day excess Net, 95% day-resampled)
+  closing-recommend-v8-1500        n=199 days= 9 | next_open -0.00% [-0.00,+0.00] | baseline -0.00% [-0.00,+0.00]
+  closing-recommend-v9-1515        n= 40 days= 2 | next_open -0.00% | baseline +0.00%
+  closing-recommend-v9_1-1515      n=174 days= 6 | next_open +0.00% [-0.00,+0.00] | baseline -0.00% [-0.00,-0.00]
+
+== Spearman(score, Net) per day, mean over days (95% day-resampled)
+  next_open mean rho -0.046 [-0.162, +0.079] days 17 positive 5
+  baseline  mean rho -0.009 [-0.141, +0.127] days 17 positive 7
