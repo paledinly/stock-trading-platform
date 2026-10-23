@@ -1,0 +1,63 @@
+
+===== discovery 2026-03-18..2026-07-31 days 74 | base universe NEXT_OPEN -0.07% BASELINE -0.73%
+  H1 day return     [0,3)%     days  74 events  16572 | NEXT_OPEN +0.03% BASELINE -0.64% | vs base +0.10% [-0.02, +0.23]
+  H1 day return     [10,20)%   days  74 events   3245 | NEXT_OPEN -0.02% BASELINE -0.93% | vs base +0.05% [-0.27, +0.38]
+  H1 day return     [3,10)%    days  74 events  12912 | NEXT_OPEN +0.10% BASELINE -0.74% | vs base +0.17% [+0.01, +0.33]
+  H2 close location <0.2       days  74 events  20728 | NEXT_OPEN -0.13% BASELINE -0.76% | vs base -0.06% [-0.18, +0.06]
+  H2 close location >0.8       days  74 events   8932 | NEXT_OPEN -0.28% BASELINE -0.98% | vs base -0.21% [-0.40, -0.03]
+  H2 close location [0.2,0.8]  days  74 events  46200 | NEXT_OPEN -0.13% BASELINE -0.80% | vs base -0.06% [-0.09, -0.03]
+  H3 volume/20d     <1         days  74 events  46660 | NEXT_OPEN -0.16% BASELINE -0.80% | vs base -0.09% [-0.14, -0.04]
+  H3 volume/20d     >=3        days  74 events   5185 | NEXT_OPEN -0.01% BASELINE -0.83% | vs base +0.06% [-0.21, +0.36]
+  H3 volume/20d     [1,3)      days  74 events  24002 | NEXT_OPEN -0.10% BASELINE -0.76% | vs base -0.03% [-0.09, +0.03]
+  H4 close/MA20     (0,12]%    days  74 events  20645 | NEXT_OPEN -0.09% BASELINE -0.79% | vs base -0.02% [-0.19, +0.14]
+  H4 close/MA20     <=0        days  74 events  45835 | NEXT_OPEN -0.18% BASELINE -0.81% | vs base -0.11% [-0.17, -0.04]
+  H4 close/MA20     >12%       days  74 events   9384 | NEXT_OPEN -0.17% BASELINE -1.04% | vs base -0.10% [-0.38, +0.18]
+  H5 close/open     (-3,3)%    days  74 events  38983 | NEXT_OPEN -0.07% BASELINE -0.65% | vs base +0.01% [-0.06, +0.09]
+  H5 close/open     <=-3%      days  74 events  23657 | NEXT_OPEN -0.23% BASELINE -0.97% | vs base -0.16% [-0.29, -0.02]
+  H5 close/open     >=+3%      days  74 events  13224 | NEXT_OPEN +0.04% BASELINE -0.79% | vs base +0.12% [-0.03, +0.26]
+  H6 up streak      <3         days  74 events  69632 | NEXT_OPEN -0.14% BASELINE -0.80% | vs base -0.07% [-0.09, -0.04]
+  H6 up streak      >=3        days  74 events   6232 | NEXT_OPEN -0.20% BASELINE -0.98% | vs base -0.13% [-0.42, +0.15]
+  H7 value rank     1..100     days  74 events   7098 | NEXT_OPEN +0.14% BASELINE -0.56% | vs base +0.21% [+0.04, +0.38]
+  H7 value rank     101..500   days  74 events  28944 | NEXT_OPEN -0.07% BASELINE -0.77% | vs base +0.00% [-0.05, +0.05]
+
+===== check 2026-08-01..2026-10-21 days 53 | base universe NEXT_OPEN -0.33% BASELINE -0.66%
+  H1 day return     [0,3)%     days  53 events  11839 | NEXT_OPEN -0.40% BASELINE -0.67% | vs base -0.07% [-0.15, +0.02]
+  H1 day return     [10,20)%   days  53 events   1594 | NEXT_OPEN -0.28% BASELINE -0.98% | vs base +0.05% [-0.24, +0.38]
+  H1 day return     [3,10)%    days  53 events   7816 | NEXT_OPEN -0.39% BASELINE -0.87% | vs base -0.06% [-0.17, +0.04]
+  H2 close location <0.2       days  53 events   9465 | NEXT_OPEN -0.22% BASELINE -0.61% | vs base +0.11% [-0.01, +0.23]
+  H2 close location >0.8       days  53 events   7605 | NEXT_OPEN -0.61% BASELINE -1.00% | vs base -0.28% [-0.41, -0.14]
+  H2 close location [0.2,0.8]  days  53 events  24067 | NEXT_OPEN -0.36% BASELINE -0.69% | vs base -0.03% [-0.06, +0.01]
+  H3 volume/20d     <1         days  53 events  23798 | NEXT_OPEN -0.39% BASELINE -0.66% | vs base -0.06% [-0.11, -0.00]
+  H3 volume/20d     >=3        days  53 events   3524 | NEXT_OPEN -0.27% BASELINE -0.89% | vs base +0.06% [-0.15, +0.29]
+  H3 volume/20d     [1,3)      days  53 events  13806 | NEXT_OPEN -0.41% BASELINE -0.76% | vs base -0.08% [-0.14, -0.02]
+  H4 close/MA20     (0,12]%    days  53 events  16246 | NEXT_OPEN -0.36% BASELINE -0.64% | vs base -0.03% [-0.09, +0.04]
+  H4 close/MA20     <=0        days  53 events  16930 | NEXT_OPEN -0.35% BASELINE -0.61% | vs base -0.02% [-0.08, +0.06]
+  H4 close/MA20     >12%       days  53 events   7963 | NEXT_OPEN -0.42% BASELINE -1.03% | vs base -0.09% [-0.20, +0.03]
+  H5 close/open     (-3,3)%    days  53 events  24829 | NEXT_OPEN -0.36% BASELINE -0.60% | vs base -0.03% [-0.07, +0.02]
+  H5 close/open     <=-3%      days  53 events   7813 | NEXT_OPEN -0.33% BASELINE -0.78% | vs base +0.00% [-0.13, +0.13]
+  H5 close/open     >=+3%      days  53 events   8497 | NEXT_OPEN -0.45% BASELINE -0.99% | vs base -0.12% [-0.22, -0.01]
+  H6 up streak      <3         days  53 events  35902 | NEXT_OPEN -0.39% BASELINE -0.69% | vs base -0.06% [-0.08, -0.04]
+  H6 up streak      >=3        days  53 events   5237 | NEXT_OPEN -0.34% BASELINE -0.73% | vs base -0.01% [-0.20, +0.19]
+  H7 value rank     1..100     days  53 events   5167 | NEXT_OPEN -0.44% BASELINE -0.73% | vs base -0.11% [-0.23, +0.01]
+  H7 value rank     101..500   days  53 events  20940 | NEXT_OPEN -0.43% BASELINE -0.74% | vs base -0.10% [-0.12, -0.07]
+
+===== keep rule: same sign in both periods and discovery interval excludes zero
+  drop  H1 day return     [0,3)%     discovery +0.10% [-0.02,+0.23] check -0.07% [-0.15,+0.02] | NEXT_OPEN level +0.03% / -0.40%
+  drop  H1 day return     [10,20)%   discovery +0.05% [-0.27,+0.38] check +0.05% [-0.24,+0.38] | NEXT_OPEN level -0.02% / -0.28%
+  drop  H1 day return     [3,10)%    discovery +0.17% [+0.01,+0.33] check -0.06% [-0.17,+0.04] | NEXT_OPEN level +0.10% / -0.39%
+  drop  H2 close location <0.2       discovery -0.06% [-0.18,+0.06] check +0.11% [-0.01,+0.23] | NEXT_OPEN level -0.13% / -0.22%
+  KEEP  H2 close location >0.8       discovery -0.21% [-0.40,-0.03] check -0.28% [-0.41,-0.14] | NEXT_OPEN level -0.28% / -0.61%
+  KEEP  H2 close location [0.2,0.8]  discovery -0.06% [-0.09,-0.03] check -0.03% [-0.06,+0.01] | NEXT_OPEN level -0.13% / -0.36%
+  KEEP  H3 volume/20d     <1         discovery -0.09% [-0.14,-0.04] check -0.06% [-0.11,-0.00] | NEXT_OPEN level -0.16% / -0.39%
+  drop  H3 volume/20d     >=3        discovery +0.06% [-0.21,+0.36] check +0.06% [-0.15,+0.29] | NEXT_OPEN level -0.01% / -0.27%
+  drop  H3 volume/20d     [1,3)      discovery -0.03% [-0.09,+0.03] check -0.08% [-0.14,-0.02] | NEXT_OPEN level -0.10% / -0.41%
+  drop  H4 close/MA20     (0,12]%    discovery -0.02% [-0.19,+0.14] check -0.03% [-0.09,+0.04] | NEXT_OPEN level -0.09% / -0.36%
+  KEEP  H4 close/MA20     <=0        discovery -0.11% [-0.17,-0.04] check -0.02% [-0.08,+0.06] | NEXT_OPEN level -0.18% / -0.35%
+  drop  H4 close/MA20     >12%       discovery -0.10% [-0.38,+0.18] check -0.09% [-0.20,+0.03] | NEXT_OPEN level -0.17% / -0.42%
+  drop  H5 close/open     (-3,3)%    discovery +0.01% [-0.06,+0.09] check -0.03% [-0.07,+0.02] | NEXT_OPEN level -0.07% / -0.36%
+  drop  H5 close/open     <=-3%      discovery -0.16% [-0.29,-0.02] check +0.00% [-0.13,+0.13] | NEXT_OPEN level -0.23% / -0.33%
+  drop  H5 close/open     >=+3%      discovery +0.12% [-0.03,+0.26] check -0.12% [-0.22,-0.01] | NEXT_OPEN level +0.04% / -0.45%
+  KEEP  H6 up streak      <3         discovery -0.07% [-0.09,-0.04] check -0.06% [-0.08,-0.04] | NEXT_OPEN level -0.14% / -0.39%
+  drop  H6 up streak      >=3        discovery -0.13% [-0.42,+0.15] check -0.01% [-0.20,+0.19] | NEXT_OPEN level -0.20% / -0.34%
+  drop  H7 value rank     1..100     discovery +0.21% [+0.04,+0.38] check -0.11% [-0.23,+0.01] | NEXT_OPEN level +0.14% / -0.44%
+  drop  H7 value rank     101..500   discovery +0.00% [-0.05,+0.05] check -0.10% [-0.12,-0.07] | NEXT_OPEN level -0.07% / -0.43%
