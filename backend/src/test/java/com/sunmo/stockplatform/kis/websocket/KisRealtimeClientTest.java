@@ -223,6 +223,33 @@ class KisRealtimeClientTest {
         } finally { client.shutdown(); }
     }
 
+    /**
+     * 구독 요청에 KIS가 "이미 구독 중"(ALREADY IN SUBSCRIBE)으로 답하면 성공으로 처리하는지 봐요(2026-10-23 011330).
+     * 기대: 등록부에 성공으로 알리고, 실시간 수신 장부에도 구독 성공을 알려요. 다른 실패 코드는 그대로 실패예요.
+     */
+    @Test
+    void alreadySubscribedResponseCountsAsAccepted() {
+        var registry = mock(RealtimeSubscriptionRegistry.class);
+        var market = mock(MarketDataService.class);
+        var session = mock(RealtimeSessionPolicy.class);
+        when(session.connectionAllowed()).thenReturn(true);
+        KisRealtimeClient client = new KisRealtimeClient(mock(KisApprovalClient.class), mock(KisRealtimeTickParser.class),
+                market, registry, new RealtimeMarketProperties(true, URI.create("ws://localhost"), Duration.ZERO,
+                Duration.ofHours(1), 10, 41, Duration.ofSeconds(60)), new RealtimeDiagnostics(), new ObjectMapper(), session);
+        try {
+            var socket = mock(WebSocket.class);
+            client.onOpen(socket);
+            client.onText(socket, "{\"header\":{\"tr_id\":\"H0STCNT0\",\"tr_key\":\"011330\"},"
+                    + "\"body\":{\"rt_cd\":\"1\",\"msg1\":\"ALREADY IN SUBSCRIBE\"}}", true);
+            client.onText(socket, "{\"header\":{\"tr_id\":\"H0STCNT0\",\"tr_key\":\"005930\"},"
+                    + "\"body\":{\"rt_cd\":\"1\",\"msg1\":\"MAX SUBSCRIBE OVER\"}}", true);
+            verify(registry).acknowledge("011330", true, true, "ALREADY IN SUBSCRIBE");
+            verify(market).realtimeSubscribed(eq("011330"), any());
+            verify(registry).acknowledge("005930", true, false, "MAX SUBSCRIBE OVER");
+            verify(market, never()).realtimeSubscribed(eq("005930"), any());
+        } finally { client.shutdown(); }
+    }
+
     /** 모든 틱을 받아들이는 세션 정책 목을 만드는 도우미예요. */
     private RealtimeSessionPolicy acceptingSession() {
         var session = mock(RealtimeSessionPolicy.class);

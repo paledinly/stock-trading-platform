@@ -412,13 +412,16 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
             String code = root.path("header").path("tr_key").asText();
             String resultCode = root.path("body").path("rt_cd").asText();
             String resultMessage = root.path("body").path("msg1").asText();
-            boolean success = "0".equals(resultCode);
             if (code.isBlank()) {
                 log.warn("KIS H0STCNT0 response omitted stock code: code={}, message={}", resultCode, resultMessage);
                 return;
             }
             // 기다리던 요청이 해지(false)였을 때만 해지 응답으로 보고, 나머지는 구독 응답으로 처리해요.
             boolean subscribing = pendingSubscriptions.remove(code) != Boolean.FALSE;
+            // 구독 요청에 "이미 구독 중"이 오면 KIS 쪽에서는 이미 체결을 보내 주고 있는 것이라 성공으로 봐요.
+            // 2026-10-23 09:00 011330: 해지와 재구독이 엇갈려 이 응답이 왔는데, 실패로 처리해 정밀 종목에서 빠지고 해지까지 됐어요.
+            boolean alreadySubscribed = subscribing && resultMessage.toUpperCase(java.util.Locale.ROOT).contains("ALREADY IN SUBSCRIBE");
+            boolean success = "0".equals(resultCode) || alreadySubscribed;
             if (subscribing)
                 diagnostics.subscriptionAcknowledged(code, success, resultMessage);
             else
@@ -428,7 +431,9 @@ public class KisRealtimeClient implements ApplicationRunner, WebSocket.Listener 
                 market.realtimeSubscribed(code, Instant.now());
             else if (success)
                 market.realtimeUnsubscribed(code);
-            if (success)
+            if (alreadySubscribed)
+                log.info("KIS H0STCNT0 subscription for {} was already active at KIS; treated as accepted", code);
+            else if (success)
                 log.info("KIS H0STCNT0 subscription accepted for {}: {}", code, resultMessage);
             else
                 log.warn("KIS H0STCNT0 subscription rejected for {}: code={}, message={}",

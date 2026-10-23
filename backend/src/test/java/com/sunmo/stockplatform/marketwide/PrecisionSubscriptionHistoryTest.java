@@ -37,6 +37,18 @@ class PrecisionSubscriptionHistoryTest {
     }
 
     @Test
+    void rejectsAnActiveSessionWhenThereIsNoRequestedOne() {
+        var repository = mock(PrecisionSubscriptionSessionRepository.class);
+        var active = new PrecisionSubscriptionSession("011330", Instant.parse("2026-10-23T00:00:32Z"), true);
+        when(repository.findFirstByStockCodeAndStatusOrderByRequestedAtDesc("011330", Status.REQUESTED)).thenReturn(Optional.empty());
+        when(repository.findFirstByStockCodeAndStatusOrderByRequestedAtDesc("011330", Status.ACTIVE)).thenReturn(Optional.of(active));
+
+        new PrecisionSubscriptionHistory(repository).rejected("011330", Instant.parse("2026-10-23T00:00:52Z"), "MAX SUBSCRIBE OVER");
+
+        assertThat(active.getStatus()).isEqualTo(Status.REJECTED);
+    }
+
+    @Test
     void rollsACarriedSubscriptionIntoTodaysSession() {
         var repository = mock(PrecisionSubscriptionSessionRepository.class);
         var yesterday = new PrecisionSubscriptionSession("A00001", Instant.parse("2026-10-19T00:00:00Z"), true);

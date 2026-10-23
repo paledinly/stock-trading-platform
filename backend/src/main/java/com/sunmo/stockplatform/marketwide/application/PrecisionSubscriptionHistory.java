@@ -58,7 +58,11 @@ public class PrecisionSubscriptionHistory {
      */
     @Transactional
     public void rejected(String code, Instant at, String reason) {
+        // 이미 다른 출처로 구독 중이던 종목은 신청 때 바로 활성 세션으로 만들어요. 그 구독이 거절되면 활성 세션을 닫아야
+        // 기록이 실제 구독과 맞아요(2026-10-23 011330: 거절 뒤에도 활성으로 남음).
         sessions.findFirstByStockCodeAndStatusOrderByRequestedAtDesc(code, PrecisionSubscriptionSession.Status.REQUESTED)
+                .or(() -> sessions.findFirstByStockCodeAndStatusOrderByRequestedAtDesc(code,
+                        PrecisionSubscriptionSession.Status.ACTIVE))
                 .ifPresent(value -> value.reject(at, reason));
     }
     /**
