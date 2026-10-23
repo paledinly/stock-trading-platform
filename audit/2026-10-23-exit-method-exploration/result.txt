@@ -1,0 +1,36 @@
+
+===== discovery 2026-03-18..2026-07-31 (93 entry days)
+U1 top100 & >=+3%  days  93 events   3297 | NEXT_OPEN +0.48% BASELINE -0.22% NEXT_CLOSE -1.24% OPEN_D2 -0.67%
+    NEXT_OPEN  - BASELINE +0.70% [+0.60, +0.80] winning days 94%
+    NEXT_CLOSE - BASELINE -1.02% [-1.63, -0.43] winning days 39%
+    OPEN_D2    - BASELINE -0.45% [-1.23, +0.31] winning days 51%
+U2 top100          days  93 events   9300 | NEXT_OPEN +0.24% BASELINE -0.43% NEXT_CLOSE -0.76% OPEN_D2 -0.09%
+    NEXT_OPEN  - BASELINE +0.66% [+0.55, +0.77] winning days 91%
+    NEXT_CLOSE - BASELINE -0.33% [-0.77, +0.11] winning days 49%
+    OPEN_D2    - BASELINE +0.33% [-0.33, +0.97] winning days 57%
+U3 >=+10%          days  93 events   7094 | NEXT_OPEN +1.86% BASELINE +1.08% NEXT_CLOSE -1.14% OPEN_D2 +0.00%
+    NEXT_OPEN  - BASELINE +0.78% [+0.71, +0.84] winning days 100%
+    NEXT_CLOSE - BASELINE -2.22% [-2.85, -1.62] winning days 22%
+    OPEN_D2    - BASELINE -1.07% [-1.82, -0.34] winning days 40%
+U4 all             days  93 events 264368 | NEXT_OPEN -0.14% BASELINE -0.62% NEXT_CLOSE -0.59% OPEN_D2 -0.32%
+    NEXT_OPEN  - BASELINE +0.48% [+0.33, +0.62] winning days 76%
+    NEXT_CLOSE - BASELINE +0.03% [-0.23, +0.29] winning days 54%
+    OPEN_D2    - BASELINE +0.30% [-0.05, +0.64] winning days 61%
+
+===== check 2026-08-01..2026-10-21 (52 entry days)
+U1 top100 & >=+3%  days  52 events   1656 | NEXT_OPEN -0.30% BASELINE -0.73% NEXT_CLOSE -0.80% OPEN_D2 -0.68%
+    NEXT_OPEN  - BASELINE +0.43% [+0.32, +0.54] winning days 87%
+    NEXT_CLOSE - BASELINE -0.07% [-0.62, +0.50] winning days 48%
+    OPEN_D2    - BASELINE +0.05% [-0.72, +0.80] winning days 60%
+U2 top100          days  52 events   5200 | NEXT_OPEN -0.40% BASELINE -0.69% NEXT_CLOSE -0.55% OPEN_D2 -0.60%
+    NEXT_OPEN  - BASELINE +0.29% [+0.18, +0.40] winning days 75%
+    NEXT_CLOSE - BASELINE +0.14% [-0.26, +0.53] winning days 56%
+    OPEN_D2    - BASELINE +0.09% [-0.54, +0.68] winning days 56%
+U3 >=+10%          days  52 events   2656 | NEXT_OPEN +1.29% BASELINE +0.59% NEXT_CLOSE -0.22% OPEN_D2 +0.63%
+    NEXT_OPEN  - BASELINE +0.70% [+0.61, +0.78] winning days 100%
+    NEXT_CLOSE - BASELINE -0.81% [-1.39, -0.26] winning days 38%
+    OPEN_D2    - BASELINE +0.04% [-0.60, +0.68] winning days 58%
+U4 all             days  52 events 148688 | NEXT_OPEN -0.24% BASELINE -0.55% NEXT_CLOSE -0.27% OPEN_D2 -0.11%
+    NEXT_OPEN  - BASELINE +0.31% [+0.18, +0.43] winning days 75%
+    NEXT_CLOSE - BASELINE +0.28% [+0.08, +0.49] winning days 73%
+    OPEN_D2    - BASELINE +0.44% [+0.16, +0.71] winning days 77%
