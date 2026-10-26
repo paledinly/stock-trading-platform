@@ -81,12 +81,12 @@ class DailyCandleBackfillServiceTest {
     }
 
     /**
-     * 14:25·14:35 정밀 후보 일봉 보완이 오늘 세션 기록이 없는, 전날부터 이어진 정밀 종목도 대상에 넣는지 확인해요.
-     * 준비: 10-20(화) 14:25, 등록부에는 정밀 000660(전날부터 이어짐)과 005930, 오늘 세션 기록은 005930만 있어요.
-     * 기대: 두 종목 모두 전 거래일(10-19)까지 일봉을 요청하고, 관심종목 전용 035720은 요청하지 않아요.
+     * 14:25·14:35 일봉 보완이 실시간 구독 중인 모든 종목을 대상에 넣는지 확인해요.
+     * 준비: 10-20(화) 14:25, 등록부에는 정밀 000660(전날부터 이어짐, 오늘 세션 기록 없음)·005930, 전날 추천 관측 전용 001510,
+     * 관심 고정 035720이 있어요. 기대: 네 종목 모두 전 거래일(10-19)까지 일봉을 요청해요(2026-10-26 001510 일봉 누락 회귀 방지).
      */
     @Test
-    void precisionPreparationIncludesPrecisionCodesCarriedOverFromYesterday() {
+    void precisionPreparationCoversEveryRealtimeSubscribedCode() {
         var kis = mock(KisProperties.class);
         when(kis.enabled()).thenReturn(true);
         var calendar = new ClosingTradingCalendar(new MarketWideScheduleProperties(false, 0, 0, false,
@@ -102,10 +102,11 @@ class DailyCandleBackfillServiceTest {
         registry.add("000660", com.sunmo.stockplatform.market.application.RealtimeSubscriptionRegistry.Source.PRECISION);
         registry.add("005930", com.sunmo.stockplatform.market.application.RealtimeSubscriptionRegistry.Source.PRECISION);
         registry.add("035720", com.sunmo.stockplatform.market.application.RealtimeSubscriptionRegistry.Source.WATCHLIST);
+        registry.add("001510", com.sunmo.stockplatform.market.application.RealtimeSubscriptionRegistry.Source.OVERNIGHT);
         when(precisionSessions.findBySessionDateAndStatusOrderByRequestedAtAsc(LocalDate.of(2026, 10, 20),
                 PrecisionSubscriptionSession.Status.ACTIVE))
                 .thenReturn(List.of(new PrecisionSubscriptionSession("005930", Instant.parse("2026-10-20T00:00:00Z"), true)));
-        for (String code : List.of("000660", "005930")) {
+        for (String code : List.of("000660", "005930", "035720", "001510")) {
             Stock stock = mock(Stock.class);
             when(stocks.findByStockCodeAndActiveTrue(code)).thenReturn(Optional.of(stock));
             when(persistence.ready(stock, LocalDate.of(2026, 10, 19))).thenReturn(false, true);
@@ -119,7 +120,8 @@ class DailyCandleBackfillServiceTest {
 
         verify(client).fetch(eq("000660"), any(), eq(LocalDate.of(2026, 10, 19)));
         verify(client).fetch(eq("005930"), any(), eq(LocalDate.of(2026, 10, 19)));
-        verify(client, never()).fetch(eq("035720"), any(), any());
+        verify(client).fetch(eq("035720"), any(), eq(LocalDate.of(2026, 10, 19)));
+        verify(client).fetch(eq("001510"), any(), eq(LocalDate.of(2026, 10, 19)));
     }
 
     /**

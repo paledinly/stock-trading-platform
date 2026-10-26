@@ -131,15 +131,14 @@ public class DailyCandleBackfillService {
      */
     public synchronized PrepareResult preparePrecision() {
         TargetWindow window = targetWindow();
-        // 대상은 지금 실제로 정밀 구독 중인 종목(등록부)과 오늘 날짜의 활성 세션 기록을 합친 것이에요.
-        // 예전에는 오늘 세션 기록만 봐서, 재시작 없이 전날부터 이어진 정밀 종목이 빠지고 전 거래일 일봉을 못 받아
-        // 15:15 평가에서 DAILY_DATA_STALE로 걸렸어요(2026-10-20 15건, 10-21 11건).
+        // 대상은 지금 실시간 구독 중인 모든 종목(등록부: 정밀·전날 추천 관측·관심 고정·수동)과 오늘 날짜의 활성 정밀 세션이에요.
+        // 15:15 정밀 후보는 실시간 구독 종목의 탐지에서 나오므로 일봉 준비 범위도 같아야 해요.
+        // - 2026-10-20·21: 오늘 세션 기록만 봐서 전날부터 이어진 정밀 종목이 빠져 DAILY_DATA_STALE(15건, 11건).
+        // - 2026-10-26: 전날 추천 관측(OVERNIGHT)으로만 구독된 100250·001510이 08:10 준비(40종목 상한)와 14:25 보완(정밀만)
+        //   모두에서 빠져 일봉 없이 평가돼 DAILY_DATA_MISSING.
         java.util.LinkedHashSet<String> codes = new java.util.LinkedHashSet<>();
         if (registry != null)
-            registry.entries().forEach((code, sources) -> {
-                if (sources.contains(RealtimeSubscriptionRegistry.Source.PRECISION))
-                    codes.add(code);
-            });
+            codes.addAll(registry.entries().keySet());
         precisionSessions.findBySessionDateAndStatusOrderByRequestedAtAsc(window.target(),
                         PrecisionSubscriptionSession.Status.ACTIVE)
                 .forEach(session -> codes.add(session.getStockCode()));
