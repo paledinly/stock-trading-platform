@@ -5,6 +5,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Phase3App } from './Phase3App'
+import { sortSubscriptions } from './subscriptionOrder'
 
 // 테스트용 가짜 구독 현황이에요. 두 번째 종목은 이름이 없고 연결 대기 상태예요.
 const subscriptions = {
@@ -66,6 +67,20 @@ test('lists realtime subscriptions with their source, state and precision capaci
   // A missing name falls back to the code; queued state is shown as waiting.
   expect(within(panel).getAllByText('000400').length).toBeGreaterThan(0)
   expect(within(panel).getByText('연결 대기')).toBeInTheDocument()
+})
+
+// 구독 목록은 다음날 관측 종목을 먼저, 그다음 최근에 연결된 종목 순으로 보여 줘요.
+test('orders subscriptions with next-session observation first, then most recently connected', () => {
+  const item = (stockCode: string, sources: string[], stateUpdatedAt: string | null) => ({ stockCode, stockName: null,
+    market: null, sources, state: 'SUBSCRIBED', stateMessage: null, stateUpdatedAt, precisionScore: null, precisionAddedAt: null })
+  const sorted = sortSubscriptions([
+    item('000001', ['PRECISION'], '2026-10-27T01:30:00Z'),
+    item('000002', ['OVERNIGHT'], '2026-10-27T00:00:10Z'),
+    item('000003', ['PRECISION'], null),
+    item('000004', ['OVERNIGHT', 'PRECISION'], '2026-10-27T00:00:20Z'),
+    item('000005', ['WATCHLIST'], '2026-10-27T02:00:00Z'),
+  ])
+  expect(sorted.map(row => row.stockCode)).toEqual(['000004', '000002', '000005', '000001', '000003'])
 })
 
 // 구독 종목을 누르면 오른쪽 상세가 그 종목으로 바뀌고, 탭을 다시 열어도 마지막 탭이 기억되는지 봐요.

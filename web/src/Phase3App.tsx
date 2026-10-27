@@ -6,6 +6,7 @@
 import { type FormEvent, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CandleChart } from './CandleChart'
+import { sortSubscriptions, type Subscription } from './subscriptionOrder'
 import type { Candle, Quote } from './marketData'
 import './phase3.css'
 
@@ -15,12 +16,6 @@ type Stock = { stockCode: string; stockName: string; market: string }
 type Item = Stock & { id: number; groupId: number; realtimePinned: boolean; version: number }
 /** 관심종목 그룹 하나와 그 안의 종목 목록이에요. */
 type Group = { id: number; name: string; version: number; items: Item[] }
-/** 실시간 구독 중인 종목 한 줄이에요. sources는 왜 구독했는지(정밀, 다음날 관측 등) 목록이에요. */
-type Subscription = {
-  stockCode: string; stockName: string | null; market: string | null; sources: string[]
-  state: string | null; stateMessage: string | null; stateUpdatedAt: string | null
-  precisionScore: number | null; precisionAddedAt: string | null
-}
 /** 실시간 구독 전체 현황이에요. limit은 구독 한도, remaining은 남은 자리, precisionState는 정밀 구독 교체 가능 여부예요. */
 type Subscriptions = {
   limit: number; remaining: number; items?: Subscription[]
@@ -51,7 +46,7 @@ function time(value: string | null) {
  */
 function SubscriptionList({ select, selectedCode }: { select: (stock: Stock) => void; selectedCode?: string }) {
   const data = useSubscriptions()
-  const items = data.data?.items ?? []
+  const items = sortSubscriptions(data.data?.items ?? [])
   // 특정 출처(예: PRECISION)로 구독된 종목 수를 세요.
   const count = (source: string) => items.filter(item => item.sources.includes(source)).length
   // 사용 중인 구독 수 = 한도 - 남은 자리예요.
@@ -79,6 +74,7 @@ function SubscriptionList({ select, selectedCode }: { select: (stock: Stock) => 
             <span className="subMeta">
               <em className={`state ${(item.state ?? '').toLowerCase()}`} title={item.stateMessage ?? ''}>
                 {item.state ? STATE_LABEL[item.state] ?? item.state : '-'}</em>
+              <small title="연결 시각(구독 상태가 마지막으로 바뀐 시각)">연결 {time(item.stateUpdatedAt)}</small>
               <small title="정밀 점수 · 정밀 편입 시각">{item.precisionScore != null ? Number(item.precisionScore).toFixed(1) : '-'}
                 {item.precisionAddedAt ? ` · ${time(item.precisionAddedAt)}` : ''}</small>
             </span>
