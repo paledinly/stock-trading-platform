@@ -1,0 +1,45 @@
+
+===== discovery 2026-03-18..2026-07-31 days 34 base rows 28994
+  base P(ret>=5%) 14.00 | P(ret>=10%) 5.41 | P(strong cand) 3.49 | open->close % -1.07
+  S1_contraction   n=   112 | P(ret>=5%) -8.74 [-15.97,-2.26] | P(ret>=10%) -3.70 [-7.97,+0.47] | P(strong cand) -2.99 [-4.34,-1.51] | open->close % +0.13 [-0.73,+1.03]
+  S2_dryup         n=  8014 | P(ret>=5%) +0.46 [-1.51,+2.72] | P(ret>=10%) +0.22 [-0.79,+1.62] | P(strong cand) -2.00 [-2.54,-1.47] | open->close % +0.01 [-0.31,+0.33]
+                   strong candidates overnight Net: signal +0.20% vs no signal +0.32% diff -0.13 [-0.81,+0.53] days 26
+  S3_near_high     n=   634 | P(ret>=5%) -6.47 [-12.23,-1.54] | P(ret>=10%) -3.32 [-7.01,-0.43] | P(strong cand) +0.33 [-1.25,+1.91] | open->close % -0.35 [-1.33,+0.56]
+                   strong candidates overnight Net: signal -0.07% vs no signal +0.48% diff -0.55 [-1.41,+0.32] days 18
+  S4_S1_and_S3     n=    20 | P(ret>=5%) -15.52 [-24.40,-7.92] | P(ret>=10%) -5.98 [-10.95,-2.60] | P(strong cand) -3.85 [-5.26,-2.56] | open->close % +0.61 [-0.73,+1.90]
+  S5_quiet_accum   n=    37 | P(ret>=5%) -8.51 [-19.27,+1.53] | P(ret>=10%) -6.93 [-12.20,-2.81] | P(strong cand) -3.32 [-4.62,-2.20] | open->close % -0.15 [-2.05,+1.66]
+
+===== check 2026-08-01..2026-10-21 days 53 base rows 41407
+  base P(ret>=5%) 10.95 | P(ret>=10%) 3.27 | P(strong cand) 4.04 | open->close % 0.08
+  S1_contraction   n=   246 | P(ret>=5%) -0.34 [-6.92,+7.64] | P(ret>=10%) +4.58 [-1.49,+12.19] | P(strong cand) -2.57 [-3.73,-1.13] | open->close % -0.29 [-1.11,+0.47]
+                   strong candidates overnight Net: signal -0.75% vs no signal -1.05% diff +0.30 [-0.79,+1.45] days 6
+  S2_dryup         n=  5738 | P(ret>=5%) -1.19 [-2.24,+0.03] | P(ret>=10%) -0.65 [-1.13,-0.12] | P(strong cand) -1.62 [-2.15,-1.11] | open->close % +0.13 [-0.03,+0.29]
+                   strong candidates overnight Net: signal -0.19% vs no signal -0.12% diff -0.08 [-0.57,+0.48] days 41
+  S3_near_high     n=  3775 | P(ret>=5%) -2.61 [-4.42,-0.79] | P(ret>=10%) -1.01 [-1.57,-0.46] | P(strong cand) -0.47 [-1.28,+0.36] | open->close % -0.03 [-0.30,+0.23]
+                   strong candidates overnight Net: signal +0.01% vs no signal -0.36% diff +0.37 [-0.19,+0.96] days 40
+  S4_S1_and_S3     n=    17 | P(ret>=5%) -4.99 [-10.07,+3.09] | P(ret>=10%) -2.71 [-3.21,-2.24] | P(strong cand) -4.11 [-4.87,-3.37] | open->close % -0.14 [-0.84,+0.59]
+  S5_quiet_accum   n=   267 | P(ret>=5%) -7.28 [-10.65,-4.05] | P(ret>=10%) -1.96 [-3.52,+0.07] | P(strong cand) -3.34 [-4.12,-2.48] | open->close % -0.39 [-0.87,+0.11]
+
+===== keep rule
+  KEEP  S1_contraction   P(ret>=5%)         discovery -8.74 [-15.97,-2.26] check -0.34 [-6.92,+7.64]
+  drop  S1_contraction   P(ret>=10%)        discovery -3.70 [-7.97,+0.47] check +4.58 [-1.49,+12.19]
+  KEEP  S1_contraction   P(strong cand)     discovery -2.99 [-4.34,-1.51] check -2.57 [-3.73,-1.13]
+  drop  S1_contraction   open->close %      discovery +0.13 [-0.73,+1.03] check -0.29 [-1.11,+0.47]
+  drop  S2_dryup         P(ret>=5%)         discovery +0.46 [-1.51,+2.72] check -1.19 [-2.24,+0.03]
+  drop  S2_dryup         P(ret>=10%)        discovery +0.22 [-0.79,+1.62] check -0.65 [-1.13,-0.12]
+  KEEP  S2_dryup         P(strong cand)     discovery -2.00 [-2.54,-1.47] check -1.62 [-2.15,-1.11]
+  drop  S2_dryup         open->close %      discovery +0.01 [-0.31,+0.33] check +0.13 [-0.03,+0.29]
+  drop  S2_dryup         overnight strong   discovery -0.13 [-0.81,+0.53] check -0.08 [-0.57,+0.48]
+  KEEP  S3_near_high     P(ret>=5%)         discovery -6.47 [-12.23,-1.54] check -2.61 [-4.42,-0.79]
+  KEEP  S3_near_high     P(ret>=10%)        discovery -3.32 [-7.01,-0.43] check -1.01 [-1.57,-0.46]
+  drop  S3_near_high     P(strong cand)     discovery +0.33 [-1.25,+1.91] check -0.47 [-1.28,+0.36]
+  drop  S3_near_high     open->close %      discovery -0.35 [-1.33,+0.56] check -0.03 [-0.30,+0.23]
+  drop  S3_near_high     overnight strong   discovery -0.55 [-1.41,+0.32] check +0.37 [-0.19,+0.96]
+  KEEP  S4_S1_and_S3     P(ret>=5%)         discovery -15.52 [-24.40,-7.92] check -4.99 [-10.07,+3.09]
+  KEEP  S4_S1_and_S3     P(ret>=10%)        discovery -5.98 [-10.95,-2.60] check -2.71 [-3.21,-2.24]
+  KEEP  S4_S1_and_S3     P(strong cand)     discovery -3.85 [-5.26,-2.56] check -4.11 [-4.87,-3.37]
+  drop  S4_S1_and_S3     open->close %      discovery +0.61 [-0.73,+1.90] check -0.14 [-0.84,+0.59]
+  drop  S5_quiet_accum   P(ret>=5%)         discovery -8.51 [-19.27,+1.53] check -7.28 [-10.65,-4.05]
+  KEEP  S5_quiet_accum   P(ret>=10%)        discovery -6.93 [-12.20,-2.81] check -1.96 [-3.52,+0.07]
+  KEEP  S5_quiet_accum   P(strong cand)     discovery -3.32 [-4.62,-2.20] check -3.34 [-4.12,-2.48]
+  drop  S5_quiet_accum   open->close %      discovery -0.15 [-2.05,+1.66] check -0.39 [-0.87,+0.11]

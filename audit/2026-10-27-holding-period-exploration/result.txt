@@ -1,0 +1,26 @@
+
+===== discovery entries 2026-03-18..2026-07-31
+  OPEN1    days  93 | U1 Net +0.48% [+0.13, +0.82] | ALL Net -0.01% [-0.34, +0.29] | U1-ALL +0.49 [+0.20, +0.77] | U1 per holding day +0.482%
+  CLOSE1   days  93 | U1 Net -1.24% [-2.01, -0.48] | ALL Net -0.77% [-1.35, -0.22] | U1-ALL -0.47 [-1.05, +0.14] | U1 per holding day -1.238%
+  CLOSE3   days  93 | U1 Net -2.40% [-4.29, -0.56] | ALL Net -1.32% [-2.90, +0.25] | U1-ALL -1.08 [-2.04, -0.10] | U1 per holding day -0.800%
+  CLOSE5   days  93 | U1 Net -3.34% [-6.19, -0.47] | ALL Net -1.78% [-4.16, +0.64] | U1-ALL -1.56 [-2.97, -0.12] | U1 per holding day -0.668%
+  CLOSE10  days  93 | U1 Net -4.54% [-9.51, +0.61] | ALL Net -2.67% [-7.08, +2.26] | U1-ALL -1.87 [-4.24, +0.58] | U1 per holding day -0.454%
+
+===== check entries 2026-08-01..2026-10-21
+  OPEN1    days  53 | U1 Net -0.31% [-0.72, +0.06] | ALL Net -0.33% [-0.68, -0.01] | U1-ALL +0.02 [-0.17, +0.22] | U1 per holding day -0.314%
+  CLOSE1   days  53 | U1 Net -0.84% [-1.68, -0.03] | ALL Net -0.36% [-0.92, +0.17] | U1-ALL -0.48 [-0.93, -0.02] | U1 per holding day -0.845%
+  CLOSE3   days  51 | U1 Net -1.02% [-2.76, +0.44] | ALL Net -0.41% [-1.92, +0.97] | U1-ALL -0.62 [-1.27, +0.09] | U1 per holding day -0.341%
+  CLOSE5   days  49 | U1 Net -1.30% [-4.15, +1.13] | ALL Net -0.41% [-2.71, +1.72] | U1-ALL -0.89 [-1.72, -0.06] | U1 per holding day -0.260%
+  CLOSE10  days  44 | U1 Net -1.98% [-5.64, +0.77] | ALL Net -0.82% [-3.34, +1.33] | U1-ALL -1.16 [-2.47, +0.13] | U1 per holding day -0.198%
+
+===== keep rule
+  drop  OPEN1    U1      discovery +0.48 [+0.13,+0.82] check -0.31 [-0.72,+0.06]
+  KEEP  OPEN1    U1-ALL  discovery +0.49 [+0.20,+0.77] check +0.02 [-0.17,+0.22]
+  KEEP  CLOSE1   U1      discovery -1.24 [-2.01,-0.48] check -0.84 [-1.68,-0.03]
+  drop  CLOSE1   U1-ALL  discovery -0.47 [-1.05,+0.14] check -0.48 [-0.93,-0.02]
+  KEEP  CLOSE3   U1      discovery -2.40 [-4.29,-0.56] check -1.02 [-2.76,+0.44]
+  KEEP  CLOSE3   U1-ALL  discovery -1.08 [-2.04,-0.10] check -0.62 [-1.27,+0.09]
+  KEEP  CLOSE5   U1      discovery -3.34 [-6.19,-0.47] check -1.30 [-4.15,+1.13]
+  KEEP  CLOSE5   U1-ALL  discovery -1.56 [-2.97,-0.12] check -0.89 [-1.72,-0.06]
+  drop  CLOSE10  U1      discovery -4.54 [-9.51,+0.61] check -1.98 [-5.64,+0.77]
+  drop  CLOSE10  U1-ALL  discovery -1.87 [-4.24,+0.58] check -1.16 [-2.47,+0.13]
