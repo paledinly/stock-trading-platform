@@ -315,11 +315,14 @@ public class ClosingRecommendationService {
         }
         // BROAD 후보: 종목별 최신 스냅샷 1건만 봐요. 정밀 후보와 같은 종목이면 PRECISION_DUPLICATE로 제외하고,
         // 조건을 통과해도 최종 추천이 아니라 관찰(BROAD_WATCH_ONLY)까지만 가요.
+        // 2026-10-27부터 정밀 후보와 같은 최소 거래대금(기본 10억 원, 그 시점 누적)을 넘어야 관찰이 돼요(미달은 LOW_LIQUIDITY 제외).
+        // 거래량 1만여 주인 종목(10-27 009730)이 기회 점수만으로 관찰·다음날 구독 대상이 된 일이 있었어요. 1차 표본(정밀)과는 무관해요.
         // 참고: 그래서 한 종목이 정밀 행과 PRECISION_DUPLICATE 행으로 두 번 나올 수 있어요(의도된 기록으로 유지 중이에요).
         for (MarketBroadSnapshot snapshot : latestBroadByStock(broadSource).values()) {
             ScoredCandidate candidate = broadCandidate(snapshot);
             String reason = precisionStocksContain(scoredPrecision, snapshot.getStock().getId()) ? "PRECISION_DUPLICATE"
                     : !eligibleBroad(snapshot) ? "INSUFFICIENT_BROAD_DATA"
+                    : snapshot.getAccumulatedTradingValue().compareTo(properties.minimumDailyTradingValue()) < 0 ? "LOW_LIQUIDITY"
                     : candidate.candidate().opportunityScore().compareTo(threshold(minOpportunity)) < 0
                         || candidate.candidate().riskScore().compareTo(riskLimit(maxRisk)) > 0
                             ? "OPPORTUNITY_OR_RISK_FILTERED" : "BROAD_WATCH_ONLY";
@@ -389,7 +392,11 @@ public class ClosingRecommendationService {
         List<String> missing = broadMissing(snapshot);
         BigDecimal risk = bd("45").add(BigDecimal.valueOf(missing.size() * 5L)).min(bd("100"));
         ClosingCandidate.Broad candidate = new ClosingCandidate.Broad(snapshot, risk, missing);
-        return new ScoredCandidate(candidate, broadScorer.score(snapshot, missing), null, Map.of());
+        // 화면이 관찰 후보의 거래대금을 함께 보여 주도록 그 시점 누적 거래대금을 남겨요(정밀 후보와 같은 이름).
+        Map<String, Object> readiness = new java.util.HashMap<>();
+        if (snapshot.getAccumulatedTradingValue() != null)
+            readiness.put("dailyTradingValue", snapshot.getAccumulatedTradingValue());
+        return new ScoredCandidate(candidate, broadScorer.score(snapshot, missing), null, readiness);
     }
 
     /**
