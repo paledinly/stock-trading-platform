@@ -71,7 +71,8 @@ public class DailyCollectionStatusService {
     public record DailyCollection(LocalDate date, boolean tradingDay, LocalDate previousTradingDay, Instant checkedAt,
             Run run, Map<String, Integer> paperEntries, List<LimitUpSample> limitUp, Counted candidateContext,
             ClosingBar closingBar, Observation observation, Counted dart, Counted adjustedDaily,
-            DailyCandles morningDaily, DailyCandles precisionDaily, Counted indexDaily, LateObservation lateObservation) { }
+            DailyCandles morningDaily, DailyCandles precisionDaily, Counted indexDaily, LateObservation lateObservation,
+            String sessionOpen, String sessionClose) { }
 
     /**
      * 하는 일: 날짜(없으면 오늘, 한국시간)의 수집 현황을 세어요.
@@ -84,7 +85,8 @@ public class DailyCollectionStatusService {
             return new DailyCollection(date, false, calendar.previousTradingDay(date), checkedAt, null, Map.of(),
                     List.of(), new Counted(0, 0, null), new ClosingBar(0, 0), new Observation(Map.of(), null, 0, Map.of()),
                     dart(date), adjustedDaily(date), new DailyCandles(0, 0, null), new DailyCandles(0, 0, null),
-                    new Counted(0, 0, null), new LateObservation(0, null));
+                    new Counted(0, 0, null), new LateObservation(0, null), hhmm(MarketSessionHours.open(date)),
+                    hhmm(MarketSessionHours.close(date)));
         Run run = run(date);
         Instant dayStart = date.atStartOfDay(ClosingTradingCalendar.ZONE).toInstant();
         Instant dayEnd = date.plusDays(1).atStartOfDay(ClosingTradingCalendar.ZONE).toInstant();
@@ -107,20 +109,28 @@ public class DailyCollectionStatusService {
                                 + "where expected_session_date = ? and candidate_source <> 'PRECISION' group by status", date)),
                 dart(date), adjustedDaily(date),
                 dailyCandles(date, LocalTime.of(7, 0), LocalTime.of(9, 0)),
-                dailyCandles(date, LocalTime.of(14, 20), LocalTime.of(14, 50)),
-                indexDaily(date), lateObservation(date, dayStart, dayEnd));
+                // 14:25·14:35 보완은 마감이 늦춰진 날(수능일 등) 한 시간 뒤에 돌아요.
+                dailyCandles(date, LocalTime.of(14, 20).plus(MarketSessionHours.shift(date)),
+                        LocalTime.of(14, 50).plus(MarketSessionHours.shift(date))),
+                indexDaily(date), lateObservation(date, dayStart, dayEnd),
+                hhmm(MarketSessionHours.open(date)), hhmm(MarketSessionHours.close(date)));
+    }
+
+    /** 그날 정규장 개장·마감 시각을 "HH:mm"으로 내려줘요. 화면 시간표가 수능일 등 특별 일정에 맞춰 시각을 옮기는 데 써요. */
+    private static String hhmm(LocalTime time) {
+        return time.toString().substring(0, 5);
     }
 
     /** 16:05 지수 일봉: 그날 16:00 이후 받아 저장·갱신한 그날 지수 일봉 수(KOSPI·KOSDAQ이면 2)와 마지막 수집 시각이에요. */
     private Counted indexDaily(LocalDate date) {
-        Instant after = date.atTime(16, 0).atZone(ClosingTradingCalendar.ZONE).toInstant();
+        Instant after = MarketSessionHours.at(date, LocalTime.of(16, 0));
         return counted("select count(*), 0, max(fetched_at) from market_index_daily where trade_date = ? and fetched_at >= ?",
                 date, Timestamp.from(after));
     }
 
     /** 18:00 분봉 재보완·관측 재평가 흔적을 세어요(그날이 관측 세션인 후보 기준). */
     private LateObservation lateObservation(LocalDate date, Instant dayStart, Instant dayEnd) {
-        Timestamp after = Timestamp.from(date.atTime(18, 0).atZone(ClosingTradingCalendar.ZONE).toInstant());
+        Timestamp after = Timestamp.from(MarketSessionHours.at(date, LocalTime.of(18, 0)));
         return new LateObservation(
                 integer(jdbc.queryForObject("select count(*) from stock_candle where timeframe = '5M' and source = 'BACKFILL' "
                         + "and start_time >= ? and start_time < ? and updated_at >= ?", Long.class,
@@ -164,7 +174,7 @@ public class DailyCollectionStatusService {
 
     /** 15:25에 시작하는 5분봉(종가 단일가 체결이 합쳐지는 봉)의 종목 수와 거래량 있는 종목 수예요. */
     private ClosingBar closingBar(LocalDate date) {
-        Timestamp start = Timestamp.from(date.atTime(15, 25).atZone(ClosingTradingCalendar.ZONE).toInstant());
+        Timestamp start = Timestamp.from(MarketSessionHours.at(date, LocalTime.of(15, 25)));
         return jdbc.queryForObject("select count(*), sum(case when volume > 0 then 1 else 0 end) from stock_candle "
                 + "where timeframe = '5M' and start_time = ?", (rs, i) -> new ClosingBar(rs.getInt(1), rs.getInt(2)), start);
     }

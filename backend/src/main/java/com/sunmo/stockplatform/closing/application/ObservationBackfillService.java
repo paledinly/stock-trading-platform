@@ -22,6 +22,7 @@ import org.springframework.stereotype.Component;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 
 /**
@@ -114,8 +115,8 @@ public class ObservationBackfillService {
                 select stock_id from closing_candidate_observation where run_id = ? and candidate_source = 'PRECISION'
                 union
                 select stock_id from closing_recommendation where run_id = ?""", Long.class, run.getId(), run.getId());
-        // 장 시작은 09:00으로 둬요. ClosingTradingCalendar.open도 09:00 고정이라 같은 기준이에요(개장 지연 같은 특별 일정은 반영하지 않아요).
-        Instant open = today.atTime(9, 0).atZone(ClosingTradingCalendar.ZONE).toInstant();
+        // 장 시작·마감은 달력 기준이에요(수능일 등 특별 일정은 MarketSessionHours 설정을 따라요).
+        Instant open = calendar.open(today);
         Instant close = calendar.close(today);
         // 처리: 종목마다 빈칸을 찾고, 있으면 분봉으로 채운 뒤 다시 확인해 아직 남았는지 세요.
         int filled = 0;
@@ -148,8 +149,8 @@ public class ObservationBackfillService {
                 .filter(candle -> !isFlatClosingBar(candle, today))
                 .map(StockCandle::getStartTime).toList();
         // 15:20 is the closing call (no trades) and is never required; drop it from the gaps.
-        // 15:20/15:25와 CandleGapDetector의 15:30 마감은 고정값이에요. 달력의 마감도 15:30 고정이라 지금은 서로 맞아요.
-        Instant closingCall = today.atTime(15, 20).atZone(ClosingTradingCalendar.ZONE).toInstant();
+        // 15:20/15:25는 평소 시각이고, 마감이 늦춰진 날은 그만큼 옮겨요(CandleGapDetector와 같은 MarketSessionHours 기준).
+        Instant closingCall = MarketSessionHours.at(today, LocalTime.of(15, 20));
         return gaps.gaps(today, close, existing).stream().filter(gap -> !gap.equals(closingCall)).toList();
     }
 
@@ -158,7 +159,7 @@ public class ObservationBackfillService {
      * 받는 것: 5분봉, 오늘 날짜. 돌려주는 것: 15:25 시작이고 거래량이 0 이하이면 true.
      */
     private static boolean isFlatClosingBar(StockCandle candle, LocalDate today) {
-        Instant closingBar = today.atTime(15, 25).atZone(ClosingTradingCalendar.ZONE).toInstant();
+        Instant closingBar = MarketSessionHours.at(today, LocalTime.of(15, 25));
         return candle.getStartTime().equals(closingBar) && candle.getVolume() <= 0;
     }
 }

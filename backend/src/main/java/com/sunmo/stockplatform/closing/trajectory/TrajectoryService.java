@@ -5,6 +5,8 @@
  */
 package com.sunmo.stockplatform.closing.trajectory;
 
+import com.sunmo.stockplatform.closing.application.MarketSessionHours;
+
 import com.sunmo.stockplatform.market.application.ObservedMarketTick;
 import com.sunmo.stockplatform.candle.infrastructure.StockCandleRepository;
 import com.sunmo.stockplatform.stock.infrastructure.StockRepository;
@@ -86,8 +88,9 @@ public class TrajectoryService {
                     // 단, DB 자체가 트랜잭션을 깨뜨리는 SQL 오류(PostgreSQL의 aborted transaction)는 예전처럼 묶음 전체 실패로 남아요.
                     try {
                         var local = cutoff.atZone(ClosingTradingCalendar.ZONE);
-                        if (local.toLocalTime().isBefore(policy.analysisStart()) || local.toLocalTime().isAfter(policy.analysisEnd())
-                                || Duration.between(policy.analysisStart(), local.toLocalTime()).toMinutes() % policy.snapshotMinutes() != 0) continue;
+                        var regular = MarketSessionHours.regularTime(cutoff);
+                        if (regular.isBefore(policy.analysisStart()) || regular.isAfter(policy.analysisEnd())
+                                || Duration.between(policy.analysisStart(), regular).toMinutes() % policy.snapshotMinutes() != 0) continue;
                         var stock = stocks.findByStockCode(row.symbol()).orElse(null);
                         if (stock == null) continue;
                         // 당일 이전의 확정 일봉을 최대 61개 가져와요(연속성·수신시각 검사는 availableDaily에서 해요).

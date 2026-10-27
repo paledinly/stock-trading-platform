@@ -5,6 +5,8 @@
  */
 package com.sunmo.stockplatform.candle.application;
 
+import com.sunmo.stockplatform.closing.application.MarketSessionHours;
+
 import com.sunmo.stockplatform.candle.config.CandleBackfillProperties;
 import com.sunmo.stockplatform.candle.domain.*;
 import com.sunmo.stockplatform.candle.infrastructure.StockCandleRepository;
@@ -143,14 +145,15 @@ public class CandleBackfillService {
             Instant bucket = CandleGapDetector.floorFiveMinutes(minute.startTime());
             // The random-end closing auction print (15:30 minute) is the session's final 5M bar, as in realtime.
             // 15:30 분봉(랜덤엔드 종가 체결)은 실시간과 똑같이 마지막 15:25 봉에 넣어요.
-            LocalTime minuteTime = minute.startTime().atZone(SEOUL).toLocalTime();
+            // 수능일처럼 마감이 늦춰진 날은 평소 시각으로 바꿔 비교해요(16:30 분봉 → 15:30).
+            LocalTime minuteTime = MarketSessionHours.regularTime(minute.startTime());
             // Closing call minutes without trades are placeholders, not prices anyone traded at.
             // 15:20~15:29 동시호가 시간의 무체결 분봉은 실제 거래 가격이 아닌 자리 채움이라 버려요.
             if (!minuteTime.isBefore(LocalTime.of(15, 20)) && minuteTime.isBefore(LocalTime.of(15, 30))
                     && minute.volume() <= 0)
                 continue;
             if (!minuteTime.isBefore(LocalTime.of(15, 30)))
-                bucket = minute.startTime().atZone(SEOUL).toLocalDate().atTime(15, 25).atZone(SEOUL).toInstant();
+                bucket = MarketSessionHours.at(minute.startTime().atZone(SEOUL).toLocalDate(), LocalTime.of(15, 25));
             buckets.computeIfAbsent(bucket, ignored -> new ArrayList<>()).add(minute);
         }
         // 2) 칸마다 시가(첫 분봉)·종가(마지막 분봉)·고가·저가·거래량·거래대금을 계산해요.
@@ -164,7 +167,8 @@ public class CandleBackfillService {
             BigDecimal low = rows.stream().map(MinuteCandle::low).min(Comparator.naturalOrder()).orElseThrow();
             long volume = rows.stream().mapToLong(MinuteCandle::volume).sum();
             BigDecimal lastCumulative = rows.getLast().cumulativeTradingValue();
-            boolean openingBucket = entry.getKey().atZone(SEOUL).toLocalTime().equals(LocalTime.of(9, 0));
+            var bucketTime = entry.getKey().atZone(SEOUL);
+            boolean openingBucket = bucketTime.toLocalTime().equals(MarketSessionHours.open(bucketTime.toLocalDate()));
             BigDecimal value = lastCumulative != null && priorCumulative != null
                     && lastCumulative.compareTo(priorCumulative) >= 0
                             ? lastCumulative.subtract(priorCumulative)

@@ -5,6 +5,8 @@
  */
 package com.sunmo.stockplatform.market.application;
 
+import com.sunmo.stockplatform.closing.application.MarketSessionHours;
+
 import com.sunmo.stockplatform.candle.application.CandleBackfillService;
 import com.sunmo.stockplatform.candle.domain.StockCandle;
 import com.sunmo.stockplatform.candle.infrastructure.StockCandleRepository;
@@ -104,7 +106,7 @@ public class RealtimeGapRepairService {
     static List<Instant> targets(RealtimeCoverage.Gap gap) {
         List<Instant> result = new ArrayList<>();
         for (Instant bucket = gap.lostFrom(); !bucket.isAfter(gap.lastBucket()); bucket = bucket.plus(BUCKET)) {
-            if (!bucket.atZone(RealtimeCoverage.SEOUL).toLocalTime().equals(LocalTime.of(15, 20)))
+            if (!MarketSessionHours.regularTime(bucket).equals(LocalTime.of(15, 20)))
                 result.add(bucket);
         }
         return result;

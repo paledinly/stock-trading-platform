@@ -53,7 +53,7 @@ public class ClosingPaperEntryService {
      * 돌려주는 것: 없음. 평가가 진입 마감 전에 끝났으면 PENDING, 이미 늦었으면 EVALUATION_DEADLINE_MISSED로 저장해요.
      */
     public void prepare(ClosingRecommendationRun run, Collection<String> symbols) {
-        Instant deadline = run.getRecommendationDate().atTime(policy.entryDeadline()).atZone(ClosingTradingCalendar.ZONE).toInstant();
+        Instant deadline = MarketSessionHours.at(run.getRecommendationDate(), policy.entryDeadline());
         String status = run.getCompletedAt().isBefore(deadline) ? "PENDING" : "EVALUATION_DEADLINE_MISSED";
         for (String symbol : new TreeSet<>(symbols)) jdbc.update(
                 "insert into closing_paper_entry(run_id,stock_code,completed_at,deadline,status) values (?,?,?,?,?)",
@@ -66,7 +66,7 @@ public class ClosingPaperEntryService {
      */
     @TransactionalEventListener(fallbackExecution = true)
     public void receive(ObservedMarketTick event) {
-        var local = event.receivedAt().atZone(ClosingTradingCalendar.ZONE).toLocalTime();
+        var local = MarketSessionHours.regularTime(event.receivedAt());
         if (local.isBefore(policy.featureFreezeAt()) || !local.isBefore(policy.entryDeadline())) return;
         latest.compute(event.tick().stockCode(), (code, old) -> old == null
                 || event.receivedAt().isAfter(old.receivedAt()) ? event : old);
@@ -89,12 +89,13 @@ public class ClosingPaperEntryService {
      * 받는 것: 없음. 돌려주는 것: 없음.
      * 시한 지난 대기는 NO_FRESH_TICK_BEFORE_DEADLINE으로 닫고, 쓸 수 있는 체결이 있으면 ENTERED로 바꿔요.
      */
-    @Scheduled(fixedDelayString = "${closing.automation.entry-poll-interval:5s}")
+    @Scheduled(fixedDelayString = "${closing.automation.entry-poll-interval:5s}", scheduler = "closingScheduler")
     public void capture() {
         Instant now = calendar.now(); var local = now.atZone(ClosingTradingCalendar.ZONE);
+        LocalTime regular = MarketSessionHours.regularTime(now);
         // No all-day polling/egress. On the next active window, old pending entries are expired, never backfilled.
-        if (!calendar.isTradingDay(local.toLocalDate()) || local.toLocalTime().isBefore(policy.featureFreezeAt())
-                || local.toLocalTime().isAfter(policy.entryDeadline().plusMinutes(1))) return;
+        if (!calendar.isTradingDay(local.toLocalDate()) || regular.isBefore(policy.featureFreezeAt())
+                || regular.isAfter(policy.entryDeadline().plusMinutes(1))) return;
         // 처리 1: 마감이 지난 대기 건은 진입 실패로 닫아요(나중에 채워 넣지 않아요).
         jdbc.update("update closing_paper_entry set status='NO_FRESH_TICK_BEFORE_DEADLINE' where status='PENDING' and deadline<=?", Timestamp.from(now));
         // 처리 2: 아직 시한이 남은 대기 건마다 최신 체결이 진입 조건을 만족하는지 보고 진입가를 기록해요.
@@ -109,7 +110,7 @@ public class ClosingPaperEntryService {
                                 event.tick().price(), rs.getLong("run_id"), symbol);
                 }, Timestamp.from(now));
         // 정리: 진입 마감 시각이 지나면 메모리의 최신 체결을 비워 다음 날로 넘어가지 않게 해요.
-        if (!local.toLocalTime().isBefore(policy.entryDeadline())) latest.clear();
+        if (!regular.isBefore(policy.entryDeadline())) latest.clear();
     }
     /**
      * 특정 run·종목의 가상 진입 결과를 조회해요.

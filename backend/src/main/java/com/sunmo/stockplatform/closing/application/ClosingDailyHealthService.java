@@ -282,13 +282,13 @@ public class ClosingDailyHealthService {
      * 받는 것: 오늘 날짜, 실시간 구간. 돌려주는 것: Facts(공식 run이 없으면 runId가 null).
      */
     private Facts facts(LocalDate today, RealtimeWindow realtime) {
-        Instant deadline = today.atTime(policy.entryDeadline()).atZone(ClosingTradingCalendar.ZONE).toInstant();
+        Instant deadline = MarketSessionHours.at(today, policy.entryDeadline());
         // 평가 시작~입력 마감 사이 스캐너 탐지 수, 그리고 오늘이 측정일인 FORWARD 관측의 상태별 건수를 세요.
         Integer detections = jdbc.queryForObject("""
                 select count(*) from scanner_detection
                  where market_session_date = ? and detected_at >= ? and detected_at <= ?""", Integer.class, today,
-                Timestamp.from(today.atTime(policy.evaluationStart()).atZone(ClosingTradingCalendar.ZONE).toInstant()),
-                Timestamp.from(today.atTime(policy.featureFreezeAt()).atZone(ClosingTradingCalendar.ZONE).toInstant()));
+                Timestamp.from(MarketSessionHours.at(today, policy.evaluationStart())),
+                Timestamp.from(MarketSessionHours.at(today, policy.featureFreezeAt())));
         String observationSql = """
                 select o.status, count(*) from closing_candidate_observation o
                   join closing_recommendation_run r on r.id = o.run_id

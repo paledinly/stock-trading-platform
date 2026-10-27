@@ -5,6 +5,8 @@
  */
 package com.sunmo.stockplatform.candle.application;
 
+import com.sunmo.stockplatform.closing.application.MarketSessionHours;
+
 import com.sunmo.stockplatform.candle.infrastructure.StockCandleRepository;
 import com.sunmo.stockplatform.candle.domain.StockCandle;
 import com.sunmo.stockplatform.closing.application.ClosingTradingCalendar;
@@ -57,9 +59,9 @@ public class CandleQueryService {
         LocalDate today = now.atZone(SEOUL).toLocalDate();
         // 오늘이 거래일이고, 조회 구간이 오늘까지 걸치며, 첫 칸(09:00~09:05)이 끝난 뒤라면 오늘 빈 칸을 찾아 보충을 시도해요.
         if (calendar.isTradingDay(today) && to.isAfter(today.atStartOfDay(SEOUL).toInstant())
-                && now.atZone(SEOUL).toLocalTime().isAfter(LocalTime.of(9, 5))) {
-            Instant open = today.atTime(9, 0).atZone(SEOUL).toInstant();
-            Instant close = today.atTime(15, 30).atZone(SEOUL).toInstant();
+                && now.atZone(SEOUL).toLocalTime().isAfter(MarketSessionHours.open(today).plusMinutes(5))) {
+            Instant open = today.atTime(MarketSessionHours.open(today)).atZone(SEOUL).toInstant();
+            Instant close = today.atTime(MarketSessionHours.close(today)).atZone(SEOUL).toInstant();
             List<StockCandle> existing = candles
                     .findByStockIdAndTimeframeAndStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(
                             stock.getId(), "5M", open, close);

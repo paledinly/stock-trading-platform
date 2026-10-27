@@ -1,6 +1,7 @@
 /*
  * 스케줄러(정해진 주기·시각에 작업을 자동 실행하는 장치) 스레드 풀 두 개를 만들어요.
- * 스프링 기본 @Scheduled 작업용(taskScheduler), 봉 확정 전용(candleCloseScheduler), Broad 보강 큐 전용(broadEnrichmentScheduler)이에요.
+ * 스프링 기본 @Scheduled 작업용(taskScheduler), 마감 추천 전용(closingScheduler), 봉 확정 전용(candleCloseScheduler),
+ * Broad 보강 큐 전용(broadEnrichmentScheduler)이에요.
  * scheduler 이름을 따로 지정하지 않은 모든 @Scheduled 메서드가 taskScheduler를 쓰고, BroadEnrichmentQueue는 전용 스케줄러를 써요.
  */
 package com.sunmo.stockplatform.market.config;
@@ -18,14 +19,28 @@ public class BroadEnrichmentScheduling {
     /**
      * 하는 일: 기본 스케줄러를 스레드 1개로 만들어요.
      * 돌려주는 것: "market-scheduled-" 이름의 스레드를 쓰는 스케줄러.
-     * 이름 없는 @Scheduled 작업(14:25/14:35 일봉 보완, 종가 평가·가상 진입·건강 기록 등)이 이 풀을 함께 써요.
-     * 종가 작업들이 지금까지처럼 한 번에 하나씩 차례로 돌도록 1개로 둬요. 봉 확정은 아래 전용 스케줄러가 맡아요.
+     * 이름 없는 @Scheduled 작업(14:25/14:35 일봉 보완, 시장 스캔, 공백 보완, 공시·지수 수집 등)이 이 풀을 함께 써요.
+     * 마감 추천 작업은 closingScheduler, 봉 확정은 candleCloseScheduler가 따로 맡아요.
      */
     @Bean("taskScheduler")
     public ThreadPoolTaskScheduler taskScheduler() {
         var scheduler = new ThreadPoolTaskScheduler();
         scheduler.setPoolSize(1);
         scheduler.setThreadNamePrefix("market-scheduled-");
+        return scheduler;
+    }
+
+    /**
+     * 하는 일: 마감 추천 작업 전용 스케줄러를 스레드 1개로 만들어요.
+     * 돌려주는 것: "closing-scheduled-" 이름의 스레드를 쓰는 스케줄러.
+     * 15:15 공식 평가, 가상 진입, 후보 맥락·상한가 관찰, 일별 완결성 기록이 이 스레드에서 차례로 돌아요.
+     * 기본 스케줄러의 긴 작업(일봉 보완, 시장 스캔, 공백 보완, 공시 수집)이 늦어져도 평가와 진입 시각이 밀리지 않게 분리해요.
+     */
+    @Bean("closingScheduler")
+    public ThreadPoolTaskScheduler closingScheduler() {
+        var scheduler = new ThreadPoolTaskScheduler();
+        scheduler.setPoolSize(1);
+        scheduler.setThreadNamePrefix("closing-scheduled-");
         return scheduler;
     }
 

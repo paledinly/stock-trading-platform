@@ -5,6 +5,8 @@
  */
 package com.sunmo.stockplatform.marketwide.application;
 
+import com.sunmo.stockplatform.closing.application.MarketSessionHours;
+
 import com.sunmo.stockplatform.market.application.RealtimeSubscriptionRegistry;
 import com.sunmo.stockplatform.market.config.PrecisionSubscriptionProperties;
 import jakarta.annotation.PostConstruct;
@@ -341,7 +343,8 @@ public class PrecisionSubscriptionAllocator {
      * 돌려주는 것: 동결이면 true.
      */
     private boolean frozen(Instant now) {
-        return !now.atZone(MARKET_ZONE).toLocalTime().isBefore(properties.freezeAt());
+        // 평소 시각 기준이에요(수능일 등 마감이 늦춰진 날은 15:50 벽시계가 14:50).
+        return !MarketSessionHours.regularTime(now).isBefore(properties.freezeAt());
     }
 
     /**

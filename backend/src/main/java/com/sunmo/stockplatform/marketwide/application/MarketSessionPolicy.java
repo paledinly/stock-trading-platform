@@ -6,6 +6,7 @@
 package com.sunmo.stockplatform.marketwide.application;
 
 import com.sunmo.stockplatform.closing.application.ClosingTradingCalendar;
+import com.sunmo.stockplatform.closing.application.MarketSessionHours;
 import com.sunmo.stockplatform.market.config.MarketWideScheduleProperties;
 import org.springframework.stereotype.Component;
 import java.time.*;
@@ -53,8 +54,11 @@ public class MarketSessionPolicy {
         // 휴장일은 거래일 달력(공식 KIS 정보 우선, 없으면 확인된 임시 휴장일·설정 휴장일)으로 판단해요.
         if (!calendar.isTradingDay(date))
             return new Decision(false, null, properties.holidays().contains(date) ? "CONFIGURED_HOLIDAY" : "MARKET_CLOSED");
-        LocalTime time = marketNow.toLocalTime();
-        if (time.isBefore(properties.open()) || time.isAfter(properties.close()))
+        // 시작·종료·후반부 기준은 평소 시각이에요. 수능일처럼 마감이 늦춰진 날은 그만큼 뺀 시각으로 비교해요.
+        LocalTime time = MarketSessionHours.regularTime(now);
+        LocalTime open = properties.open().isBefore(MarketSessionHours.regularOpen(date))
+                ? MarketSessionHours.regularOpen(date) : properties.open();
+        if (time.isBefore(open) || time.isAfter(properties.close()))
             return new Decision(false, null, "OUTSIDE_SESSION");
         // 처리: 장 후반(lateStart 이후)에는 다른 간격을 쓰고, 간격은 최소 60초로 막아요.
         Duration interval = time.isBefore(properties.lateStart())

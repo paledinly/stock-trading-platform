@@ -110,7 +110,8 @@ public class ClosingTradingCalendar {
     }
 
     // Regular-session hours are independent of the market-wide scanner's 15:20 cutoff.
-    // open(): 그 날짜 09:00, close(): 15:30(정규장 종료) 시각을 Instant로 돌려줘요.
-    public Instant open(LocalDate date) { return date.atTime(9, 0).atZone(ZONE).toInstant(); }
-    public Instant close(LocalDate date) { return date.atTime(15, 30).atZone(ZONE).toInstant(); }
+    // open(): 그 날짜 개장(평소 09:00), close(): 정규장 종료(평소 15:30) 시각을 Instant로 돌려줘요.
+    // 수능일처럼 시간이 바뀐 날은 MarketSessionHours 설정을 따라요.
+    public Instant open(LocalDate date) { return date.atTime(MarketSessionHours.open(date)).atZone(ZONE).toInstant(); }
+    public Instant close(LocalDate date) { return date.atTime(MarketSessionHours.close(date)).atZone(ZONE).toInstant(); }
 }

@@ -122,14 +122,14 @@ public class LimitUpWatchService {
      * 하는 일: 평일 15:16:15에 첫 번째 샘플(15:16)을 찍어요.
      * 받는 것: 없음(스케줄러가 호출). 돌려주는 것: 없음.
      */
-    @Scheduled(cron = "15 16 15 * * MON-FRI", zone = "Asia/Seoul")
+    @Scheduled(cron = "15 16 15,16 * * MON-FRI", zone = "Asia/Seoul", scheduler = "closingScheduler")
     public void first() { scheduled("15:16"); }
 
     /**
      * 하는 일: 평일 15:18:30에 두 번째 샘플(15:18)을 찍어요.
      * 받는 것: 없음(스케줄러가 호출). 돌려주는 것: 없음.
      */
-    @Scheduled(cron = "30 18 15 * * MON-FRI", zone = "Asia/Seoul")
+    @Scheduled(cron = "30 18 15,16 * * MON-FRI", zone = "Asia/Seoul", scheduler = "closingScheduler")
     public void second() { scheduled("15:18"); }
 
     /**
@@ -137,7 +137,8 @@ public class LimitUpWatchService {
      * 받는 것: 샘플 이름. 돌려주는 것: 없음(실패해도 예외를 밖으로 던지지 않아요).
      */
     private void scheduled(String label) {
-        if (!enabled || !kis.enabled())
+        // cron은 평소 시각과 한 시간 뒤에 두 번 깨어나요. 그날 장 시간(MarketSessionHours)에 맞는 쪽만 일해요.
+        if (!enabled || !kis.enabled() || !MarketSessionHours.firesAt(calendar.now(), LocalTime.parse(label)))
             return;
         try {
             log.info("Limit-up watch: {}", sample(label));
@@ -155,7 +156,7 @@ public class LimitUpWatchService {
         // 준비: 지금 시각과 오늘 날짜를 달력에서 받아, 거래일이고 15:15~15:20 창 안인지 확인해요.
         Instant now = calendar.now();
         LocalDate today = calendar.today();
-        LocalTime time = now.atZone(ClosingTradingCalendar.ZONE).toLocalTime();
+        LocalTime time = MarketSessionHours.regularTime(now);
         if (!calendar.isTradingDay(today) || time.isBefore(WINDOW_START) || !time.isBefore(WINDOW_END))
             return new Sample(today, label, 0, 0, 0);
         // 후보 종목, 후보 정보를 받은 시각, 후보 출처(RANKING 또는 BROAD_SNAPSHOT)를 종목코드별로 모아요.
@@ -207,7 +208,7 @@ public class LimitUpWatchService {
         int recorded = 0, failures = 0;
         // 15:20이 되면 남은 종목은 조회하지 않고 멈춰요(가상 진입 마감 이후 자료는 의미가 달라서).
         for (KisRankingEntry entry : ordered.subList(0, Math.min(MAX_STOCKS, ordered.size()))) {
-            if (!calendar.now().atZone(ClosingTradingCalendar.ZONE).toLocalTime().isBefore(WINDOW_END))
+            if (!MarketSessionHours.regularTime(calendar.now()).isBefore(WINDOW_END))
                 break;
             Book book = null;
             String error = null;

@@ -107,11 +107,12 @@ public class ClosingRecommendationScheduler {
      * 기본 30초마다 불려 오늘 할 일을 순서대로 확인해요.
      * 받는 것·돌려주는 것: 없음.
      */
-    @Scheduled(fixedDelayString = "${closing.automation.poll-interval:30s}")
+    @Scheduled(fixedDelayString = "${closing.automation.poll-interval:30s}", scheduler = "closingScheduler")
     public synchronized void poll() {
         Instant now = calendar.now();
         LocalDate today = now.atZone(ClosingTradingCalendar.ZONE).toLocalDate();
-        LocalTime time = now.atZone(ClosingTradingCalendar.ZONE).toLocalTime();
+        // 평소 시각(수능일처럼 마감이 늦춰진 날은 그만큼 뺀 시각)으로 15:15·15:20·18:00 같은 기준과 비교해요.
+        LocalTime time = MarketSessionHours.regularTime(now);
         // 구독 동기화는 휴장일에도 돌려 필요 없어진 구독을 정리해요.
         syncSubscriptionsIfDue(today, time, now, false);
         if (!calendar.isTradingDay(today))

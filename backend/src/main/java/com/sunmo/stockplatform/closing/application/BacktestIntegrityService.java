@@ -83,7 +83,7 @@ public class BacktestIntegrityService {
             return false;
         }
         LocalDate entryDate = row.entryAt().atZone(MARKET_ZONE).toLocalDate();
-        LocalTime entryTime = row.entryAt().atZone(MARKET_ZONE).toLocalTime();
+        LocalTime entryTime = MarketSessionHours.regularTime(row.entryAt());
         if (!entryDate.equals(row.recommendationDate()) || entryTime.isBefore(ENTRY_TIME)
                 || !entryTime.isAfter(DECISION_TIME) || row.buyReferencePrice().signum() <= 0) {
             builder.error("LOOKAHEAD", row, "진입 시점 오류",
@@ -113,7 +113,7 @@ public class BacktestIntegrityService {
      */
     private void checkRecommendationTime(OvernightBacktestRow row, IntegrityBuilder builder) {
         LocalDate detectedDate = row.detectedAt().atZone(MARKET_ZONE).toLocalDate();
-        LocalTime detectedTime = row.detectedAt().atZone(MARKET_ZONE).toLocalTime();
+        LocalTime detectedTime = MarketSessionHours.regularTime(row.detectedAt());
         if (!detectedDate.equals(row.recommendationDate())) {
             builder.error("LOOKAHEAD", row, "추천일과 탐지일 불일치",
                     "탐지일 " + detectedDate + "이 추천일 " + row.recommendationDate() + "와 다릅니다.");
@@ -184,8 +184,9 @@ public class BacktestIntegrityService {
             previous = candle.getStartTime();
         }
         // 첫 봉이 09:00보다 늦으면 시가 수익률이 실제 장 시작 가격과 다를 수 있어 경고해요.
-        LocalTime firstTime = candles.getFirst().getStartTime().atZone(MARKET_ZONE).toLocalTime();
-        if (firstTime.isAfter(MARKET_OPEN)) {
+        LocalTime firstTime = MarketSessionHours.regularTime(candles.getFirst().getStartTime());
+        LocalTime open = MarketSessionHours.regularOpen(candles.getFirst().getStartTime().atZone(MARKET_ZONE).toLocalDate());
+        if (firstTime.isAfter(open.isAfter(MARKET_OPEN) ? open : MARKET_OPEN)) {
             builder.warning("DATA_COVERAGE", row, "장 시작 캔들 누락",
                     "첫 확정 5분봉이 " + firstTime + "입니다. 시가 수익률이 실제 장 시작과 다를 수 있습니다.");
         }

@@ -6,6 +6,8 @@
  */
 package com.sunmo.stockplatform.marketindex.application;
 
+import com.sunmo.stockplatform.closing.application.MarketSessionHours;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sunmo.stockplatform.closing.application.ClosingTradingCalendar;
@@ -75,6 +77,19 @@ public class MarketIndexService {
     /** 하는 일: 거래일 16:05(KST)에 최근 20일 지수 일봉을 다시 받아 채워요. 실패해도 로그만 남겨요. */
     @Scheduled(cron = "${market.index-daily.cron:0 5 16 * * MON-FRI}", zone = "Asia/Seoul")
     public void refreshRecent() {
+        // 마감이 늦춰진 날(수능일 등)은 아래 17:05 실행이 맡아요.
+        if (MarketSessionHours.shift(calendar.today()).isZero())
+            refresh();
+    }
+
+    /** 하는 일: 마감이 한 시간 늦춰진 날에만 17:05에 같은 갱신을 해요. */
+    @Scheduled(cron = "0 5 17 * * MON-FRI", zone = "Asia/Seoul")
+    public void refreshRecentDelayed() {
+        if (!MarketSessionHours.shift(calendar.today()).isZero())
+            refresh();
+    }
+
+    private void refresh() {
         if (!kis.enabled() || !calendar.isTradingDay(calendar.today()))
             return;
         try {

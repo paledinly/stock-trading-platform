@@ -25,6 +25,7 @@ import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 
 /**
@@ -94,19 +95,20 @@ public class CandidateContextService {
      * After the 15:15 run completes; the second pass only fills codes the first one missed.
      * 평일 15:16:45에 1차 기록을 해요. 받는 것·돌려주는 것: 없음.
      */
-    @Scheduled(cron = "45 16 15 * * MON-FRI", zone = "Asia/Seoul")
-    public void first() { scheduled(); }
+    @Scheduled(cron = "45 16 15,16 * * MON-FRI", zone = "Asia/Seoul", scheduler = "closingScheduler")
+    public void first() { scheduled(LocalTime.of(15, 16, 45)); }
 
     /** 평일 15:19:00에 2차 기록을 해요. 1차에서 빠지거나 실패한 종목만 다시 채워요. 받는 것·돌려주는 것: 없음. */
-    @Scheduled(cron = "0 19 15 * * MON-FRI", zone = "Asia/Seoul")
-    public void retry() { scheduled(); }
+    @Scheduled(cron = "0 19 15,16 * * MON-FRI", zone = "Asia/Seoul", scheduler = "closingScheduler")
+    public void retry() { scheduled(LocalTime.of(15, 19)); }
 
     /**
      * 기능과 KIS가 켜져 있을 때만 기록을 실행하고, 결과나 실패를 로그로 남겨요.
      * 받는 것·돌려주는 것: 없음. 실패해도 예외를 밖으로 던지지 않아요.
      */
-    private void scheduled() {
-        if (!enabled || !kis.enabled())
+    private void scheduled(LocalTime regular) {
+        // cron은 평소 시각과 한 시간 뒤에 두 번 깨어나요. 그날 장 시간(MarketSessionHours)에 맞는 쪽만 일해요.
+        if (!enabled || !kis.enabled() || !MarketSessionHours.firesAt(calendar.now(), regular))
             return;
         try {
             Result result = record();

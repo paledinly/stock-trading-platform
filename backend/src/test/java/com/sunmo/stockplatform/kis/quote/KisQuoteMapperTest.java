@@ -13,6 +13,7 @@ import java.math.BigDecimal;
 import java.time.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** KIS 시세 응답 매핑을 점검하는 테스트예요. */
 class KisQuoteMapperTest {
@@ -54,5 +55,22 @@ class KisQuoteMapperTest {
 
         assertThat(quote.change()).isEqualByComparingTo("-800");
         assertThat(quote.changeRate()).isEqualByComparingTo("-1.16");
+    }
+
+    /**
+     * 현재가가 비었거나 0이면 0원 시세를 만들지 않고 거절 예외를 던지는지 확인해요.
+     * 기대: 두 경우 모두 KisRequestRejectedException이에요(회로 차단기가 세지 않는 예외).
+     */
+    @Test
+    void rejectsQuoteWithoutCurrentPrice() {
+        Instant instant = Instant.parse("2026-08-17T01:00:00Z");
+        var stock = new Stock("005930", "KR7005930003", "삼성전자", Market.KOSPI, MarketType.STOCK,
+                false, false, instant);
+        var mapper = new KisQuoteMapper(Clock.fixed(instant, ZoneOffset.UTC));
+
+        assertThatThrownBy(() -> mapper.map(stock, new KisQuoteResponse.Output("", "3", "0", "0", "", "", "", "", "")))
+                .isInstanceOf(com.sunmo.stockplatform.kis.config.KisRequestRejectedException.class);
+        assertThatThrownBy(() -> mapper.map(stock, new KisQuoteResponse.Output("0", "3", "0", "0", "0", "0", "0", "0", "0")))
+                .isInstanceOf(com.sunmo.stockplatform.kis.config.KisRequestRejectedException.class);
     }
 }

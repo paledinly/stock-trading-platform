@@ -5,6 +5,8 @@
  */
 package com.sunmo.stockplatform.closing.trajectory;
 
+import com.sunmo.stockplatform.closing.application.MarketSessionHours;
+
 import com.sunmo.stockplatform.market.application.ObservedMarketTick;
 import com.sunmo.stockplatform.market.domain.MarketTick;
 import java.math.BigDecimal;
@@ -41,7 +43,7 @@ public class MinuteFeatureAggregator {
         if (date != null && tick.businessDate().isBefore(date)) { rejected++; return; }
         // 새 영업일이 시작되면 이전 날 상태를 모두 비워요.
         if (!tick.businessDate().equals(date)) { states.clear(); date = tick.businessDate(); }
-        LocalTime time = tick.occurredAt().atZone(ZONE).toLocalTime();
+        LocalTime time = MarketSessionHours.regularTime(tick.occurredAt());
         if (time.isBefore(LocalTime.of(9, 0)) || !time.isBefore(LocalTime.of(15, 20))) return;
         Instant start = tick.occurredAt().truncatedTo(ChronoUnit.MINUTES);
         // 분 끝+대기시간 이후에 도착한 틱은 이미 확정됐을 분이라 넣지 않아요(늦은 틱으로 확정봉을 덮어쓰지 않음).
@@ -102,7 +104,7 @@ public class MinuteFeatureAggregator {
      * 받는 것: 분 시작 시각. 돌려주는 것: 구간 이름이에요.
      */
     static String phase(Instant start) {
-        LocalTime t = start.atZone(ZONE).toLocalTime();
+        LocalTime t = MarketSessionHours.regularTime(start);
         return t.isBefore(LocalTime.of(14, 30)) ? "REGULAR" : t.isBefore(LocalTime.of(15, 0)) ? "CLOSING_PHASE_1"
                 : t.isBefore(LocalTime.of(15, 10)) ? "CLOSING_PHASE_2" : "CLOSING_PHASE_3";
     }

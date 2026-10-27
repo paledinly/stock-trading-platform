@@ -5,6 +5,8 @@
  */
 package com.sunmo.stockplatform.closing.trajectory;
 
+import com.sunmo.stockplatform.closing.application.MarketSessionHours;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.sunmo.stockplatform.kis.auth.KisTokenManager;
 import com.sunmo.stockplatform.kis.config.*;
@@ -56,7 +58,8 @@ public class TrajectoryContextCollector {
     public void indices() {
         var now = calendar.now().atZone(ClosingTradingCalendar.ZONE);
         if (!policy.enabled() || !policy.indexEnabled() || !kis.enabled() || !calendar.isTradingDay(now.toLocalDate())
-                || now.toLocalTime().isBefore(LocalTime.of(9, 0)) || now.toLocalTime().isAfter(policy.analysisEnd())) return;
+                || MarketSessionHours.regularTime(now.toInstant()).isBefore(LocalTime.of(9, 0))
+                || MarketSessionHours.regularTime(now.toInstant()).isAfter(policy.analysisEnd())) return;
         collectIndex("KOSPI", "0001"); collectIndex("KOSDAQ", "1001");
     }
     /**

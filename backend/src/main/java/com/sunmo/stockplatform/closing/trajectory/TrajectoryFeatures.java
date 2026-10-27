@@ -5,6 +5,8 @@
  */
 package com.sunmo.stockplatform.closing.trajectory;
 
+import com.sunmo.stockplatform.closing.application.MarketSessionHours;
+
 import com.sunmo.stockplatform.candle.domain.StockCandle;
 import java.math.*;
 import java.time.*;
@@ -125,7 +127,7 @@ public final class TrajectoryFeatures {
                 : above == 1 && cross != null ? "VWAP_BREAKOUT" : above == 1 ? "VWAP_ABOVE_OBSERVED"
                 : failed ? "VWAP_FAILED_BREAKOUT" : "VWAP_BELOW");
         // 장후반(기본 14:30~) 1분 집계가 처음부터 빠짐없이 완전할 때만 장후반 수익률·패턴을 계산해요.
-        Instant lateStart = date.atTime(policy.analysisStart()).atZone(ZONE).toInstant();
+        Instant lateStart = MarketSessionHours.at(date, policy.analysisStart());
         List<Minute> late = rows.stream().filter(r -> !r.start().isBefore(lateStart)).toList();
         boolean lateComplete = !late.isEmpty() && late.getFirst().start().equals(lateStart)
                 && late.stream().allMatch(Minute::complete) && contiguous(late);

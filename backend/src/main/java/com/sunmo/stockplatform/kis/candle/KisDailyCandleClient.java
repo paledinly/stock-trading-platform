@@ -47,9 +47,9 @@ public class KisDailyCandleClient {
         this.requests = requests;
     }
 
-    /** Original (unadjusted) prices; a malformed row fails the request. Used by the operational 1D candles. */
+    /** Original (unadjusted) prices; rows with a non-positive price (halted days) are skipped. Used by the operational 1D candles. */
     /**
-     * 원주가 일봉을 조회해요. 이상한 행이 하나라도 있으면 요청 전체를 실패시켜요. 운영용 1D 봉에 쓰여요.
+     * 원주가 일봉을 조회해요. 가격이 0 이하인 행(거래정지일 등)은 그 행만 건너뛰어요. 운영용 1D 봉에 쓰여요.
      * rate limit(일정 시간당 호출 횟수 제한)과 회로 차단기(실패가 잦으면 잠시 호출을 막는 장치)가 걸려 있어요.
      * 받는 것: 종목코드, 시작일, 종료일. 돌려주는 것: 범위 안 일봉 목록(KIS 응답 순서, 보통 최신이 먼저).
      */
@@ -113,14 +113,16 @@ public class KisDailyCandleClient {
             if (rawDate.length() != 8) continue;
             LocalDate date = LocalDate.parse(rawDate, DATE);
             if (date.isBefore(from) || date.isAfter(through)) continue;
-            if (adjusted && !allPositive(row)) continue;
-            BigDecimal open = positive(row, "stck_oprc");
-            BigDecimal high = positive(row, "stck_hgpr");
-            BigDecimal low = positive(row, "stck_lwpr");
-            BigDecimal close = positive(row, "stck_clpr");
-            long volume = Long.parseLong(row.path("acml_vol").asText("0"));
+            // 가격이 0 이하인 행(거래정지일 등)은 그 행만 건너뛰어요. 예전에는 종목 전체 조회가 실패했어요.
+            if (!allPositive(row)) continue;
+            BigDecimal open = price(row, "stck_oprc");
+            BigDecimal high = price(row, "stck_hgpr");
+            BigDecimal low = price(row, "stck_lwpr");
+            BigDecimal close = price(row, "stck_clpr");
+            String rawVolume = row.path("acml_vol").asText("").trim();
+            long volume = rawVolume.isEmpty() ? 0L : Long.parseLong(rawVolume);
             // 거래대금이 비어 있으면 종가 × 거래량으로 근사해요(정확한 값은 아니에요).
-            String rawValue = row.path("acml_tr_pbmn").asText();
+            String rawValue = row.path("acml_tr_pbmn").asText().trim();
             BigDecimal value = rawValue.isBlank() ? close.multiply(BigDecimal.valueOf(volume))
                     : new BigDecimal(rawValue);
             rows.add(new DailyCandle(date, open, high, low, close, volume, value));
@@ -134,17 +136,16 @@ public class KisDailyCandleClient {
      */
     private boolean allPositive(JsonNode row) {
         for (String field : List.of("stck_oprc", "stck_hgpr", "stck_lwpr", "stck_clpr"))
-            if (new BigDecimal(row.path(field).asText("0")).signum() <= 0) return false;
+            if (price(row, field).signum() <= 0) return false;
         return true;
     }
 
     /**
-     * 지정한 가격 필드를 읽고 0보다 큰지 확인해요.
-     * 받는 것: KIS 일봉 한 행, 필드 이름. 돌려주는 것: 양수 가격, 0 이하면 IllegalArgumentException을 던져요.
+     * 지정한 가격 필드를 숫자로 읽어요.
+     * 받는 것: KIS 일봉 한 행, 필드 이름. 돌려주는 것: 가격, 비어 있으면 0.
      */
-    private BigDecimal positive(JsonNode row, String field) {
-        BigDecimal value = new BigDecimal(row.path(field).asText("0"));
-        if (value.signum() <= 0) throw new IllegalArgumentException("Invalid KIS daily candle field: " + field);
-        return value;
+    private BigDecimal price(JsonNode row, String field) {
+        String raw = row.path(field).asText("").trim();
+        return raw.isEmpty() ? BigDecimal.ZERO : new BigDecimal(raw);
     }
 }

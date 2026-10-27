@@ -71,11 +71,11 @@ public class ClosingDailyHealthRecorder {
      * 기본 30초마다 불려 샘플을 찍고, 장 마감 15분 뒤에는 하루 한 번 점검 행을 기록해요.
      * 받는 것·돌려주는 것: 없음. 기록 실패는 로그만 남기고 다음 호출에서 다시 시도해요.
      */
-    @Scheduled(fixedDelayString = "${closing.automation.poll-interval:30s}")
+    @Scheduled(fixedDelayString = "${closing.automation.poll-interval:30s}", scheduler = "closingScheduler")
     public synchronized void poll() {
         Instant now = calendar.now();
         LocalDate today = now.atZone(ClosingTradingCalendar.ZONE).toLocalDate();
-        LocalTime time = now.atZone(ClosingTradingCalendar.ZONE).toLocalTime();
+        LocalTime time = MarketSessionHours.regularTime(now);
         if (!calendar.isTradingDay(today))
             return;
         // 준비: 날짜가 바뀌면 전날 샘플을 버려요.

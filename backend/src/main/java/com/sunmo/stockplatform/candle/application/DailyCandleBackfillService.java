@@ -5,6 +5,8 @@
  */
 package com.sunmo.stockplatform.candle.application;
 
+import com.sunmo.stockplatform.closing.application.MarketSessionHours;
+
 import com.sunmo.stockplatform.market.application.RealtimeSubscriptionRegistry;
 import com.sunmo.stockplatform.candle.config.DailyCandleBackfillProperties;
 import com.sunmo.stockplatform.closing.application.ClosingTradingCalendar;
@@ -88,6 +90,19 @@ public class DailyCandleBackfillService {
      */
     @Scheduled(cron = "${closing.daily-backfill.precision-cron:0 25,35 14 * * MON-FRI}", zone = "Asia/Seoul")
     public void scheduledPreparePrecision() {
+        // 마감이 늦춰진 날(수능일 등)은 아래 한 시간 뒤 실행이 맡아요.
+        if (!MarketSessionHours.shift(calendar.today()).isZero()) return;
+        runPreparePrecision();
+    }
+
+    /** 하는 일: 마감이 한 시간 늦춰진 날(수능일 등)에만 15:25·15:35에 같은 보완을 해요. */
+    @Scheduled(cron = "0 25,35 15 * * MON-FRI", zone = "Asia/Seoul")
+    public void scheduledPreparePrecisionDelayed() {
+        if (MarketSessionHours.shift(calendar.today()).isZero()) return;
+        runPreparePrecision();
+    }
+
+    private void runPreparePrecision() {
         if (!settings.enabled() || !kis.enabled()) return;
         try {
             PrepareResult result = preparePrecision();

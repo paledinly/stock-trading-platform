@@ -5,6 +5,8 @@
  */
 package com.sunmo.stockplatform.closing.trajectory;
 
+import com.sunmo.stockplatform.closing.application.MarketSessionHours;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.sunmo.stockplatform.closing.application.ClosingTradingCalendar;
 import com.sunmo.stockplatform.kis.auth.KisTokenManager;
@@ -86,7 +88,8 @@ public class InvestorFlowCollector {
         return policy.enabled() && trajectory.enabled() && kis.enabled()
                 && kis.baseUrl() != null && "openapi.koreainvestment.com".equals(kis.baseUrl().getHost())
                 && calendar.isTradingDay(now.toLocalDate())
-                && !now.toLocalTime().isBefore(LocalTime.of(9, 0)) && !now.toLocalTime().isAfter(trajectory.analysisEnd());
+                && !MarketSessionHours.regularTime(now.toInstant()).isBefore(LocalTime.of(9, 0))
+                && !MarketSessionHours.regularTime(now.toInstant()).isAfter(trajectory.analysisEnd());
     }
     /**
      * 하는 일: KIS 시세 조회 API를 공통 헤더(토큰·앱키·거래ID)로 호출하고, 실패 응답이면 예외로 바꿔요.
@@ -157,7 +160,8 @@ public class InvestorFlowCollector {
             LocalTime local = LocalTime.parse(time, DateTimeFormatter.ofPattern("HHmmss"));
             Instant source = received.atZone(ClosingTradingCalendar.ZONE).toLocalDate().atTime(local)
                     .atZone(ClosingTradingCalendar.ZONE).toInstant();
-            if (local.isBefore(LocalTime.of(9, 0)) || local.isAfter(LocalTime.of(15, 20)) || source.isAfter(received)) continue;
+            LocalTime regular = MarketSessionHours.regularTime(source);
+            if (regular.isBefore(LocalTime.of(9, 0)) || regular.isAfter(LocalTime.of(15, 20)) || source.isAfter(received)) continue;
             if (latest == null || source.isAfter(latest.sourceAt()))
                 latest = new Context("PROGRAM_NET_BUY", symbol, "KRX", received, value, null, source,
                         "INTRADAY_PROVISIONAL_DATE_FROM_REQUEST", "SHARES");

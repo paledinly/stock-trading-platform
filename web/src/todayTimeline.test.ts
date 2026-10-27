@@ -156,3 +156,19 @@ test('handles holidays and a backend without the collection API', () => {
   expect(state(old, 'evaluate')).toBe('unknown')
   expect(old.find(step => step.id === 'evaluate')?.detail).toBe('Backend 재시작 후 표시')
 })
+
+// 수능일처럼 장이 10:00~16:30으로 한 시간 늦춰진 날은 장에 묶인 작업 시각을 옮기고, DART 같은 고정 작업은 그대로 둬요.
+test('shifts session-bound jobs on a delayed session day', () => {
+  const steps = buildTimeline({
+    clock: clockAt('15:30'), realtime, collection: collection({ sessionOpen: '10:00', sessionClose: '16:30' }),
+    subscriptions: { limit: 41, remaining: 0, precisionState: 'FROZEN' }, health: [],
+  })
+  const time = (id: string) => steps.find(step => step.id === id)?.time
+  expect(time('realtime')).toBe('09:59')
+  expect(time('evaluate')).toBe('16:15')
+  expect(time('health-final')).toBe('19:15')
+  expect(time('dart')).toBe('18:10')
+  // 15:30은 그날 평가(16:15) 전이라 문제 대신 예정이에요.
+  expect(state(steps, 'evaluate')).toBe('waiting')
+  expect(steps.map(step => step.time)).toEqual([...steps.map(step => step.time)].sort())
+})
