@@ -48,7 +48,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class AdjustedDailySweepService {
     private static final Logger log = LoggerFactory.getLogger(AdjustedDailySweepService.class);
     static final int MAX_ROWS_PER_CALL = 100;
-    static final int MAX_CALLS_PER_STOCK = 4;
+    // 종목당 최대 호출 수의 하한이에요. 실제 한도는 받을 기간(lookbackDays)에 맞춰 maxCalls()가 정해요.
+    static final int MIN_CALLS_PER_STOCK = 4;
     /**
      * Sweeps are refused from this time until close + 15m on trading days.
      * 거래일에는 이 시각(08:30)부터 장 마감 + 15분까지 수집을 거절해요.
@@ -206,7 +207,8 @@ public class AdjustedDailySweepService {
     private int fetch(String code, LocalDate from, LocalDate through, List<DailyCandle> into) {
         int calls = 0;
         LocalDate upper = through;
-        while (calls < MAX_CALLS_PER_STOCK && !upper.isBefore(from)) {
+        int maxCalls = maxCalls();
+        while (calls < maxCalls && !upper.isBefore(from)) {
             List<DailyCandle> page = client.fetchAdjusted(code, from, upper);
             calls++;
             into.addAll(page);
@@ -223,6 +225,14 @@ public class AdjustedDailySweepService {
      * 받는 것: 종목 ID, 받은 일봉 목록(같은 날짜가 중복되면 마지막 것만 써요).
      * 돌려주는 것: 새로 넣은 행 수와 가격이 바뀐 행 수.
      */
+    /**
+     * 하는 일: 종목당 최대 호출 수를 정해요. 한 번에 100거래일(달력으로 약 145일)을 받으므로 기간을 덮을 만큼 + 1회예요.
+     * 예: 210일 → 4회(하한), 1100일(약 3년) → 9회.
+     */
+    int maxCalls() {
+        return Math.max(MIN_CALLS_PER_STOCK, (settings.lookbackDays() + 144) / 145 + 1);
+    }
+
     private Saved save(long stockId, List<DailyCandle> rows) {
         if (rows.isEmpty())
             return new Saved(0, 0);

@@ -106,7 +106,7 @@ Windows Home 호스트 설정:
 
 ## 수정주가 일봉 수집 (연구용)
 
-`MARKET_ADJUSTED_DAILY_ENABLED=true`이면 평일 18:30(`MARKET_ADJUSTED_DAILY_CRON`)에 ETF·ETN 제외 전 종목(약 2,900개)의 수정주가 일봉을 갱신한다. 첫 수집은 종목당 약 2회 호출(약 5,800회, 일봉 rate limiter 초당 5건 기준 20~35분), 이후 매일은 종목당 1회(약 10~17분)다. 장 마감 15분 후부터 다음 거래일 08:30 전까지만 실행되고, 그 시간에 걸리면 `SESSION_GUARD`로 멈춘 뒤 다음 실행에서 이어 간다. 수동 시작: `POST /api/v1/market-data/adjusted-daily/sweep`, 진행 확인: `GET /api/v1/market-data/adjusted-daily/status`.
+`MARKET_ADJUSTED_DAILY_ENABLED=true`이면 평일 18:30(`MARKET_ADJUSTED_DAILY_CRON`)에 ETF·ETN 제외 전 종목(약 2,900개)의 수정주가 일봉을 갱신한다. 보관 기간은 기본 약 3년(1,100일)이다. 3년 첫 수집은 종목당 약 8회 호출(약 2.3만 회, 일봉 rate limiter 초당 5건 기준 약 80~100분)이고 약 200만 행(DB 약 300 MB)이 늘어난다. 이후 매일은 종목당 1회(약 10~17분)이고, 기업행사로 과거가 재계산된 종목만 3년치를 다시 받는다. 장 마감 15분 후부터 다음 거래일 08:30 전까지만 실행되고, 그 시간에 걸리면 `SESSION_GUARD`로 멈춘 뒤 다음 실행에서 이어 간다. 수동 시작: `POST /api/v1/market-data/adjusted-daily/sweep`, 진행 확인: `GET /api/v1/market-data/adjusted-daily/status`.
 
 ## 상한가 직전 매수 연구 수집
 

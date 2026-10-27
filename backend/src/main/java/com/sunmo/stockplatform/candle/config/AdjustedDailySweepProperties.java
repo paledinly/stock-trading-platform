@@ -14,9 +14,12 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  */
 @ConfigurationProperties(prefix = "market.adjusted-daily")
 public record AdjustedDailySweepProperties(boolean enabled, int lookbackDays, int refreshDays) {
-    /** 하는 일: 빈 값에 기본값을 넣고 허용 범위로 잘라요(lookbackDays 30~400, refreshDays 최대 140). */
+    /**
+     * 하는 일: 빈 값에 기본값을 넣고 허용 범위로 잘라요(lookbackDays 30~1200, 기본 1100 ≈ 3년, refreshDays 최대 140).
+     * 연구용 일봉은 시장 국면(상승·하락·횡보)이 여러 번 들어가도록 약 3년을 보관해요.
+     */
     public AdjustedDailySweepProperties {
-        lookbackDays = lookbackDays <= 0 ? 210 : Math.min(Math.max(lookbackDays, 30), 400);
+        lookbackDays = lookbackDays <= 0 ? 1100 : Math.min(Math.max(lookbackDays, 30), 1200);
         refreshDays = refreshDays <= 0 ? 140 : Math.min(refreshDays, 140);
     }
 }

@@ -185,4 +185,20 @@ class AdjustedDailySweepServiceTest {
     private static AdjustedDailySweepService.SweepStatus run(AdjustedDailySweepService service) {
         return service.runOnce();
     }
+
+    /**
+     * 3년 보관 설정에서 기본값·상한과 종목당 최대 호출 수가 기간을 덮는지 확인해요.
+     * 기대: 빈 값은 1100일, 5000일은 1200일로 잘리고, 210일은 4회·1100일은 9회(100거래일씩 약 754거래일)예요.
+     */
+    @Test
+    void threeYearLookbackCoversTheWholeRange() {
+        assertThat(new AdjustedDailySweepProperties(true, 0, 0).lookbackDays()).isEqualTo(1100);
+        assertThat(new AdjustedDailySweepProperties(true, 5000, 0).lookbackDays()).isEqualTo(1200);
+        assertThat(service("2026-10-27T10:00:00Z").maxCalls()).isEqualTo(4);
+        var calendar = new ClosingTradingCalendar(new MarketWideScheduleProperties(false, 120, 30, false, null, null,
+                null, null, null, List.of()), Clock.fixed(Instant.parse("2026-10-27T10:00:00Z"), ZoneOffset.UTC));
+        var threeYears = new AdjustedDailySweepService(new AdjustedDailySweepProperties(true, 1100, 140), kis, calendar,
+                stocks, client, jdbc, new DataSourceTransactionManager(db));
+        assertThat(threeYears.maxCalls()).isEqualTo(9);
+    }
 }
