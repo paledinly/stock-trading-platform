@@ -1,0 +1,2 @@
+discovery Q1(prior range low) P(ret>=5%) 6.1% | Q2(prior range ) P(ret>=5%) 11.9% | Q3(prior range ) P(ret>=5%) 15.2% | Q4(prior range ) P(ret>=5%) 17.4% | Q5(prior range high) P(ret>=5%) 19.4%
+check Q1(prior range low) P(ret>=5%) 3.1% | Q2(prior range ) P(ret>=5%) 7.9% | Q3(prior range ) P(ret>=5%) 11.8% | Q4(prior range ) P(ret>=5%) 14.7% | Q5(prior range high) P(ret>=5%) 17.2%
