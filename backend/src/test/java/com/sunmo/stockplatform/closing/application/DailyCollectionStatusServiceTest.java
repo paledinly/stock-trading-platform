@@ -43,7 +43,7 @@ class DailyCollectionStatusServiceTest {
         jdbc.execute("create table stock_candle(stock_id bigint, timeframe varchar(5), start_time timestamp with time zone, "
                 + "volume bigint, source varchar(20), updated_at timestamp with time zone)");
         jdbc.execute("create table closing_candidate_observation(run_id bigint, expected_session_date date, "
-                + "status varchar(30), evaluated_at timestamp with time zone, candidate_source varchar(20))");
+                + "status varchar(30), evaluated_at timestamp with time zone, candidate_source varchar(20), missing_intervals text)");
         jdbc.execute("create table dart_filing(rcept_no varchar(20), rcept_dt date, fetched_at timestamp with time zone)");
         jdbc.execute("create table daily_adjusted_sweep_state(stock_id bigint, swept_at timestamp with time zone)");
         jdbc.execute("create table market_index_daily(index_code varchar(10), trade_date date, fetched_at timestamp with time zone)");
@@ -92,7 +92,13 @@ class DailyCollectionStatusServiceTest {
                 at("2026-09-29T15:00:00Z"), at("2026-09-30T23:10:00Z"));
         // 이 날을 관측 세션으로 갖는 전일 후보 관측과, 다른 세션 관측(세지 않음)이에요.
         // 정밀 후보만 statuses에, Broad 후보는 broadStatuses에 따로 세요.
-        jdbc.update("insert into closing_candidate_observation values (9, ?, 'COMPLETED', ?, 'PRECISION'), "
+        // 15:25(KST) 종가 봉만 빠진 정밀 관측 1건과, 장중 봉도 빠진 1건이에요. 앞의 것만 "18:00 재보완 대기"로 세요.
+        jdbc.update("insert into closing_candidate_observation values (9, ?, 'DATA_INCOMPLETE', ?, 'PRECISION', "
+                + "'[\"2026-10-02T06:25:00Z\"]'), (9, ?, 'DATA_INCOMPLETE', ?, 'PRECISION', "
+                + "'[\"2026-10-02T01:00:00Z\",\"2026-10-02T06:25:00Z\"]')", FRIDAY, at("2026-10-02T06:40:04Z"), FRIDAY,
+                at("2026-10-02T06:40:05Z"));
+        jdbc.update("insert into closing_candidate_observation(run_id, expected_session_date, status, evaluated_at, candidate_source) "
+                + "values (9, ?, 'COMPLETED', ?, 'PRECISION'), "
                 + "(9, ?, 'DATA_MISSING', ?, 'PRECISION'), (9, ?, 'COMPLETED', ?, 'PRECISION'), (9, ?, 'DATA_MISSING', ?, 'BROAD')",
                 FRIDAY, at("2026-10-02T06:40:02Z"), FRIDAY, at("2026-10-02T06:40:03Z"),
                 LocalDate.of(2026, 10, 1), at("2026-10-01T06:40:00Z"), FRIDAY, at("2026-10-02T09:01:00Z"));
@@ -134,7 +140,8 @@ class DailyCollectionStatusServiceTest {
                 Instant.parse("2026-10-02T06:18:11Z")));
         assertThat(status.realtimeBars().rows()).isEqualTo(2);
         assertThat(status.realtimeBars().stocks()).isEqualTo(2);
-        assertThat(status.observation().statuses()).isEqualTo(Map.of("COMPLETED", 1, "DATA_MISSING", 1));
+        assertThat(status.observation().statuses()).isEqualTo(Map.of("COMPLETED", 1, "DATA_MISSING", 1, "DATA_INCOMPLETE", 2));
+        assertThat(status.observation().closingBarOnly()).isEqualTo(1);
         assertThat(status.observation().broadStatuses()).isEqualTo(Map.of("DATA_MISSING", 1));
         assertThat(status.observation().lastEvaluatedAt()).isEqualTo(Instant.parse("2026-10-02T09:01:00Z"));
         assertThat(status.observation().backfilledBars()).isEqualTo(3);

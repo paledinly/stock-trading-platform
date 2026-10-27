@@ -195,3 +195,25 @@ test('uses stored evidence after a backend restart', () => {
   expect(state(old, 'realtime')).toBe('problem')
   expect(state(old, 'scan')).toBe('problem')
 })
+
+// 15:40 보완 뒤 빠진 게 15:25 종가 봉뿐이면 18:00 재보완 전까지 '확인 필요' 대신 진행 중으로 보여 줘요.
+test('waits for the 18:00 refill when only the closing bar is missing', () => {
+  const preliminary = { tradeDate: '2026-10-02', verdict: 'DEGRADED', reasons: ['OBSERVATION_INCOMPLETE'], runId: 11,
+    runCompletedAt: null, paperEntryStatuses: null, observationStatuses: null, stage: 'PRELIMINARY' as const }
+  const waiting = (time: string, closingBarOnly: number) => buildTimeline({
+    clock: clockAt(time), realtime, subscriptions: { limit: 41, remaining: 0, precisionState: 'FROZEN' },
+    collection: collection({ observation: { statuses: { COMPLETED: 23, DATA_INCOMPLETE: 2 }, lastEvaluatedAt: '2026-10-02T06:41:00Z',
+      backfilledBars: 1400, closingBarOnly } }),
+    health: [preliminary],
+  })
+  const before = waiting('16:00', 2)
+  expect(state(before, 'observation')).toBe('running')
+  expect(before.find(step => step.id === 'observation')?.detail).toContain('18:00 재보완 대기')
+  expect(state(before, 'health')).toBe('running')
+  // 장중 봉도 빠졌으면 지금처럼 확인 필요예요.
+  const realGap = waiting('16:00', 1)
+  expect(state(realGap, 'observation')).toBe('warn')
+  expect(state(realGap, 'health')).toBe('warn')
+  // 18:00 재보완 뒤에도 남아 있으면 확인 필요로 돌아가요.
+  expect(state(waiting('18:20', 2), 'observation')).toBe('warn')
+})

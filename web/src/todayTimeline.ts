@@ -19,7 +19,8 @@ export type Collection = {
   candidateContext: Counted
   closingBar: { stocks: number; withVolume: number }
   // statuses는 정밀(PRECISION, ADR-010 표본) 후보만, broadStatuses는 Broad 후보(원래 결측이 많아 참고용)예요.
-  observation: { statuses: Record<string, number>; lastEvaluatedAt: string | null; backfilledBars: number; broadStatuses?: Record<string, number> }
+  // closingBarOnly: 빠진 것이 15:25 종가 봉 하나뿐인 정밀 관측 수(18:00 재보완이 채우는 정해진 지연). 예전 백엔드에는 없어요.
+  observation: { statuses: Record<string, number>; lastEvaluatedAt: string | null; backfilledBars: number; broadStatuses?: Record<string, number>; closingBarOnly?: number }
   dart: Counted
   adjustedDaily?: Counted
   /** 07:00~09:00·14:20~14:50에 저장된 일봉 수(08:10 후보 일봉 준비, 14:25·14:35 정밀 보완의 흔적). 예전 Backend에는 없어요. */
@@ -252,17 +253,27 @@ export function buildTimeline(input: TodayInputs): Step[] {
   const observation = collection?.observation
   const observed = sum(observation?.statuses)
   const missing = (observation?.statuses.DATA_MISSING ?? 0) + (observation?.statuses.DATA_INCOMPLETE ?? 0)
+  // 빠진 게 15:25 종가 봉뿐이면 KIS 분봉에 종가 체결이 늦게 실리는 정해진 지연이에요. 18:00 재보완 전에는 문제 대신 대기로 봐요.
+  const closingBarOnly = observation?.closingBarOnly ?? 0
+  const awaitingLate = missing > 0 && closingBarOnly === missing && before(s('18:00'))
+  const lateNote = awaitingLate ? ` · 종가 봉만 빠짐 ${closingBarOnly}건(${s('18:00')} 재보완 대기)` : ''
   add('observation', s('15:40'), '전일 후보 관측 + 분봉 보완',
-    !collection ? 'unknown' : before(s('15:40')) ? 'waiting' : observed === 0 ? (due(s('15:40'), 5) ? 'problem' : 'running') : missing > 0 ? 'warn' : 'done',
-    !collection ? pending : observed ? `정밀 ${Object.entries(observation!.statuses).map(([key, count]) => `${key} ${count}`).join(' · ')}${broadLine(observation!.broadStatuses)} · 보완 봉 ${observation!.backfilledBars} · 마지막 ${hms(observation!.lastEvaluatedAt)}`
+    !collection ? 'unknown' : before(s('15:40')) ? 'waiting' : observed === 0 ? (due(s('15:40'), 5) ? 'problem' : 'running')
+      : missing === 0 ? 'done' : awaitingLate ? 'running' : 'warn',
+    !collection ? pending : observed ? `정밀 ${Object.entries(observation!.statuses).map(([key, count]) => `${key} ${count}`).join(' · ')}${lateNote}${broadLine(observation!.broadStatuses)} · 보완 봉 ${observation!.backfilledBars} · 마지막 ${hms(observation!.lastEvaluatedAt)}`
       : `아직 관측 결과가 없어요 (전 거래일 ${collection.previousTradingDay ?? '-'} 후보 대상).`)
 
   // 15:45 일별 완결성 기록.
   const today = input.health?.find(row => row.tradeDate === clock.date)
+  // 1차 기록의 불완전 사유가 관측뿐이고, 지금 관측이 모두 끝났거나 종가 봉만 기다리는 중이면 18:15 최종 기록을 기다려요.
+  const observationOnly = today?.verdict === 'DEGRADED' && today.reasons.length > 0
+    && today.reasons.every(reason => reason === 'OBSERVATION_INCOMPLETE')
+  const awaitingFinal = observationOnly && today?.stage !== 'FINAL' && observed > 0 && (missing === 0 || closingBarOnly === missing)
+    && before(s('18:15'))
   add('health', s('15:45'), '일별 완결성 1차 기록',
     !input.health ? 'unknown' : !today ? (before(s('15:45')) ? 'waiting' : due(s('15:45'), 5) ? 'problem' : 'running')
-      : today.verdict === 'COMPLETE' ? 'done' : today.verdict === 'DEGRADED' ? 'warn' : 'problem',
-    today ? `${today.verdict}${today.reasons.length ? ` · ${today.reasons.join(', ')}` : ''}${today.stage === 'FINAL' ? ' (최종 기록으로 갱신됨)' : ''}` : '아직 오늘 기록이 없어요.')
+      : today.verdict === 'COMPLETE' ? 'done' : awaitingFinal ? 'running' : today.verdict === 'DEGRADED' ? 'warn' : 'problem',
+    today ? `${today.verdict}${today.reasons.length ? ` · ${today.reasons.join(', ')}` : ''}${today.stage === 'FINAL' ? ' (최종 기록으로 갱신됨)' : ''}${awaitingFinal ? ` · 종가 봉 지연이라 ${s('18:15')} 최종 기록에서 다시 판정해요` : ''}` : '아직 오늘 기록이 없어요.')
 
   // 16:05 지수 일봉(KOSPI·KOSDAQ 최근 20일 갱신). 그날 일봉 2개가 저장되면 정상이에요.
   const indexDaily = collection?.indexDaily

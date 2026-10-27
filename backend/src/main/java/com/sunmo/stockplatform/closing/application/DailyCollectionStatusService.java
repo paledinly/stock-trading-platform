@@ -53,7 +53,7 @@ public class DailyCollectionStatusService {
      * 보완이 없어 원래 결측이 많아요)예요.
      */
     public record Observation(Map<String, Integer> statuses, Instant lastEvaluatedAt, int backfilledBars,
-            Map<String, Integer> broadStatuses) { }
+            Map<String, Integer> broadStatuses, int closingBarOnly) { }
 
     /**
      * 그 시간대(한국시간)에 저장된 일봉 수예요. 일봉 준비는 빠진 일봉만 새로 저장하므로, 아침 준비(08:10)는 보통 전 거래일 일봉을
@@ -83,7 +83,7 @@ public class DailyCollectionStatusService {
         Instant checkedAt = calendar.now();
         if (!calendar.isTradingDay(date))
             return new DailyCollection(date, false, calendar.previousTradingDay(date), checkedAt, null, Map.of(),
-                    List.of(), new Counted(0, 0, null), new ClosingBar(0, 0), new Observation(Map.of(), null, 0, Map.of()),
+                    List.of(), new Counted(0, 0, null), new ClosingBar(0, 0), new Observation(Map.of(), null, 0, Map.of(), 0),
                     dart(date), adjustedDaily(date), new DailyCandles(0, 0, null), new DailyCandles(0, 0, null),
                     new Counted(0, 0, null), new LateObservation(0, null), hhmm(MarketSessionHours.open(date)),
                     hhmm(MarketSessionHours.close(date)), scanRuns(date), realtimeBars(date));
@@ -106,7 +106,8 @@ public class DailyCollectionStatusService {
                                 + "and source = 'BACKFILL' and start_time >= ? and start_time < ?", Long.class,
                                 Timestamp.from(dayStart), Timestamp.from(dayEnd))),
                         counts("select status, count(*) from closing_candidate_observation "
-                                + "where expected_session_date = ? and candidate_source <> 'PRECISION' group by status", date)),
+                                + "where expected_session_date = ? and candidate_source <> 'PRECISION' group by status", date),
+                        closingBarOnly(date)),
                 dart(date), adjustedDaily(date),
                 dailyCandles(date, LocalTime.of(7, 0), LocalTime.of(9, 0)),
                 // 14:25·14:35 보완은 마감이 늦춰진 날(수능일 등) 한 시간 뒤에 돌아요.
@@ -115,6 +116,18 @@ public class DailyCollectionStatusService {
                 indexDaily(date), lateObservation(date, dayStart, dayEnd),
                 hhmm(MarketSessionHours.open(date)), hhmm(MarketSessionHours.close(date)), scanRuns(date),
                 realtimeBars(date));
+    }
+
+    /**
+     * 정밀 후보 관측 중 빠진 것이 마지막 15:25 종가 봉 하나뿐인 DATA_INCOMPLETE 수예요.
+     * KIS 분봉에 15:30 종가 단일가 체결이 늦게 실려 15:40 보완 때 자주 비고, 18:00 재보완이 채워요.
+     * 화면은 이 경우를 문제 대신 "18:00 재보완 대기"로 보여 줘요.
+     */
+    private int closingBarOnly(LocalDate date) {
+        String onlyClosingBar = "[\"" + MarketSessionHours.at(date, LocalTime.of(15, 25)) + "\"]";
+        return integer(jdbc.queryForObject("select count(*) from closing_candidate_observation where expected_session_date = ? "
+                + "and candidate_source = 'PRECISION' and status = 'DATA_INCOMPLETE' and missing_intervals = ?", Long.class,
+                date, onlyClosingBar));
     }
 
     /**
