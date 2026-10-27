@@ -72,7 +72,7 @@ public class DailyCollectionStatusService {
             Run run, Map<String, Integer> paperEntries, List<LimitUpSample> limitUp, Counted candidateContext,
             ClosingBar closingBar, Observation observation, Counted dart, Counted adjustedDaily,
             DailyCandles morningDaily, DailyCandles precisionDaily, Counted indexDaily, LateObservation lateObservation,
-            String sessionOpen, String sessionClose) { }
+            String sessionOpen, String sessionClose, Counted scanRuns, DailyCandles realtimeBars) { }
 
     /**
      * 하는 일: 날짜(없으면 오늘, 한국시간)의 수집 현황을 세어요.
@@ -86,7 +86,7 @@ public class DailyCollectionStatusService {
                     List.of(), new Counted(0, 0, null), new ClosingBar(0, 0), new Observation(Map.of(), null, 0, Map.of()),
                     dart(date), adjustedDaily(date), new DailyCandles(0, 0, null), new DailyCandles(0, 0, null),
                     new Counted(0, 0, null), new LateObservation(0, null), hhmm(MarketSessionHours.open(date)),
-                    hhmm(MarketSessionHours.close(date)));
+                    hhmm(MarketSessionHours.close(date)), scanRuns(date), realtimeBars(date));
         Run run = run(date);
         Instant dayStart = date.atStartOfDay(ClosingTradingCalendar.ZONE).toInstant();
         Instant dayEnd = date.plusDays(1).atStartOfDay(ClosingTradingCalendar.ZONE).toInstant();
@@ -113,7 +113,29 @@ public class DailyCollectionStatusService {
                 dailyCandles(date, LocalTime.of(14, 20).plus(MarketSessionHours.shift(date)),
                         LocalTime.of(14, 50).plus(MarketSessionHours.shift(date))),
                 indexDaily(date), lateObservation(date, dayStart, dayEnd),
-                hhmm(MarketSessionHours.open(date)), hhmm(MarketSessionHours.close(date)));
+                hhmm(MarketSessionHours.open(date)), hhmm(MarketSessionHours.close(date)), scanRuns(date),
+                realtimeBars(date));
+    }
+
+    /**
+     * 그날 시장 전체 스캔 기록(market_wide_scan_run)이에요. rows는 완료 수, errors는 실패 수, lastAt은 마지막 완료 시각이에요.
+     * 상태 API의 스캔 횟수는 메모리 값이라 재시작하면 0이 되므로, 화면은 이 저장 기록으로 판정해요.
+     */
+    private Counted scanRuns(LocalDate date) {
+        return counted("select count(*) filter (where status = 'COMPLETED'), count(*) filter (where status = 'FAILED'), "
+                + "max(completed_at) from market_wide_scan_run where session_date = ?", date);
+    }
+
+    /**
+     * 그날 실시간 체결로 만든 5분봉(source REALTIME) 수, 종목 수, 마지막 저장 시각이에요.
+     * 실시간 연결 시각은 메모리 값이라 재시작하면 지워지므로, 장 마감 뒤에는 이 저장 기록으로 연결 여부를 판정해요.
+     */
+    private DailyCandles realtimeBars(LocalDate date) {
+        Timestamp start = Timestamp.from(date.atStartOfDay(ClosingTradingCalendar.ZONE).toInstant());
+        Timestamp end = Timestamp.from(date.plusDays(1).atStartOfDay(ClosingTradingCalendar.ZONE).toInstant());
+        return jdbc.queryForObject("select count(*), count(distinct stock_id), max(updated_at) from stock_candle "
+                + "where timeframe = '5M' and source = 'REALTIME' and start_time >= ? and start_time < ?",
+                (rs, i) -> new DailyCandles(rs.getInt(1), rs.getInt(2), instant(rs.getTimestamp(3))), start, end);
     }
 
     /** 그날 정규장 개장·마감 시각을 "HH:mm"으로 내려줘요. 화면 시간표가 수능일 등 특별 일정에 맞춰 시각을 옮기는 데 써요. */

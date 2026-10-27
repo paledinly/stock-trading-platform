@@ -31,6 +31,9 @@ export type Collection = {
   /** 그날 정규장 개장·마감("HH:mm"). 수능일처럼 시간이 바뀐 날은 시간표를 그만큼 옮겨 보여 줘요. 예전 백엔드에는 없어요. */
   sessionOpen?: string
   sessionClose?: string
+  /** 그날 저장된 시장 스캔 기록(rows 완료, errors 실패)과 실시간 5분봉 수예요. 재시작해도 남아요. 예전 백엔드에는 없어요. */
+  scanRuns?: Counted
+  realtimeBars?: DailyCandles
 }
 type DailyCandles = { rows: number; stocks: number; lastAt: string | null }
 export type Health = {
@@ -174,20 +177,30 @@ export function buildTimeline(input: TodayInputs): Step[] {
           : `08:10 실행 흔적(새 일봉 저장)이 없어요. 그 시각 Backend가 꺼져 있었다면 ${manualHint} 이미 최신이라 저장할 게 없었을 수도 있어요.`)
 
   // 08:59 실시간 연결.
+  // 연결 시각·틱 수는 메모리 값이라 재시작하면 지워져요. 장 마감 뒤에는 그날 저장된 실시간 5분봉으로도 판정해요.
   const live = input.realtime?.realtime
   const connectedToday = kstDate(live?.connectedAt) === clock.date
+  const realtimeBars = collection?.realtimeBars
+  const barsSaved = (realtimeBars?.rows ?? 0) > 0
+  const barsLine = realtimeBars ? ` · 오늘 저장된 실시간 5분봉 ${realtimeBars.stocks}종목 ${realtimeBars.rows.toLocaleString('ko-KR')}개` : ''
   add('realtime', o('08:59'), '실시간 체결 연결',
-    !live ? 'unknown' : live.connected ? 'done' : before(o('08:59')) ? 'waiting' : now > at(s('15:32')) ? (connectedToday ? 'done' : 'problem') : 'problem',
-    live ? `${live.connected ? '연결됨' : '연결 안 됨'} · 연결 ${hms(live.connectedAt)} · 마지막 체결 ${hms(live.lastTickAt)} · 틱 ${live.receivedTicks.toLocaleString('ko-KR')}` : failed)
+    !live && !realtimeBars ? 'unknown' : live?.connected ? 'done' : before(o('08:59')) ? 'waiting'
+      : now > at(s('15:32')) ? (connectedToday || barsSaved ? 'done' : 'problem') : 'problem',
+    live || realtimeBars ? `${live ? `${live.connected ? '연결됨' : '연결 안 됨'} · 연결 ${hms(live.connectedAt)} · 마지막 체결 ${hms(live.lastTickAt)} · 틱 ${live.receivedTicks.toLocaleString('ko-KR')}` : '연결 상태 모름'}${barsLine}` : failed)
 
   // 09:00~15:20 시장 전체 스캔(5분, 14:00부터 2분 간격).
+  // 상태 API의 스캔 횟수는 재시작하면 0이 돼요. 그날 저장된 스캔 기록(scanRuns)이 있으면 그것으로 판정해요.
   const wide = input.wide
-  const scanState: StepState = !wide ? 'unknown' : before(o('09:00')) ? 'waiting'
-    : wide.failedRuns > 0 ? 'warn'
-      : now < at(s('15:20')) ? (wide.completedRuns > 0 ? 'running' : due(o('09:00'), 6) ? 'problem' : 'running')
-        : wide.completedRuns > 0 ? 'done' : 'problem'
+  const scanRuns = collection?.scanRuns
+  const completedRuns = scanRuns ? scanRuns.rows : wide?.completedRuns ?? 0
+  const failedRuns = scanRuns ? scanRuns.errors : wide?.failedRuns ?? 0
+  const lastScanAt = scanRuns ? scanRuns.lastAt : wide?.lastCompletedAt ?? null
+  const scanState: StepState = !wide && !scanRuns ? 'unknown' : before(o('09:00')) ? 'waiting'
+    : failedRuns > 0 ? 'warn'
+      : now < at(s('15:20')) ? (completedRuns > 0 ? 'running' : due(o('09:00'), 6) ? 'problem' : 'running')
+        : completedRuns > 0 ? 'done' : 'problem'
   add('scan', o('09:00'), `시장 전체 스캔 (${o('09:00')}~${s('15:20')})`, scanState,
-    wide ? `완료 ${wide.completedRuns} · 실패 ${wide.failedRuns} · 마지막 완료 ${hms(wide.lastCompletedAt)}${wide.lastError ? ` · 오류 ${wide.lastError}` : ''} (재시작 후 누적)` : failed)
+    wide || scanRuns ? `완료 ${completedRuns} · 실패 ${failedRuns} · 마지막 완료 ${hms(lastScanAt)}${wide?.lastError ? ` · 오류 ${wide.lastError}` : ''}${scanRuns ? ' (오늘 저장 기록)' : ' (재시작 후 누적)'}` : failed)
 
   // 14:25·14:35 정밀 후보 일봉 보완: 저장된 게 없으면 이미 최신이었을 수 있어 '확인 필요'로 두지 않아요.
   const precisionDaily = collection?.precisionDaily

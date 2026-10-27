@@ -172,3 +172,26 @@ test('shifts session-bound jobs on a delayed session day', () => {
   expect(state(steps, 'evaluate')).toBe('waiting')
   expect(steps.map(step => step.time)).toEqual([...steps.map(step => step.time)].sort())
 })
+
+// 장 마감 뒤 재시작하면 연결 시각과 스캔 횟수가 0이 되지만, 그날 저장된 실시간 5분봉·스캔 기록이 있으면 정상으로 봐요.
+test('uses stored evidence after a backend restart', () => {
+  const restarted: TodayInputs['realtime'] = { realtime: {
+    connected: false, connectedAt: null, lastTickAt: null, receivedTicks: 0, parseErrors: 0, processingErrors: 0, processingDropped: 0,
+  } }
+  const steps = buildTimeline({
+    clock: clockAt('17:20'), realtime: restarted,
+    wide: { completedRuns: 0, failedRuns: 0, lastCompletedAt: null, lastError: null },
+    collection: collection({
+      scanRuns: { rows: 100, errors: 0, lastAt: '2026-10-02T06:18:11Z' },
+      realtimeBars: { rows: 2956, stocks: 53, lastAt: '2026-10-02T06:31:04Z' },
+    }),
+    health: [],
+  })
+  expect(state(steps, 'realtime')).toBe('done')
+  expect(state(steps, 'scan')).toBe('done')
+  // 저장 기록이 없으면(예전 백엔드) 지금처럼 문제로 남아요.
+  const old = buildTimeline({ clock: clockAt('17:20'), realtime: restarted,
+    wide: { completedRuns: 0, failedRuns: 0, lastCompletedAt: null, lastError: null }, collection: collection(), health: [] })
+  expect(state(old, 'realtime')).toBe('problem')
+  expect(state(old, 'scan')).toBe('problem')
+})
