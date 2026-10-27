@@ -217,3 +217,22 @@ test('waits for the 18:00 refill when only the closing bar is missing', () => {
   // 18:00 재보완 뒤에도 남아 있으면 확인 필요로 돌아가요.
   expect(state(waiting('18:20', 2), 'observation')).toBe('warn')
 })
+
+// 07:40 아침 DART 수집분이나 진행 중인 수정주가 수집을 저녁 작업 완료로 착각하지 않아요.
+test('does not mark evening jobs done from morning or partial work', () => {
+  const steps = buildTimeline({
+    clock: clockAt('17:40'), realtime, health: [],
+    collection: collection({ dart: { rows: 8, errors: 0, lastAt: '2026-10-01T22:40:03Z' },
+      adjustedDaily: { rows: 981, errors: 0, lastAt: '2026-10-02T08:39:46Z' }, adjustedUniverse: 2909 }),
+  })
+  expect(state(steps, 'dart')).toBe('waiting')
+  expect(steps.find(step => step.id === 'dart')?.detail).toContain('07:40 아침 수집분')
+  expect(state(steps, 'adjusted')).toBe('running')
+  const evening = buildTimeline({
+    clock: clockAt('19:00'), realtime, health: [],
+    collection: collection({ dart: { rows: 40, errors: 0, lastAt: '2026-10-02T09:10:05Z' },
+      adjustedDaily: { rows: 2900, errors: 0, lastAt: '2026-10-02T09:45:00Z' }, adjustedUniverse: 2909 }),
+  })
+  expect(state(evening, 'dart')).toBe('done')
+  expect(state(evening, 'adjusted')).toBe('done')
+})

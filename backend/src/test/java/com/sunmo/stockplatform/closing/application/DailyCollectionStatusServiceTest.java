@@ -47,6 +47,9 @@ class DailyCollectionStatusServiceTest {
         jdbc.execute("create table dart_filing(rcept_no varchar(20), rcept_dt date, fetched_at timestamp with time zone)");
         jdbc.execute("create table daily_adjusted_sweep_state(stock_id bigint, swept_at timestamp with time zone)");
         jdbc.execute("create table market_index_daily(index_code varchar(10), trade_date date, fetched_at timestamp with time zone)");
+        jdbc.execute("create table stock(id bigint, is_active boolean, is_etf boolean, is_etn boolean)");
+        jdbc.execute("insert into stock values (1, true, false, false), (2, true, false, false), (3, true, true, false), "
+                + "(4, false, false, false)");
         jdbc.execute("create table market_wide_scan_run(session_date date, status varchar(20), completed_at timestamp with time zone)");
     }
 
@@ -140,6 +143,8 @@ class DailyCollectionStatusServiceTest {
                 Instant.parse("2026-10-02T06:18:11Z")));
         assertThat(status.realtimeBars().rows()).isEqualTo(2);
         assertThat(status.realtimeBars().stocks()).isEqualTo(2);
+        // 수정주가 수집 대상은 활성·ETF 아님 종목 2개예요.
+        assertThat(status.adjustedUniverse()).isEqualTo(2);
         assertThat(status.observation().statuses()).isEqualTo(Map.of("COMPLETED", 1, "DATA_MISSING", 1, "DATA_INCOMPLETE", 2));
         assertThat(status.observation().closingBarOnly()).isEqualTo(1);
         assertThat(status.observation().broadStatuses()).isEqualTo(Map.of("DATA_MISSING", 1));

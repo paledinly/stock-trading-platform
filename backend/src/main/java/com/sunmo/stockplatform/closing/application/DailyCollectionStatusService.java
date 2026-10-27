@@ -72,7 +72,7 @@ public class DailyCollectionStatusService {
             Run run, Map<String, Integer> paperEntries, List<LimitUpSample> limitUp, Counted candidateContext,
             ClosingBar closingBar, Observation observation, Counted dart, Counted adjustedDaily,
             DailyCandles morningDaily, DailyCandles precisionDaily, Counted indexDaily, LateObservation lateObservation,
-            String sessionOpen, String sessionClose, Counted scanRuns, DailyCandles realtimeBars) { }
+            String sessionOpen, String sessionClose, Counted scanRuns, DailyCandles realtimeBars, int adjustedUniverse) { }
 
     /**
      * 하는 일: 날짜(없으면 오늘, 한국시간)의 수집 현황을 세어요.
@@ -86,7 +86,7 @@ public class DailyCollectionStatusService {
                     List.of(), new Counted(0, 0, null), new ClosingBar(0, 0), new Observation(Map.of(), null, 0, Map.of(), 0),
                     dart(date), adjustedDaily(date), new DailyCandles(0, 0, null), new DailyCandles(0, 0, null),
                     new Counted(0, 0, null), new LateObservation(0, null), hhmm(MarketSessionHours.open(date)),
-                    hhmm(MarketSessionHours.close(date)), scanRuns(date), realtimeBars(date));
+                    hhmm(MarketSessionHours.close(date)), scanRuns(date), realtimeBars(date), adjustedUniverse());
         Run run = run(date);
         Instant dayStart = date.atStartOfDay(ClosingTradingCalendar.ZONE).toInstant();
         Instant dayEnd = date.plusDays(1).atStartOfDay(ClosingTradingCalendar.ZONE).toInstant();
@@ -115,7 +115,15 @@ public class DailyCollectionStatusService {
                         LocalTime.of(14, 50).plus(MarketSessionHours.shift(date))),
                 indexDaily(date), lateObservation(date, dayStart, dayEnd),
                 hhmm(MarketSessionHours.open(date)), hhmm(MarketSessionHours.close(date)), scanRuns(date),
-                realtimeBars(date));
+                realtimeBars(date), adjustedUniverse());
+    }
+
+    /**
+     * 수정주가 일봉 수집 대상 종목 수(활성, ETF·ETN 제외)예요. 화면은 그날 확인한 종목 수가 이만큼 차야 완료로 봐요.
+     * 수집 중이거나 수동 실행이 일부만 돈 경우를 완료로 오인하지 않기 위해서예요.
+     */
+    private int adjustedUniverse() {
+        return integer(jdbc.queryForObject("select count(*) from stock where is_active and not is_etf and not is_etn", Long.class));
     }
 
     /**

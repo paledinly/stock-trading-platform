@@ -35,6 +35,8 @@ export type Collection = {
   /** 그날 저장된 시장 스캔 기록(rows 완료, errors 실패)과 실시간 5분봉 수예요. 재시작해도 남아요. 예전 백엔드에는 없어요. */
   scanRuns?: Counted
   realtimeBars?: DailyCandles
+  /** 수정주가 일봉 수집 대상 종목 수(활성, ETF·ETN 제외). 예전 백엔드에는 없어요. */
+  adjustedUniverse?: number
 }
 type DailyCandles = { rows: number; stocks: number; lastAt: string | null }
 export type Health = {
@@ -288,10 +290,12 @@ export function buildTimeline(input: TodayInputs): Step[] {
     !collection ? pending : !late ? '백엔드 재시작 후 표시' : late.lastEvaluatedAt ? `다시 채운 5분봉 ${late.refilledBars} · 재평가 ${hms(late.lastEvaluatedAt)}` : '아직 재평가 기록이 없어요.')
 
   // 18:10 DART 공시(다음 날 07:40에 보충). 휴장일에도 18:10에 돌아요.
+  // 오늘 접수 공시는 07:40 아침 수집에서도 일부 저장돼요. 그래서 개수가 아니라 18:10 이후 저장 흔적이 있어야 완료로 봐요.
   const dart = collection?.dart
+  const dartEvening = !!dart?.lastAt && kstDate(dart.lastAt) === clock.date && kstClock(new Date(dart.lastAt)).minutes >= at('18:10')
   add('dart', '18:10', 'DART 공시 수집',
-    !collection ? 'unknown' : dart && dart.rows > 0 ? 'done' : before('18:10') ? 'waiting' : due('18:10', 5) ? 'warn' : 'running',
-    !collection ? pending : `오늘 접수 공시 ${dart?.rows ?? 0}건 · 마지막 수집 ${hms(dart?.lastAt)}`)
+    !collection ? 'unknown' : before('18:10') ? 'waiting' : dartEvening ? 'done' : due('18:10', 5) ? 'warn' : 'running',
+    !collection ? pending : `오늘 접수 공시 ${dart?.rows ?? 0}건 · 마지막 저장 ${hms(dart?.lastAt)}${before('18:10') && (dart?.rows ?? 0) > 0 ? ' (07:40 아침 수집분)' : ''}`)
 
   // 18:15 일별 완결성 최종 기록(18:00 재보완 반영).
   add('health-final', s('18:15'), '일별 완결성 최종 기록',
@@ -301,10 +305,14 @@ export function buildTimeline(input: TodayInputs): Step[] {
     today?.stage === 'FINAL' ? `${today.verdict}${today.reasons.length ? ` · ${today.reasons.join(', ')}` : ''} · 참고: ${indicatorLine(today.indicators)}` : '아직 최종 기록이 없어요.')
 
   // 18:30 수정주가 일봉(연구).
+  // 수동 실행이나 수집 중에도 확인 종목이 생기므로, 대상 종목 수(adjustedUniverse)의 98% 이상을 확인해야 완료로 봐요(실패 종목 여유).
   const adjusted = collection?.adjustedDaily
+  const universe = collection?.adjustedUniverse
+  const adjustedRows = adjusted?.rows ?? 0
+  const adjustedDone = universe ? adjustedRows >= universe * 0.98 : adjustedRows > 0
   add('adjusted', '18:30', '수정주가 일봉 (연구)',
-    !collection ? 'unknown' : adjusted && adjusted.rows > 0 ? 'done' : before('18:30') ? 'waiting' : due('18:30', 30) ? 'warn' : 'running',
-    !collection ? pending : `오늘 확인 ${adjusted?.rows ?? 0}종목 · 마지막 ${hms(adjusted?.lastAt)}`)
+    !collection ? 'unknown' : adjustedDone ? 'done' : adjustedRows > 0 ? 'running' : before('18:30') ? 'waiting' : due('18:30', 30) ? 'warn' : 'running',
+    !collection ? pending : `오늘 확인 ${adjustedRows}${universe ? `/${universe}` : ''}종목 · 마지막 ${hms(adjusted?.lastAt)}`)
 
   // 장 시간이 바뀐 날은 옮긴 시각과 고정 시각(DART 등)이 섞이므로 시각 순으로 다시 줄 세워요(같은 시각은 원래 순서).
   return steps.sort((a, b) => at(a.time) - at(b.time))
