@@ -118,6 +118,31 @@ class ClosingRecommendationServiceTest {
     }
 
     /**
+     * Broad 후보는 정밀 후보와 같은 최소 거래대금(10억 원)을 넘어야 관찰이 되는지 확인해요.
+     *
+     * <p>입력: 거래대금 50억 원 스냅샷과 3천만 원 스냅샷(나머지 조건은 같음).
+     * <p>기대: 관찰 1건, 3천만 원 종목은 LOW_LIQUIDITY로 제외, 관찰 행에 거래대금이 남아요.
+     */
+    @Test
+    void broadWatchRequiresMinimumTradingValue() {
+        Fixture fixture = new Fixture();
+        LocalDate date = LocalDate.now(SEOUL).minusDays(1);
+        MarketBroadSnapshot liquid = fixture.snapshot(fixture.stock(1L), date.atTime(15, 0).atZone(SEOUL).toInstant(), BroadSnapshotQuality.BROAD_C);
+        MarketBroadSnapshot thin = fixture.snapshot(fixture.stock(2L), date.atTime(15, 1).atZone(SEOUL).toInstant(), BroadSnapshotQuality.BROAD_C);
+        when(thin.getAccumulatedTradingValue()).thenReturn(bd("30000000"));
+        when(fixture.detections.findBySessionDateAndDetectedAtGreaterThanEqualOrderByDetectedAtDesc(eq(date), any()))
+                .thenReturn(List.of());
+        when(fixture.snapshots.findClosingCandidates(eq(date), any(), any())).thenReturn(List.of(liquid, thin));
+
+        var response = fixture.service.generate(date, 10, bd("35"), bd("65"));
+
+        assertThat(response.watchCandidates()).isEqualTo(1);
+        assertThat(response.exclusionReasons()).containsEntry("LOW_LIQUIDITY", 1);
+        var watch = response.evaluations().stream().filter(row -> "WATCH".equals(row.disposition())).findFirst().orElseThrow();
+        assertThat(watch.dataReadiness()).containsKey("dailyTradingValue");
+    }
+
+    /**
      * 과거 성과 이력이 없어도 당일 확정 5분봉이 충분하면 추천되는지 확인해요.
      *
      * <p>입력: 15:00 Precision 탐지 1건, 기본 Fixture 봉(연속 확정봉)이에요.

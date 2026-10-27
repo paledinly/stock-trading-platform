@@ -19,7 +19,8 @@ export type Collection = {
   candidateContext: Counted
   closingBar: { stocks: number; withVolume: number }
   // statuses는 정밀(PRECISION, ADR-010 표본) 후보만, broadStatuses는 Broad 후보(원래 결측이 많아 참고용)예요.
-  observation: { statuses: Record<string, number>; lastEvaluatedAt: string | null; backfilledBars: number; broadStatuses?: Record<string, number> }
+  // closingBarOnly: 빠진 것이 15:25 종가 봉 하나뿐인 정밀 관측 수(18:00 재보완이 채우는 정해진 지연). 예전 백엔드에는 없어요.
+  observation: { statuses: Record<string, number>; lastEvaluatedAt: string | null; backfilledBars: number; broadStatuses?: Record<string, number>; closingBarOnly?: number }
   dart: Counted
   adjustedDaily?: Counted
   /** 07:00~09:00·14:20~14:50에 저장된 일봉 수(08:10 후보 일봉 준비, 14:25·14:35 정밀 보완의 흔적). 예전 Backend에는 없어요. */
@@ -31,6 +32,11 @@ export type Collection = {
   /** 그날 정규장 개장·마감("HH:mm"). 수능일처럼 시간이 바뀐 날은 시간표를 그만큼 옮겨 보여 줘요. 예전 백엔드에는 없어요. */
   sessionOpen?: string
   sessionClose?: string
+  /** 그날 저장된 시장 스캔 기록(rows 완료, errors 실패)과 실시간 5분봉 수예요. 재시작해도 남아요. 예전 백엔드에는 없어요. */
+  scanRuns?: Counted
+  realtimeBars?: DailyCandles
+  /** 수정주가 일봉 수집 대상 종목 수(활성, ETF·ETN 제외). 예전 백엔드에는 없어요. */
+  adjustedUniverse?: number
 }
 type DailyCandles = { rows: number; stocks: number; lastAt: string | null }
 export type Health = {
@@ -174,20 +180,30 @@ export function buildTimeline(input: TodayInputs): Step[] {
           : `08:10 실행 흔적(새 일봉 저장)이 없어요. 그 시각 Backend가 꺼져 있었다면 ${manualHint} 이미 최신이라 저장할 게 없었을 수도 있어요.`)
 
   // 08:59 실시간 연결.
+  // 연결 시각·틱 수는 메모리 값이라 재시작하면 지워져요. 장 마감 뒤에는 그날 저장된 실시간 5분봉으로도 판정해요.
   const live = input.realtime?.realtime
   const connectedToday = kstDate(live?.connectedAt) === clock.date
+  const realtimeBars = collection?.realtimeBars
+  const barsSaved = (realtimeBars?.rows ?? 0) > 0
+  const barsLine = realtimeBars ? ` · 오늘 저장된 실시간 5분봉 ${realtimeBars.stocks}종목 ${realtimeBars.rows.toLocaleString('ko-KR')}개` : ''
   add('realtime', o('08:59'), '실시간 체결 연결',
-    !live ? 'unknown' : live.connected ? 'done' : before(o('08:59')) ? 'waiting' : now > at(s('15:32')) ? (connectedToday ? 'done' : 'problem') : 'problem',
-    live ? `${live.connected ? '연결됨' : '연결 안 됨'} · 연결 ${hms(live.connectedAt)} · 마지막 체결 ${hms(live.lastTickAt)} · 틱 ${live.receivedTicks.toLocaleString('ko-KR')}` : failed)
+    !live && !realtimeBars ? 'unknown' : live?.connected ? 'done' : before(o('08:59')) ? 'waiting'
+      : now > at(s('15:32')) ? (connectedToday || barsSaved ? 'done' : 'problem') : 'problem',
+    live || realtimeBars ? `${live ? `${live.connected ? '연결됨' : '연결 안 됨'} · 연결 ${hms(live.connectedAt)} · 마지막 체결 ${hms(live.lastTickAt)} · 틱 ${live.receivedTicks.toLocaleString('ko-KR')}` : '연결 상태 모름'}${barsLine}` : failed)
 
   // 09:00~15:20 시장 전체 스캔(5분, 14:00부터 2분 간격).
+  // 상태 API의 스캔 횟수는 재시작하면 0이 돼요. 그날 저장된 스캔 기록(scanRuns)이 있으면 그것으로 판정해요.
   const wide = input.wide
-  const scanState: StepState = !wide ? 'unknown' : before(o('09:00')) ? 'waiting'
-    : wide.failedRuns > 0 ? 'warn'
-      : now < at(s('15:20')) ? (wide.completedRuns > 0 ? 'running' : due(o('09:00'), 6) ? 'problem' : 'running')
-        : wide.completedRuns > 0 ? 'done' : 'problem'
+  const scanRuns = collection?.scanRuns
+  const completedRuns = scanRuns ? scanRuns.rows : wide?.completedRuns ?? 0
+  const failedRuns = scanRuns ? scanRuns.errors : wide?.failedRuns ?? 0
+  const lastScanAt = scanRuns ? scanRuns.lastAt : wide?.lastCompletedAt ?? null
+  const scanState: StepState = !wide && !scanRuns ? 'unknown' : before(o('09:00')) ? 'waiting'
+    : failedRuns > 0 ? 'warn'
+      : now < at(s('15:20')) ? (completedRuns > 0 ? 'running' : due(o('09:00'), 6) ? 'problem' : 'running')
+        : completedRuns > 0 ? 'done' : 'problem'
   add('scan', o('09:00'), `시장 전체 스캔 (${o('09:00')}~${s('15:20')})`, scanState,
-    wide ? `완료 ${wide.completedRuns} · 실패 ${wide.failedRuns} · 마지막 완료 ${hms(wide.lastCompletedAt)}${wide.lastError ? ` · 오류 ${wide.lastError}` : ''} (재시작 후 누적)` : failed)
+    wide || scanRuns ? `완료 ${completedRuns} · 실패 ${failedRuns} · 마지막 완료 ${hms(lastScanAt)}${wide?.lastError ? ` · 오류 ${wide.lastError}` : ''}${scanRuns ? ' (오늘 저장 기록)' : ' (재시작 후 누적)'}` : failed)
 
   // 14:25·14:35 정밀 후보 일봉 보완: 저장된 게 없으면 이미 최신이었을 수 있어 '확인 필요'로 두지 않아요.
   const precisionDaily = collection?.precisionDaily
@@ -239,17 +255,27 @@ export function buildTimeline(input: TodayInputs): Step[] {
   const observation = collection?.observation
   const observed = sum(observation?.statuses)
   const missing = (observation?.statuses.DATA_MISSING ?? 0) + (observation?.statuses.DATA_INCOMPLETE ?? 0)
+  // 빠진 게 15:25 종가 봉뿐이면 KIS 분봉에 종가 체결이 늦게 실리는 정해진 지연이에요. 18:00 재보완 전에는 문제 대신 대기로 봐요.
+  const closingBarOnly = observation?.closingBarOnly ?? 0
+  const awaitingLate = missing > 0 && closingBarOnly === missing && before(s('18:00'))
+  const lateNote = awaitingLate ? ` · 종가 봉만 빠짐 ${closingBarOnly}건(${s('18:00')} 재보완 대기)` : ''
   add('observation', s('15:40'), '전일 후보 관측 + 분봉 보완',
-    !collection ? 'unknown' : before(s('15:40')) ? 'waiting' : observed === 0 ? (due(s('15:40'), 5) ? 'problem' : 'running') : missing > 0 ? 'warn' : 'done',
-    !collection ? pending : observed ? `정밀 ${Object.entries(observation!.statuses).map(([key, count]) => `${key} ${count}`).join(' · ')}${broadLine(observation!.broadStatuses)} · 보완 봉 ${observation!.backfilledBars} · 마지막 ${hms(observation!.lastEvaluatedAt)}`
+    !collection ? 'unknown' : before(s('15:40')) ? 'waiting' : observed === 0 ? (due(s('15:40'), 5) ? 'problem' : 'running')
+      : missing === 0 ? 'done' : awaitingLate ? 'running' : 'warn',
+    !collection ? pending : observed ? `정밀 ${Object.entries(observation!.statuses).map(([key, count]) => `${key} ${count}`).join(' · ')}${lateNote}${broadLine(observation!.broadStatuses)} · 보완 봉 ${observation!.backfilledBars} · 마지막 ${hms(observation!.lastEvaluatedAt)}`
       : `아직 관측 결과가 없어요 (전 거래일 ${collection.previousTradingDay ?? '-'} 후보 대상).`)
 
   // 15:45 일별 완결성 기록.
   const today = input.health?.find(row => row.tradeDate === clock.date)
+  // 1차 기록의 불완전 사유가 관측뿐이고, 지금 관측이 모두 끝났거나 종가 봉만 기다리는 중이면 18:15 최종 기록을 기다려요.
+  const observationOnly = today?.verdict === 'DEGRADED' && today.reasons.length > 0
+    && today.reasons.every(reason => reason === 'OBSERVATION_INCOMPLETE')
+  const awaitingFinal = observationOnly && today?.stage !== 'FINAL' && observed > 0 && (missing === 0 || closingBarOnly === missing)
+    && before(s('18:15'))
   add('health', s('15:45'), '일별 완결성 1차 기록',
     !input.health ? 'unknown' : !today ? (before(s('15:45')) ? 'waiting' : due(s('15:45'), 5) ? 'problem' : 'running')
-      : today.verdict === 'COMPLETE' ? 'done' : today.verdict === 'DEGRADED' ? 'warn' : 'problem',
-    today ? `${today.verdict}${today.reasons.length ? ` · ${today.reasons.join(', ')}` : ''}${today.stage === 'FINAL' ? ' (최종 기록으로 갱신됨)' : ''}` : '아직 오늘 기록이 없어요.')
+      : today.verdict === 'COMPLETE' ? 'done' : awaitingFinal ? 'running' : today.verdict === 'DEGRADED' ? 'warn' : 'problem',
+    today ? `${today.verdict}${today.reasons.length ? ` · ${today.reasons.join(', ')}` : ''}${today.stage === 'FINAL' ? ' (최종 기록으로 갱신됨)' : ''}${awaitingFinal ? ` · 종가 봉 지연이라 ${s('18:15')} 최종 기록에서 다시 판정해요` : ''}` : '아직 오늘 기록이 없어요.')
 
   // 16:05 지수 일봉(KOSPI·KOSDAQ 최근 20일 갱신). 그날 일봉 2개가 저장되면 정상이에요.
   const indexDaily = collection?.indexDaily
@@ -264,10 +290,12 @@ export function buildTimeline(input: TodayInputs): Step[] {
     !collection ? pending : !late ? '백엔드 재시작 후 표시' : late.lastEvaluatedAt ? `다시 채운 5분봉 ${late.refilledBars} · 재평가 ${hms(late.lastEvaluatedAt)}` : '아직 재평가 기록이 없어요.')
 
   // 18:10 DART 공시(다음 날 07:40에 보충). 휴장일에도 18:10에 돌아요.
+  // 오늘 접수 공시는 07:40 아침 수집에서도 일부 저장돼요. 그래서 개수가 아니라 18:10 이후 저장 흔적이 있어야 완료로 봐요.
   const dart = collection?.dart
+  const dartEvening = !!dart?.lastAt && kstDate(dart.lastAt) === clock.date && kstClock(new Date(dart.lastAt)).minutes >= at('18:10')
   add('dart', '18:10', 'DART 공시 수집',
-    !collection ? 'unknown' : dart && dart.rows > 0 ? 'done' : before('18:10') ? 'waiting' : due('18:10', 5) ? 'warn' : 'running',
-    !collection ? pending : `오늘 접수 공시 ${dart?.rows ?? 0}건 · 마지막 수집 ${hms(dart?.lastAt)}`)
+    !collection ? 'unknown' : before('18:10') ? 'waiting' : dartEvening ? 'done' : due('18:10', 5) ? 'warn' : 'running',
+    !collection ? pending : `오늘 접수 공시 ${dart?.rows ?? 0}건 · 마지막 저장 ${hms(dart?.lastAt)}${before('18:10') && (dart?.rows ?? 0) > 0 ? ' (07:40 아침 수집분)' : ''}`)
 
   // 18:15 일별 완결성 최종 기록(18:00 재보완 반영).
   add('health-final', s('18:15'), '일별 완결성 최종 기록',
@@ -277,10 +305,14 @@ export function buildTimeline(input: TodayInputs): Step[] {
     today?.stage === 'FINAL' ? `${today.verdict}${today.reasons.length ? ` · ${today.reasons.join(', ')}` : ''} · 참고: ${indicatorLine(today.indicators)}` : '아직 최종 기록이 없어요.')
 
   // 18:30 수정주가 일봉(연구).
+  // 수동 실행이나 수집 중에도 확인 종목이 생기므로, 대상 종목 수(adjustedUniverse)의 98% 이상을 확인해야 완료로 봐요(실패 종목 여유).
   const adjusted = collection?.adjustedDaily
+  const universe = collection?.adjustedUniverse
+  const adjustedRows = adjusted?.rows ?? 0
+  const adjustedDone = universe ? adjustedRows >= universe * 0.98 : adjustedRows > 0
   add('adjusted', '18:30', '수정주가 일봉 (연구)',
-    !collection ? 'unknown' : adjusted && adjusted.rows > 0 ? 'done' : before('18:30') ? 'waiting' : due('18:30', 30) ? 'warn' : 'running',
-    !collection ? pending : `오늘 확인 ${adjusted?.rows ?? 0}종목 · 마지막 ${hms(adjusted?.lastAt)}`)
+    !collection ? 'unknown' : adjustedDone ? 'done' : adjustedRows > 0 ? 'running' : before('18:30') ? 'waiting' : due('18:30', 30) ? 'warn' : 'running',
+    !collection ? pending : `오늘 확인 ${adjustedRows}${universe ? `/${universe}` : ''}종목 · 마지막 ${hms(adjusted?.lastAt)}`)
 
   // 장 시간이 바뀐 날은 옮긴 시각과 고정 시각(DART 등)이 섞이므로 시각 순으로 다시 줄 세워요(같은 시각은 원래 순서).
   return steps.sort((a, b) => at(a.time) - at(b.time))

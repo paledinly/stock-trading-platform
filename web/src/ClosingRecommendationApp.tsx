@@ -3,6 +3,7 @@
  * 추천 점수는 상승 확률이 아니고, 진입과 청산은 모두 가상 실행이에요(실주문 없음).
  * AppShell(앱 전체 껍데기)이 '마감 추천' 메뉴(#/closing)에서 ClosingRecommendationPage를 띄워요.
  */
+import { CANDIDATE_GROUPS, candidateGroup, tradingValueLabel } from './candidateGroups'
 import { indicatorLine, type HealthIndicators } from './todayTimeline'
 import { FormEvent, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -72,7 +73,9 @@ type CandidateEvaluation = {
     dailyAsOfDate?: string; lastFinalCandleAt?: string; evaluatedAsOf?: string
     dailyTrend?: string; latestFiveMinute?: string; signalRetained?: string
     overextension?: string; liquidity?: string; marketRegime?: string
-    sectorExposure?: string; accountExposure?: string; orderEligible?: boolean }
+    sectorExposure?: string; accountExposure?: string; orderEligible?: boolean
+    /** 평가 시점 누적 거래대금(원). 정밀은 문자열, Broad는 2026-10-27 이후 숫자로 와요. */
+    dailyTradingValue?: number | string }
 }
 
 /**
@@ -970,16 +973,17 @@ export function ClosingRecommendationPage({ advanced = false }: { advanced?: boo
           </p>)}
         </details>}
         {lastRun?.evaluations && <details className="closingSection">
-          <summary><b>생성 당시 후보 평가</b><span>최종 {lastRun.evaluations.filter(row => row.disposition === 'SELECTED').length} · 관찰 {lastRun.evaluations.filter(row => row.disposition === 'WATCH').length} · 제외 {lastRun.evaluations.filter(row => row.disposition === 'EXCLUDED').length}</span></summary>
+          <summary><b>생성 당시 후보 평가</b><span>{CANDIDATE_GROUPS.map(({ group }) => `${{ SELECTED: '최종', WATCH: '관찰', HOLD: '보류', EXCLUDED: '제외' }[group]} ${lastRun.evaluations.filter(row => candidateGroup(row) === group).length}`).join(' · ')}</span></summary>
           <p>{new Date(lastRun.generatedAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })} · {lastRun.strategyVersion} · 평가 종료 {new Date(lastRun.evaluationEnd).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul' })}</p>
           <p>{Object.entries(lastRun.criteria).map(([key, value]) => `${key}: ${value}`).join(' · ')}</p>
           <p>관찰·제외 후보는 최종 추천이 아니며 오버나잇 성과 추적 대상에 포함되지 않습니다. 관측 분수는 봉의 시간 범위이며 연속 수신 시간을 보장하지 않습니다.</p>
-          <p>Broad 점수·위험값은 제한된 지표로 계산한 참고값이며 Precision 점수와 같은 품질의 평가가 아닙니다.</p>
+          <p>Broad 점수·위험값은 제한된 지표로 계산한 참고값이며 Precision 점수와 같은 품질의 평가가 아닙니다. Broad 관찰은 점수가 아니라 Opportunity·Risk 기준과 최소 거래대금으로 정해집니다.</p>
+          <p>'판단 보류'는 신호가 오래됐거나 확정봉·일봉이 부족해 점수를 매길 수 없었던 정밀 후보입니다. 처분은 관찰이지만 지켜볼 만하다는 뜻이 아닙니다.</p>
           {selectedRun?.executionMode === 'REPLAY' && <p>과거 재생은 당시 수신 시각이 없는 탐지 기록을 포함할 수 있습니다. 수신 여부가 확인되지 않은 결과는 전진 검증 성과로 해석하지 마세요.</p>}
-          {(['SELECTED', 'WATCH', 'EXCLUDED'] as const).map(disposition => <div key={disposition}>
-            <h3>{{ SELECTED: '최종 추천', WATCH: '관찰 후보', EXCLUDED: '제외 후보' }[disposition]}</h3>
-            {lastRun.evaluations.filter(row => row.disposition === disposition).map(row => <details key={`${row.candidateSource}-${row.stockCode}`}>
-              <summary>{row.stockName} ({row.stockCode}) · {row.candidateSource} · 점수 {num(row.finalScore)} · {closingExclusionLabel(row.decisionReason)}</summary>
+          {CANDIDATE_GROUPS.map(({ group, title }) => <div key={group}>
+            <h3>{title}</h3>
+            {lastRun.evaluations.filter(row => candidateGroup(row) === group).map(row => <details key={`${row.candidateSource}-${row.stockCode}`}>
+              <summary>{row.stockName} ({row.stockCode}) · {row.candidateSource} · 점수 {num(row.finalScore)}{tradingValueLabel(row.dataReadiness?.dailyTradingValue) ? ` · 거래대금 ${tradingValueLabel(row.dataReadiness?.dailyTradingValue)}` : ''} · {closingExclusionLabel(row.decisionReason)}</summary>
               <p>탐지 {new Date(row.observedAt).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul' })} · {row.scannerType ?? 'Broad'} · 가격 {num(row.referencePrice)} · Opportunity {num(row.opportunityScore)} / Risk {num(row.riskScore)}</p>
               <p>{row.dataQuality} · 확정 봉 {row.finalCandles}개 · 관측 범위 {row.coverageMinutes}분 · 부족 항목 {row.missingFeatures.join(', ') || '없음'}</p>
               {row.dataReadiness && <p>일봉 {row.dataReadiness.dailyCandles ?? 0}개 · 마지막 일봉 {row.dataReadiness.dailyAsOfDate ?? '확인 불가'} · 마지막 확정 5분봉 {row.dataReadiness.lastFinalCandleAt ? new Date(row.dataReadiness.lastFinalCandleAt).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul' }) : '없음'} · 탐지 수신 {row.dataReadiness.receiptVerified ? '확인' : '확인 불가'}</p>}

@@ -11,7 +11,7 @@
 마감 평가는 두 종류의 후보를 함께 평가한다.
 
 - **Precision 후보**: 평가 시작(`CLOSING_EVALUATION_START`, 기본 14:30)부터 15:15까지 저장된 Scanner 탐지. Scanner는 실시간 구독 종목(관심종목 고정, 수동, 정밀 구독, 다음날 관측)의 확정 5분봉에서만 돈다. 종목별 대표 탐지 1건을 평가한다.
-- **Broad 후보**: 같은 구간의 시장 전체 스캔 스냅샷(KIS 순위 + 제한된 상세시세). 최종 추천 대상이 아니며 조건을 통과해도 관찰(WATCH, `BROAD_WATCH_ONLY`)까지만 간다. Precision과 겹치면 `PRECISION_DUPLICATE`로 제외한다.
+- **Broad 후보**: 같은 구간의 시장 전체 스캔 스냅샷(KIS 순위 + 제한된 상세시세). 최종 추천 대상이 아니며 조건(Opportunity ≥ 최소 기회 점수, Risk ≤ 최대 위험 점수, 그 시점 누적 거래대금 ≥ `CLOSING_MIN_DAILY_TRADING_VALUE`(기본 10억 원))을 통과해도 관찰(WATCH, `BROAD_WATCH_ONLY`)까지만 간다. 거래대금 미달은 `LOW_LIQUIDITY`로 제외한다(2026-10-27 추가. 그 전 run의 Broad 관찰에는 이 기준이 없다). 최종 점수는 Broad 관찰 판정에 쓰지 않는다. Precision과 겹치면 `PRECISION_DUPLICATE`로 제외한다. 정밀 후보 중 신호가 오래됐거나 확정봉·일봉이 부족해 판단하지 못한 경우(`STALE_FEATURE`, `CANDLE_GAP`, `DAILY_DATA_*` 등)도 처분은 관찰이며, 화면은 이를 '판단 보류'로 따로 보여 준다.
 
 최종 추천(SELECTED)은 조건을 통과한 Precision 후보 중 점수순으로 최대 5종목이다(`ClosingPrecisionEvaluator.LIMITED_MODE_MAX_CANDIDATES`). 요청 `limit`이 더 작으면 그 수를 따르고, 조건 충족 후보가 부족하면 채우지 않는다. 같은 상한을 신규 백테스트에도 적용하며 기존 저장 추천은 소급 변경하지 않는다.
 

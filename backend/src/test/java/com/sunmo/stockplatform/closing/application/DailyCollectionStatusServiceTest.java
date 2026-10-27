@@ -43,10 +43,14 @@ class DailyCollectionStatusServiceTest {
         jdbc.execute("create table stock_candle(stock_id bigint, timeframe varchar(5), start_time timestamp with time zone, "
                 + "volume bigint, source varchar(20), updated_at timestamp with time zone)");
         jdbc.execute("create table closing_candidate_observation(run_id bigint, expected_session_date date, "
-                + "status varchar(30), evaluated_at timestamp with time zone, candidate_source varchar(20))");
+                + "status varchar(30), evaluated_at timestamp with time zone, candidate_source varchar(20), missing_intervals text)");
         jdbc.execute("create table dart_filing(rcept_no varchar(20), rcept_dt date, fetched_at timestamp with time zone)");
         jdbc.execute("create table daily_adjusted_sweep_state(stock_id bigint, swept_at timestamp with time zone)");
         jdbc.execute("create table market_index_daily(index_code varchar(10), trade_date date, fetched_at timestamp with time zone)");
+        jdbc.execute("create table stock(id bigint, is_active boolean, is_etf boolean, is_etn boolean)");
+        jdbc.execute("insert into stock values (1, true, false, false), (2, true, false, false), (3, true, true, false), "
+                + "(4, false, false, false)");
+        jdbc.execute("create table market_wide_scan_run(session_date date, status varchar(20), completed_at timestamp with time zone)");
     }
 
     @AfterEach void close() { db.shutdown(); }
@@ -73,6 +77,10 @@ class DailyCollectionStatusServiceTest {
                 FRIDAY, at("2026-10-02T06:16:16Z"), FRIDAY, at("2026-10-02T06:16:17Z"), FRIDAY, at("2026-10-02T06:18:31Z"));
         jdbc.update("insert into closing_candidate_context values (11, 'A', ?, null), (11, 'B', ?, 'timeout'), (10, 'C', ?, null)",
                 at("2026-10-02T06:16:46Z"), at("2026-10-02T06:19:01Z"), at("2026-10-02T06:16:46Z"));
+        // 시장 스캔 기록: 그날 완료 2·실패 1, 전날 완료 1은 세지 않아요.
+        jdbc.update("insert into market_wide_scan_run values (?, 'COMPLETED', ?), (?, 'COMPLETED', ?), (?, 'FAILED', null), "
+                + "(?, 'COMPLETED', ?)", FRIDAY, at("2026-10-02T00:05:00Z"), FRIDAY, at("2026-10-02T06:18:11Z"), FRIDAY,
+                FRIDAY.minusDays(1), at("2026-10-01T06:18:11Z"));
         // 15:25(KST) 봉 3종목 중 2종목만 거래량이 있고, 같은 날 분봉 보완 봉이 2개 있어요(다른 날 보완 봉은 세지 않아요).
         jdbc.update("insert into stock_candle(stock_id, timeframe, start_time, volume, source) values (1, '5M', ?, 100, 'REALTIME'), "
                 + "(2, '5M', ?, 0, 'REALTIME'), (3, '5M', ?, 50, 'BACKFILL'), (3, '5M', ?, 20, 'BACKFILL'), (4, '5M', ?, 10, 'BACKFILL')",
@@ -87,7 +95,13 @@ class DailyCollectionStatusServiceTest {
                 at("2026-09-29T15:00:00Z"), at("2026-09-30T23:10:00Z"));
         // 이 날을 관측 세션으로 갖는 전일 후보 관측과, 다른 세션 관측(세지 않음)이에요.
         // 정밀 후보만 statuses에, Broad 후보는 broadStatuses에 따로 세요.
-        jdbc.update("insert into closing_candidate_observation values (9, ?, 'COMPLETED', ?, 'PRECISION'), "
+        // 15:25(KST) 종가 봉만 빠진 정밀 관측 1건과, 장중 봉도 빠진 1건이에요. 앞의 것만 "18:00 재보완 대기"로 세요.
+        jdbc.update("insert into closing_candidate_observation values (9, ?, 'DATA_INCOMPLETE', ?, 'PRECISION', "
+                + "'[\"2026-10-02T06:25:00Z\"]'), (9, ?, 'DATA_INCOMPLETE', ?, 'PRECISION', "
+                + "'[\"2026-10-02T01:00:00Z\",\"2026-10-02T06:25:00Z\"]')", FRIDAY, at("2026-10-02T06:40:04Z"), FRIDAY,
+                at("2026-10-02T06:40:05Z"));
+        jdbc.update("insert into closing_candidate_observation(run_id, expected_session_date, status, evaluated_at, candidate_source) "
+                + "values (9, ?, 'COMPLETED', ?, 'PRECISION'), "
                 + "(9, ?, 'DATA_MISSING', ?, 'PRECISION'), (9, ?, 'COMPLETED', ?, 'PRECISION'), (9, ?, 'DATA_MISSING', ?, 'BROAD')",
                 FRIDAY, at("2026-10-02T06:40:02Z"), FRIDAY, at("2026-10-02T06:40:03Z"),
                 LocalDate.of(2026, 10, 1), at("2026-10-01T06:40:00Z"), FRIDAY, at("2026-10-02T09:01:00Z"));
@@ -124,7 +138,15 @@ class DailyCollectionStatusServiceTest {
         assertThat(status.candidateContext()).isEqualTo(new DailyCollectionStatusService.Counted(2, 1,
                 Instant.parse("2026-10-02T06:19:01Z")));
         assertThat(status.closingBar()).isEqualTo(new DailyCollectionStatusService.ClosingBar(3, 2));
-        assertThat(status.observation().statuses()).isEqualTo(Map.of("COMPLETED", 1, "DATA_MISSING", 1));
+        // 재시작해도 남는 저장 기록: 스캔 완료 2·실패 1, 실시간 5분봉 2종목 2개(분봉 보완 봉은 세지 않아요).
+        assertThat(status.scanRuns()).isEqualTo(new DailyCollectionStatusService.Counted(2, 1,
+                Instant.parse("2026-10-02T06:18:11Z")));
+        assertThat(status.realtimeBars().rows()).isEqualTo(2);
+        assertThat(status.realtimeBars().stocks()).isEqualTo(2);
+        // 수정주가 수집 대상은 활성·ETF 아님 종목 2개예요.
+        assertThat(status.adjustedUniverse()).isEqualTo(2);
+        assertThat(status.observation().statuses()).isEqualTo(Map.of("COMPLETED", 1, "DATA_MISSING", 1, "DATA_INCOMPLETE", 2));
+        assertThat(status.observation().closingBarOnly()).isEqualTo(1);
         assertThat(status.observation().broadStatuses()).isEqualTo(Map.of("DATA_MISSING", 1));
         assertThat(status.observation().lastEvaluatedAt()).isEqualTo(Instant.parse("2026-10-02T09:01:00Z"));
         assertThat(status.observation().backfilledBars()).isEqualTo(3);

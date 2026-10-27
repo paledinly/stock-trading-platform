@@ -172,3 +172,67 @@ test('shifts session-bound jobs on a delayed session day', () => {
   expect(state(steps, 'evaluate')).toBe('waiting')
   expect(steps.map(step => step.time)).toEqual([...steps.map(step => step.time)].sort())
 })
+
+// 장 마감 뒤 재시작하면 연결 시각과 스캔 횟수가 0이 되지만, 그날 저장된 실시간 5분봉·스캔 기록이 있으면 정상으로 봐요.
+test('uses stored evidence after a backend restart', () => {
+  const restarted: TodayInputs['realtime'] = { realtime: {
+    connected: false, connectedAt: null, lastTickAt: null, receivedTicks: 0, parseErrors: 0, processingErrors: 0, processingDropped: 0,
+  } }
+  const steps = buildTimeline({
+    clock: clockAt('17:20'), realtime: restarted,
+    wide: { completedRuns: 0, failedRuns: 0, lastCompletedAt: null, lastError: null },
+    collection: collection({
+      scanRuns: { rows: 100, errors: 0, lastAt: '2026-10-02T06:18:11Z' },
+      realtimeBars: { rows: 2956, stocks: 53, lastAt: '2026-10-02T06:31:04Z' },
+    }),
+    health: [],
+  })
+  expect(state(steps, 'realtime')).toBe('done')
+  expect(state(steps, 'scan')).toBe('done')
+  // 저장 기록이 없으면(예전 백엔드) 지금처럼 문제로 남아요.
+  const old = buildTimeline({ clock: clockAt('17:20'), realtime: restarted,
+    wide: { completedRuns: 0, failedRuns: 0, lastCompletedAt: null, lastError: null }, collection: collection(), health: [] })
+  expect(state(old, 'realtime')).toBe('problem')
+  expect(state(old, 'scan')).toBe('problem')
+})
+
+// 15:40 보완 뒤 빠진 게 15:25 종가 봉뿐이면 18:00 재보완 전까지 '확인 필요' 대신 진행 중으로 보여 줘요.
+test('waits for the 18:00 refill when only the closing bar is missing', () => {
+  const preliminary = { tradeDate: '2026-10-02', verdict: 'DEGRADED', reasons: ['OBSERVATION_INCOMPLETE'], runId: 11,
+    runCompletedAt: null, paperEntryStatuses: null, observationStatuses: null, stage: 'PRELIMINARY' as const }
+  const waiting = (time: string, closingBarOnly: number) => buildTimeline({
+    clock: clockAt(time), realtime, subscriptions: { limit: 41, remaining: 0, precisionState: 'FROZEN' },
+    collection: collection({ observation: { statuses: { COMPLETED: 23, DATA_INCOMPLETE: 2 }, lastEvaluatedAt: '2026-10-02T06:41:00Z',
+      backfilledBars: 1400, closingBarOnly } }),
+    health: [preliminary],
+  })
+  const before = waiting('16:00', 2)
+  expect(state(before, 'observation')).toBe('running')
+  expect(before.find(step => step.id === 'observation')?.detail).toContain('18:00 재보완 대기')
+  expect(state(before, 'health')).toBe('running')
+  // 장중 봉도 빠졌으면 지금처럼 확인 필요예요.
+  const realGap = waiting('16:00', 1)
+  expect(state(realGap, 'observation')).toBe('warn')
+  expect(state(realGap, 'health')).toBe('warn')
+  // 18:00 재보완 뒤에도 남아 있으면 확인 필요로 돌아가요.
+  expect(state(waiting('18:20', 2), 'observation')).toBe('warn')
+})
+
+// 07:40 아침 DART 수집분이나 진행 중인 수정주가 수집을 저녁 작업 완료로 착각하지 않아요.
+test('does not mark evening jobs done from morning or partial work', () => {
+  const steps = buildTimeline({
+    clock: clockAt('17:40'), realtime, health: [],
+    collection: collection({ dart: { rows: 8, errors: 0, lastAt: '2026-10-01T22:40:03Z' },
+      adjustedDaily: { rows: 981, errors: 0, lastAt: '2026-10-02T08:39:46Z' }, adjustedUniverse: 2909 }),
+  })
+  expect(state(steps, 'dart')).toBe('waiting')
+  expect(steps.find(step => step.id === 'dart')?.detail).toContain('07:40 아침 수집분')
+  expect(state(steps, 'adjusted')).toBe('running')
+  const evening = buildTimeline({
+    clock: clockAt('19:00'), realtime, health: [],
+    collection: collection({ dart: { rows: 40, errors: 0, lastAt: '2026-10-02T09:10:05Z' },
+      adjustedDaily: { rows: 2900, errors: 0, lastAt: '2026-10-02T09:45:00Z' }, adjustedUniverse: 2909 }),
+  })
+  expect(state(evening, 'dart')).toBe('done')
+  expect(state(evening, 'adjusted')).toBe('done')
+})
