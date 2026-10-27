@@ -122,14 +122,14 @@ public class LimitUpWatchService {
      * 하는 일: 평일 15:16:15에 첫 번째 샘플(15:16)을 찍어요.
      * 받는 것: 없음(스케줄러가 호출). 돌려주는 것: 없음.
      */
-    @Scheduled(cron = "15 16 15 * * MON-FRI", zone = "Asia/Seoul")
+    @Scheduled(cron = "15 16 15 * * MON-FRI", zone = "Asia/Seoul", scheduler = "closingScheduler")
     public void first() { scheduled("15:16"); }
 
     /**
      * 하는 일: 평일 15:18:30에 두 번째 샘플(15:18)을 찍어요.
      * 받는 것: 없음(스케줄러가 호출). 돌려주는 것: 없음.
      */
-    @Scheduled(cron = "30 18 15 * * MON-FRI", zone = "Asia/Seoul")
+    @Scheduled(cron = "30 18 15 * * MON-FRI", zone = "Asia/Seoul", scheduler = "closingScheduler")
     public void second() { scheduled("15:18"); }
 
     /**

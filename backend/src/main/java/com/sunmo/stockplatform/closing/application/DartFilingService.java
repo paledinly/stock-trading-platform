@@ -60,6 +60,13 @@ public class DartFilingService {
     private final ClosingTradingCalendar calendar;
     private final JdbcTemplate jdbc;
     private final PageSource pages;
+    // 응답이 멈춰도 기본 스케줄러 스레드를 붙잡지 않도록 연결 5초, 응답 20초 제한을 둬요.
+    private static final RestClient DART = RestClient.builder().baseUrl("https://opendart.fss.or.kr")
+            .requestFactory(org.springframework.boot.http.client.ClientHttpRequestFactoryBuilder.detect().build(
+                    org.springframework.boot.http.client.ClientHttpRequestFactorySettings.defaults()
+                            .withConnectTimeout(java.time.Duration.ofSeconds(5))
+                            .withReadTimeout(java.time.Duration.ofSeconds(20))))
+            .build();
 
     /**
      * 하는 일: 운영용 생성자예요. 실제 DART list.json을 부르는 PageSource를 만들어 넣어요.
@@ -69,7 +76,7 @@ public class DartFilingService {
     @Autowired
     public DartFilingService(@Value("${dart.api-key:}") String apiKey, ClosingTradingCalendar calendar, JdbcTemplate jdbc) {
         // 인증키가 요청 주소(쿼리)에 들어가므로 이 주소나 예외 메시지를 로그로 남기면 안 돼요.
-        this(apiKey, calendar, jdbc, (date, page) -> RestClient.create("https://opendart.fss.or.kr").get()
+        this(apiKey, calendar, jdbc, (date, page) -> DART.get()
                 .uri(b -> b.path("/api/list.json").queryParam("crtfc_key", apiKey)
                         .queryParam("bgn_de", date.format(DATE)).queryParam("end_de", date.format(DATE))
                         .queryParam("page_no", page).queryParam("page_count", PAGE_COUNT).build())

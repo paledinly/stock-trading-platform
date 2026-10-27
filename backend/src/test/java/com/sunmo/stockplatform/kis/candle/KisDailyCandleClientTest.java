@@ -99,4 +99,38 @@ class KisDailyCandleClientTest {
         assertThat(result).extracting(DailyCandle::date).containsExactly(LocalDate.of(2026, 9, 16));
         server.verify();
     }
+
+    /**
+     * 원주가 요청에서 가격이 0인 행(거래정지일)이나 거래량이 빈 행이 있어도 종목 전체가 실패하지 않는지 확인해요.
+     * 준비: 정상 9/16 행, 가격이 0인 9/15 행, 거래량이 빈 9/14 행을 돌려주게 해요.
+     * 기대: 9/16과 9/14 두 건이 남고, 9/14의 거래량은 0이에요.
+     */
+    @Test
+    void rawRequestSkipsZeroPriceRowsInsteadOfFailing() {
+        RestClient.Builder builder = RestClient.builder().baseUrl("https://example.test");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        KisTokenManager tokens = mock(KisTokenManager.class);
+        when(tokens.getAccessToken()).thenReturn("token");
+        KisProperties properties = new KisProperties(true, URI.create("https://example.test"), "key", "secret",
+                Duration.ofMinutes(5), Duration.ofSeconds(3), Duration.ofSeconds(5),
+                new KisProperties.Master(false, "0 0 0 * * *", URI.create("https://example.test/kospi"),
+                        URI.create("https://example.test/kosdaq")));
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("FID_ORG_ADJ_PRC=1")))
+                .andRespond(withSuccess("""
+                        {"rt_cd":"0","output2":[
+                          {"stck_bsop_date":"20260916","stck_oprc":"100","stck_hgpr":"103","stck_lwpr":"99","stck_clpr":"102","acml_vol":"50","acml_tr_pbmn":"5050"},
+                          {"stck_bsop_date":"20260915","stck_oprc":"0","stck_hgpr":"0","stck_lwpr":"0","stck_clpr":"98","acml_vol":"0","acml_tr_pbmn":"0"},
+                          {"stck_bsop_date":"20260914","stck_oprc":"97","stck_hgpr":"99","stck_lwpr":"96","stck_clpr":"98","acml_vol":"","acml_tr_pbmn":""}
+                        ]}
+                        """, MediaType.APPLICATION_JSON));
+        var client = new KisDailyCandleClient(builder.build(), properties, tokens,
+                new KisRequestExecutor(new KisRequestProperties(Duration.ZERO, Duration.ZERO, Duration.ZERO, 0)));
+
+        var result = client.fetch("005930", LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 16));
+
+        assertThat(result).extracting(DailyCandle::date)
+                .containsExactly(LocalDate.of(2026, 9, 16), LocalDate.of(2026, 9, 14));
+        assertThat(result.get(1).volume()).isZero();
+        server.verify();
+    }
 }

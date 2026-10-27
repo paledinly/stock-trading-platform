@@ -99,6 +99,7 @@ Web은 왼쪽 메뉴를 운영(오늘·대시보드·마감 추천), 탐색(시�
 | 환경변수 | 하는 일 | 코드 기본값 |
 | --- | --- | --- |
 | `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` | PostgreSQL 접속 정보. Supabase를 쓰면 Session Pooler 주소와 `sslmode=require`를 넣습니다. | `jdbc:postgresql://localhost:5432/stock_platform`, `stock`, `change-me` |
+| `DB_POOL_MAX_SIZE` | DB 연결 풀 최대 크기. Supabase 연결 한도(15) 안에서 두 번째 실행이나 다른 도구와 나눠 쓰도록 작게 둡니다. | `8` |
 | `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | `docker compose`가 만드는 로컬 DB 이름·계정 | `stock_platform`, `stock`, `change-me` |
 | `REDIS_HOST`, `REDIS_PORT` | Redis(메모리 저장소. 최신 시세 캐시, 탐지 쿨다운에 사용) | `localhost`, `6379` |
 | `KIS_APP_KEY`, `KIS_APP_SECRET` | KIS Open API 인증 키. 절대 커밋하지 않습니다. | 비어 있음 |

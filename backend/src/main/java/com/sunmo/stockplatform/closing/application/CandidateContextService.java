@@ -94,11 +94,11 @@ public class CandidateContextService {
      * After the 15:15 run completes; the second pass only fills codes the first one missed.
      * 평일 15:16:45에 1차 기록을 해요. 받는 것·돌려주는 것: 없음.
      */
-    @Scheduled(cron = "45 16 15 * * MON-FRI", zone = "Asia/Seoul")
+    @Scheduled(cron = "45 16 15 * * MON-FRI", zone = "Asia/Seoul", scheduler = "closingScheduler")
     public void first() { scheduled(); }
 
     /** 평일 15:19:00에 2차 기록을 해요. 1차에서 빠지거나 실패한 종목만 다시 채워요. 받는 것·돌려주는 것: 없음. */
-    @Scheduled(cron = "0 19 15 * * MON-FRI", zone = "Asia/Seoul")
+    @Scheduled(cron = "0 19 15 * * MON-FRI", zone = "Asia/Seoul", scheduler = "closingScheduler")
     public void retry() { scheduled(); }
 
     /**

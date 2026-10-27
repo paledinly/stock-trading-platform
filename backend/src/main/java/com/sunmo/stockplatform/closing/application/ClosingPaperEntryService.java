@@ -89,7 +89,7 @@ public class ClosingPaperEntryService {
      * 받는 것: 없음. 돌려주는 것: 없음.
      * 시한 지난 대기는 NO_FRESH_TICK_BEFORE_DEADLINE으로 닫고, 쓸 수 있는 체결이 있으면 ENTERED로 바꿔요.
      */
-    @Scheduled(fixedDelayString = "${closing.automation.entry-poll-interval:5s}")
+    @Scheduled(fixedDelayString = "${closing.automation.entry-poll-interval:5s}", scheduler = "closingScheduler")
     public void capture() {
         Instant now = calendar.now(); var local = now.atZone(ClosingTradingCalendar.ZONE);
         // No all-day polling/egress. On the next active window, old pending entries are expired, never backfilled.

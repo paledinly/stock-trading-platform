@@ -1,6 +1,6 @@
 /*
  * 스캐너 감지 이후의 가격 흐름(성과)을 실시간으로 따라가며 기록하는 파일이에요.
- * 추적 중인 성과를 메모리에 들고 틱이 올 때마다 갱신하고, 바뀐 것만 1초마다 DB에 저장하며, 15:31에 하루치를 확정해요.
+ * 추적 중인 성과를 메모리에 들고 틱이 올 때마다 갱신하고, 바뀐 것만 1초마다 DB에 저장하며, 15:31:30에 하루치를 확정해요.
  * 서버가 다시 켜지면 저장된 5분봉으로 빠진 구간을 복구해요. 감지를 만드는 스캐너 쪽과 실시간 시세 처리 쪽이 이 클래스를 불러요.
  */
 package com.sunmo.stockplatform.analytics.application;
@@ -28,7 +28,7 @@ import java.util.concurrent.*;
 
 /**
  * 추적 중(PENDING)인 감지 성과를 메모리에 모아 두고 틱·봉·장 마감에 맞춰 갱신하고 저장하는 클래스예요.
- * 달리기 출발 뒤 구간마다 기록을 재는 기록원처럼, 감지된 종목마다 5분·10분·30분·60분·마감 기록을 받아 적고 결승선(15:31)에서 기록지를 마감해요.
+ * 달리기 출발 뒤 구간마다 기록을 재는 기록원처럼, 감지된 종목마다 5분·10분·30분·60분·마감 기록을 받아 적고 결승선(15:31:30)에서 기록지를 마감해요.
  * 서버 시작 시(ApplicationRunner) 남아 있던 PENDING 기록을 다시 불러와 이어서 추적하거나 지난 날짜면 바로 확정해요.
  */
 @Service
@@ -164,12 +164,12 @@ public class DetectionPerformanceTracker implements ApplicationRunner {
     }
 
     /**
-     * 평일 15:31(서울)에 추적 중인 모든 성과를 마감 가격으로 확정해요.
+     * 평일 15:31:30(서울, 랜덤엔드 종가 체결 15:30:30 + 수신 여유)에 추적 중인 모든 성과를 마감 가격으로 확정해요.
      * ClosingTradingCalendar가 오늘을 거래일이 아니라고 하면(평일 휴장일) 아무것도 확정하지 않고 넘어가요.
      * 충돌이 나면 DB에서 다시 읽어 확정을 한 번 더 시도해요.
      * 받는 것: 없어요. 돌려주는 것: 없어요.
      */
-    @Scheduled(cron = "0 31 15 * * MON-FRI", zone = "Asia/Seoul")
+    @Scheduled(cron = "30 31 15 * * MON-FRI", zone = "Asia/Seoul")
     public synchronized void finalizeMarketClose() {
         if (!calendar.isTradingDay(calendar.today()))
             return;

@@ -36,6 +36,11 @@ class KisQuoteMapper {
      * 마지막 시각은 KIS 원천 시각이 아니라 이 서버가 변환한 시각(수신 시각에 가까운 값)이에요.
      */
     StockQuote map(Stock stock, KisQuoteResponse.Output output) {
+        // 현재가가 비었거나 0 이하면 0원 시세를 만들지 않고 거절로 다뤄요(호출한 쪽이 실패로 처리하고, 회로 차단기는 세지 않아요).
+        String current = output.currentPrice();
+        if (current == null || current.isBlank() || new BigDecimal(current.trim()).signum() <= 0)
+            throw new com.sunmo.stockplatform.kis.config.KisRequestRejectedException(
+                    "KIS quote has no current price for " + stock.getStockCode());
         return new StockQuote(stock.getStockCode(), stock.getStockName(), stock.getMarket().name(),
                 decimal(output.currentPrice()), signedDecimal(output.change(), output.previousDaySign()),
                 signedDecimal(output.changeRate(), output.previousDaySign()),
@@ -48,7 +53,7 @@ class KisQuoteMapper {
      * 받는 것: 숫자 문자열(null 가능). 돌려주는 것: BigDecimal, 비어 있으면 0.
      */
     private BigDecimal decimal(String value) {
-        // ⚠️ 확인 필요: 현재가나 시고저가가 비어 있어도 결측 대신 0으로 바꿔요. 0원 시세가 정상값처럼 쓰일 수 있어요.
+        // 현재가는 map()에서 먼저 확인해요. 시가·고가·저가는 장 시작 전에 0일 수 있어 그대로 0으로 둬요.
         return value == null || value.isBlank() ? BigDecimal.ZERO : new BigDecimal(value.trim());
     }
 

@@ -107,7 +107,7 @@ public class ClosingRecommendationScheduler {
      * 기본 30초마다 불려 오늘 할 일을 순서대로 확인해요.
      * 받는 것·돌려주는 것: 없음.
      */
-    @Scheduled(fixedDelayString = "${closing.automation.poll-interval:30s}")
+    @Scheduled(fixedDelayString = "${closing.automation.poll-interval:30s}", scheduler = "closingScheduler")
     public synchronized void poll() {
         Instant now = calendar.now();
         LocalDate today = now.atZone(ClosingTradingCalendar.ZONE).toLocalDate();
