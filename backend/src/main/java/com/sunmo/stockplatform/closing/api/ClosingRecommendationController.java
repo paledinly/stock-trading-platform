@@ -19,6 +19,7 @@ import com.sunmo.stockplatform.closing.application.OvernightPositionDecisionServ
 import com.sunmo.stockplatform.closing.application.AccountPerformanceCalculator;
 import com.sunmo.stockplatform.closing.application.ClosingStrategyAnalyticsService;
 import com.sunmo.stockplatform.closing.application.ClosingCandidateObservationService;
+import com.sunmo.stockplatform.closing.application.MarketSessionHours;
 import com.sunmo.stockplatform.closing.application.OfficialTradingDays;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -72,6 +73,21 @@ public class ClosingRecommendationController {
     @GetMapping("/trading-calendar")
     public OfficialTradingDays.Status tradingCalendar() {
         return officialTradingDays.status();
+    }
+
+    /** 그날 정규장 시간이에요. special은 수능일처럼 설정으로 바뀐 날이면 true예요. */
+    public record SessionHours(LocalDate date, String open, String close, boolean special) { }
+
+    /**
+     * 하는 일: GET /session-hours. 날짜(없으면 오늘)의 정규장 개장·마감 시각을 돌려줘요(MarketSessionHours 설정 기준).
+     * 화면의 장 구간 표시·다음 작업 시각을 수능일 같은 특별 일정에 맞추는 데 써요.
+     */
+    @GetMapping("/session-hours")
+    public SessionHours sessionHours(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        LocalDate target = date == null ? LocalDate.now(MarketSessionHours.ZONE) : date;
+        return new SessionHours(target, MarketSessionHours.open(target).toString().substring(0, 5),
+                MarketSessionHours.close(target).toString().substring(0, 5),
+                MarketSessionHours.specialSessions().containsKey(target));
     }
 
     /**

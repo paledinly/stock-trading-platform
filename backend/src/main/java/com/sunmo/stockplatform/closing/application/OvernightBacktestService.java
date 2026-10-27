@@ -98,8 +98,8 @@ public class OvernightBacktestService {
         int tradingDays = 0;
         // 처리: 날짜마다 평가 시작(기본 14:30)~입력 마감(기본 15:15) 사이 탐지만 남기고 정밀 후보 평가기로 순위를 매겨요.
         for (LocalDate date = start; !date.isAfter(end); date = date.plusDays(1)) {
-            Instant cutoffAt = date.atTime(properties.evaluationStart()).atZone(MARKET_ZONE).toInstant();
-            Instant asOf = date.atTime(properties.featureFreezeAt()).atZone(MARKET_ZONE).toInstant();
+            Instant cutoffAt = MarketSessionHours.at(date, properties.evaluationStart());
+            Instant asOf = MarketSessionHours.at(date, properties.featureFreezeAt());
             List<ScannerDetection> source = byDate.getOrDefault(date, List.of()).stream()
                     .filter(detection -> !detection.getDetectedAt().isBefore(cutoffAt)
                             && !detection.getDetectedAt().isAfter(asOf))
@@ -187,8 +187,8 @@ public class OvernightBacktestService {
             Map<LocalDate, List<ScannerDetection>> byDate) {
         List<BacktestEvaluation> values = new ArrayList<>();
         for (LocalDate date = start; !date.isAfter(end); date = date.plusDays(1)) {
-            Instant cutoffAt = date.atTime(properties.evaluationStart()).atZone(MARKET_ZONE).toInstant();
-            Instant asOf = date.atTime(properties.featureFreezeAt()).atZone(MARKET_ZONE).toInstant();
+            Instant cutoffAt = MarketSessionHours.at(date, properties.evaluationStart());
+            Instant asOf = MarketSessionHours.at(date, properties.featureFreezeAt());
             // "이평선 제거" 알고리즘은 이동평균 없이 대표 탐지를 고르고, 나머지는 이동평균을 포함해 골라요.
             List<ClosingPrecisionEvaluator.Assessment> assessments = "CLOSING_NO_MA_THRESHOLD_55".equals(profile.code())
                     ? precisionEvaluator.representativesWithoutMovingAverage(byDate.getOrDefault(date, List.of()),
@@ -374,9 +374,9 @@ public class OvernightBacktestService {
         // 15:15 strategy requires a captured post-completion tick; five-minute OHLC cannot reconstruct it.
         if (!properties.featureFreezeAt().isBefore(LocalTime.of(15, 15))) return null;
         // 입력 마감이 15:15보다 이를 때만 이 경로를 써요. 예: 14:50 마감이면 14:55 봉 시가가 진입가예요.
-        Instant expected = recommendationDate.atTime(properties.featureFreezeAt()).atZone(MARKET_ZONE).toInstant()
+        Instant expected = MarketSessionHours.at(recommendationDate, properties.featureFreezeAt())
                 .plus(Duration.ofMinutes(5));
-        Instant deadline = recommendationDate.atTime(properties.entryDeadline()).atZone(MARKET_ZONE).toInstant();
+        Instant deadline = MarketSessionHours.at(recommendationDate, properties.entryDeadline());
         return candles.findByStockIdAndTimeframeAndStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(
                         detection.getStock().getId(), TIMEFRAME, expected, deadline)
                 .stream().filter(StockCandle::isFinalCandle)

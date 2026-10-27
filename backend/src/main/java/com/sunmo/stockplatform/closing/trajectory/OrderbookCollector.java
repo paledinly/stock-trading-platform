@@ -5,6 +5,8 @@
  */
 package com.sunmo.stockplatform.closing.trajectory;
 
+import com.sunmo.stockplatform.closing.application.MarketSessionHours;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.sunmo.stockplatform.closing.application.ClosingTradingCalendar;
 import com.sunmo.stockplatform.kis.auth.KisTokenManager;
@@ -78,8 +80,8 @@ public class OrderbookCollector {
     private boolean active() {
         var now=calendar.now().atZone(ClosingTradingCalendar.ZONE);
         return policy.enabled()&&policy.orderbookEnabled()&&trajectory.enabled()&&kis.enabled()
-                && calendar.isTradingDay(now.toLocalDate())&&!now.toLocalTime().isBefore(LocalTime.of(9,0))
-                && now.toLocalTime().isBefore(LocalTime.of(15,20));
+                && calendar.isTradingDay(now.toLocalDate())&&!MarketSessionHours.regularTime(now.toInstant()).isBefore(LocalTime.of(9,0))
+                && MarketSessionHours.regularTime(now.toInstant()).isBefore(LocalTime.of(15,20));
     }
     /** 하는 일: 실패 횟수, 마지막 성공 응답 시각과 "제한된 REST 샘플링, 최신 호가 보장 없음" 표시를 돌려줘요. */
     public Map<String,Object> status(){return TrajectoryModel.fields("requestFailures",failures.get(),"lastResponseAt",lastSuccess,

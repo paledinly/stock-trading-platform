@@ -75,7 +75,7 @@ public class ClosingDailyHealthRecorder {
     public synchronized void poll() {
         Instant now = calendar.now();
         LocalDate today = now.atZone(ClosingTradingCalendar.ZONE).toLocalDate();
-        LocalTime time = now.atZone(ClosingTradingCalendar.ZONE).toLocalTime();
+        LocalTime time = MarketSessionHours.regularTime(now);
         if (!calendar.isTradingDay(today))
             return;
         // 준비: 날짜가 바뀌면 전날 샘플을 버려요.

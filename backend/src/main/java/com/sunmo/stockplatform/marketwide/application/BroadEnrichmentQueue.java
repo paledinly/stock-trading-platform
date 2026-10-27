@@ -5,6 +5,8 @@
  */
 package com.sunmo.stockplatform.marketwide.application;
 
+import com.sunmo.stockplatform.closing.application.MarketSessionHours;
+
 import com.sunmo.stockplatform.market.config.BroadEnrichmentProperties;
 import com.sunmo.stockplatform.closing.config.ClosingRecommendationProperties;
 import com.sunmo.stockplatform.marketwide.domain.*;
@@ -148,7 +150,7 @@ public class BroadEnrichmentQueue {
      * 돌려주는 것: 가능하면 true.
      */
     private boolean eligible(Instant at) {
-        return session.evaluate(at).eligible() && at.atZone(SEOUL).toLocalTime().isBefore(closing.featureFreezeAt());
+        return session.evaluate(at).eligible() && MarketSessionHours.regularTime(at).isBefore(closing.featureFreezeAt());
     }
     /**
      * 하는 일: 접수 후 maxAge가 지난 작업을 대기열에서 지워요. 실행 중인 작업은 남겨 둬요.

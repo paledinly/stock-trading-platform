@@ -6,6 +6,8 @@
  */
 package com.sunmo.stockplatform.market.application;
 
+import com.sunmo.stockplatform.closing.application.MarketSessionHours;
+
 import com.sunmo.stockplatform.candle.application.FiveMinuteCandleAggregator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -214,11 +216,12 @@ public class RealtimeCoverage {
         }
     }
 
-    /** 정규장 체결을 받는 시간(09:00~15:31)인지 알려 줘요. */
+    /** 정규장 체결을 받는 시간(평소 09:00~15:31, 수능일 등은 그날 개장·마감 기준)인지 알려 줘요. */
     static boolean inSession(Instant at) {
-        LocalTime time = at.atZone(SEOUL).toLocalTime();
-        return !time.isBefore(LocalTime.of(9, 0))
-                && time.isBefore(LocalTime.of(15, 30).plus(FiveMinuteCandleAggregator.CLOSING_AUCTION_WINDOW));
+        var local = at.atZone(SEOUL);
+        LocalTime time = local.toLocalTime();
+        return !time.isBefore(MarketSessionHours.open(local.toLocalDate()))
+                && time.isBefore(MarketSessionHours.close(local.toLocalDate()).plus(FiveMinuteCandleAggregator.CLOSING_AUCTION_WINDOW));
     }
 
     /** 시각이 든 5분 칸이에요. 09:00 전이면 09:00 칸, 15:25 뒤면 15:25 칸으로 맞춰요. */
@@ -226,13 +229,13 @@ public class RealtimeCoverage {
         LocalDate date = at.atZone(SEOUL).toLocalDate();
         if (at.isBefore(open(date)))
             return open(date);
-        Instant last = date.atTime(15, 25).atZone(SEOUL).toInstant();
+        Instant last = MarketSessionHours.at(date, LocalTime.of(15, 25));
         if (!at.isBefore(last))
             return last;
         return FiveMinuteCandleAggregator.bucketStart(at);
     }
 
     private static Instant open(LocalDate date) {
-        return date.atTime(9, 0).atZone(SEOUL).toInstant();
+        return date.atTime(MarketSessionHours.open(date)).atZone(SEOUL).toInstant();
     }
 }

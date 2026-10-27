@@ -100,7 +100,7 @@ public class ClosingRecommendationScorer {
      * 기본 입력 마감 15:15에서는 최대 약 11.25점이에요.
      */
     private BigDecimal closingRecency(Instant detectedAt) {
-        LocalTime time = detectedAt.atZone(MARKET_ZONE).toLocalTime();
+        LocalTime time = MarketSessionHours.regularTime(detectedAt);
         if (time.isBefore(SCORE_START))
             return BigDecimal.ZERO;
         long totalMinutes = Duration.between(SCORE_START, MARKET_CLOSE).toMinutes();

@@ -39,7 +39,7 @@ public class MorningOutcomeService {
      */
     @Scheduled(fixedDelayString = "${closing.trajectory.outcome-interval:10m}", scheduler = "trajectoryContextScheduler")
     public void scheduled() {
-        if (policy.enabled() && calendar.now().atZone(ClosingTradingCalendar.ZONE).toLocalTime().isAfter(LocalTime.of(9, 0)))
+        if (policy.enabled() && MarketSessionHours.regularTime(calendar.now()).isAfter(LocalTime.of(9, 0)))
             track(calendar.previousTradingDay(calendar.today()));
     }
     /**
@@ -54,7 +54,7 @@ public class MorningOutcomeService {
             var stock = stocks.findByStockCode(snapshot.symbol()).orElse(null);
             if (stock == null) continue;
             LocalDate next = calendar.nextTradingDay(date);
-            Instant open = calendar.open(next), end = next.atTime(snapshot.policy().morningEnd()).atZone(ClosingTradingCalendar.ZONE).toInstant();
+            Instant open = calendar.open(next), end = MarketSessionHours.at(next, snapshot.policy().morningEnd());
             var series = candles.findByStockIdAndTimeframeAndStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(
                     stock.getId(), "5M", calendar.open(date), calendar.close(next));
             var valid = series.stream().filter(c -> valid(c, calendar.now())).sorted(Comparator.comparing(StockCandle::getStartTime)).toList();
@@ -63,7 +63,7 @@ public class MorningOutcomeService {
             // First whole candle after actual evaluation completion; 15:20 and later cannot be an entry.
             Instant earliest = Instant.ofEpochSecond(Math.floorDiv(snapshot.evaluatedAt().getEpochSecond(), 300) * 300 + 300);
             StockCandle entry = valid.stream().filter(c -> !c.getStartTime().isBefore(earliest)
-                    && c.getStartTime().isBefore(date.atTime(15, 20).atZone(ClosingTradingCalendar.ZONE).toInstant()))
+                    && c.getStartTime().isBefore(MarketSessionHours.at(date, LocalTime.of(15, 20))))
                     .findFirst().orElse(null);
             var morning = valid.stream().filter(c -> !c.getStartTime().isBefore(open) && c.getStartTime().isBefore(calendar.close(next))).toList();
             var outcome = new LinkedHashMap<>(calculate(morning, open, end, close,

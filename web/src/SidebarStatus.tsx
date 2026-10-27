@@ -5,24 +5,26 @@
  */
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
-import { kstClock } from './todayTimeline'
+import { kstClock, shifted } from './todayTimeline'
 
 // 평일 하루의 주요 자동 작업 시각이에요(백엔드 예약 시각과 같게 유지해요).
+// 기준: open(개장 기준), close(마감 기준), fixed(장 시간과 무관). 수능일처럼 장 시간이 바뀐 날은 기준에 따라 옮겨요.
 const EVENTS = [
-  ['08:59', '실시간 연결'], ['14:50', '정밀 구독 고정'], ['15:15', '공식 평가'], ['15:20', '가상 진입 마감'],
-  ['15:40', '전일 후보 관측'], ['15:45', '일별 완결성 1차'], ['16:05', '지수 일봉'], ['18:00', '분봉 재보완'],
-  ['18:10', 'DART 수집'], ['18:15', '일별 완결성 최종'], ['18:30', '수정주가 일봉'],
+  ['08:59', '실시간 연결', 'open'], ['14:50', '정밀 구독 고정', 'close'], ['15:15', '공식 평가', 'close'],
+  ['15:20', '가상 진입 마감', 'close'], ['15:40', '전일 후보 관측', 'close'], ['15:45', '일별 완결성 1차', 'close'],
+  ['16:05', '지수 일봉', 'close'], ['18:00', '분봉 재보완', 'close'], ['18:10', 'DART 수집', 'fixed'],
+  ['18:15', '일별 완결성 최종', 'close'], ['18:30', '수정주가 일봉', 'fixed'],
 ] as const
 
 const minutesOf = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5))
 
-/** 지금(한국시간 분)이 장의 어느 구간인지 이름을 붙여요. 주말이면 휴장이에요. */
-function sessionLabel(minutes: number, weekday: string) {
+/** 지금(한국시간 분)이 장의 어느 구간인지 이름을 붙여요. 주말이면 휴장이에요. 개장·마감은 그날 장 시간("HH:mm")이에요. */
+function sessionLabel(minutes: number, weekday: string, open: string, close: string) {
   if (weekday === '토' || weekday === '일') return '휴장 (주말)'
-  if (minutes < minutesOf('08:30')) return '장 시작 전'
-  if (minutes < minutesOf('09:00')) return '장 전 동시호가'
-  if (minutes < minutesOf('15:20')) return '정규장'
-  if (minutes < minutesOf('15:30')) return '종가 단일가'
+  if (minutes < minutesOf(open) - 30) return '장 시작 전'
+  if (minutes < minutesOf(open)) return '장 전 동시호가'
+  if (minutes < minutesOf(close) - 10) return '정규장'
+  if (minutes < minutesOf(close)) return '종가 단일가'
   return '장 마감'
 }
 
@@ -50,14 +52,30 @@ export function SidebarStatus() {
     retry: false,
   })
   const clock = kstClock(now)
+  // 그날 장 시간(수능일 등은 설정으로 바뀌어요). 못 읽으면 평소 09:00~15:30으로 봐요.
+  const hours = useQuery({
+    queryKey: ['sidebar', 'session-hours', clock.date],
+    queryFn: async () => {
+      const response = await fetch(`/api/v1/closing-recommendations/session-hours?date=${clock.date}`)
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      return response.json() as Promise<{ open: string; close: string }>
+    },
+    staleTime: 600_000,
+    retry: false,
+  })
+  const open = hours.data?.open ?? '09:00'
+  const close = hours.data?.close ?? '15:30'
+  const shift = { open: minutesOf(open) - minutesOf('09:00'), close: minutesOf(close) - minutesOf('15:30'), fixed: 0 }
+  const events = EVENTS.map(([time, label, anchor]) => [shifted(time, shift[anchor]), label] as const)
+    .sort((a, b) => minutesOf(a[0]) - minutesOf(b[0]))
   const weekend = clock.weekday === '토' || clock.weekday === '일'
-  const next = weekend ? undefined : EVENTS.find(([time]) => minutesOf(time) > clock.minutes)
+  const next = weekend ? undefined : events.find(([time]) => minutesOf(time) > clock.minutes)
   const connected = realtime.data?.realtime?.connected
   const live = connected === true ? 'on' : connected === false ? 'off' : 'unknown'
   return (
     <div className="sidebarStatus" aria-label="장 상태">
       <div className="sidebarSession">
-        <b>{sessionLabel(clock.minutes, clock.weekday)}</b>
+        <b>{sessionLabel(clock.minutes, clock.weekday, open, close)}</b>
         <time>{clock.time.slice(0, 5)}</time>
       </div>
       <p className={`sidebarLive ${live}`}>

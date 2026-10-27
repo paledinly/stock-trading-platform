@@ -5,6 +5,8 @@
  */
 package com.sunmo.stockplatform.market.feature.application;
 
+import com.sunmo.stockplatform.closing.application.MarketSessionHours;
+
 import com.sunmo.stockplatform.market.domain.MarketTick;
 import com.sunmo.stockplatform.market.feature.domain.MarketFeatureSnapshot;
 
@@ -149,8 +151,9 @@ final class IntradayFeatureState {
      */
     private Instant bucketStart(Instant instant) {
         ZonedDateTime time = instant.atZone(SEOUL);
-        ZonedDateTime open = time.toLocalDate().atTime(9, 0).atZone(SEOUL);
-        ZonedDateTime close = open.plusMinutes(390);
+        var date = time.toLocalDate();
+        ZonedDateTime open = date.atTime(MarketSessionHours.open(date)).atZone(SEOUL);
+        ZonedDateTime close = date.atTime(MarketSessionHours.close(date)).atZone(SEOUL);
         if (!time.isBefore(close))
             return close.minusMinutes(5).toInstant();
         long minutes = Math.max(0, ChronoUnit.MINUTES.between(open, time));

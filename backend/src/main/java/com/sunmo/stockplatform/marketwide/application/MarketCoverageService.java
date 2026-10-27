@@ -5,6 +5,8 @@
  */
 package com.sunmo.stockplatform.marketwide.application;
 
+import com.sunmo.stockplatform.closing.application.MarketSessionHours;
+
 import com.sunmo.stockplatform.closing.domain.*;
 import com.sunmo.stockplatform.closing.infrastructure.*;
 import com.sunmo.stockplatform.marketwide.api.MarketWideDtos.*;
@@ -194,8 +196,8 @@ public class MarketCoverageService {
      * 돌려주는 것: 측정 종료 시각.
      */
     private Instant measurementEnd(LocalDate date) {
-        // ⚠️ 확인 필요: 장 마감을 15:30으로 고정했어요. 단축 장·마감 지연일은 반영되지 않아요.
-        Instant close = date.atTime(15, 30).atZone(MARKET_ZONE).toInstant();
+        // 마감 지연일(수능일 등)은 MarketSessionHours 설정을 따라요.
+        Instant close = date.atTime(MarketSessionHours.close(date)).atZone(MARKET_ZONE).toInstant();
         Instant now = Instant.now();
         return date.equals(LocalDate.now(MARKET_ZONE)) && now.isBefore(close) ? now : close;
     }

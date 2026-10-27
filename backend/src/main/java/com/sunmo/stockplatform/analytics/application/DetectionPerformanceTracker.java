@@ -5,6 +5,8 @@
  */
 package com.sunmo.stockplatform.analytics.application;
 
+import com.sunmo.stockplatform.closing.application.MarketSessionHours;
+
 import com.sunmo.stockplatform.analytics.domain.*;
 import com.sunmo.stockplatform.analytics.infrastructure.DetectionPerformanceRepository;
 import com.sunmo.stockplatform.candle.domain.StockCandle;
@@ -169,9 +171,11 @@ public class DetectionPerformanceTracker implements ApplicationRunner {
      * 충돌이 나면 DB에서 다시 읽어 확정을 한 번 더 시도해요.
      * 받는 것: 없어요. 돌려주는 것: 없어요.
      */
-    @Scheduled(cron = "30 31 15 * * MON-FRI", zone = "Asia/Seoul")
+    @Scheduled(cron = "30 31 15,16 * * MON-FRI", zone = "Asia/Seoul")
     public synchronized void finalizeMarketClose() {
-        if (!calendar.isTradingDay(calendar.today()))
+        // 평소 15:31:30과 한 시간 뒤에 깨어나, 그날 마감(MarketSessionHours)에 맞는 쪽만 확정해요.
+        if (!calendar.isTradingDay(calendar.today())
+                || !MarketSessionHours.firesAt(calendar.now(), java.time.LocalTime.of(15, 31)))
             return;
         Instant now = calendar.now();
         for (DetectionPerformance performance : List.copyOf(byId.values())) {

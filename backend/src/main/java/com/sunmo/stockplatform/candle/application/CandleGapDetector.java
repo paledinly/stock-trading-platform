@@ -4,6 +4,8 @@
  */
 package com.sunmo.stockplatform.candle.application;
 
+import com.sunmo.stockplatform.closing.application.MarketSessionHours;
+
 import java.time.*;
 import java.util.*;
 
@@ -22,9 +24,10 @@ public class CandleGapDetector {
      * (ObservationBackfillService가 15:20을 빼는 것과 같은 규칙이에요). 그래야 장 마감 후 조회 때마다 보충이 반복되지 않아요.
      */
     public List<Instant> gaps(LocalDate date, Instant through, Collection<Instant> existing) {
-        Instant open = date.atTime(9, 0).atZone(SEOUL).toInstant();
-        Instant close = date.atTime(15, 30).atZone(SEOUL).toInstant();
-        Instant closingCall = date.atTime(15, 20).atZone(SEOUL).toInstant();
+        // 수능일처럼 시간이 바뀐 날은 그날 개장·마감 기준이에요(MarketSessionHours).
+        Instant open = date.atTime(MarketSessionHours.open(date)).atZone(SEOUL).toInstant();
+        Instant close = date.atTime(MarketSessionHours.close(date)).atZone(SEOUL).toInstant();
+        Instant closingCall = MarketSessionHours.at(date, LocalTime.of(15, 20));
         Instant limit = through.isBefore(close) ? floorFiveMinutes(through) : close;
         Set<Instant> found = new HashSet<>(existing);
         List<Instant> gaps = new ArrayList<>();

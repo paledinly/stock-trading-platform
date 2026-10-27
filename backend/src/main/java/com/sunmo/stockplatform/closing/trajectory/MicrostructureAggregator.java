@@ -5,6 +5,8 @@
  */
 package com.sunmo.stockplatform.closing.trajectory;
 
+import com.sunmo.stockplatform.closing.application.MarketSessionHours;
+
 import com.sunmo.stockplatform.market.application.ObservedMarketTick;
 import com.sunmo.stockplatform.market.domain.MarketTick;
 import java.math.BigDecimal;
@@ -35,7 +37,7 @@ public final class MicrostructureAggregator {
      */
     private State state(String kind, String symbol, Instant source, Instant received) {
         LocalDate day = source.atZone(ZONE).toLocalDate();
-        LocalTime time = source.atZone(ZONE).toLocalTime();
+        LocalTime time = MarketSessionHours.regularTime(source);
         if (!day.equals(received.atZone(ZONE).toLocalDate()) || source.isAfter(received)
                 || Duration.between(source, received).compareTo(policy.maxObservationGap()) > 0
                 || date != null && day.isBefore(date) || time.isBefore(LocalTime.of(9,0)) || !time.isBefore(LocalTime.of(15,20))) {

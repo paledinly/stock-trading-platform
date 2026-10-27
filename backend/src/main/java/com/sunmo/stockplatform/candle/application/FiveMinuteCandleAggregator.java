@@ -6,6 +6,7 @@
  */
 package com.sunmo.stockplatform.candle.application;
 
+import com.sunmo.stockplatform.closing.application.MarketSessionHours;
 import com.sunmo.stockplatform.market.domain.MarketTick;
 import java.math.BigDecimal;
 import java.time.*;
@@ -105,11 +106,13 @@ public class FiveMinuteCandleAggregator {
      * 하는 일: 체결시각이 속한 5분 칸의 시작시각을 구해요. 15:30:00~15:31:00 종가 체결은 15:25 칸으로 보내요.
      * 받는 것: 원천 체결시각. 돌려주는 것: 칸 시작시각.
      * 09:00 이전이나 15:31:00 이후면 IllegalArgumentException을 던져요.
+     * 수능일처럼 시간이 바뀐 날은 그날 개장·마감(MarketSessionHours)을 기준으로 해요(예: 10:00~16:25 칸, 16:30 종가 → 16:25 칸).
      */
     public static Instant bucketStart(Instant instant) {
         ZonedDateTime time = instant.atZone(SEOUL);
-        ZonedDateTime open = time.toLocalDate().atTime(9, 0).atZone(SEOUL);
-        ZonedDateTime close = open.plusMinutes(390);
+        var date = time.toLocalDate();
+        ZonedDateTime open = date.atTime(MarketSessionHours.open(date)).atZone(SEOUL);
+        ZonedDateTime close = date.atTime(MarketSessionHours.close(date)).atZone(SEOUL);
         if (time.isBefore(open) || time.isAfter(close.plus(CLOSING_AUCTION_WINDOW)))
             throw new IllegalArgumentException("Tick outside regular KRX session");
         if (!time.isBefore(close))
@@ -126,7 +129,7 @@ public class FiveMinuteCandleAggregator {
     static Instant bucketEnd(Instant start) {
         Instant end = start.plus(BUCKET);
         ZonedDateTime local = end.atZone(SEOUL);
-        return local.toLocalTime().equals(LocalTime.of(15, 30)) ? end.plus(CLOSING_AUCTION_WINDOW) : end;
+        return local.toLocalTime().equals(MarketSessionHours.close(local.toLocalDate())) ? end.plus(CLOSING_AUCTION_WINDOW) : end;
     }
 
     /**

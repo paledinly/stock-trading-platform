@@ -109,9 +109,10 @@ public class ClosingRecommendationService {
             throw new com.sunmo.stockplatform.common.error.ApplicationException(
                     com.sunmo.stockplatform.common.error.ErrorCode.INVALID_REQUEST,
                     org.springframework.http.HttpStatus.BAD_REQUEST, "Future recommendation date is not allowed");
-        Instant decisionAt = targetDate.atTime(properties.featureFreezeAt()).atZone(MARKET_ZONE).toInstant();
+        // 평소 시각(15:15 등)을 그날 실제 시각으로 옮겨요(수능일 16:15).
+        Instant decisionAt = MarketSessionHours.at(targetDate, properties.featureFreezeAt());
         Instant inputReceiptDeadline = decisionAt.plus(properties.candleFinalizationGrace());
-        Instant entryDeadline = targetDate.atTime(properties.entryDeadline()).atZone(MARKET_ZONE).toInstant();
+        Instant entryDeadline = MarketSessionHours.at(targetDate, properties.entryDeadline());
         boolean today = targetDate.equals(calendar.today());
         if (today && generatedAt.isBefore(inputReceiptDeadline))
             throw invalid(properties.featureFreezeAt() + " 기준 입력 마감 전에는 후보 평가를 실행할 수 없습니다");
@@ -168,7 +169,7 @@ public class ClosingRecommendationService {
             return readEvaluation(run);
         }
         // 처리 1: run을 먼저 만들고, 평가 시작(기본 14:30)~입력 마감 사이 Scanner 탐지를 모아 종목별 대표 탐지로 평가해요.
-        Instant cutoff = targetDate.atTime(properties.evaluationStart()).atZone(MARKET_ZONE).toInstant();
+        Instant cutoff = MarketSessionHours.at(targetDate, properties.evaluationStart());
         ClosingRecommendationRun run = runs.save(new ClosingRecommendationRun(targetDate, generatedAt,
                 ClosingRecommendation.STRATEGY_VERSION, mode, decisionAt, settings, hash, key));
         List<ScannerDetection> source = detections
