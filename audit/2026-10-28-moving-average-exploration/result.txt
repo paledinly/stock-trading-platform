@@ -1,0 +1,52 @@
+
+===== discovery 2023-11-21..2025-04-30: days 351, candidates 11879
+  -- NEXT_OPEN (candidate day mean -0.27%)
+    G1 DAILY_TREND_PASS    true  7234/11879 (60.9%) days 350 | true - false +0.05 [-0.09, +0.20]
+    G2 OVEREXTENDED        true  6645/11879 (55.9%) days 351 | true - false +0.00 [-0.13, +0.14]
+    S1 ALIGNMENT           true  4141/10221 (40.5%) days 312 | true - false -0.00 [-0.15, +0.16]
+    S2 MA20_RISING         true  8076/11879 (68.0%) days 349 | true - false +0.04 [-0.10, +0.19]
+    S3 CLOSE_ABOVE_MA20    true  8100/11879 (68.2%) days 348 | true - false +0.15 [-0.02, +0.33]
+    S4 MA5_ABOVE_MA20      true  7691/11879 (64.7%) days 351 | true - false +0.01 [-0.16, +0.18]
+    N1 ABOVE_MA120         true  5245/ 7836 (66.9%) days 252 | true - false -0.09 [-0.28, +0.10]
+  -- BASELINE (candidate day mean -0.78%)
+    G1 DAILY_TREND_PASS    true  7234/11879 (60.9%) days 350 | true - false +0.00 [-0.14, +0.15]
+    G2 OVEREXTENDED        true  6645/11879 (55.9%) days 351 | true - false -0.11 [-0.25, +0.03]
+    S1 ALIGNMENT           true  4141/10221 (40.5%) days 312 | true - false -0.00 [-0.16, +0.18]
+    S2 MA20_RISING         true  8076/11879 (68.0%) days 349 | true - false -0.04 [-0.20, +0.11]
+    S3 CLOSE_ABOVE_MA20    true  8100/11879 (68.2%) days 348 | true - false +0.08 [-0.09, +0.26]
+    S4 MA5_ABOVE_MA20      true  7691/11879 (64.7%) days 351 | true - false -0.01 [-0.17, +0.16]
+    N1 ABOVE_MA120         true  5245/ 7836 (66.9%) days 252 | true - false -0.15 [-0.36, +0.05]
+
+===== check 2025-05-01..2026-10-21: days 357, candidates 12071
+  -- NEXT_OPEN (candidate day mean +0.00%)
+    G1 DAILY_TREND_PASS    true  7682/12071 (63.6%) days 354 | true - false -0.01 [-0.22, +0.19]
+    G2 OVEREXTENDED        true  6888/12071 (57.1%) days 355 | true - false -0.03 [-0.19, +0.14]
+    S1 ALIGNMENT           true  5808/11851 (49.0%) days 353 | true - false -0.06 [-0.24, +0.13]
+    S2 MA20_RISING         true  8566/12071 (71.0%) days 344 | true - false -0.08 [-0.36, +0.19]
+    S3 CLOSE_ABOVE_MA20    true  8387/12071 (69.5%) days 347 | true - false +0.04 [-0.16, +0.23]
+    S4 MA5_ABOVE_MA20      true  8248/12071 (68.3%) days 352 | true - false +0.06 [-0.14, +0.27]
+    N1 ABOVE_MA120         true  9185/11648 (78.9%) days 340 | true - false -0.20 [-0.46, +0.04]
+  -- BASELINE (candidate day mean -0.60%)
+    G1 DAILY_TREND_PASS    true  7682/12071 (63.6%) days 354 | true - false -0.00 [-0.22, +0.21]
+    G2 OVEREXTENDED        true  6888/12071 (57.1%) days 355 | true - false -0.13 [-0.31, +0.05]
+    S1 ALIGNMENT           true  5808/11851 (49.0%) days 353 | true - false -0.07 [-0.27, +0.14]
+    S2 MA20_RISING         true  8566/12071 (71.0%) days 344 | true - false -0.06 [-0.36, +0.22]
+    S3 CLOSE_ABOVE_MA20    true  8387/12071 (69.5%) days 347 | true - false +0.00 [-0.19, +0.20]
+    S4 MA5_ABOVE_MA20      true  8248/12071 (68.3%) days 352 | true - false +0.01 [-0.22, +0.24]
+    N1 ABOVE_MA120         true  9185/11648 (78.9%) days 340 | true - false -0.23 [-0.50, +0.04]
+
+===== keep rule (direction vs the score's expectation)
+  drop  NEXT_OPEN G1 DAILY_TREND_PASS    discovery +0.05 [-0.09,+0.20] check -0.01 [-0.22,+0.19] 
+  drop  NEXT_OPEN G2 OVEREXTENDED        discovery +0.00 [-0.13,+0.14] check -0.03 [-0.19,+0.14] 
+  drop  NEXT_OPEN S1 ALIGNMENT           discovery -0.00 [-0.15,+0.16] check -0.06 [-0.24,+0.13] 
+  drop  NEXT_OPEN S2 MA20_RISING         discovery +0.04 [-0.10,+0.19] check -0.08 [-0.36,+0.19] 
+  drop  NEXT_OPEN S3 CLOSE_ABOVE_MA20    discovery +0.15 [-0.02,+0.33] check +0.04 [-0.16,+0.23] 
+  drop  NEXT_OPEN S4 MA5_ABOVE_MA20      discovery +0.01 [-0.16,+0.18] check +0.06 [-0.14,+0.27] 
+  drop  NEXT_OPEN N1 ABOVE_MA120         discovery -0.09 [-0.28,+0.10] check -0.20 [-0.46,+0.04] 
+  drop  BASELINE  G1 DAILY_TREND_PASS    discovery +0.00 [-0.14,+0.15] check -0.00 [-0.22,+0.21] 
+  drop  BASELINE  G2 OVEREXTENDED        discovery -0.11 [-0.25,+0.03] check -0.13 [-0.31,+0.05] 
+  drop  BASELINE  S1 ALIGNMENT           discovery -0.00 [-0.16,+0.18] check -0.07 [-0.27,+0.14] 
+  drop  BASELINE  S2 MA20_RISING         discovery -0.04 [-0.20,+0.11] check -0.06 [-0.36,+0.22] 
+  drop  BASELINE  S3 CLOSE_ABOVE_MA20    discovery +0.08 [-0.09,+0.26] check +0.00 [-0.19,+0.20] 
+  drop  BASELINE  S4 MA5_ABOVE_MA20      discovery -0.01 [-0.17,+0.16] check +0.01 [-0.22,+0.24] 
+  drop  BASELINE  N1 ABOVE_MA120         discovery -0.15 [-0.36,+0.05] check -0.23 [-0.50,+0.04] 

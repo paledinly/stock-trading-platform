@@ -1,0 +1,94 @@
+
+===== discovery entries 2023-11-21..2025-04-30
+  [R5] events 22769
+    OPEN1    days 351 | R5 Net -0.44% [-0.53, -0.35] | ALL Net -0.25% | R5-ALL -0.19 [-0.25, -0.14]
+    CLOSE1   days 351 | R5 Net -0.72% [-0.93, -0.53] | ALL Net -0.43% | R5-ALL -0.29 [-0.45, -0.14]
+    CLOSE3   days 351 | R5 Net -1.15% [-1.61, -0.70] | ALL Net -0.50% | R5-ALL -0.65 [-0.93, -0.39]
+    CLOSE5   days 351 | R5 Net -1.26% [-1.93, -0.60] | ALL Net -0.57% | R5-ALL -0.69 [-1.08, -0.32]
+    CLOSE10  days 351 | R5 Net -1.90% [-2.95, -0.87] | ALL Net -0.72% | R5-ALL -1.18 [-1.82, -0.52]
+  [R10] events 4092
+    OPEN1    days 346 | R10 Net -0.70% [-0.94, -0.48] | ALL Net -0.26% | R10-ALL -0.44 [-0.69, -0.22]
+    CLOSE1   days 346 | R10 Net -1.36% [-1.74, -0.98] | ALL Net -0.45% | R10-ALL -0.91 [-1.29, -0.53]
+    CLOSE3   days 346 | R10 Net -2.16% [-2.90, -1.43] | ALL Net -0.54% | R10-ALL -1.62 [-2.34, -0.87]
+    CLOSE5   days 346 | R10 Net -2.69% [-3.62, -1.76] | ALL Net -0.61% | R10-ALL -2.08 [-2.98, -1.18]
+    CLOSE10  days 346 | R10 Net -3.19% [-4.67, -1.65] | ALL Net -0.76% | R10-ALL -2.43 [-3.98, -0.85]
+
+===== check entries 2025-05-01..2026-10-21
+  [R5] events 35346
+    OPEN1    days 357 | R5 Net -0.23% [-0.37, -0.09] | ALL Net -0.06% | R5-ALL -0.16 [-0.25, -0.08]
+    CLOSE1   days 357 | R5 Net -0.79% [-1.05, -0.54] | ALL Net -0.36% | R5-ALL -0.43 [-0.56, -0.31]
+    CLOSE3   days 355 | R5 Net -1.00% [-1.68, -0.34] | ALL Net -0.28% | R5-ALL -0.72 [-0.97, -0.45]
+    CLOSE5   days 353 | R5 Net -1.13% [-2.18, -0.06] | ALL Net -0.19% | R5-ALL -0.94 [-1.33, -0.54]
+    CLOSE10  days 348 | R5 Net -1.23% [-3.18, +0.70] | ALL Net +0.04% | R5-ALL -1.28 [-1.89, -0.64]
+  [R10] events 7308
+    OPEN1    days 354 | R10 Net -0.46% [-0.70, -0.24] | ALL Net -0.06% | R10-ALL -0.40 [-0.61, -0.21]
+    CLOSE1   days 354 | R10 Net -1.78% [-2.21, -1.33] | ALL Net -0.37% | R10-ALL -1.41 [-1.82, -1.02]
+    CLOSE3   days 352 | R10 Net -2.53% [-3.45, -1.57] | ALL Net -0.32% | R10-ALL -2.21 [-3.03, -1.46]
+    CLOSE5   days 350 | R10 Net -2.69% [-4.11, -1.27] | ALL Net -0.22% | R10-ALL -2.46 [-3.56, -1.46]
+    CLOSE10  days 345 | R10 Net -2.69% [-5.10, -0.20] | ALL Net -0.00% | R10-ALL -2.69 [-4.18, -1.15]
+
+===== keep rule
+  KEEP  R5   OPEN1    Net   discovery -0.44 [-0.53,-0.35] check -0.23 [-0.37,-0.09]
+  KEEP  R5   OPEN1    -ALL  discovery -0.19 [-0.25,-0.14] check -0.16 [-0.25,-0.08]
+  KEEP  R5   CLOSE1   Net   discovery -0.72 [-0.93,-0.53] check -0.79 [-1.05,-0.54]
+  KEEP  R5   CLOSE1   -ALL  discovery -0.29 [-0.45,-0.14] check -0.43 [-0.56,-0.31]
+  KEEP  R5   CLOSE3   Net   discovery -1.15 [-1.61,-0.70] check -1.00 [-1.68,-0.34]
+  KEEP  R5   CLOSE3   -ALL  discovery -0.65 [-0.93,-0.39] check -0.72 [-0.97,-0.45]
+  KEEP  R5   CLOSE5   Net   discovery -1.26 [-1.93,-0.60] check -1.13 [-2.18,-0.06]
+  KEEP  R5   CLOSE5   -ALL  discovery -0.69 [-1.08,-0.32] check -0.94 [-1.33,-0.54]
+  KEEP  R5   CLOSE10  Net   discovery -1.90 [-2.95,-0.87] check -1.23 [-3.18,+0.70]
+  KEEP  R5   CLOSE10  -ALL  discovery -1.18 [-1.82,-0.52] check -1.28 [-1.89,-0.64]
+  KEEP  R10  OPEN1    Net   discovery -0.70 [-0.94,-0.48] check -0.46 [-0.70,-0.24]
+  KEEP  R10  OPEN1    -ALL  discovery -0.44 [-0.69,-0.22] check -0.40 [-0.61,-0.21]
+  KEEP  R10  CLOSE1   Net   discovery -1.36 [-1.74,-0.98] check -1.78 [-2.21,-1.33]
+  KEEP  R10  CLOSE1   -ALL  discovery -0.91 [-1.29,-0.53] check -1.41 [-1.82,-1.02]
+  KEEP  R10  CLOSE3   Net   discovery -2.16 [-2.90,-1.43] check -2.53 [-3.45,-1.57]
+  KEEP  R10  CLOSE3   -ALL  discovery -1.62 [-2.34,-0.87] check -2.21 [-3.03,-1.46]
+  KEEP  R10  CLOSE5   Net   discovery -2.69 [-3.62,-1.76] check -2.69 [-4.11,-1.27]
+  KEEP  R10  CLOSE5   -ALL  discovery -2.08 [-2.98,-1.18] check -2.46 [-3.56,-1.46]
+  KEEP  R10  CLOSE10  Net   discovery -3.19 [-4.67,-1.65] check -2.69 [-5.10,-0.20]
+  KEEP  R10  CLOSE10  -ALL  discovery -2.43 [-3.98,-0.85] check -2.69 [-4.18,-1.15]
+
+===== descriptive by year of entry (no keep rule)
+
+-- 2023-24 2023-11-21..2024-12-31
+  [R5] events 17463
+    OPEN1    days 271 | R5 Net -0.42% [-0.51, -0.33] | ALL Net -0.25% | R5-ALL -0.16 [-0.21, -0.11]
+    CLOSE1   days 271 | R5 Net -0.74% [-0.98, -0.51] | ALL Net -0.46% | R5-ALL -0.27 [-0.45, -0.11]
+    CLOSE3   days 271 | R5 Net -1.25% [-1.79, -0.74] | ALL Net -0.58% | R5-ALL -0.68 [-0.97, -0.40]
+    CLOSE5   days 271 | R5 Net -1.42% [-2.21, -0.63] | ALL Net -0.68% | R5-ALL -0.73 [-1.13, -0.36]
+    CLOSE10  days 271 | R5 Net -2.06% [-3.33, -0.84] | ALL Net -0.91% | R5-ALL -1.15 [-1.75, -0.52]
+  [R10] events 3230
+    OPEN1    days 267 | R10 Net -0.66% [-0.92, -0.41] | ALL Net -0.26% | R10-ALL -0.40 [-0.65, -0.16]
+    CLOSE1   days 267 | R10 Net -1.32% [-1.76, -0.91] | ALL Net -0.48% | R10-ALL -0.85 [-1.26, -0.42]
+    CLOSE3   days 267 | R10 Net -2.27% [-3.09, -1.46] | ALL Net -0.61% | R10-ALL -1.66 [-2.43, -0.92]
+    CLOSE5   days 267 | R10 Net -3.01% [-4.03, -1.98] | ALL Net -0.72% | R10-ALL -2.29 [-3.22, -1.37]
+    CLOSE10  days 267 | R10 Net -3.61% [-5.32, -1.86] | ALL Net -0.94% | R10-ALL -2.67 [-4.35, -1.00]
+
+-- 2025 2025-01-01..2025-12-31
+  [R5] events 13772
+    OPEN1    days 242 | R5 Net -0.34% [-0.45, -0.22] | ALL Net -0.12% | R5-ALL -0.22 [-0.31, -0.13]
+    CLOSE1   days 242 | R5 Net -0.65% [-0.85, -0.43] | ALL Net -0.27% | R5-ALL -0.38 [-0.55, -0.21]
+    CLOSE3   days 242 | R5 Net -0.65% [-1.13, -0.14] | ALL Net -0.05% | R5-ALL -0.59 [-0.92, -0.25]
+    CLOSE5   days 242 | R5 Net -0.48% [-1.25, +0.35] | ALL Net +0.14% | R5-ALL -0.62 [-1.12, -0.09]
+    CLOSE10  days 242 | R5 Net -0.41% [-1.62, +0.96] | ALL Net +0.64% | R5-ALL -1.05 [-1.99, -0.07]
+  [R10] events 2083
+    OPEN1    days 239 | R10 Net -0.64% [-0.92, -0.40] | ALL Net -0.11% | R10-ALL -0.53 [-0.81, -0.27]
+    CLOSE1   days 239 | R10 Net -1.48% [-1.96, -1.00] | ALL Net -0.27% | R10-ALL -1.20 [-1.71, -0.73]
+    CLOSE3   days 239 | R10 Net -1.81% [-2.70, -0.94] | ALL Net -0.07% | R10-ALL -1.74 [-2.66, -0.83]
+    CLOSE5   days 239 | R10 Net -1.25% [-2.38, -0.07] | ALL Net +0.13% | R10-ALL -1.38 [-2.47, -0.28]
+    CLOSE10  days 239 | R10 Net -0.89% [-2.64, +1.14] | ALL Net +0.64% | R10-ALL -1.52 [-3.49, +0.54]
+
+-- 2026 2026-01-01..2026-10-21
+  [R5] events 26880
+    OPEN1    days 195 | R5 Net -0.21% [-0.46, +0.01] | ALL Net -0.07% | R5-ALL -0.14 [-0.26, -0.01]
+    CLOSE1   days 195 | R5 Net -0.93% [-1.35, -0.52] | ALL Net -0.47% | R5-ALL -0.47 [-0.64, -0.29]
+    CLOSE3   days 193 | R5 Net -1.37% [-2.48, -0.28] | ALL Net -0.55% | R5-ALL -0.81 [-1.18, -0.44]
+    CLOSE5   days 191 | R5 Net -1.80% [-3.48, -0.09] | ALL Net -0.61% | R5-ALL -1.19 [-1.71, -0.68]
+    CLOSE10  days 186 | R5 Net -2.36% [-5.48, +0.87] | ALL Net -0.78% | R5-ALL -1.58 [-2.25, -0.89]
+  [R10] events 6087
+    OPEN1    days 194 | R10 Net -0.39% [-0.75, -0.06] | ALL Net -0.07% | R10-ALL -0.32 [-0.63, -0.05]
+    CLOSE1   days 194 | R10 Net -2.02% [-2.64, -1.42] | ALL Net -0.47% | R10-ALL -1.55 [-2.11, -1.03]
+    CLOSE3   days 192 | R10 Net -3.11% [-4.60, -1.63] | ALL Net -0.61% | R10-ALL -2.50 [-3.71, -1.40]
+    CLOSE5   days 190 | R10 Net -4.05% [-6.27, -1.81] | ALL Net -0.67% | R10-ALL -3.38 [-5.03, -1.91]
+    CLOSE10  days 185 | R10 Net -4.63% [-8.14, -1.09] | ALL Net -0.88% | R10-ALL -3.75 [-5.55, -2.11]
