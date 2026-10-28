@@ -973,12 +973,12 @@ export function ClosingRecommendationPage({ advanced = false }: { advanced?: boo
           </p>)}
         </details>}
         {lastRun?.evaluations && <details className="closingSection">
-          <summary><b>생성 당시 후보 평가</b><span>{CANDIDATE_GROUPS.map(({ group }) => `${{ SELECTED: '최종', WATCH: '관찰', HOLD: '보류', EXCLUDED: '제외' }[group]} ${lastRun.evaluations.filter(row => candidateGroup(row) === group).length}`).join(' · ')}</span></summary>
+          <summary><b>생성 당시 후보 평가</b><span>{CANDIDATE_GROUPS.map(({ group }) => `${{ SELECTED: '최종', WATCH: '관찰', FADED: '약해짐', HOLD: '보류', EXCLUDED: '제외' }[group]} ${lastRun.evaluations.filter(row => candidateGroup(row) === group).length}`).join(' · ')}</span></summary>
           <p>{new Date(lastRun.generatedAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })} · {lastRun.strategyVersion} · 평가 종료 {new Date(lastRun.evaluationEnd).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul' })}</p>
           <p>{Object.entries(lastRun.criteria).map(([key, value]) => `${key}: ${value}`).join(' · ')}</p>
           <p>관찰·제외 후보는 최종 추천이 아니며 오버나잇 성과 추적 대상에 포함되지 않습니다. 관측 분수는 봉의 시간 범위이며 연속 수신 시간을 보장하지 않습니다.</p>
           <p>Broad 점수·위험값은 제한된 지표로 계산한 참고값이며 Precision 점수와 같은 품질의 평가가 아닙니다. Broad 관찰은 점수가 아니라 Opportunity·Risk 기준과 최소 거래대금으로 정해집니다.</p>
-          <p>'판단 보류'는 신호가 오래됐거나 확정봉·일봉이 부족해 점수를 매길 수 없었던 정밀 후보입니다. 처분은 관찰이지만 지켜볼 만하다는 뜻이 아닙니다.</p>
+          <p>'신호 약해짐'은 체결·봉은 정상인데 마지막 스캐너 탐지가 평가 시각보다 30분 넘게 앞선 정밀 후보입니다(오후 늦게 신호가 이어지지 않음). '판단 보류'는 확정봉·일봉 등 데이터가 부족해 점수를 매길 수 없었던 정밀 후보입니다. 둘 다 처분은 관찰이지만 지켜볼 만하다는 뜻이 아닙니다.</p>
           {selectedRun?.executionMode === 'REPLAY' && <p>과거 재생은 당시 수신 시각이 없는 탐지 기록을 포함할 수 있습니다. 수신 여부가 확인되지 않은 결과는 전진 검증 성과로 해석하지 마세요.</p>}
           {CANDIDATE_GROUPS.map(({ group, title }) => <div key={group}>
             <h3>{title}</h3>

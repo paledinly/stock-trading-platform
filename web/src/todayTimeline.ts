@@ -23,7 +23,7 @@ export type Collection = {
   observation: { statuses: Record<string, number>; lastEvaluatedAt: string | null; backfilledBars: number; broadStatuses?: Record<string, number>; closingBarOnly?: number }
   dart: Counted
   adjustedDaily?: Counted
-  /** 07:00~09:00·14:20~14:50에 저장된 일봉 수(08:10 후보 일봉 준비, 14:25·14:35 정밀 보완의 흔적). 예전 Backend에는 없어요. */
+  /** 07:00~09:00·14:20~15:00에 저장된 일봉 수(08:10 후보 일봉 준비, 14:25·14:35·14:52 정밀 보완의 흔적). 예전 Backend에는 없어요. */
   morningDaily?: DailyCandles
   precisionDaily?: DailyCandles
   // 16:05 지수 일봉(그날 일봉을 16:00 뒤 저장한 수)과 18:00 분봉 재보완·관측 재평가 흔적이에요. 예전 백엔드에는 없어요.
@@ -205,10 +205,10 @@ export function buildTimeline(input: TodayInputs): Step[] {
   add('scan', o('09:00'), `시장 전체 스캔 (${o('09:00')}~${s('15:20')})`, scanState,
     wide || scanRuns ? `완료 ${completedRuns} · 실패 ${failedRuns} · 마지막 완료 ${hms(lastScanAt)}${wide?.lastError ? ` · 오류 ${wide.lastError}` : ''}${scanRuns ? ' (오늘 저장 기록)' : ' (재시작 후 누적)'}` : failed)
 
-  // 14:25·14:35 정밀 후보 일봉 보완: 저장된 게 없으면 이미 최신이었을 수 있어 '확인 필요'로 두지 않아요.
+  // 14:25·14:35·14:52(정밀 고정 직후) 정밀 후보 일봉 보완: 저장된 게 없으면 이미 최신이었을 수 있어 '확인 필요'로 두지 않아요.
   const precisionDaily = collection?.precisionDaily
-  add('precision-daily', s('14:25'), `정밀 후보 일봉 보완 (${s('14:25')} · ${s('14:35')})`,
-    !precisionDaily ? 'unknown' : precisionDaily.rows > 0 ? 'done' : before(s('14:25')) ? 'waiting' : due(s('14:35'), 5) ? 'unknown' : 'running',
+  add('precision-daily', s('14:25'), `정밀 후보 일봉 보완 (${s('14:25')} · ${s('14:35')} · ${s('14:52')})`,
+    !precisionDaily ? 'unknown' : precisionDaily.rows > 0 ? 'done' : before(s('14:25')) ? 'waiting' : due(s('14:52'), 5) ? 'unknown' : 'running',
     !collection ? pending : !precisionDaily ? 'Backend 재시작 후 표시'
       : precisionDaily.rows > 0 ? `${precisionDaily.stocks}종목 일봉 ${precisionDaily.rows}개 저장 · 마지막 ${hms(precisionDaily.lastAt)}`
         : '새로 저장된 일봉이 없어요(이미 최신이었거나 실행되지 않음).')

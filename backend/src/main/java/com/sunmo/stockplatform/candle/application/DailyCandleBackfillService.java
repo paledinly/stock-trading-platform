@@ -102,6 +102,17 @@ public class DailyCandleBackfillService {
         runPreparePrecision();
     }
 
+    /**
+     * 하는 일: 정밀 구독 고정(기본 14:50) 직후인 14:52에 한 번 더 보완해요. 마감이 한 시간 늦춰진 날은 15:52예요.
+     * 14:35 보완 뒤 14:50 고정 전에 새로 들어온 정밀 종목이 일봉 없이 15:15 평가를 받던 빈틈을 막아요
+     * (10-28 064290이 14:36에 들어와 DAILY_DATA_STALE). 이미 준비된 종목은 건너뛰어 새 종목만 받아요.
+     */
+    @Scheduled(cron = "0 52 14,15 * * MON-FRI", zone = "Asia/Seoul")
+    public void scheduledPreparePrecisionAfterFreeze() {
+        if (!MarketSessionHours.firesAt(calendar.now(), java.time.LocalTime.of(14, 52))) return;
+        runPreparePrecision();
+    }
+
     private void runPreparePrecision() {
         if (!settings.enabled() || !kis.enabled()) return;
         try {
