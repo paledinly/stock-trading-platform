@@ -110,9 +110,9 @@ public class DailyCollectionStatusService {
                         closingBarOnly(date)),
                 dart(date), adjustedDaily(date),
                 dailyCandles(date, LocalTime.of(7, 0), LocalTime.of(9, 0)),
-                // 14:25·14:35 보완은 마감이 늦춰진 날(수능일 등) 한 시간 뒤에 돌아요.
+                // 14:25·14:35·14:52 보완은 마감이 늦춰진 날(수능일 등) 한 시간 뒤에 돌아요.
                 dailyCandles(date, LocalTime.of(14, 20).plus(MarketSessionHours.shift(date)),
-                        LocalTime.of(14, 50).plus(MarketSessionHours.shift(date))),
+                        LocalTime.of(15, 0).plus(MarketSessionHours.shift(date))),
                 indexDaily(date), lateObservation(date, dayStart, dayEnd),
                 hhmm(MarketSessionHours.open(date)), hhmm(MarketSessionHours.close(date)), scanRuns(date),
                 realtimeBars(date), adjustedUniverse());

@@ -3,7 +3,8 @@ import { candidateGroup, tradingValueLabel } from './candidateGroups'
 
 // 데이터가 부족해 관찰로 간 정밀 후보는 '판단 보류'로, 조건을 통과한 관찰은 그대로 '관찰'로 나눠요.
 test('separates data holds from real watch candidates', () => {
-  expect(candidateGroup({ disposition: 'WATCH', decisionReason: 'STALE_FEATURE' })).toBe('HOLD')
+  expect(candidateGroup({ disposition: 'WATCH', decisionReason: 'STALE_FEATURE' })).toBe('FADED')
+  expect(candidateGroup({ disposition: 'WATCH', decisionReason: 'DAILY_DATA_STALE' })).toBe('HOLD')
   expect(candidateGroup({ disposition: 'WATCH', decisionReason: 'BROAD_WATCH_ONLY' })).toBe('WATCH')
   expect(candidateGroup({ disposition: 'WATCH', decisionReason: 'LIMITED_MODE_WATCH' })).toBe('WATCH')
   expect(candidateGroup({ disposition: 'SELECTED', decisionReason: 'QUALIFIED' })).toBe('SELECTED')
