@@ -114,7 +114,7 @@ Windows Home 호스트 설정:
 
 ## 외부 요인 기록 (기록 전용)
 
-`CLOSING_CANDIDATE_CONTEXT_ENABLED=true`이면 거래일 15:16:45와 15:19:00에 공식 run 후보의 시장경고·VI·단기과열 상태를 `closing_candidate_context`에 기록한다(현재가 조회 후보 수만큼, 약 40~65회). `DART_API_KEY`(opendart.fss.or.kr에서 발급)를 넣으면 DART 공시 목록을 `dart_filing`에 모은다. 키는 요청 URL에 들어가므로 로그에 예외 메시지를 남기지 않는다.
+`CLOSING_CANDIDATE_CONTEXT_ENABLED=true`이면 거래일 15:16:45와 15:19:00에 공식 run 후보의 시장경고·VI·단기과열 상태를 `closing_candidate_context`에 기록한다(현재가 조회 후보 수만큼, 약 40~65회). `DART_API_KEY`(opendart.fss.or.kr에서 발급)를 넣으면 DART 공시 목록을 `dart_filing`에 모은다. 키는 요청 URL에 들어가므로 로그에 예외 메시지를 남기지 않는다. 과거 공시는 `POST /api/v1/market-data/dart-filings/backfill?from=2023-10-01`(선택 `to`, 기본 오늘)로 수동으로 받는다. 최신 날짜부터 거꾸로, 상장 시장(유가 Y·코스닥 K)별로 조회하고 호출 사이 100ms를 쉰다. 3년이면 약 5천 회 안팎(OpenDART 일 2만 회 한도 안)이다. 진행은 `GET .../backfill/status`(`lastDate`, `calls`, `saved`, `stoppedReason`)로 본다. DART가 오류 상태(예: 020 한도 초과)를 주면 멈추므로, `lastDate` 전날을 `to`로 다시 시작하면 이어진다(이미 있는 공시는 건너뛴다). 공시 목록에는 접수 날짜만 있고 시각은 없다.
 
 ## KIS 한도
 

@@ -117,6 +117,8 @@ ScannerType: `VOLUME`, `PRICE_RISE`, `MOMENTUM`, `VOLUME_BREAKOUT`, `TURNOVER_BR
 | POST | `/closing-recommendations/daily-data/prepare` | 후보용 일봉 준비 실행 | 없음 |
 | GET | `/closing-recommendations/backtest` | **[운영]** 저장 데이터로 마감 전략 재생 | `from`, `to`, `limit`, `minOpportunity`, `maxRisk`, `targetRate`, `stopRate` |
 | GET | `/closing-recommendations/trading-calendar` | **[운영]** 거래일 달력 상태(KIS 갱신 결과) | 없음 |
+| POST | `/market-data/dart-filings/backfill` | **[연구]** 과거 DART 공시 목록 수집 시작(백그라운드, 최신부터 거꾸로, 상장사만). 202 시작, 409 키 없음·기간 오류·실행 중 | `from`(필수), `to`(기본 오늘 KST) |
+| GET | `/market-data/dart-filings/backfill/status` | **[연구]** 과거 공시 수집 상태: 기간, 마지막 완료 날짜, 호출 수, 저장 수, 멈춘 이유 | 없음 |
 | GET | `/closing-recommendations/session-hours` | 그날 정규장 개장·마감(`open`, `close`, "HH:mm")과 특별 개장일 여부(`special`). `MARKET_SPECIAL_SESSIONS` 설정 기준 | `date`(기본 오늘 KST) |
 
 `generate` 규칙:

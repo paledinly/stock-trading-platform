@@ -44,7 +44,7 @@ class DartFilingServiceTest {
     void storesListedCompanyFilingsAcrossPagesAndSkipsEmptyDates() {
         when(jdbc.update(anyString(), any(Object[].class))).thenReturn(1);
         List<String> calls = new ArrayList<>();
-        var result = service((date, page) -> {
+        var result = service((date, corpCls, page) -> {
             calls.add(date + "#" + page);
             try {
                 if (!date.equals(LocalDate.of(2026, 10, 2)))
@@ -82,9 +82,53 @@ class DartFilingServiceTest {
     @Test
     void stopsOnAnUnexpectedStatusWithoutRetryingEveryPage() throws Exception {
         JsonNode denied = json.readTree("{\"status\":\"020\",\"message\":\"limit\"}");
-        var result = service((date, page) -> denied).collect();
+        var result = service((date, corpCls, page) -> denied).collect();
         assertThat(result.status()).isEqualTo("DART_STATUS_020");
         assertThat(result.pages()).isEqualTo(1);
         verifyNoInteractions(jdbc);
+    }
+
+    /**
+     * 무엇: 과거 수집이 최신 날짜부터 거꾸로, 상장 시장(Y·K)별로 조회하고 묶음으로 저장하는지 확인해요.
+     * 입력: 10/02 Y에만 공시 1건, 나머지(10/02 K, 10/01 Y·K)는 013.
+     * 기대: 호출 순서 10/02 Y, 10/02 K, 10/01 Y, 10/01 K. 1건 저장, 2일 완료, 마지막 날짜 10/01.
+     */
+    @Test
+    void backfillWalksBackwardsByListedMarket() throws Exception {
+        when(jdbc.batchUpdate(anyString(), anyList())).thenReturn(new int[] { 1 });
+        JsonNode filing = json.readTree("""
+                {"status":"000","total_page":1,"list":[{"rcept_no":"20261002000001","rcept_dt":"20261002",
+                "corp_cls":"Y","corp_code":"00126380","corp_name":"A","stock_code":"005930","report_nm":"r","flr_nm":"A","rm":""}]}""");
+        JsonNode empty = json.readTree("{\"status\":\"013\"}");
+        List<String> calls = new java.util.ArrayList<>();
+        DartFilingService service = service((date, corpCls, page) -> {
+            calls.add(date + ":" + corpCls);
+            return date.equals(java.time.LocalDate.of(2026, 10, 2)) && "Y".equals(corpCls) ? filing : empty;
+        });
+        service.pauseMillis = 0;
+
+        var status = service.backfill(java.time.LocalDate.of(2026, 10, 1), java.time.LocalDate.of(2026, 10, 2));
+
+        assertThat(calls).containsExactly("2026-10-02:Y", "2026-10-02:K", "2026-10-01:Y", "2026-10-01:K");
+        assertThat(status.saved()).isEqualTo(1);
+        assertThat(status.days()).isEqualTo(2);
+        assertThat(status.lastDate()).isEqualTo(java.time.LocalDate.of(2026, 10, 1));
+        assertThat(status.stoppedReason()).isNull();
+    }
+
+    /**
+     * 무엇: DART가 오류 상태(020 호출 한도 초과)를 주면 과거 수집이 그 자리에서 멈추고 이유를 남기는지 확인해요.
+     */
+    @Test
+    void backfillStopsOnDartError() throws Exception {
+        JsonNode limited = json.readTree("{\"status\":\"020\"}");
+        DartFilingService service = service((date, corpCls, page) -> limited);
+        service.pauseMillis = 0;
+
+        var status = service.backfill(java.time.LocalDate.of(2026, 9, 1), java.time.LocalDate.of(2026, 10, 2));
+
+        assertThat(status.stoppedReason()).isEqualTo("DART_STATUS_020");
+        assertThat(status.calls()).isEqualTo(1);
+        assertThat(status.lastDate()).isNull();
     }
 }
