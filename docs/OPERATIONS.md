@@ -126,7 +126,7 @@ WebSocket 구독 기본 한도는 41개다. 관심종목 실시간 고정(최대
 
 전일 후보 관측은 장 종료 10분 후(15:40) 분봉 보완 직후 계산하고, KIS가 15:30 종가 단일가 분봉 체결량을 늦게 채우는 종목이 있어 18:00에 보완과 관측 재평가를 한 번 더 한다(ADR-010 보완 기록). 로그 `Observation backfill: Result[...]`로 확인한다.
 
-시장 전체 스캔은 평일 09:00~15:20(`MARKET_WIDE_OPEN`·`MARKET_WIDE_CLOSE`)에 돌고, 휴장일은 `ClosingTradingCalendar`(KIS 공식 거래일 정보 우선, 확인된 임시 휴장일, `MARKET_WIDE_HOLIDAYS`)로 판단한다(2026-10-23부터. 그 전에는 `MARKET_WIDE_HOLIDAYS` 목록만 봤다). Precision 후보 교체는 기본 14:50(`MARKET_PRECISION_FREEZE_AT`)에 동결된다. 일봉 준비는 08:10 전체 준비(`CLOSING_DAILY_BACKFILL_CRON`)와 14:25/14:35 보완(`CLOSING_DAILY_PRECISION_CRON`, 지금 실시간 구독 중인 모든 종목 기준)으로 나뉜다. 정밀 배정은 날짜가 바뀌어도 비우지 않으므로, 재시작 없이 넘어가면 전날 정밀 종목이 다음 날에도 이어진다. 이때 그날 첫 배정 조정에서 전날 세션을 `DAY_ROLLOVER`로 닫고 오늘 날짜 세션을 새로 남긴다. 백엔드가 시작하면 이전 프로세스가 열어 둔 정밀 세션을 `PROCESS_RESTART`로 닫는다. 완료된 Forward 평가의 전체 후보 관측은 최종 추천과 미선정 후보를 같은 가상 실행 규칙으로 관측하지만 추천 결과 자체를 바꾸지 않는다.
+시장 전체 스캔은 평일 09:00~15:20(`MARKET_WIDE_OPEN`·`MARKET_WIDE_CLOSE`)에 돌고, 휴장일은 `ClosingTradingCalendar`(KIS 공식 거래일 정보 우선, 확인된 임시 휴장일, `MARKET_WIDE_HOLIDAYS`)로 판단한다(2026-10-23부터. 그 전에는 `MARKET_WIDE_HOLIDAYS` 목록만 봤다). Precision 후보 교체는 기본 14:50(`MARKET_PRECISION_FREEZE_AT`)에 동결된다. 일봉 준비는 08:10 전체 준비(`CLOSING_DAILY_BACKFILL_CRON`)와 14:25/14:35 보완(`CLOSING_DAILY_PRECISION_CRON`, 지금 실시간 구독 중인 모든 종목 기준)과 정밀 고정 직후 14:52 보완(고정 시각, 아직 일봉이 없는 종목만)으로 나뉜다. 정밀 배정은 날짜가 바뀌어도 비우지 않으므로, 재시작 없이 넘어가면 전날 정밀 종목이 다음 날에도 이어진다. 이때 그날 첫 배정 조정에서 전날 세션을 `DAY_ROLLOVER`로 닫고 오늘 날짜 세션을 새로 남긴다. 백엔드가 시작하면 이전 프로세스가 열어 둔 정밀 세션을 `PROCESS_RESTART`로 닫는다. 완료된 Forward 평가의 전체 후보 관측은 최종 추천과 미선정 후보를 같은 가상 실행 규칙으로 관측하지만 추천 결과 자체를 바꾸지 않는다.
 
 ## 장애 확인
 
