@@ -17,9 +17,14 @@ import org.springframework.web.client.RestClient;
 
 import java.sql.Date;
 import java.sql.Timestamp;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * 상장사 공시 목록을 기록만 해 두는 클래스예요(점수에는 쓰지 않아요).
@@ -51,10 +56,28 @@ public class DartFilingService {
 
     /**
      * list.json 한 페이지를 가져오는 통로예요. 테스트가 응답을 직접 넣을 수 있게 HTTP 호출과 분리했어요.
-     * 받는 것: 조회 날짜, 페이지 번호. 돌려주는 것: DART 응답 JSON.
+     * 받는 것: 조회 날짜, 법인 구분(corp_cls, null이면 전체), 페이지 번호. 돌려주는 것: DART 응답 JSON.
      * One list.json page; separate so tests can supply responses directly.
      */
-    public interface PageSource { JsonNode fetch(LocalDate date, int page); }
+    public interface PageSource { JsonNode fetch(LocalDate date, String corpCls, int page); }
+
+    /**
+     * 과거 공시 수집 진행 상태예요. lastDate는 마지막으로 끝낸 날짜(최신 날짜부터 거꾸로 받아요),
+     * stoppedReason은 중간에 멈춘 이유(DART 상태 코드 등, 끝까지 받았으면 null)예요.
+     */
+    public record BackfillStatus(boolean running, LocalDate from, LocalDate to, LocalDate lastDate, int days, int calls,
+            int saved, String stoppedReason, Instant startedAt, Instant finishedAt) {
+        static BackfillStatus idle() { return new BackfillStatus(false, null, null, null, 0, 0, 0, null, null, null); }
+    }
+
+    // 과거 수집은 상장 시장별로 조회해요(비상장·기타법인 페이지를 받지 않아 호출 수가 줄어요).
+    private static final List<String> BACKFILL_CLASSES = List.of("Y", "K");
+    // DART 서버에 몰아서 부르지 않도록 과거 수집의 호출 사이 간격이에요.
+    static final Duration BACKFILL_PAUSE = Duration.ofMillis(100);
+    private final AtomicBoolean backfilling = new AtomicBoolean();
+    private volatile BackfillStatus backfillStatus = BackfillStatus.idle();
+    // 운영은 BACKFILL_PAUSE(100ms), 테스트는 0이에요.
+    long pauseMillis = BACKFILL_PAUSE.toMillis();
 
     private final String apiKey;
     private final ClosingTradingCalendar calendar;
@@ -76,9 +99,10 @@ public class DartFilingService {
     @Autowired
     public DartFilingService(@Value("${dart.api-key:}") String apiKey, ClosingTradingCalendar calendar, JdbcTemplate jdbc) {
         // 인증키가 요청 주소(쿼리)에 들어가므로 이 주소나 예외 메시지를 로그로 남기면 안 돼요.
-        this(apiKey, calendar, jdbc, (date, page) -> DART.get()
+        this(apiKey, calendar, jdbc, (date, corpCls, page) -> DART.get()
                 .uri(b -> b.path("/api/list.json").queryParam("crtfc_key", apiKey)
                         .queryParam("bgn_de", date.format(DATE)).queryParam("end_de", date.format(DATE))
+                        .queryParamIfPresent("corp_cls", java.util.Optional.ofNullable(corpCls))
                         .queryParam("page_no", page).queryParam("page_count", PAGE_COUNT).build())
                 .retrieve().body(JsonNode.class));
     }
@@ -139,7 +163,7 @@ public class DartFilingService {
         for (LocalDate date = from; !date.isAfter(to); date = date.plusDays(1)) {
             for (int page = 1; page <= MAX_PAGES; page++) {
                 // 처리: 날짜·페이지별로 DART 응답을 받아 상태 코드를 먼저 확인해요(000=정상, 013=해당 날짜 자료 없음).
-                JsonNode body = pages.fetch(date, page);
+                JsonNode body = pages.fetch(date, null, page);
                 pagesRead++;
                 String code = body == null ? "EMPTY" : body.path("status").asText();
                 if ("013".equals(code))
@@ -168,5 +192,102 @@ public class DartFilingService {
             }
         }
         return new Result(from, to, pagesRead, saved, status);
+    }
+
+    /**
+     * 하는 일: 과거 공시 수집을 백그라운드에서 시작해요(연구용, 수동 실행).
+     * 받는 것: 시작일, 끝일(포함). 돌려주는 것: 시작했으면 true. 인증키가 없거나, 기간이 잘못됐거나, 이미 실행 중이면 false.
+     * 최신 날짜부터 거꾸로 받아요. 중간에 멈추면 상태의 lastDate 전날을 끝일로 다시 시작하면 이어져요(이미 있는 공시는 건너뛰어요).
+     */
+    public boolean startBackfill(LocalDate from, LocalDate to) {
+        if (apiKey.isEmpty() || from == null || to == null || from.isAfter(to) || !backfilling.compareAndSet(false, true))
+            return false;
+        backfillStatus = new BackfillStatus(true, from, to, null, 0, 0, 0, null, calendar.now(), null);
+        Thread.ofVirtual().name("dart-backfill").start(() -> {
+            try {
+                log.info("DART backfill: {}", backfill(from, to));
+            } catch (RuntimeException error) {
+                // The key is part of the request URL; never log the exception message, which may contain it.
+                BackfillStatus s = backfillStatus;
+                backfillStatus = new BackfillStatus(false, s.from(), s.to(), s.lastDate(), s.days(), s.calls(), s.saved(),
+                        "ERROR_" + error.getClass().getSimpleName(), s.startedAt(), calendar.now());
+                log.warn("DART backfill failed: {}", error.getClass().getSimpleName());
+            } finally {
+                backfilling.set(false);
+            }
+        });
+        return true;
+    }
+
+    /** 하는 일: 과거 공시 수집의 현재(또는 마지막) 상태를 돌려줘요. */
+    public BackfillStatus backfillStatus() { return backfillStatus; }
+
+    /**
+     * 하는 일: [from, to] 날짜를 최신부터 거꾸로, 상장 시장(Y·K)별로 페이지를 넘기며 받아 묶음으로 저장해요.
+     * 받는 것: 시작일, 끝일. 돌려주는 것: 최종 상태. DART가 오류 상태(예: 020 호출 한도 초과)를 주면 그 자리에서 멈춰요.
+     */
+    BackfillStatus backfill(LocalDate from, LocalDate to) {
+        Instant startedAt = calendar.now();
+        int days = 0, calls = 0, saved = 0;
+        LocalDate last = null;
+        for (LocalDate date = to; !date.isBefore(from); date = date.minusDays(1)) {
+            for (String corpCls : BACKFILL_CLASSES) {
+                for (int page = 1; page <= MAX_PAGES; page++) {
+                    JsonNode body = pages.fetch(date, corpCls, page);
+                    calls++;
+                    pause();
+                    String code = body == null ? "EMPTY" : body.path("status").asText();
+                    if ("013".equals(code))
+                        break;
+                    if (!"000".equals(code)) {
+                        backfillStatus = new BackfillStatus(false, from, to, last, days, calls, saved,
+                                "DART_STATUS_" + code, startedAt, calendar.now());
+                        return backfillStatus;
+                    }
+                    saved += saveBatch(body);
+                    if (page >= body.path("total_page").asInt(1))
+                        break;
+                }
+            }
+            days++;
+            last = date;
+            backfillStatus = new BackfillStatus(true, from, to, last, days, calls, saved, null, startedAt, null);
+        }
+        backfillStatus = new BackfillStatus(false, from, to, last, days, calls, saved, null, startedAt, calendar.now());
+        return backfillStatus;
+    }
+
+    /** 하는 일: 한 페이지의 상장사 공시를 한 번에 저장해요(이미 있는 접수번호는 건너뛰어요). 돌려주는 것: 새로 저장한 수. */
+    private int saveBatch(JsonNode body) {
+        List<Object[]> rows = new ArrayList<>();
+        Timestamp now = Timestamp.from(calendar.now());
+        for (JsonNode row : body.path("list")) {
+            if (!LISTED.contains(row.path("corp_cls").asText()) || row.path("stock_code").asText().isBlank())
+                continue;
+            rows.add(new Object[] { row.path("rcept_no").asText(),
+                    Date.valueOf(LocalDate.parse(row.path("rcept_dt").asText(), DATE)), row.path("corp_cls").asText(),
+                    row.path("corp_code").asText(), row.path("corp_name").asText(), row.path("stock_code").asText().trim(),
+                    row.path("report_nm").asText().trim(), row.path("flr_nm").asText(), row.path("rm").asText(), now });
+        }
+        if (rows.isEmpty())
+            return 0;
+        int saved = 0;
+        for (int count : jdbc.batchUpdate("""
+                insert into dart_filing(rcept_no, rcept_dt, corp_cls, corp_code, corp_name, stock_code,
+                    report_nm, flr_nm, rm, fetched_at) values (?,?,?,?,?,?,?,?,?,?)
+                on conflict (rcept_no) do nothing""", rows))
+            saved += Math.max(count, 0);
+        return saved;
+    }
+
+    /** 하는 일: 과거 수집 호출 사이를 잠깐 쉬어요. 테스트에서는 간격을 0으로 둬요. */
+    private void pause() {
+        if (pauseMillis <= 0)
+            return;
+        try {
+            Thread.sleep(pauseMillis);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+        }
     }
 }
