@@ -192,13 +192,17 @@ class AdjustedDailySweepServiceTest {
      */
     @Test
     void threeYearLookbackCoversTheWholeRange() {
-        assertThat(new AdjustedDailySweepProperties(true, 0, 0).lookbackDays()).isEqualTo(1100);
-        assertThat(new AdjustedDailySweepProperties(true, 5000, 0).lookbackDays()).isEqualTo(1200);
+        assertThat(new AdjustedDailySweepProperties(true, 0, 0).lookbackDays()).isEqualTo(3250);
+        assertThat(new AdjustedDailySweepProperties(true, 5000, 0).lookbackDays()).isEqualTo(4000);
         assertThat(service("2026-10-27T10:00:00Z").maxCalls()).isEqualTo(4);
         var calendar = new ClosingTradingCalendar(new MarketWideScheduleProperties(false, 120, 30, false, null, null,
                 null, null, null, List.of()), Clock.fixed(Instant.parse("2026-10-27T10:00:00Z"), ZoneOffset.UTC));
         var threeYears = new AdjustedDailySweepService(new AdjustedDailySweepProperties(true, 1100, 140), kis, calendar,
                 stocks, client, jdbc, new DataSourceTransactionManager(db));
         assertThat(threeYears.maxCalls()).isEqualTo(9);
+        var sinceTwentyEighteen = new AdjustedDailySweepService(new AdjustedDailySweepProperties(true, 3250, 140), kis,
+                calendar, stocks, client, jdbc, new DataSourceTransactionManager(db));
+        // 3250일(약 2,200거래일)은 100거래일씩 23회 + 1회예요.
+        assertThat(sinceTwentyEighteen.maxCalls()).isEqualTo(24);
     }
 }

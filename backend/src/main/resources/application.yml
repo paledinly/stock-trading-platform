@@ -174,7 +174,7 @@ market:
     flush-interval: ${MARKET_PERFORMANCE_FLUSH_INTERVAL:1s}
   adjusted-daily:
     enabled: ${MARKET_ADJUSTED_DAILY_ENABLED:false}
-    lookback-days: ${MARKET_ADJUSTED_DAILY_LOOKBACK_DAYS:1100}
+    lookback-days: ${MARKET_ADJUSTED_DAILY_LOOKBACK_DAYS:3250}
     refresh-days: ${MARKET_ADJUSTED_DAILY_REFRESH_DAYS:140}
     cron: ${MARKET_ADJUSTED_DAILY_CRON:0 30 18 * * MON-FRI}
   backfill:
