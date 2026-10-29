@@ -18,7 +18,7 @@ KIS WebSocket은 `ClosingTradingCalendar`의 거래일에만 기본 08:59부터 
 
 ### 특별 개장시간 (수능일 등)
 
-거래소가 정규장 시간을 바꾼 날은 `MARKET_SPECIAL_SESSIONS`(형식 `날짜@개장-마감`, 쉼표로 여러 날)에 적는다. 기본값은 `2026-11-19@10:00-16:30`이다. 수능일은 해마다 개장·마감을 1시간씩 늦췄지만 2026년 공지는 아직 확인하지 않았다. KRX 공지를 확인하고, 다르면 값을 고치고 백엔드를 재시작한다. 마감 이동은 0분 또는 60분만 지원하며, 다른 값은 시작할 때 거부한다. 개장만 늦추는 날(예: 새해 첫 거래일 `2027-01-04@10:00-15:30`)도 적을 수 있다.
+거래소가 정규장 시간을 바꾼 날은 `MARKET_SPECIAL_SESSIONS`(형식 `날짜@개장-마감`, 쉼표로 여러 날)에 적는다. 기본값은 `2025-11-13@10:00-16:30,2026-01-02@10:00-15:30,2026-11-19@10:00-16:30`이다(앞의 둘은 과거 분봉을 재현할 때 그날 장 시간을 맞추려고 넣은 과거 특별 개장일). 수능일은 해마다 개장·마감을 1시간씩 늦췄지만 2026년 공지는 아직 확인하지 않았다. KRX 공지를 확인하고, 다르면 값을 고치고 백엔드를 재시작한다. 마감 이동은 0분 또는 60분만 지원하며, 다른 값은 시작할 때 거부한다. 개장만 늦추는 날(예: 새해 첫 거래일 `2027-01-04@10:00-15:30`)도 적을 수 있다.
 
 그날은 장에 묶인 시각이 모두 마감 이동만큼 옮겨진다.
 
@@ -114,7 +114,7 @@ Windows Home 호스트 설정:
 
 ## 외부 요인 기록 (기록 전용)
 
-`CLOSING_CANDIDATE_CONTEXT_ENABLED=true`이면 거래일 15:16:45와 15:19:00에 공식 run 후보의 시장경고·VI·단기과열 상태를 `closing_candidate_context`에 기록한다(현재가 조회 후보 수만큼, 약 40~65회). `DART_API_KEY`(opendart.fss.or.kr에서 발급)를 넣으면 DART 공시 목록을 `dart_filing`에 모은다. 키는 요청 URL에 들어가므로 로그에 예외 메시지를 남기지 않는다. 정밀 깔때기 검증용으로 거래일 15:20:30에 그날 Broad 후보와 정밀 구독 종목 전부(하루 약 150종목, 현재가 호출 약 150회)의 현재가를 `funnel_shadow_quote`에 남긴다(`CLOSING_FUNNEL_SHADOW_ENABLED`, 기본 켜짐). KIS 과거 분봉 지원 기간은 `GET /api/v1/market-data/minute-history/probe?code=&date=&time=151500`(호출 1회)으로 확인한다. 과거 공시는 `POST /api/v1/market-data/dart-filings/backfill?from=2023-10-01`(선택 `to`, 기본 오늘)로 수동으로 받는다. 최신 날짜부터 거꾸로, 상장 시장(유가 Y·코스닥 K)별로 조회하고 호출 사이 100ms를 쉰다. 3년이면 약 5천 회 안팎(OpenDART 일 2만 회 한도 안)이다. 진행은 `GET .../backfill/status`(`lastDate`, `calls`, `saved`, `stoppedReason`)로 본다. DART가 오류 상태(예: 020 한도 초과)를 주면 멈추므로, `lastDate` 전날을 `to`로 다시 시작하면 이어진다(이미 있는 공시는 건너뛴다). 공시 목록에는 접수 날짜만 있고 시각은 없다.
+`CLOSING_CANDIDATE_CONTEXT_ENABLED=true`이면 거래일 15:16:45와 15:19:00에 공식 run 후보의 시장경고·VI·단기과열 상태를 `closing_candidate_context`에 기록한다(현재가 조회 후보 수만큼, 약 40~65회). `DART_API_KEY`(opendart.fss.or.kr에서 발급)를 넣으면 DART 공시 목록을 `dart_filing`에 모은다. 키는 요청 URL에 들어가므로 로그에 예외 메시지를 남기지 않는다. 정밀 깔때기 검증용으로 거래일 15:20:30에 그날 Broad 후보와 정밀 구독 종목 전부(하루 약 150종목, 현재가 호출 약 150회)의 현재가를 `funnel_shadow_quote`에 남긴다(`CLOSING_FUNNEL_SHADOW_ENABLED`, 기본 켜짐). KIS 과거 분봉 지원 기간은 `GET /api/v1/market-data/minute-history/probe?code=&date=&time=151500`(호출 1회)으로 확인한다. KIS 과거 분봉은 약 1년 전(2025-10-29 확인)까지 받을 수 있다. 연구용 장중 5분봉은 `MARKET_INTRADAY_RESEARCH_ENABLED`(기본 켜짐)이면 매일 19:00(`MARKET_INTRADAY_RESEARCH_CRON`)에 시작해 최근 364일 중 아직 받지 않은 (날짜, 종목)을 오래된 날짜부터 받는다(종목·하루당 4회, 하루치 약 1,340종목·약 5,400회). 거래일에는 07:30에 멈추고(`SESSION_GUARD`) 다음 실행에서 이어 받으며, 휴장일은 하루 종일 받는다. 연속 30회 실패하면 멈춘다. 1년치 첫 수집은 약 130만 회, 밤 5~6일이다. 수동 시작은 `POST /api/v1/market-data/intraday-research/backfill`, 진행은 `GET .../status`다. 과거 공시는 `POST /api/v1/market-data/dart-filings/backfill?from=2023-10-01`(선택 `to`, 기본 오늘)로 수동으로 받는다. 최신 날짜부터 거꾸로, 상장 시장(유가 Y·코스닥 K)별로 조회하고 호출 사이 100ms를 쉰다. 3년이면 약 5천 회 안팎(OpenDART 일 2만 회 한도 안)이다. 진행은 `GET .../backfill/status`(`lastDate`, `calls`, `saved`, `stoppedReason`)로 본다. DART가 오류 상태(예: 020 한도 초과)를 주면 멈추므로, `lastDate` 전날을 `to`로 다시 시작하면 이어진다(이미 있는 공시는 건너뛴다). 공시 목록에는 접수 날짜만 있고 시각은 없다.
 
 ## KIS 한도
 

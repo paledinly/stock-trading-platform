@@ -28,6 +28,7 @@ PostgreSQL은 영구 데이터의 시스템 오브 레코드다. Redis와 프로
 | 연구: 수정주가 일봉 | `daily_adjusted_candle`, `daily_adjusted_sweep_state`(V33) |
 | 연구: 상한가 직전 | `limit_up_watch`(V34, V36) |
 | 연구: 정밀 깔때기 그림자 시세 | `funnel_shadow_quote`(V42) |
+| 연구: 장중 5분봉 (과거 1년 재현) | `intraday_research_bar`, `intraday_research_state`(V43) |
 | 기록 전용: 외부 요인 | `closing_candidate_context`, `dart_filing`(V35), `market_index_daily`(V37), `overseas_daily`(V40) |
 | 사용하지 않음 | `platform_schema_version`(V1), `intraday_input`, `intraday_recommendation`(V27) |
 
@@ -52,6 +53,10 @@ KIS 국내휴장일조회로 받은 날짜별 개장 여부(`market_open`), 출�
 ### limit_up_watch (V34·V36, 연구용)
 
 거래일 15:16:15와 15:18:30에 등락률 +20% 이상 종목(KIS 등락률 순위 KOSPI·KOSDAQ 각 상위 100, 표본당 최대 40종목)의 순위 값과 10단계 호가 최우선·합계 잔량을 저장한다. 상한가 근처 종목을 15:20 진입 마감 전에 실제로 살 수 있었는지 보는 [사전 등록 연구](../audit/2026-10-14-limit-up-entry/README.md)용이다. `ranking_received_at`·`book_received_at`은 수신시각, `book_source_at`은 KIS 호가 원천시각이다. 호가 조회 실패도 `error`와 함께 행으로 남긴다. V36부터 `candidate_source`(`RANKING` 또는 최근 10분 시장 스캔 스냅샷 `BROAD_SNAPSHOT`)와 `ranking_rows`(시장별 순위 응답 건수)를 함께 저장한다. 추천 전략은 이 테이블을 읽지 않는다.
+
+### intraday_research_bar · intraday_research_state (V43, 연구용)
+
+KIS 과거 분봉(주식일별분봉조회)으로 재현한 장중 5분봉이다. 날마다 "그날 거래가 된 종목"(전날 거래대금 5억 원 이상 또는 당일 10억 원 이상, `daily_adjusted_candle` 기준) 전부를 대상으로 한다. 오를 것 같은 종목을 미리 고르지 않아서, 장중 흐름과 다음 날 성과의 관계를 공정하게 볼 수 있다. 당일 거래대금은 장 마감 뒤 값이므로, 분석할 때는 15:15 누적 거래대금으로 다시 걸러 미래 참조를 없앤다. 가격은 수정 전 원주가(원)이고 5분 칸 규칙은 `CandleBackfillService.aggregate`와 같다(15:20~15:29 무체결 분봉 제외, 15:30 종가 체결은 15:25 칸). `intraday_research_state`는 받은 (날짜, 종목)마다 한 행이며, 봉이 없는 날도 남겨 다시 받지 않는다. 추천 전략은 이 테이블을 읽지 않는다.
 
 ### funnel_shadow_quote (V42, 연구용)
 
