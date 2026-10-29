@@ -110,4 +110,41 @@ class IntradayResearchServiceTest {
         BigDecimal p = BigDecimal.valueOf(price);
         return new MinuteCandle(date.atTime(LocalTime.parse(time)).atZone(SEOUL).toInstant(), p, p, p, p, volume, null);
     }
+
+    /**
+     * 기대: 잠깐 실패(네트워크 끊김)하면 기다렸다가 같은 종목을 다시 받아 끝까지 진행해요. 멈추지 않고, 기다린 시간은 30초씩 늘어요.
+     */
+    @Test
+    void retriesTheSameStockAfterTransientFailures() {
+        int[] failures = { 2 };
+        List<String> calls = new ArrayList<>();
+        var service = service((code, date, through) -> {
+            calls.add(code);
+            if (failures[0] > 0) {
+                failures[0]--;
+                throw new IllegalStateException("network down");
+            }
+            return List.of();
+        });
+        List<Duration> waits = new ArrayList<>();
+        service.sleeper = waits::add;
+
+        var status = service.runOnce();
+
+        assertThat(status.stoppedReason()).isNull();
+        assertThat(status.stockDays()).isEqualTo(2);
+        assertThat(status.failed()).isEqualTo(2);
+        assertThat(waits).containsExactly(Duration.ofSeconds(30), Duration.ofSeconds(60));
+        assertThat(calls.subList(0, 3)).containsOnly("000010");
+    }
+
+    /** 기대: 계속 실패하면 20번째에 멈추고 이유를 남겨요. */
+    @Test
+    void stopsAfterPersistentFailures() {
+        var service = service((code, date, through) -> { throw new IllegalStateException("down"); });
+        service.sleeper = duration -> { };
+        var status = service.runOnce();
+        assertThat(status.stoppedReason()).isEqualTo("CONSECUTIVE_FAILURES: IllegalStateException");
+        assertThat(status.failed()).isEqualTo(20);
+    }
 }
