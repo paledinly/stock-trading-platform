@@ -44,8 +44,16 @@ public class IntradayResearchService {
     static final LocalTime MORNING_STOP = LocalTime.of(7, 30);
     // KIS 과거 분봉은 지정 시각에서 거꾸로 최대 120분을 줘요.
     static final int MINUTES_PER_CALL = 120;
-    // 연속 실패가 이만큼 쌓이면 KIS 쪽 문제로 보고 이번 실행을 멈춰요.
-    static final int MAX_CONSECUTIVE_FAILURES = 30;
+    // 실패하면 같은 종목을 기다렸다가 다시 시도해요. 기다리는 시간은 30초씩 늘려 최대 5분이에요.
+    // 매일 밤 23:46 무렵 약 1분 동안 인터넷이 끊기는데(10-22~10-29 매일), 그때 곧바로 포기하지 않기 위해서예요.
+    static final Duration RETRY_STEP = Duration.ofSeconds(30);
+    static final Duration RETRY_MAX = Duration.ofMinutes(5);
+    // 연속 실패가 이만큼 쌓이면(대기 합계 약 1시간 반) 회복되지 않는 문제로 보고 이번 실행을 멈춰요.
+    static final int MAX_CONSECUTIVE_FAILURES = 20;
+
+    /** 기다리는 방법이에요. 테스트에서는 실제로 기다리지 않게 바꿔요. */
+    interface Sleeper { void sleep(Duration duration) throws InterruptedException; }
+    Sleeper sleeper = duration -> Thread.sleep(duration.toMillis());
 
     /** 한 종목·하루의 분봉을 가져오는 통로예요. 테스트가 응답을 직접 넣을 수 있게 분리했어요. */
     public interface MinuteSource { List<MinuteCandle> fetch(String stockCode, LocalDate date, LocalTime through); }
@@ -142,21 +150,39 @@ public class IntradayResearchService {
                     break outer;
                 }
                 String code = (String) target.get("stock_code");
-                try {
-                    List<MinuteCandle> rows = new ArrayList<>();
-                    for (LocalTime through : windows(day)) {
-                        rows.addAll(minutes.fetch(code, day, through));
-                        calls++;
-                    }
-                    bars += save(day, stockId, rows);
-                    stockDays++;
-                    consecutive = 0;
-                } catch (RuntimeException error) {
-                    failed++;
-                    complete = false;
-                    if (++consecutive >= MAX_CONSECUTIVE_FAILURES) {
-                        stopped = "CONSECUTIVE_FAILURES: " + error.getClass().getSimpleName();
-                        break outer;
+                while (true) {
+                    try {
+                        List<MinuteCandle> rows = new ArrayList<>();
+                        for (LocalTime through : windows(day)) {
+                            rows.addAll(minutes.fetch(code, day, through));
+                            calls++;
+                        }
+                        bars += save(day, stockId, rows);
+                        stockDays++;
+                        consecutive = 0;
+                        break;
+                    } catch (RuntimeException error) {
+                        failed++;
+                        if (++consecutive >= MAX_CONSECUTIVE_FAILURES) {
+                            complete = false;
+                            stopped = "CONSECUTIVE_FAILURES: " + error.getClass().getSimpleName();
+                            break outer;
+                        }
+                        // 네트워크가 잠깐 끊긴 경우가 대부분이라, 기다렸다가 같은 종목을 다시 받아요.
+                        Duration wait = RETRY_STEP.multipliedBy(consecutive);
+                        try {
+                            sleeper.sleep(wait.compareTo(RETRY_MAX) > 0 ? RETRY_MAX : wait);
+                        } catch (InterruptedException interrupted) {
+                            Thread.currentThread().interrupt();
+                            complete = false;
+                            stopped = "INTERRUPTED";
+                            break outer;
+                        }
+                        if (!allowedNow()) {
+                            complete = false;
+                            stopped = "SESSION_GUARD";
+                            break outer;
+                        }
                     }
                 }
                 status = new Status(true, startedAt, null, from, to, day, last, daysDone, stockDays, skipped, calls,
