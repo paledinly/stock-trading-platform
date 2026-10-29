@@ -28,6 +28,9 @@ import java.util.*;
 public class KisMinuteCandleClient {
     private static final String ENDPOINT = "/uapi/domestic-stock/v1/quotations/inquire-time-itemchartprice";
     private static final String TR_ID = "FHKST03010200";
+    // 과거 날짜 분봉 조회(주식일별분봉조회)예요. 한 번에 최대 120분, 지정 시각에서 거꾸로 받아요.
+    private static final String HISTORY_ENDPOINT = "/uapi/domestic-stock/v1/quotations/inquire-time-dailychartprice";
+    private static final String HISTORY_TR_ID = "FHKST03010230";
     private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
     private static final DateTimeFormatter DATE = DateTimeFormatter.BASIC_ISO_DATE;
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("HHmmss");
@@ -116,9 +119,53 @@ public class KisMinuteCandleClient {
         return rowsWithoutDate.get();
     }
 
-    // 과거 날짜 분봉 조회(주식일별분봉조회)예요. 한 번에 최대 120분, 지정 시각에서 거꾸로 받아요.
-    private static final String HISTORY_ENDPOINT = "/uapi/domestic-stock/v1/quotations/inquire-time-dailychartprice";
-    private static final String HISTORY_TR_ID = "FHKST03010230";
+
+    /**
+     * 하는 일: 과거 날짜 하루의 분봉을 지정 시각에서 거꾸로 최대 120분 받아요(연구용 장중 데이터 수집).
+     * 받는 것: 종목코드, 날짜, 시각. 돌려주는 것: 그 날짜의 분봉만(다른 날 행은 버려요). 가격이 0 이하인 행은 건너뛰어요.
+     */
+    @RateLimiter(name = "kisMinuteCandle")
+    @CircuitBreaker(name = "kisMinuteCandle")
+    public List<MinuteCandle> fetchHistory(String stockCode, LocalDate date, LocalTime through) {
+        properties.requireCredentials();
+        JsonNode body = requests.execute(false, () -> {
+            JsonNode response = client.get().uri(builder -> builder.path(HISTORY_ENDPOINT)
+                    .queryParam("FID_COND_MRKT_DIV_CODE", "J")
+                    .queryParam("FID_INPUT_ISCD", stockCode)
+                    .queryParam("FID_INPUT_HOUR_1", through.format(TIME))
+                    .queryParam("FID_INPUT_DATE_1", date.format(DATE))
+                    .queryParam("FID_PW_DATA_INCU_YN", "Y")
+                    .queryParam("FID_FAKE_TICK_INCU_YN", "")
+                    .build())
+                    .header("authorization", "Bearer " + tokens.getAccessToken())
+                    .header("appkey", properties.appKey())
+                    .header("appsecret", properties.appSecret())
+                    .header("tr_id", HISTORY_TR_ID)
+                    .header("custtype", "P")
+                    .retrieve().body(JsonNode.class);
+            if (response == null || !"0".equals(response.path("rt_cd").asText()))
+                KisResponseErrors.failure("KIS minute history request failed",
+                        response == null ? "EMPTY_RESPONSE" : response.path("msg_cd").asText(),
+                        response == null ? "empty response" : response.path("msg1").asText());
+            return response;
+        });
+        List<MinuteCandle> result = new ArrayList<>();
+        for (JsonNode row : body.path("output2")) {
+            String rawDate = row.path("stck_bsop_date").asText().trim();
+            String rawTime = row.path("stck_cntg_hour").asText().trim();
+            if (rawDate.length() != 8 || rawTime.length() != 6 || !LocalDate.parse(rawDate, DATE).equals(date))
+                continue;
+            BigDecimal open = nullableDecimal(row, "stck_oprc"), high = nullableDecimal(row, "stck_hgpr");
+            BigDecimal low = nullableDecimal(row, "stck_lwpr"), close = nullableDecimal(row, "stck_prpr");
+            if (open == null || high == null || low == null || close == null || open.signum() <= 0
+                    || high.signum() <= 0 || low.signum() <= 0 || close.signum() <= 0)
+                continue;
+            Instant start = date.atTime(LocalTime.parse(rawTime, TIME)).atZone(SEOUL).toInstant();
+            result.add(new MinuteCandle(start, open, high, low, close, number(row, "cntg_vol"),
+                    nullableDecimal(row, "acml_tr_pbmn")));
+        }
+        return result;
+    }
 
     /**
      * 과거 분봉 조회가 어디까지 되는지 확인한 결과예요. rtCd·msgCd·message는 KIS 응답 그대로(인증정보 없음),

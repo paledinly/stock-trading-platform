@@ -136,7 +136,7 @@ analytics:
 market:
   # 거래소가 정규장 시간을 바꾼 날(날짜@개장-마감, 쉼표로 여러 날). 마감 이동은 0분 또는 60분만 지원해요.
   # 2026-11-19 수능일은 해마다 1시간 늦춘 관례(10:00~16:30)를 넣어 두었어요. KRX 공지로 확인하고 다르면 고쳐요.
-  special-sessions: ${MARKET_SPECIAL_SESSIONS:2026-11-19@10:00-16:30}
+  special-sessions: ${MARKET_SPECIAL_SESSIONS:2025-11-13@10:00-16:30,2026-01-02@10:00-15:30,2026-11-19@10:00-16:30}
   wide:
     enrichment:
       enabled: ${MARKET_WIDE_ENRICHMENT_ENABLED:true}
@@ -172,6 +172,10 @@ market:
     freeze-at: ${MARKET_PRECISION_FREEZE_AT:14:50}
   performance:
     flush-interval: ${MARKET_PERFORMANCE_FLUSH_INTERVAL:1s}
+  intraday-research:
+    enabled: ${MARKET_INTRADAY_RESEARCH_ENABLED:true}
+    lookback-days: ${MARKET_INTRADAY_RESEARCH_LOOKBACK_DAYS:364}
+    cron: ${MARKET_INTRADAY_RESEARCH_CRON:0 0 19 * * *}
   adjusted-daily:
     enabled: ${MARKET_ADJUSTED_DAILY_ENABLED:false}
     lookback-days: ${MARKET_ADJUSTED_DAILY_LOOKBACK_DAYS:3250}
