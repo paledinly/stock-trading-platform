@@ -746,7 +746,23 @@ function intradayMaLabels(ma: {
 export function ClosingRecommendationPage({ advanced = false }: { advanced?: boolean }) {
   const cache = useQueryClient()
   // 화면 입력값을 상태(state, 바뀌면 화면이 다시 그려지는 값)로 들고 있어요.
-  const [date, setDate] = useState(today())
+  // 추천일: 사용자가 고르기 전에는 자동이에요. 오늘 공식 평가(15:15)가 끝나기 전에는 전 거래일을 보여 주고,
+  // 오늘 평가가 끝나면 오늘로 바뀌어요. 사용자가 날짜를 직접 고르면 그 날짜를 그대로 둬요.
+  const todayDate = today()
+  const [manualDate, setManualDate] = useState<string>()
+  const todayRuns = useQuery({
+    queryKey: ['closing-runs', todayDate],
+    queryFn: () => api<EvaluationRun[]>(`/api/v1/closing-recommendations/runs?date=${todayDate}`),
+    refetchInterval: manualDate ? false : 60_000,
+  })
+  const sessionHours = useQuery({
+    queryKey: ['closing-session-hours', todayDate],
+    queryFn: () => api<{ previousTradingDay?: string | null }>(`/api/v1/closing-recommendations/session-hours?date=${todayDate}`),
+    staleTime: 600_000,
+  })
+  const todayEvaluated = (todayRuns.data ?? []).some(run => run.executionMode === 'FORWARD' && run.completedAt)
+  const autoDate = todayEvaluated || !todayRuns.isSuccess ? todayDate : sessionHours.data?.previousTradingDay ?? todayDate
+  const date = manualDate ?? autoDate
   const [limit, setLimit] = useState(10)
   const [minOpportunity, setMinOpportunity] = useState(35)
   const [maxRisk, setMaxRisk] = useState(65)
@@ -922,9 +938,10 @@ export function ClosingRecommendationPage({ advanced = false }: { advanced?: boo
       <main>
         <section className="closingToolbar" aria-label="조회할 평가">
           <label>추천일<input type="date" value={date} onChange={event => {
-            setDate(event.target.value); setSelection(undefined)
+            setManualDate(event.target.value); setSelection(undefined)
             generate.reset(); track.reset(); evaluateDecisions.reset()
           }} /></label>
+          {!manualDate && date !== todayDate && <small className="closingDateHint">오늘 공식 평가(15:15) 전이라 전 거래일 추천을 보여 줘요.</small>}
           <label className="evaluationHistory">평가 이력<select value={runId ?? ''} onChange={event => {
             setSelection({ date, id: Number(event.target.value) }); track.reset(); evaluateDecisions.reset()
           }} disabled={!history.data?.length}>
