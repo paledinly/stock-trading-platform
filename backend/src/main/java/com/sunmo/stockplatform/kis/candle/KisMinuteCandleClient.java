@@ -116,6 +116,61 @@ public class KisMinuteCandleClient {
         return rowsWithoutDate.get();
     }
 
+    // 과거 날짜 분봉 조회(주식일별분봉조회)예요. 한 번에 최대 120분, 지정 시각에서 거꾸로 받아요.
+    private static final String HISTORY_ENDPOINT = "/uapi/domestic-stock/v1/quotations/inquire-time-dailychartprice";
+    private static final String HISTORY_TR_ID = "FHKST03010230";
+
+    /**
+     * 과거 분봉 조회가 어디까지 되는지 확인한 결과예요. rtCd·msgCd·message는 KIS 응답 그대로(인증정보 없음),
+     * rows는 받은 분봉 수, firstAt·lastAt은 받은 분봉의 처음·마지막 시각, dates는 들어 있는 영업일이에요.
+     */
+    public record HistoryProbe(String stockCode, LocalDate requestedDate, String requestedTime, String rtCd, String msgCd,
+            String message, int rows, Instant firstAt, Instant lastAt, List<LocalDate> dates) { }
+
+    /**
+     * 하는 일: 지정한 날짜·시각까지의 과거 분봉을 한 번 조회하고, 응답 상태와 받은 범위를 요약해요(진단용).
+     * 받는 것: 종목코드, 날짜, 시각. 돌려주는 것: HistoryProbe. KIS가 오류를 줘도 예외 대신 상태를 담아 돌려줘요.
+     * 장중 분봉 깔때기를 과거로 재현할 수 있는지(지원 기간) 확인하려고 만들었어요.
+     */
+    @RateLimiter(name = "kisMinuteCandle")
+    public HistoryProbe probeHistory(String stockCode, LocalDate date, LocalTime through) {
+        properties.requireCredentials();
+        JsonNode body = requests.execute(false, () -> client.get().uri(builder -> builder.path(HISTORY_ENDPOINT)
+                .queryParam("FID_COND_MRKT_DIV_CODE", "J")
+                .queryParam("FID_INPUT_ISCD", stockCode)
+                .queryParam("FID_INPUT_HOUR_1", through.format(TIME))
+                .queryParam("FID_INPUT_DATE_1", date.format(DATE))
+                .queryParam("FID_PW_DATA_INCU_YN", "Y")
+                .queryParam("FID_FAKE_TICK_INCU_YN", "")
+                .build())
+                .header("authorization", "Bearer " + tokens.getAccessToken())
+                .header("appkey", properties.appKey())
+                .header("appsecret", properties.appSecret())
+                .header("tr_id", HISTORY_TR_ID)
+                .header("custtype", "P")
+                .retrieve().body(JsonNode.class));
+        if (body == null)
+            return new HistoryProbe(stockCode, date, through.format(TIME), null, "EMPTY_RESPONSE", "empty response",
+                    0, null, null, List.of());
+        Instant first = null, last = null;
+        int rows = 0;
+        java.util.TreeSet<LocalDate> dates = new java.util.TreeSet<>();
+        for (JsonNode row : body.path("output2")) {
+            String rawDate = row.path("stck_bsop_date").asText().trim();
+            String rawTime = row.path("stck_cntg_hour").asText().trim();
+            if (rawDate.length() != 8 || rawTime.length() != 6)
+                continue;
+            LocalDate day = LocalDate.parse(rawDate, DATE);
+            Instant at = day.atTime(LocalTime.parse(rawTime, TIME)).atZone(SEOUL).toInstant();
+            first = first == null || at.isBefore(first) ? at : first;
+            last = last == null || at.isAfter(last) ? at : last;
+            dates.add(day);
+            rows++;
+        }
+        return new HistoryProbe(stockCode, date, through.format(TIME), body.path("rt_cd").asText(),
+                body.path("msg_cd").asText(), body.path("msg1").asText(), rows, first, last, List.copyOf(dates));
+    }
+
     /**
      * 필수 가격 필드를 읽어요.
      * 받는 것: KIS 분봉 한 행, 필드 이름. 돌려주는 것: 양수 가격, 비었거나 0 이하면 IllegalArgumentException을 던져요.
