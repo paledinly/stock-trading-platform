@@ -247,6 +247,8 @@ closing:
     enabled: ${CLOSING_LIMIT_UP_WATCH_ENABLED:false}
   candidate-context:
     enabled: ${CLOSING_CANDIDATE_CONTEXT_ENABLED:false}
+  funnel-shadow:
+    enabled: ${CLOSING_FUNNEL_SHADOW_ENABLED:true}
   daily-backfill:
     enabled: ${CLOSING_DAILY_BACKFILL_ENABLED:true}
     max-stocks: ${CLOSING_DAILY_BACKFILL_MAX_STOCKS:40}

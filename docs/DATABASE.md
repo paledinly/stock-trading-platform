@@ -27,6 +27,7 @@ PostgreSQL은 영구 데이터의 시스템 오브 레코드다. Redis와 프로
 | 연구: 호가·대량체결 | `closing_microstructure_minute`(V29) |
 | 연구: 수정주가 일봉 | `daily_adjusted_candle`, `daily_adjusted_sweep_state`(V33) |
 | 연구: 상한가 직전 | `limit_up_watch`(V34, V36) |
+| 연구: 정밀 깔때기 그림자 시세 | `funnel_shadow_quote`(V42) |
 | 기록 전용: 외부 요인 | `closing_candidate_context`, `dart_filing`(V35), `market_index_daily`(V37), `overseas_daily`(V40) |
 | 사용하지 않음 | `platform_schema_version`(V1), `intraday_input`, `intraday_recommendation`(V27) |
 
@@ -51,6 +52,10 @@ KIS 국내휴장일조회로 받은 날짜별 개장 여부(`market_open`), 출�
 ### limit_up_watch (V34·V36, 연구용)
 
 거래일 15:16:15와 15:18:30에 등락률 +20% 이상 종목(KIS 등락률 순위 KOSPI·KOSDAQ 각 상위 100, 표본당 최대 40종목)의 순위 값과 10단계 호가 최우선·합계 잔량을 저장한다. 상한가 근처 종목을 15:20 진입 마감 전에 실제로 살 수 있었는지 보는 [사전 등록 연구](../audit/2026-10-14-limit-up-entry/README.md)용이다. `ranking_received_at`·`book_received_at`은 수신시각, `book_source_at`은 KIS 호가 원천시각이다. 호가 조회 실패도 `error`와 함께 행으로 남긴다. V36부터 `candidate_source`(`RANKING` 또는 최근 10분 시장 스캔 스냅샷 `BROAD_SNAPSHOT`)와 `ranking_rows`(시장별 순위 응답 건수)를 함께 저장한다. 추천 전략은 이 테이블을 읽지 않는다.
+
+### funnel_shadow_quote (V42, 연구용)
+
+거래일 15:20:30(진입 마감 직후, 마감이 늦춰진 날은 16:20:30)에 그날 Broad 후보와 정밀 구독 종목 전부의 KIS 현재가를 한 번씩 저장한다. 정밀이 아닌 종목은 실시간 체결이 없어서, 깔때기 단계(전체 → Broad → 정밀 → 탐지 → 평가)를 같은 진입 시각 가격으로 비교하려면 이 기록이 필요하다. `in_broad`·`in_precision`은 그날 해당 단계에 있었는지, `received_at`은 수신시각(KIS 현재가에는 원천시각이 없다)이다. 실패는 `error`와 함께 남긴다. 추천 전략은 이 테이블을 읽지 않는다.
 
 ### closing_candidate_context · dart_filing (V35, 기록 전용)
 
