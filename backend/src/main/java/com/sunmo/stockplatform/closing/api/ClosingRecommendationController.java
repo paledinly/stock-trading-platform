@@ -49,13 +49,15 @@ public class ClosingRecommendationController {
     private final ClosingStrategyAnalyticsService strategyAnalytics;
     private final ClosingCandidateObservationService candidateObservations;
     private final OfficialTradingDays officialTradingDays;
+    private final com.sunmo.stockplatform.closing.application.ClosingTradingCalendar calendar;
 
     /** 하는 일: 각 기능 서비스를 받아 보관해요(스프링이 자동으로 넣어 줘요). 받는 것: 서비스들. 돌려주는 것: 컨트롤러 객체예요. */
     public ClosingRecommendationController(ClosingRecommendationService service,
             OvernightPerformanceService performanceService, OvernightBacktestService backtestService,
             OvernightPositionDecisionService decisionService, AccountPerformanceCalculator accountPerformance,
             ClosingStrategyAnalyticsService strategyAnalytics,
-            ClosingCandidateObservationService candidateObservations, OfficialTradingDays officialTradingDays) {
+            ClosingCandidateObservationService candidateObservations, OfficialTradingDays officialTradingDays,
+            com.sunmo.stockplatform.closing.application.ClosingTradingCalendar calendar) {
         this.service = service;
         this.performanceService = performanceService;
         this.backtestService = backtestService;
@@ -64,6 +66,7 @@ public class ClosingRecommendationController {
         this.strategyAnalytics = strategyAnalytics;
         this.candidateObservations = candidateObservations;
         this.officialTradingDays = officialTradingDays;
+        this.calendar = calendar;
     }
 
     /**
@@ -75,8 +78,12 @@ public class ClosingRecommendationController {
         return officialTradingDays.status();
     }
 
-    /** 그날 정규장 시간이에요. special은 수능일처럼 설정으로 바뀐 날이면 true예요. */
-    public record SessionHours(LocalDate date, String open, String close, boolean special) { }
+    /**
+     * 그날 정규장 시간이에요. special은 수능일처럼 설정으로 바뀐 날이면 true, tradingDay는 거래일 여부,
+     * previousTradingDay는 그날 바로 전 거래일이에요(화면이 오늘 평가 전에 전 거래일 추천을 보여 줄 때 써요).
+     */
+    public record SessionHours(LocalDate date, String open, String close, boolean special, boolean tradingDay,
+            LocalDate previousTradingDay) { }
 
     /**
      * 하는 일: GET /session-hours. 날짜(없으면 오늘)의 정규장 개장·마감 시각을 돌려줘요(MarketSessionHours 설정 기준).
@@ -87,7 +94,8 @@ public class ClosingRecommendationController {
         LocalDate target = date == null ? LocalDate.now(MarketSessionHours.ZONE) : date;
         return new SessionHours(target, MarketSessionHours.open(target).toString().substring(0, 5),
                 MarketSessionHours.close(target).toString().substring(0, 5),
-                MarketSessionHours.specialSessions().containsKey(target));
+                MarketSessionHours.specialSessions().containsKey(target), calendar.isTradingDay(target),
+                calendar.previousTradingDay(target));
     }
 
     /**

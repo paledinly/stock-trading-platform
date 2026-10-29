@@ -114,3 +114,22 @@ test('puts the ranking first and keeps the run buttons inside the collapsed tool
   expect(within(tools).getByRole('button', { name: '후보 평가' })).toBeInTheDocument()
   expect(within(tools).getByRole('button', { name: '오버나잇 백테스트' })).toBeInTheDocument()
 })
+
+// 오늘 공식 평가가 아직 없으면 전 거래일을 추천일로 보여 주고, 그 날짜로 평가를 조회해요.
+test('shows the previous trading day until today is evaluated', async () => {
+  const urls: string[] = []
+  globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
+    urls.push(url)
+    return {
+      ok: true, status: 200,
+      json: async () => url.includes('/session-hours') ? { previousTradingDay: '2020-01-02' } : url.includes('/runs') ? [] : [],
+    }
+  }) as typeof fetch
+  render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+    <ClosingRecommendationPage />
+  </QueryClientProvider>)
+  const toolbar = await screen.findByLabelText('조회할 평가')
+  await waitFor(() => expect(within(toolbar).getByLabelText('추천일')).toHaveValue('2020-01-02'))
+  expect(screen.getByText(/전 거래일 추천을 보여 줘요/)).toBeInTheDocument()
+  await waitFor(() => expect(urls.some(url => url.includes('/runs?date=2020-01-02'))).toBe(true))
+})
