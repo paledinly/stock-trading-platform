@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
@@ -23,6 +24,8 @@ public class KisTokenManager {
     private final Clock clock;
     private final ReentrantLock refreshLock = new ReentrantLock();
     private volatile KisAccessToken cached;
+    // 마지막으로 토큰을 받은 시각이에요. 여러 요청이 한꺼번에 "만료" 응답을 받아도 1분에 한 번만 다시 받게 해요.
+    private volatile Instant issuedAt;
 
     /**
      * 운영용 생성자예요. 시스템 시계(UTC)를 써요.
@@ -59,6 +62,7 @@ public class KisTokenManager {
             current = cached;
             if (!isUsable(current)) {
                 cached = authClient.issueToken();
+                issuedAt = clock.instant();
             }
             return cached.value();
         } finally {
@@ -70,6 +74,22 @@ public class KisTokenManager {
      * 토큰이 있고, "지금 + 갱신 여유 시간(tokenRefreshSkew)" 이후까지 살아 있는지 확인해요.
      * 받는 것: 확인할 토큰(null 가능). 돌려주는 것: 그대로 써도 되면 true.
      */
+    /**
+     * 하는 일: KIS가 "만료된 토큰"(EGW00123 등)이라고 거절했을 때 캐시를 비워 다음 호출이 새로 받게 해요.
+     * 돌려주는 것: 비웠으면 true. 방금(1분 안) 받은 토큰이면 비우지 않아요(발급 한도 1분 1회, 동시 실패가 몰려도 한 번만 다시 받기).
+     */
+    public boolean invalidateExpired() {
+        refreshLock.lock();
+        try {
+            if (cached == null || issuedAt != null && issuedAt.isAfter(clock.instant().minusSeconds(60)))
+                return false;
+            cached = null;
+            return true;
+        } finally {
+            refreshLock.unlock();
+        }
+    }
+
     private boolean isUsable(KisAccessToken token) {
         return token != null && !token.expiresBefore(clock.instant().plus(properties.tokenRefreshSkew()));
     }
