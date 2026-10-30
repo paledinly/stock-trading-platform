@@ -73,14 +73,33 @@ class HttpKisAuthClient implements KisAuthClient {
      * 받는 것: KIS 토큰 응답. 돌려주는 것: 지금 + 유효 초(expires_in), 값이 없으면 지금 + 23시간.
      */
     private Instant resolveExpiry(TokenResponse response) {
+        // KIS는 같은 키로 6시간 안에 다시 발급을 요청하면 새 토큰 대신 기존 토큰을 돌려줘요. 이때 expires_in만 믿으면
+        // 기존 토큰의 실제 만료보다 늦게 잡혀, 만료된 토큰을 계속 쓰게 돼요(2026-10-30 11:50~15:21 EGW00123).
+        // 그래서 응답의 절대 만료 시각(access_token_token_expired, KST)이 있으면 둘 중 이른 쪽을 써요.
+        Instant absolute = parseExpiresAt(response.expiresAt());
         if (response.expiresIn() != null && response.expiresIn() > 0) {
-            return Instant.now().plusSeconds(response.expiresIn());
+            Instant relative = Instant.now().plusSeconds(response.expiresIn());
+            return absolute != null && absolute.isBefore(relative) ? absolute : relative;
         }
+        if (absolute != null)
+            return absolute;
         // KIS 토큰은 보통 24시간 유효해서, 정보가 없으면 1시간 여유를 둔 23시간으로 가정하는 것으로 보여요.
         return Instant.now().plusSeconds(23 * 60 * 60);
     }
 
     /** KIS 토큰 발급 요청 본문이에요. 필드 이름은 KIS가 요구하는 JSON 키와 같아요. */
+    /** 하는 일: "2026-10-31 15:48:12" 같은 KST 만료 시각을 읽어요. 형식이 다르면 null이에요. */
+    static Instant parseExpiresAt(String value) {
+        if (value == null || value.isBlank())
+            return null;
+        try {
+            return java.time.LocalDateTime.parse(value.trim(), java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+                    .atZone(java.time.ZoneId.of("Asia/Seoul")).toInstant();
+        } catch (java.time.format.DateTimeParseException ignored) {
+            return null;
+        }
+    }
+
     private record TokenRequest(@JsonProperty("grant_type") String grantType,
             String appkey,
             String appsecret) {

@@ -34,12 +34,28 @@ public class KisRequestExecutor {
     /** 받는 것: 호출 간격, 쉬는 시간, 재시도 횟수 설정. 돌려주는 것: 없음(생성자). */
     public KisRequestExecutor(KisRequestProperties properties) { this.properties = properties; }
 
+    // 만료된 토큰 응답을 받으면 캐시를 비우는 통로예요. 토큰 관리자와 서로 생성자로 묶이지 않게 나중에 넣어요.
+    private volatile java.util.function.BooleanSupplier expiredTokenHandler = () -> false;
+
+    /** 하는 일: "만료된 토큰" 응답을 받았을 때 토큰 캐시를 비우는 동작을 연결해요(스프링이 KisTokenManager로 넣어 줘요). */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setTokenManager(com.sunmo.stockplatform.kis.auth.KisTokenManager tokens) {
+        this.expiredTokenHandler = tokens::invalidateExpired;
+    }
+
+    /** 테스트용: 만료 토큰 처리 동작을 직접 넣어요. */
+    void setExpiredTokenHandler(java.util.function.BooleanSupplier handler) { this.expiredTokenHandler = handler; }
+
+    // KIS가 토큰이 만료됐거나 유효하지 않다고 알리는 코드예요.
+    private static final java.util.Set<String> EXPIRED_TOKEN_CODES = java.util.Set.of("EGW00123", "EGW00121");
+
     /**
      * 간격을 지켜 KIS 요청을 실행하고, 호출 한도에 걸리면 쉬었다가 재시도해요.
      * 받는 것: 현재가 호출인지 여부, 실제 요청을 담은 함수. 돌려주는 것: 요청 결과.
      * 재시도 횟수를 다 쓰면 KisRateLimitException을 던지고, 429가 아닌 HTTP 오류는 바로 그대로 던져요.
      */
     public <T> T execute(boolean quote, Supplier<T> request) {
+        boolean tokenRetried = false;
         for (int attempt = 0; ; attempt++) {
             // 준비: 내 차례가 될 때까지 기다려요.
             pace(quote);
@@ -51,6 +67,14 @@ public class KisRequestExecutor {
                 backoff(attempt);
                 if (attempt >= properties.maxRetries()) throw failed(error);
             } catch (RestClientResponseException error) {
+                // 만료된 토큰(EGW00123)이면 토큰 캐시를 비우고 한 번만 다시 보내요. 요청 안에서 토큰을 다시 받아 새 토큰으로 가요.
+                if (!tokenRetried && EXPIRED_TOKEN_CODES.contains(KisErrorDetail.of(error).code())) {
+                    tokenRetried = true;
+                    boolean dropped = expiredTokenHandler.getAsBoolean();
+                    log.warn("KIS token rejected as expired; cache {} and retrying once",
+                            dropped ? "cleared" : "kept (refreshed within the last minute)");
+                    continue;
+                }
                 // KIS는 초당 한도 초과(EGW00201)를 HTTP 429가 아니라 HTTP 500 본문에 담아 주기도 해요(2026-10-16 수급 수집
                 // 실패 9건이 모두 이 경우). 그래서 500이라도 본문 코드가 EGW00201이면 429와 똑같이 쉬었다가 다시 시도해요.
                 if (!isRateLimit(error)) throw failed(error);

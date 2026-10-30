@@ -51,7 +51,7 @@ class KisErrorDetailTest {
         assertThat(KisErrorDetail.of(new IllegalStateException()).key()).isEqualTo("OTHER");
     }
 
-    /** HTTP 500 본문이 EGW00201(초당 한도 초과)이면 429처럼 한 번 쉬었다가 다시 시도하고, 다른 500은 바로 실패해요. */
+    /** HTTP 500 본문이 EGW00201(초당 한도 초과)이면 429처럼 한 번 쉬었다가 다시 시도해요. 만료 토큰(EGW00123)은 쉬지 않고 한 번만 다시 보낸 뒤 실패해요. */
     @Test
     void retriesHttp500RateLimitButNotOtherServerErrors() {
         var executor = new KisRequestExecutor(new KisRequestProperties(Duration.ZERO, Duration.ZERO, Duration.ZERO, 1));
@@ -71,7 +71,9 @@ class KisErrorDetailTest {
             calls.incrementAndGet();
             throw serverError("{\"rt_cd\":\"1\",\"msg_cd\":\"EGW00123\",\"msg1\":\"기간이 만료된 token 입니다.\"}");
         })).isInstanceOf(HttpServerErrorException.class);
-        assertThat(calls).as("token errors are not retried").hasValue(1);
+        // 만료 토큰은 한도 초과처럼 쉬며 반복하지 않아요. 토큰을 비우고 딱 한 번만 다시 보내요(2026-10-30 변경).
+        assertThat(calls).as("expired token is retried exactly once, without rate-limit backoff").hasValue(2);
+        assertThat(executor.diagnostics()).containsEntry("rateLimitErrors", 1L);
 
         calls.set(0);
         assertThatThrownBy(() -> executor.execute(false, () -> {
