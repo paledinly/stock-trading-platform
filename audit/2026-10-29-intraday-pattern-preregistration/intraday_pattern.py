@@ -21,6 +21,10 @@ details the README leaves open were fixed here, also before running:
   Coverage guard: the run stops unless every trading day 2025-10-29..2026-10-22 (days in daily_adjusted_candle with
     >= 500 stocks) is in intraday_research_state and the collector has started a day after 2026-10-22 (it walks oldest
     first, so 2026-10-22 is then complete).
+  Change 2026-11-03, before any result was seen (the first run stopped at this guard): the collector's 364-day lookback
+    never fetched 2025-10-29 (and 10-28). The guard now starts at 2025-10-30 (COVERAGE_FROM). Effect: 2025-10-29 cannot
+    be evaluated (it had no d-1 anyway) and 2025-10-30 has no d-1, so evaluation starts 2025-10-31; one of the planned
+    discovery days is lost. Definitions, periods and rules are unchanged.
   --smoke loads three stocks and prints only how many inputs are present (no returns, no statistics), to check the
     query before the real run without looking at results.
 Run: python intraday_pattern.py [--smoke]   (reads the repository .env, never prints credentials)
@@ -38,6 +42,7 @@ BUY, SELL = 0.00095, 0.00295
 SEED, BLOCK = 20261029, 5
 LAST_EXIT = dt.date(2026, 10, 22)
 FIRST_DAY = dt.date(2025, 10, 29)
+COVERAGE_FROM = dt.date(2025, 10, 30)
 PERIODS = {'discovery': (dt.date(2025, 10, 29), dt.date(2026, 4, 30)),
            'check': (dt.date(2026, 5, 1), dt.date(2026, 10, 22))}
 # MARKET_SPECIAL_SESSIONS default inside the window: date -> (open, close).
@@ -77,7 +82,7 @@ def net(entry, exit_):
 def coverage(c):
     trading = [d for (d,) in c.execute(
         """select trade_date from daily_adjusted_candle where trade_date between %s and %s
-            group by trade_date having count(*) >= 500 order by trade_date""", (FIRST_DAY, LAST_EXIT))]
+            group by trade_date having count(*) >= 500 order by trade_date""", (COVERAGE_FROM, LAST_EXIT))]
     state = {d for (d,) in c.execute('select distinct trade_date from intraday_research_state')}
     missing = [d for d in trading if d not in state]
     later = any(d > LAST_EXIT for d in state)
