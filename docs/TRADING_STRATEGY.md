@@ -47,6 +47,8 @@ Scanner reason은 탐지 당시 조건 설명이다. VWAP_RECLAIM, PULLBACK_REBR
 
 v9.1의 계속·실거래 검토·중단 판단 기준과 사전 등록한 다음날 시가 청산 비교안은 [ADR-008](decisions/ADR-008-CLOSING-V9-DECISION-CRITERIA.md)을 따른다. 1차 표본은 최종 추천만이 아니라 공식 FORWARD run에서 평가된 정밀 후보 전체의 가상 진입이다([ADR-010](decisions/ADR-010-CLOSING-PRIMARY-SAMPLE-ALL-PRECISION.md)). 판단 기간 동안 설정을 바꾸면 표본을 처음부터 다시 센다.
 
+종목 선정, 점수, 진입·청산 판단에는 LLM을 쓰지 않는다. 과거 데이터로 공정하게 평가할 수 없기 때문이다([ADR-011](decisions/ADR-011-NO-LLM-IN-RECOMMENDATION-PATH.md)).
+
 ### 다음 거래일 세션 완결성
 
 `OvernightPerformanceService`, `ClosingCandidateObservationService`, ADR-008 judge가 같은 규칙(`NextSessionCoverage`, `regular-0900-1515+closing-print-1525`)을 쓴다.
