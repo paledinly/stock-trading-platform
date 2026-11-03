@@ -38,7 +38,7 @@ class MarketWideQuoteBudgetTest {
         var persistence = mock(BroadSnapshotService.class);
         var precision = mock(PrecisionSubscriptionAllocator.class);
         var subscriptions = mock(RealtimeSubscriptionRegistry.class);
-        var properties = new BroadCollectionProperties(100, 2, null, null, true);
+        var properties = new BroadCollectionProperties(100, 2, null, null, true, null);
         var resolver = new BroadQuoteResolver(provider, ticks, new QuoteSnapshotCache(), properties);
         var executor = new KisRequestExecutor(new KisRequestProperties(Duration.ZERO, Duration.ZERO, Duration.ZERO, 0));
         var service = new MarketWideScannerService(stocks, resolver, subscriptions, collector, persistence, precision,

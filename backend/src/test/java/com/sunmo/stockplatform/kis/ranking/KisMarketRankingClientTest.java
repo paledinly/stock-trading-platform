@@ -31,11 +31,11 @@ class KisMarketRankingClientTest {
      * 기대: 1건만 남고 종목코드 005930, 현재가 70000(쉼표 제거), 거래대금이 그대로 들어가요.
      */
     /**
-     * 상한가 감시용 오늘 상승률 조회는 누적 0일·가격 구분 1로, 시장 스캔 PRICE_RISE는 기존 조건(누적=개수, 구분 0)으로 요청하는지 봐요.
-     * 2026-10-15 실호출에서 기존 조건은 오늘 상승률 순서가 아니어서 +22%·+30% 종목을 놓쳤어요.
+     * 상한가 감시용 조회와 시장 스캔 PRICE_RISE가 모두 오늘 상승률 조건(누적 0일·가격 구분 1)으로 요청하는지 봐요.
+     * 2026-10-15 실호출에서 예전 조건(누적=개수, 구분 0)은 오늘 상승률 순서가 아니었어요. 시장 스캔은 2026-11-03에 바꿨어요.
      */
     @Test
-    void dailyGainersUseTodaysChangeWhileMarketScanKeepsItsParameters() {
+    void dailyGainersAndMarketScanBothUseTodaysChange() {
         RestClient.Builder builder = RestClient.builder().baseUrl("https://example.test");
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         KisTokenManager tokens = mock(KisTokenManager.class);
@@ -56,8 +56,8 @@ class KisMarketRankingClientTest {
                 .andExpect(header("tr_id", "FHPST01700000"))
                 .andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
         server.expect(requestTo(startsWith("https://example.test/uapi/domestic-stock/v1/ranking/fluctuation?")))
-                .andExpect(queryParam("FID_INPUT_CNT_1", "100"))
-                .andExpect(queryParam("FID_PRC_CLS_CODE", "0"))
+                .andExpect(queryParam("FID_INPUT_CNT_1", "0"))
+                .andExpect(queryParam("FID_PRC_CLS_CODE", "1"))
                 .andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
 
         var gainers = client.fetchDailyGainers(Market.KOSPI, 100);
@@ -159,8 +159,8 @@ class KisMarketRankingClientTest {
                 new com.sunmo.stockplatform.kis.config.KisRequestExecutor(
                     new com.sunmo.stockplatform.kis.config.KisRequestProperties(Duration.ZERO, Duration.ZERO, Duration.ZERO, 1)));
         server.expect(requestTo(startsWith("https://example.test/uapi/domestic-stock/v1/ranking/fluctuation?")))
-                .andExpect(queryParam("FID_INPUT_CNT_1", "50"))
-                .andExpect(queryParam("FID_PRC_CLS_CODE", "0"))
+                .andExpect(queryParam("FID_INPUT_CNT_1", "0"))
+                .andExpect(queryParam("FID_PRC_CLS_CODE", "1"))
                 .andExpect(queryParam("FID_RSFL_RATE1", ""))
                 .andExpect(queryParam("FID_RSFL_RATE2", ""))
                 .andExpect(header("tr_id", "FHPST01700000"))

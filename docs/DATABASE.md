@@ -29,6 +29,7 @@ PostgreSQL은 영구 데이터의 시스템 오브 레코드다. Redis와 프로
 | 연구: 상한가 직전 | `limit_up_watch`(V34, V36) |
 | 연구: 정밀 깔때기 그림자 시세 | `funnel_shadow_quote`(V42) |
 | 연구: 장중 5분봉 (과거 1년 재현) | `intraday_research_bar`, `intraday_research_state`(V43) |
+| 연구: 투자자별 일별 순매수 | `investor_daily_flow`, `investor_flow_state`(V44) |
 | 기록 전용: 외부 요인 | `closing_candidate_context`, `dart_filing`(V35), `market_index_daily`(V37), `overseas_daily`(V40) |
 | 사용하지 않음 | `platform_schema_version`(V1), `intraday_input`, `intraday_recommendation`(V27) |
 
@@ -57,6 +58,16 @@ KIS 국내휴장일조회로 받은 날짜별 개장 여부(`market_open`), 출�
 ### intraday_research_bar · intraday_research_state (V43, 연구용)
 
 KIS 과거 분봉(주식일별분봉조회)으로 재현한 장중 5분봉이다. 날마다 "그날 거래가 된 종목"(전날 거래대금 5억 원 이상 또는 당일 10억 원 이상, `daily_adjusted_candle` 기준) 전부를 대상으로 한다. 오를 것 같은 종목을 미리 고르지 않아서, 장중 흐름과 다음 날 성과의 관계를 공정하게 볼 수 있다. 당일 거래대금은 장 마감 뒤 값이므로, 분석할 때는 15:15 누적 거래대금으로 다시 걸러 미래 참조를 없앤다. 가격은 수정 전 원주가(원)이고 5분 칸 규칙은 `CandleBackfillService.aggregate`와 같다(15:20~15:29 무체결 분봉 제외, 15:30 종가 체결은 15:25 칸). `intraday_research_state`는 받은 (날짜, 종목)마다 한 행이며, 봉이 없는 날도 남겨 다시 받지 않는다. 추천 전략은 이 테이블을 읽지 않는다.
+
+### investor_daily_flow · investor_flow_state (V44, 연구용)
+
+KIS "종목별 투자자매매동향(일별)"(`FHPTJ04160001`)로 받은 종목별 하루 순매수다. 한 행이 (종목, 거래일)이다.
+
+- **값:** 외국인·기관·개인의 순매수 수량(주)과 금액(백만 원)을 담는다. 기관은 세부 금액으로도 나눈다(금융투자, 투신, 사모, 은행, 보험, 종금, 연기금 등, 기타법인). 음수는 순매도다.
+- **기준:** 장 마감 뒤 확정값이다. 15:15 판단에 쓰려면 전 거래일까지의 값만 써야 한다.
+- **수집:** 조회 한 번에 기준일까지 30거래일이 온다. 매일 20:00에 모든 종목의 최신 구간을 채운 뒤, `MARKET_INVESTOR_FLOW_FLOOR`(기본 2018-01-01) 또는 그 종목의 첫 일봉까지 과거로 내려간다.
+- **수집 상태:** `investor_flow_state`가 종목별로 받은 범위(`oldest_date`, `newest_date`)와 과거 완료 여부(`complete`)를 기억한다. 끊겨도 이어 받는다. 같은 날짜를 다시 받으면 새 값으로 바꾼다(정정 반영).
+- 추천 전략은 이 테이블을 읽지 않는다.
 
 ### funnel_shadow_quote (V42, 연구용)
 
