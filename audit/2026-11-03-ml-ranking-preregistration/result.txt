@@ -1,0 +1,88 @@
+A rows 213764, outliers 1; B rows 2305158, outliers 0
+  2026-03: train 73172 rows (to 2026-02-27), test 22126 rows
+  2026-04: train 95527 rows (to 2026-03-31), test 23752 rows
+  2026-05: train 119104 rows (to 2026-04-30), test 20913 rows
+  2026-06: train 140113 rows (to 2026-05-29), test 18919 rows
+  2026-07: train 159391 rows (to 2026-06-30), test 15970 rows
+  2026-08: train 175373 rows (to 2026-07-31), test 14439 rows
+  2026-09: train 189862 rows (to 2026-08-31), test 13719 rows
+  2026-10: train 203554 rows (to 2026-09-30), test 9510 rows
+
+===== Study A: 5-minute, 15:15 -> next 09:00 open
+evaluation days 157 (2026-03-03..2026-10-21), universe/day 888
+TOP5 Net +0.414 [-0.051, +0.892] %   (primary)
+TOP5 - ALL +0.586 [+0.177, +1.037] %p
+top10   Net +0.394 %
+topdec  Net +0.183 %
+all     Net -0.172 %
+rule    Net +0.090 %
+IC (daily Spearman) mean +0.0675, positive days 66%
+by period (TOP5 / ALL / RULE Net %):
+   2026-03: +1.877 / -0.116 / -0.239   days 21
+   2026-04: +0.918 / +0.613 / +0.748   days 22
+   2026-05: +0.406 / +0.227 / +0.511   days 18
+   2026-06: +0.085 / -0.541 / -0.038   days 21
+   2026-07: -0.114 / -0.414 / +0.253   days 22
+   2026-08: -0.005 / -0.206 / -0.139   days 20
+   2026-09: +0.185 / -0.278 / -0.049   days 20
+   2026-10: -0.366 / -0.918 / -0.573   days 13
+top 15 features by gain:
+   MKT_F1        14.5%
+   MKT_F3        14.3%
+   MKT_UP        14.3%
+   GAP            6.5%
+   F1             4.9%
+   RANK_F1        4.0%
+   VRATIO         3.6%
+   R60            3.6%
+   VOL20          3.4%
+   RANK_VAL       3.1%
+   VOLEXP         2.5%
+   LOGVAL         2.5%
+   F3             2.2%
+   R5             2.1%
+   MA60GAP        1.9%
+halves TOP5 +0.838 / -0.049 -> Study A NOT KEEP
+  2020: train 375474 rows (to 2019-12-30), test 292766 rows
+  2021: train 667588 rows (to 2020-12-30), test 356082 rows
+  2022: train 1023921 rows (to 2021-12-30), test 284030 rows
+  2023: train 1308113 rows (to 2022-12-29), test 276658 rows
+  2024: train 1584694 rows (to 2023-12-28), test 252793 rows
+  2025: train 1837633 rows (to 2024-12-30), test 248970 rows
+  2026: train 2086536 rows (to 2025-12-30), test 217590 rows
+
+===== Study B: daily 8 years, close -> next open
+evaluation days 1668 (2020-01-02..2026-10-21), universe/day 1156
+TOP5 Net +0.270 [+0.170, +0.370] %   (primary)
+TOP5 - ALL +0.527 [+0.438, +0.616] %p
+top10   Net +0.188 %
+topdec  Net +0.033 %
+all     Net -0.257 %
+rule    Net -0.103 %
+IC (daily Spearman) mean +0.1111, positive days 89%
+by period (TOP5 / ALL / RULE Net %):
+   2020: +0.471 / -0.194 / +0.086   days 248
+   2021: +0.023 / -0.256 / -0.147   days 248
+   2022: +0.168 / -0.397 / -0.258   days 246
+   2023: -0.010 / -0.270 / -0.109   days 245
+   2024: +0.046 / -0.323 / -0.268   days 244
+   2025: +0.554 / -0.185 / -0.038   days 242
+   2026: +0.740 / -0.148 / +0.039   days 195
+top 15 features by gain:
+   MKT_RET       17.1%
+   MKT_UP        12.2%
+   GAP            7.9%
+   UPPER          7.6%
+   RANK_RET       5.8%
+   RET1           5.2%
+   RANGE          5.2%
+   RANK_VAL       4.8%
+   MA20GAP        4.6%
+   VRATIO         4.1%
+   LOC            3.7%
+   VOL20          3.5%
+   R5             3.3%
+   MA60GAP        2.8%
+   LOGVAL         2.7%
+positive years 6/7 -> Study B KEEP
+exit=0
