@@ -1,0 +1,8 @@
+scans compared: 2096 (2026-09-08..2026-10-22)
+  TURNOVER        recall mean  80.3%  median 100.0%  scans 2090
+  VOLUME          recall mean  98.7%  median 100.0%  scans 2091
+  PRICE_RISE      recall mean   2.9%  median   0.0%  scans 2094
+  TRADE_STRENGTH  recall mean   0.1%  median   0.0%  scans 2058
+  HIGH_PROXIMITY  recall mean   7.9%  median   0.0%  scans 1580
+  UNION           recall mean  33.7%  median  34.9%
+exit=0
