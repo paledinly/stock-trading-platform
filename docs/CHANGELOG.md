@@ -9,6 +9,11 @@
   - 체결강도·신고가 근접 순위표 위쪽을 차지하던 스팩과 거의 거래 없는 행을 뺀다. 스팩 이름, 그리고 거래대금(없으면 현재가 × 거래량) 1억 원 미만이 기준이다(`MARKET_WIDE_MIN_RANKING_TRADING_VALUE`).
   - 과거 재생 검증에서 정밀 구독 종목의 57%가 이 두 순위표로만 들어온 것을 확인했다([기록](../audit/2026-11-03-subscription-replay/README.md)).
   - ADR-010 확증 표본은 이 변경 전 평가분까지로 닫는다([보완 기록](decisions/ADR-010-CLOSING-PRIMARY-SAMPLE-ALL-PRECISION.md)).
+- 연구용 투자자별 일별 순매수 수집을 추가했다(V44 `investor_daily_flow`).
+  - 외국인·기관·개인과 기관 세부 주체의 순매수를 종목마다 2018년까지 받는다.
+  - 매일 20:00에 최신 구간을 먼저 채우고, 이어서 과거로 내려간다. 진행은 `GET /api/v1/market-data/investor-flow/status`로 본다.
+  - 시험 조회(`GET /api/v1/market-data/investor-history/probe`)에서 KIS가 2015년 날짜까지 30거래일씩 돌려주는 것을 확인했다.
+  - 추천 점수는 이 데이터를 읽지 않는다.
 
 ## 2026-10-30
 

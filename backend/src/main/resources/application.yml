@@ -178,6 +178,11 @@ market:
     enabled: ${MARKET_INTRADAY_RESEARCH_ENABLED:true}
     lookback-days: ${MARKET_INTRADAY_RESEARCH_LOOKBACK_DAYS:364}
     cron: ${MARKET_INTRADAY_RESEARCH_CRON:0 0 19 * * *}
+  # 연구용 투자자(외국인·기관·개인) 일별 순매수. 매일 20:00, 최신 구간을 채운 뒤 floor까지 과거로 30거래일씩 받아요.
+  investor-flow:
+    enabled: ${MARKET_INVESTOR_FLOW_ENABLED:true}
+    floor: ${MARKET_INVESTOR_FLOW_FLOOR:2018-01-01}
+    cron: ${MARKET_INVESTOR_FLOW_CRON:0 0 20 * * *}
   adjusted-daily:
     enabled: ${MARKET_ADJUSTED_DAILY_ENABLED:false}
     lookback-days: ${MARKET_ADJUSTED_DAILY_LOOKBACK_DAYS:3250}

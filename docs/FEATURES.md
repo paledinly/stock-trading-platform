@@ -50,6 +50,7 @@
 | 대량체결 집계 | `CLOSING_MICROSTRUCTURE_ENABLED` | 꺼짐 | 꺼짐 | 동결 | [MICROSTRUCTURE](MICROSTRUCTURE.md) |
 | 호가 REST 표본 | `CLOSING_ORDERBOOK_ENABLED` | 꺼짐 | 꺼짐 | 동결 | [MICROSTRUCTURE](MICROSTRUCTURE.md) |
 | 수정주가 일봉 | `MARKET_ADJUSTED_DAILY_ENABLED` | 꺼짐 | ? | 실험 | [MARKET_DATA](MARKET_DATA.md#연구용-데이터-기본-꺼짐) |
+| 투자자별 일별 순매수 (2018~, 매일 20:00) | `MARKET_INVESTOR_FLOW_ENABLED` | 켜짐 | 켜짐 | 실험 | [DATABASE](DATABASE.md#investor_daily_flow--investor_flow_state-v44-연구용) |
 | 상한가 직전 호가 | `CLOSING_LIMIT_UP_WATCH_ENABLED` | 꺼짐 | ? | 실험 | [OPERATIONS](OPERATIONS.md#상한가-직전-매수-연구-수집) |
 | 후보 시장경고 기록 | `CLOSING_CANDIDATE_CONTEXT_ENABLED` | 꺼짐 | ? | 실험 (기록 전용) | [DATABASE](DATABASE.md#closing_candidate_context--dart_filing-v35-기록-전용) |
 | DART 공시 목록 | `DART_API_KEY` 입력 여부 | 꺼짐(키 없음) | ? | 실험 (기록 전용) | [DATABASE](DATABASE.md#closing_candidate_context--dart_filing-v35-기록-전용) |
