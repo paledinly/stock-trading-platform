@@ -1,0 +1,178 @@
+daily: 2601 stocks, 2177 trading days 2017-12-04..2026-10-22
+study 1 rows: FLAT 402836 on 2094 days; outliers {'E1_HOLD4': 3678, 'E4_OPEN_PROFIT': 541, 'E2_TARGET5': 140}
+
+===== Study 1: daily, 8 years (S1-S3 x E1-E4 = 12 comparisons)
+
+-- S1_VOL_EXPANSION x E1_HOLD4
+   discovery days  988 Q5 rows  44966 | Q5 Net -0.466 [-0.732, -0.204] | Q5-ALL +0.184 [+0.060, +0.310] %p | Q5-Q1 +0.201 | FLAT -0.489 ALL -0.650 | held 4.00d END 100%
+   check     days  960 Q5 rows  35581 | Q5 Net -0.271 [-0.519, -0.026] | Q5-ALL +0.307 [+0.115, +0.499] %p | Q5-Q1 +0.224 | FLAT -0.336 ALL -0.578 | held 4.00d END 100%
+   -> MARKET_ONLY (Q5-ALL +0.184 / +0.307, Q5 Net -0.466 / -0.271)
+   by year Q5-ALL: 2018 +0.30, 2019 +0.18, 2020 +0.07, 2021 +0.11, 2022 +0.43, 2023 +0.22, 2024 +0.33, 2025 +0.33, 2026 +0.26
+
+-- S1_VOL_EXPANSION x E2_TARGET5
+   discovery days  988 Q5 rows  44971 | Q5 Net -0.527 [-0.754, -0.306] | Q5-ALL -0.079 [-0.167, +0.010] %p | Q5-Q1 +0.002 | FLAT -0.517 ALL -0.447 | held 3.68d END 78% T 22%
+   check     days  960 Q5 rows  35597 | Q5 Net -0.359 [-0.565, -0.157] | Q5-ALL +0.045 [-0.084, +0.171] %p | Q5-Q1 +0.090 | FLAT -0.376 ALL -0.403 | held 3.66d END 78% T 22%
+   -> DROP (Q5-ALL -0.079 / +0.045, Q5 Net -0.527 / -0.359)
+
+-- S1_VOL_EXPANSION x E3_TARGET5_STOP3
+   discovery days  988 Q5 rows  44971 | Q5 Net -0.509 [-0.652, -0.365] | Q5-ALL +0.027 [-0.039, +0.092] %p | Q5-Q1 -0.088 | FLAT -0.456 ALL -0.536 | held 2.94d END 38% S 42% T 19%
+   check     days  960 Q5 rows  35598 | Q5 Net -0.414 [-0.557, -0.271] | Q5-ALL +0.155 [+0.070, +0.238] %p | Q5-Q1 +0.016 | FLAT -0.377 ALL -0.570 | held 2.96d END 40% S 40% T 19%
+   -> DROP (Q5-ALL +0.027 / +0.155, Q5 Net -0.509 / -0.414)
+
+-- S1_VOL_EXPANSION x E4_OPEN_PROFIT
+   discovery days  988 Q5 rows  44968 | Q5 Net -0.354 [-0.532, -0.184] | Q5-ALL +0.003 [-0.079, +0.088] %p | Q5-Q1 +0.104 | FLAT -0.391 ALL -0.358 | held 3.09d END 41% P 59%
+   check     days  960 Q5 rows  35595 | Q5 Net -0.263 [-0.425, -0.105] | Q5-ALL +0.075 [-0.047, +0.193] %p | Q5-Q1 +0.158 | FLAT -0.312 ALL -0.337 | held 3.10d END 41% P 59%
+   -> DROP (Q5-ALL +0.003 / +0.075, Q5 Net -0.354 / -0.263)
+
+-- S2_CMF20 x E1_HOLD4
+   discovery days  988 Q5 rows  44964 | Q5 Net -0.466 [-0.706, -0.231] | Q5-ALL +0.185 [+0.047, +0.319] %p | Q5-Q1 +0.076 | FLAT -0.489 ALL -0.650 | held 4.00d END 100%
+   check     days  960 Q5 rows  35588 | Q5 Net -0.249 [-0.496, -0.011] | Q5-ALL +0.329 [+0.164, +0.494] %p | Q5-Q1 +0.275 | FLAT -0.336 ALL -0.578 | held 4.00d END 100%
+   -> MARKET_ONLY (Q5-ALL +0.185 / +0.329, Q5 Net -0.466 / -0.249)
+   by year Q5-ALL: 2018 +0.28, 2019 +0.19, 2020 +0.01, 2021 +0.09, 2022 +0.46, 2023 +0.27, 2024 +0.29, 2025 +0.41, 2026 +0.32
+
+-- S2_CMF20 x E2_TARGET5
+   discovery days  988 Q5 rows  44971 | Q5 Net -0.509 [-0.719, -0.303] | Q5-ALL -0.061 [-0.163, +0.038] %p | Q5-Q1 +0.015 | FLAT -0.517 ALL -0.447 | held 3.70d END 79% T 21%
+   check     days  960 Q5 rows  35593 | Q5 Net -0.336 [-0.539, -0.137] | Q5-ALL +0.067 [-0.046, +0.178] %p | Q5-Q1 +0.100 | FLAT -0.376 ALL -0.403 | held 3.68d END 79% T 21%
+   -> DROP (Q5-ALL -0.061 / +0.067, Q5 Net -0.509 / -0.336)
+
+-- S2_CMF20 x E3_TARGET5_STOP3
+   discovery days  988 Q5 rows  44971 | Q5 Net -0.513 [-0.649, -0.375] | Q5-ALL +0.023 [-0.043, +0.086] %p | Q5-Q1 -0.133 | FLAT -0.456 ALL -0.536 | held 2.99d END 40% S 41% T 18%
+   check     days  960 Q5 rows  35598 | Q5 Net -0.382 [-0.524, -0.239] | Q5-ALL +0.187 [+0.104, +0.269] %p | Q5-Q1 +0.015 | FLAT -0.377 ALL -0.570 | held 2.99d END 41% S 40% T 19%
+   -> DROP (Q5-ALL +0.023 / +0.187, Q5 Net -0.513 / -0.382)
+
+-- S2_CMF20 x E4_OPEN_PROFIT
+   discovery days  988 Q5 rows  44971 | Q5 Net -0.392 [-0.554, -0.235] | Q5-ALL -0.034 [-0.123, +0.054] %p | Q5-Q1 +0.018 | FLAT -0.391 ALL -0.358 | held 3.10d END 42% P 58%
+   check     days  960 Q5 rows  35592 | Q5 Net -0.274 [-0.432, -0.121] | Q5-ALL +0.063 [-0.043, +0.170] %p | Q5-Q1 +0.144 | FLAT -0.312 ALL -0.337 | held 3.09d END 41% P 59%
+   -> DROP (Q5-ALL -0.034 / +0.063, Q5 Net -0.392 / -0.274)
+
+-- S3_LOWER_WICK20 x E1_HOLD4
+   discovery days  988 Q5 rows  44899 | Q5 Net -0.457 [-0.701, -0.218] | Q5-ALL +0.193 [+0.065, +0.324] %p | Q5-Q1 +0.106 | FLAT -0.489 ALL -0.650 | held 4.00d END 100%
+   check     days  960 Q5 rows  35526 | Q5 Net -0.355 [-0.583, -0.138] | Q5-ALL +0.223 [+0.056, +0.394] %p | Q5-Q1 +0.066 | FLAT -0.336 ALL -0.578 | held 4.00d END 100%
+   -> MARKET_ONLY (Q5-ALL +0.193 / +0.223, Q5 Net -0.457 / -0.355)
+   by year Q5-ALL: 2018 +0.36, 2019 +0.19, 2020 -0.04, 2021 +0.19, 2022 +0.38, 2023 +0.18, 2024 +0.24, 2025 +0.23, 2026 +0.10
+
+-- S3_LOWER_WICK20 x E2_TARGET5
+   discovery days  988 Q5 rows  44908 | Q5 Net -0.514 [-0.727, -0.303] | Q5-ALL -0.067 [-0.158, +0.027] %p | Q5-Q1 +0.017 | FLAT -0.517 ALL -0.447 | held 3.69d END 79% T 21%
+   check     days  960 Q5 rows  35534 | Q5 Net -0.390 [-0.589, -0.200] | Q5-ALL +0.013 [-0.094, +0.121] %p | Q5-Q1 +0.027 | FLAT -0.376 ALL -0.403 | held 3.69d END 79% T 21%
+   -> DROP (Q5-ALL -0.067 / +0.013, Q5 Net -0.514 / -0.390)
+
+-- S3_LOWER_WICK20 x E3_TARGET5_STOP3
+   discovery days  988 Q5 rows  44908 | Q5 Net -0.520 [-0.660, -0.378] | Q5-ALL +0.016 [-0.048, +0.079] %p | Q5-Q1 -0.130 | FLAT -0.456 ALL -0.536 | held 2.97d END 40% S 42% T 19%
+   check     days  960 Q5 rows  35547 | Q5 Net -0.430 [-0.565, -0.296] | Q5-ALL +0.140 [+0.073, +0.208] %p | Q5-Q1 -0.054 | FLAT -0.377 ALL -0.570 | held 2.98d END 41% S 41% T 19%
+   -> DROP (Q5-ALL +0.016 / +0.140, Q5 Net -0.520 / -0.430)
+
+-- S3_LOWER_WICK20 x E4_OPEN_PROFIT
+   discovery days  988 Q5 rows  44908 | Q5 Net -0.389 [-0.558, -0.226] | Q5-ALL -0.031 [-0.111, +0.050] %p | Q5-Q1 +0.040 | FLAT -0.391 ALL -0.358 | held 3.11d END 42% P 58%
+   check     days  960 Q5 rows  35534 | Q5 Net -0.314 [-0.465, -0.171] | Q5-ALL +0.023 [-0.085, +0.138] %p | Q5-Q1 +0.065 | FLAT -0.312 ALL -0.337 | held 3.09d END 41% P 59%
+   -> DROP (Q5-ALL -0.031 / +0.023, Q5 Net -0.389 / -0.314)
+  intraday loaded 150/2601 stocks, 19489 stock-days
+  intraday loaded 300/2601 stocks, 39903 stock-days
+  intraday loaded 450/2601 stocks, 59487 stock-days
+  intraday loaded 600/2601 stocks, 82134 stock-days
+  intraday loaded 750/2601 stocks, 104760 stock-days
+  intraday loaded 900/2601 stocks, 124918 stock-days
+  intraday loaded 1050/2601 stocks, 138024 stock-days
+  intraday loaded 1200/2601 stocks, 153543 stock-days
+  intraday loaded 1350/2601 stocks, 168554 stock-days
+  intraday loaded 1500/2601 stocks, 182930 stock-days
+  intraday loaded 1650/2601 stocks, 202477 stock-days
+  intraday loaded 1800/2601 stocks, 219329 stock-days
+  intraday loaded 1950/2601 stocks, 235851 stock-days
+  intraday loaded 2100/2601 stocks, 251825 stock-days
+  intraday loaded 2250/2601 stocks, 268855 stock-days
+  intraday loaded 2400/2601 stocks, 286101 stock-days
+  intraday loaded 2550/2601 stocks, 305162 stock-days
+  intraday loaded 2601/2601 stocks, 311142 stock-days
+
+study 2 rows: FLAT 22311 on 230 days; outliers {'E1_HOLD4': 704, 'E4_OPEN_PROFIT': 98, 'E2_TARGET5': 9}; ALL rows skipped for missing intraday bars 32891; same-day target/stop resolved from 5-minute bars 12596
+
+===== Study 2: 5-minute, 1 year (S4 x E1-E4 = 4 comparisons)
+
+-- S4_BUY_PRESSURE5 x E1_HOLD4
+   discovery days   99 Q5 rows   2980 | Q5 Net +0.342 [-0.851, +1.463] | Q5-ALL -0.020 [-0.429, +0.434] %p | Q5-Q1 +0.155 | FLAT +0.283 ALL +0.362 | held 4.00d END 100%
+   check     days   50 Q5 rows    965 | Q5 Net -0.937 [-2.364, +0.545] | Q5-ALL +0.160 [-1.180, +1.680] %p | Q5-Q1 +0.216 | FLAT -1.030 ALL -1.097 | held 4.00d END 100%
+   -> DROP (Q5-ALL -0.020 / +0.160, Q5 Net +0.342 / -0.937)
+
+-- S4_BUY_PRESSURE5 x E2_TARGET5
+   discovery days   99 Q5 rows   2983 | Q5 Net +0.105 [-0.732, +0.914] | Q5-ALL +0.015 [-0.259, +0.303] %p | Q5-Q1 +0.200 | FLAT +0.059 ALL +0.091 | held 3.48d END 67% T 33%
+   check     days   50 Q5 rows    965 | Q5 Net -0.828 [-2.024, +0.368] | Q5-ALL +0.103 [-0.705, +1.110] %p | Q5-Q1 +0.083 | FLAT -0.833 ALL -0.932 | held 3.48d END 72% T 28%
+   -> DROP (Q5-ALL +0.015 / +0.103, Q5 Net +0.105 / -0.828)
+
+-- S4_BUY_PRESSURE5 x E3_TARGET5_STOP3
+   discovery days   99 Q5 rows   2983 | Q5 Net -0.053 [-0.536, +0.469] | Q5-ALL +0.309 [+0.015, +0.635] %p | Q5-Q1 +0.069 | FLAT -0.072 ALL -0.363 | held 2.70d END 31% S 42% T 27%
+   check     days   50 Q5 rows    965 | Q5 Net -0.443 [-1.043, +0.251] | Q5-ALL +0.029 [-0.281, +0.369] %p | Q5-Q1 +0.039 | FLAT -0.432 ALL -0.472 | held 2.46d END 25% S 51% T 23%
+   -> MARKET_ONLY (Q5-ALL +0.309 / +0.029, Q5 Net -0.053 / -0.443)
+
+-- S4_BUY_PRESSURE5 x E4_OPEN_PROFIT
+   discovery days   99 Q5 rows   2983 | Q5 Net -0.007 [-0.782, +0.682] | Q5-ALL -0.197 [-0.422, +0.054] %p | Q5-Q1 +0.156 | FLAT -0.041 ALL +0.190 | held 3.03d END 37% P 63%
+   check     days   50 Q5 rows    965 | Q5 Net -0.642 [-1.674, +0.399] | Q5-ALL +0.092 [-0.747, +1.215] %p | Q5-Q1 +0.028 | FLAT -0.717 ALL -0.734 | held 3.15d END 44% P 56%
+   -> DROP (Q5-ALL -0.197 / +0.092, Q5 Net -0.007 / -0.642)
+
+===== Summary (16 comparisons)
+   S1_VOL_EXPANSION   E1_HOLD4           MARKET_ONLY (Q5-ALL +0.184 / +0.307, Q5 Net -0.466 / -0.271)
+   S1_VOL_EXPANSION   E2_TARGET5         DROP (Q5-ALL -0.079 / +0.045, Q5 Net -0.527 / -0.359)
+   S1_VOL_EXPANSION   E3_TARGET5_STOP3   DROP (Q5-ALL +0.027 / +0.155, Q5 Net -0.509 / -0.414)
+   S1_VOL_EXPANSION   E4_OPEN_PROFIT     DROP (Q5-ALL +0.003 / +0.075, Q5 Net -0.354 / -0.263)
+   S2_CMF20           E1_HOLD4           MARKET_ONLY (Q5-ALL +0.185 / +0.329, Q5 Net -0.466 / -0.249)
+   S2_CMF20           E2_TARGET5         DROP (Q5-ALL -0.061 / +0.067, Q5 Net -0.509 / -0.336)
+   S2_CMF20           E3_TARGET5_STOP3   DROP (Q5-ALL +0.023 / +0.187, Q5 Net -0.513 / -0.382)
+   S2_CMF20           E4_OPEN_PROFIT     DROP (Q5-ALL -0.034 / +0.063, Q5 Net -0.392 / -0.274)
+   S3_LOWER_WICK20    E1_HOLD4           MARKET_ONLY (Q5-ALL +0.193 / +0.223, Q5 Net -0.457 / -0.355)
+   S3_LOWER_WICK20    E2_TARGET5         DROP (Q5-ALL -0.067 / +0.013, Q5 Net -0.514 / -0.390)
+   S3_LOWER_WICK20    E3_TARGET5_STOP3   DROP (Q5-ALL +0.016 / +0.140, Q5 Net -0.520 / -0.430)
+   S3_LOWER_WICK20    E4_OPEN_PROFIT     DROP (Q5-ALL -0.031 / +0.023, Q5 Net -0.389 / -0.314)
+   S4_BUY_PRESSURE5   E1_HOLD4           DROP (Q5-ALL -0.020 / +0.160, Q5 Net +0.342 / -0.937)
+   S4_BUY_PRESSURE5   E2_TARGET5         DROP (Q5-ALL +0.015 / +0.103, Q5 Net +0.105 / -0.828)
+   S4_BUY_PRESSURE5   E3_TARGET5_STOP3   MARKET_ONLY (Q5-ALL +0.309 / +0.029, Q5 Net -0.053 / -0.443)
+   S4_BUY_PRESSURE5   E4_OPEN_PROFIT     DROP (Q5-ALL -0.197 / +0.092, Q5 Net -0.007 / -0.642)
+
+===== Reference: S1-S3 on the 1-year window with 5-minute exits (descriptive, no verdict)
+
+-- S1_VOL_EXPANSION x E1_HOLD4
+   discovery days   99 Q5 rows   3056 | Q5 Net +0.056 [-0.912, +1.016] | Q5-ALL -0.306 [-0.912, +0.340] %p | Q5-Q1 -0.329 | FLAT +0.283 ALL +0.362 | held 4.00d END 100%
+   check     days   52 Q5 rows   1011 | Q5 Net -0.693 [-1.914, +0.779] | Q5-ALL +0.128 [-1.612, +2.040] %p | Q5-Q1 +0.621 | FLAT -0.973 ALL -0.820 | held 4.00d END 100%
+
+-- S1_VOL_EXPANSION x E2_TARGET5
+   discovery days   99 Q5 rows   3061 | Q5 Net -0.046 [-0.817, +0.701] | Q5-ALL -0.137 [-0.537, +0.221] %p | Q5-Q1 -0.138 | FLAT +0.059 ALL +0.091 | held 3.58d END 73% T 27%
+   check     days   52 Q5 rows   1012 | Q5 Net -0.524 [-1.440, +0.526] | Q5-ALL +0.317 [-0.786, +1.442] %p | Q5-Q1 +0.419 | FLAT -0.797 ALL -0.841 | held 3.57d END 75% T 25%
+
+-- S1_VOL_EXPANSION x E3_TARGET5_STOP3
+   discovery days   99 Q5 rows   3061 | Q5 Net -0.220 [-0.703, +0.269] | Q5-ALL +0.142 [-0.196, +0.468] %p | Q5-Q1 -0.105 | FLAT -0.072 ALL -0.363 | held 2.88d END 36% S 41% T 23%
+   check     days   52 Q5 rows   1012 | Q5 Net -0.525 [-1.193, +0.379] | Q5-ALL -0.091 [-0.628, +0.455] %p | Q5-Q1 -0.292 | FLAT -0.441 ALL -0.433 | held 2.58d END 29% S 51% T 20%
+
+-- S1_VOL_EXPANSION x E4_OPEN_PROFIT
+   discovery days   99 Q5 rows   3061 | Q5 Net -0.114 [-0.710, +0.452] | Q5-ALL -0.304 [-0.695, +0.124] %p | Q5-Q1 -0.152 | FLAT -0.041 ALL +0.190 | held 3.05d END 39% P 61%
+   check     days   52 Q5 rows   1012 | Q5 Net -0.423 [-1.068, +0.280] | Q5-ALL +0.197 [-0.840, +1.317] %p | Q5-Q1 +0.593 | FLAT -0.694 ALL -0.620 | held 3.17d END 45% P 55%
+
+-- S2_CMF20 x E1_HOLD4
+   discovery days   99 Q5 rows   3059 | Q5 Net +0.360 [-0.689, +1.370] | Q5-ALL -0.002 [-0.516, +0.526] %p | Q5-Q1 +0.506 | FLAT +0.283 ALL +0.362 | held 4.00d END 100%
+   check     days   52 Q5 rows   1012 | Q5 Net -0.633 [-2.032, +0.824] | Q5-ALL +0.187 [-1.300, +1.714] %p | Q5-Q1 +0.426 | FLAT -0.973 ALL -0.820 | held 4.00d END 100%
+
+-- S2_CMF20 x E2_TARGET5
+   discovery days   99 Q5 rows   3061 | Q5 Net +0.138 [-0.613, +0.872] | Q5-ALL +0.047 [-0.331, +0.403] %p | Q5-Q1 +0.294 | FLAT +0.059 ALL +0.091 | held 3.56d END 71% T 29%
+   check     days   52 Q5 rows   1012 | Q5 Net -0.667 [-1.920, +0.602] | Q5-ALL +0.174 [-0.420, +0.849] %p | Q5-Q1 +0.244 | FLAT -0.797 ALL -0.841 | held 3.60d END 75% T 25%
+
+-- S2_CMF20 x E3_TARGET5_STOP3
+   discovery days   99 Q5 rows   3061 | Q5 Net -0.084 [-0.584, +0.404] | Q5-ALL +0.279 [-0.045, +0.556] %p | Q5-Q1 +0.148 | FLAT -0.072 ALL -0.363 | held 2.87d END 37% S 39% T 24%
+   check     days   52 Q5 rows   1012 | Q5 Net -0.507 [-1.287, +0.322] | Q5-ALL -0.074 [-0.419, +0.324] %p | Q5-Q1 -0.133 | FLAT -0.441 ALL -0.433 | held 2.58d END 27% S 51% T 21%
+
+-- S2_CMF20 x E4_OPEN_PROFIT
+   discovery days   99 Q5 rows   3061 | Q5 Net +0.038 [-0.568, +0.614] | Q5-ALL -0.151 [-0.513, +0.257] %p | Q5-Q1 +0.276 | FLAT -0.041 ALL +0.190 | held 3.01d END 36% P 64%
+   check     days   52 Q5 rows   1012 | Q5 Net -0.531 [-1.488, +0.428] | Q5-ALL +0.089 [-0.625, +0.959] %p | Q5-Q1 +0.086 | FLAT -0.694 ALL -0.620 | held 3.15d END 44% P 56%
+
+-- S3_LOWER_WICK20 x E1_HOLD4
+   discovery days   99 Q5 rows   3057 | Q5 Net +0.171 [-0.837, +1.099] | Q5-ALL -0.191 [-0.689, +0.319] %p | Q5-Q1 +0.115 | FLAT +0.283 ALL +0.362 | held 4.00d END 100%
+   check     days   52 Q5 rows   1012 | Q5 Net -0.952 [-2.195, +0.248] | Q5-ALL -0.132 [-1.953, +1.587] %p | Q5-Q1 +0.098 | FLAT -0.973 ALL -0.820 | held 4.00d END 100%
+
+-- S3_LOWER_WICK20 x E2_TARGET5
+   discovery days   99 Q5 rows   3060 | Q5 Net +0.061 [-0.706, +0.777] | Q5-ALL -0.030 [-0.313, +0.245] %p | Q5-Q1 +0.150 | FLAT +0.059 ALL +0.091 | held 3.59d END 72% T 28%
+   check     days   52 Q5 rows   1012 | Q5 Net -0.736 [-1.977, +0.479] | Q5-ALL +0.105 [-0.556, +0.847] %p | Q5-Q1 +0.090 | FLAT -0.797 ALL -0.841 | held 3.62d END 76% T 24%
+
+-- S3_LOWER_WICK20 x E3_TARGET5_STOP3
+   discovery days   99 Q5 rows   3060 | Q5 Net -0.126 [-0.582, +0.317] | Q5-ALL +0.237 [-0.011, +0.442] %p | Q5-Q1 +0.041 | FLAT -0.072 ALL -0.363 | held 2.88d END 37% S 40% T 23%
+   check     days   52 Q5 rows   1012 | Q5 Net -0.587 [-1.260, +0.106] | Q5-ALL -0.154 [-0.445, +0.213] %p | Q5-Q1 -0.235 | FLAT -0.441 ALL -0.433 | held 2.62d END 28% S 51% T 20%
+
+-- S3_LOWER_WICK20 x E4_OPEN_PROFIT
+   discovery days   99 Q5 rows   3060 | Q5 Net -0.024 [-0.632, +0.540] | Q5-ALL -0.214 [-0.554, +0.185] %p | Q5-Q1 +0.202 | FLAT -0.041 ALL +0.190 | held 3.01d END 36% P 64%
+   check     days   52 Q5 rows   1012 | Q5 Net -0.704 [-1.589, +0.159] | Q5-ALL -0.084 [-0.911, +0.860] %p | Q5-Q1 +0.012 | FLAT -0.694 ALL -0.620 | held 3.16d END 44% P 56%
+exit=0

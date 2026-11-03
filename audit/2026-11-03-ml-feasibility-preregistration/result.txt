@@ -1,0 +1,39 @@
+  model 2025: train 1837633 rows (to 2024-12-30)
+  model 2026: train 2086536 rows (to 2025-12-30)
+  intraday 150/2601 stocks
+  intraday 300/2601 stocks
+  intraday 450/2601 stocks
+  intraday 600/2601 stocks
+  intraday 750/2601 stocks
+  intraday 900/2601 stocks
+  intraday 1050/2601 stocks
+  intraday 1200/2601 stocks
+  intraday 1350/2601 stocks
+  intraday 1500/2601 stocks
+  intraday 1650/2601 stocks
+  intraday 1800/2601 stocks
+  intraday 1950/2601 stocks
+  intraday 2100/2601 stocks
+  intraday 2250/2601 stocks
+  intraday 2400/2601 stocks
+  intraday 2550/2601 stocks
+  intraday 2601/2601 stocks
+feasible rows 230148, outliers 0, skipped {'no previous day': 14012, 'no next open': 24468, 'today incomplete': 2145, 'short daily history': 4289}
+
+===== Feasible: inputs from bars up to 15:15, buy at the closing auction, sell at the next 09:00 open
+
+-- primary (closing auction entry): days 232, universe/day 992
+   TOP5 Net +0.363 [+0.056, +0.654] %  | halves +0.635 / +0.081
+   TOP5 - ALL +0.500 [+0.279, +0.725] %p | ALL -0.137 | IC +0.0715
+   -> KEEP
+
+-- reference: buy at the 15:15 bar close instead: days 232, universe/day 992
+   TOP5 Net +0.401 [+0.088, +0.702] %  | halves +0.691 / +0.100
+   TOP5 - ALL +0.551 [+0.328, +0.784] %p | ALL -0.151 | IC +0.0820
+
+===== Reference: knowing the final close (study-B inputs and entry) on the same stock-days
+
+-- knowing the close (230120 rows): days 232, universe/day 992
+   TOP5 Net +0.388 [+0.064, +0.708] %  | halves +0.573 / +0.195
+   TOP5 - ALL +0.525 [+0.273, +0.786] %p | ALL -0.137 | IC +0.0771
+exit=0
