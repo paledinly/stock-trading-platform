@@ -301,8 +301,8 @@ def main():
         say(f'   input {key[0]}  entry {key[1]:8s} universe {key[2]}  {fmt(st)}')
     for axis, (a, b) in (('input 15:15 -> 15:10', (0, ('15:15', '15:10'))), ('entry cut -> auction', (1, ('cut', 'auction'))),
                          ('universe OLD -> PIT', (2, ('OLD', 'PIT')))):
-        diffs = [results[k]['mean'] - results[tuple(b[1][0] if j == b[0] else k[j] for j in range(3))]['mean']
-                 for k in results if k[b[0]] == b[1][1]]
+        diffs = [results[k]['mean'] - results[tuple(b[0] if j == a else k[j] for j in range(3))]['mean']
+                 for k in results if k[a] == b[1]]
         say(f'   {axis}: mean change {np.mean(diffs):+.3f}%p (average over the other two axes)')
 
     pit, pit_cands, days = primary

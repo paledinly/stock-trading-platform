@@ -1,0 +1,37 @@
+== 2. Leak decomposition: PREMARKET (N=20, K=300) ML top-5 Net %, block 95% interval
+   input 15:15  entry cut      universe OLD  +0.479 [+0.142, +0.810]  halves +0.773 / +0.176  days 232
+   input 15:15  entry cut      universe PIT  +0.448 [+0.119, +0.763]  halves +0.778 / +0.106  days 232
+   input 15:15  entry auction  universe OLD  +0.438 [+0.107, +0.755]  halves +0.720 / +0.146  days 232
+   input 15:15  entry auction  universe PIT  +0.392 [+0.071, +0.699]  halves +0.702 / +0.071  days 232
+   input 15:10  entry cut      universe OLD  +0.567 [+0.251, +0.875]  halves +0.924 / +0.199  days 232
+   input 15:10  entry cut      universe PIT  +0.566 [+0.253, +0.869]  halves +0.952 / +0.166  days 232
+   input 15:10  entry auction  universe OLD  +0.432 [+0.115, +0.738]  halves +0.783 / +0.070  days 232
+   input 15:10  entry auction  universe PIT  +0.422 [+0.110, +0.723]  halves +0.796 / +0.035  days 232
+   input 15:15 -> 15:10: mean change +0.058%p (average over the other two axes)
+   entry cut -> auction: mean change -0.094%p (average over the other two axes)
+   universe OLD -> PIT: mean change -0.022%p (average over the other two axes)
+
+== 1. Primary: input 15:10, closing-auction entry, PIT universe, N=20, K=300
+   Net +0.422 [+0.110, +0.723]  halves +0.796 / +0.035  days 232
+   HIGH cost +0.281 | without the top 3 days +0.324 | picks 1160, missing auction 10, never traded again 0 (Net -50%), exits after 09:00 0
+   -> MAINTAINED
+   reference written: reference.json = +0.4217
+
+== 3. Parameter grid (primary definition): mean Net % by gap window N x list size K
+   N=10 K=150  +0.413 [+0.129, +0.701]  halves +0.607 / +0.212  days 232
+   N=10 K=300  +0.329 [+0.036, +0.613]  halves +0.636 / +0.011  days 232
+   N=10 K=500  +0.410 [+0.103, +0.706]  halves +0.836 / -0.032  days 232
+   N=20 K=150  +0.351 [+0.033, +0.658]  halves +0.731 / -0.041  days 232
+   N=20 K=300  +0.422 [+0.110, +0.723]  halves +0.796 / +0.035  days 232
+   N=20 K=500  +0.448 [+0.151, +0.740]  halves +0.821 / +0.062  days 232
+   N=40 K=150  +0.274 [-0.032, +0.561]  halves +0.642 / -0.107  days 232
+   N=40 K=300  +0.382 [+0.085, +0.665]  halves +0.730 / +0.022  days 232
+   N=40 K=500  +0.474 [+0.166, +0.766]  halves +0.847 / +0.089  days 232
+   N=60 K=150  +0.242 [-0.047, +0.521]  halves +0.589 / -0.117  days 232
+   N=60 K=300  +0.344 [+0.007, +0.668]  halves +0.669 / +0.007  days 232
+   N=60 K=500  +0.397 [+0.091, +0.687]  halves +0.707 / +0.075  days 232
+   positive cells 12/12, median +0.389, (20, 300) rank 3/12 -> STABLE
+
+== 4. Sensitivity
+   PIT-DART (exchange-notice proxy excluded): +0.428 [+0.110, +0.737]  halves +0.780 / +0.064  days 232
+   primary picks flagged managed/halted now: 9/1160, their mean Net -3.013
