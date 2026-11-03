@@ -1,0 +1,102 @@
+rows 2305158, days 2097, KOSDAQ share 0.61
+
+===== Day filters: ALL Net (close -> next open) on filter-true vs filter-false days
+
+-- MKT_GAP > 0
+   discovery true  752 days Net -0.256 [-0.310, -0.206] | false  294 days Net -0.355 [-0.484, -0.231] | diff +0.099
+   check     true  730 days Net -0.255 [-0.307, -0.201] | false  321 days Net -0.231 [-0.343, -0.116] | diff -0.023
+   -> DROP
+
+-- MKT_ID > 0
+   discovery true  516 days Net -0.153 [-0.220, -0.080] | false  530 days Net -0.411 [-0.511, -0.323] | diff +0.257
+   check     true  473 days Net -0.223 [-0.298, -0.148] | false  578 days Net -0.268 [-0.346, -0.186] | diff +0.045
+   -> KEEP
+
+-- MKT_RET > 0
+   discovery true  590 days Net -0.180 [-0.234, -0.126] | false  456 days Net -0.418 [-0.523, -0.326] | diff +0.237
+   check     true  561 days Net -0.225 [-0.287, -0.164] | false  490 days Net -0.274 [-0.363, -0.183] | diff +0.049
+   -> KEEP
+
+-- MKT_TREND > 0
+   discovery true  528 days Net -0.234 [-0.285, -0.186] | false  498 days Net -0.344 [-0.447, -0.242] | diff +0.109
+   check     true  534 days Net -0.202 [-0.260, -0.145] | false  517 days Net -0.294 [-0.382, -0.206] | diff +0.092
+   -> DROP
+
+-- MKT_ON20 > 0
+   discovery true  792 days Net -0.262 [-0.311, -0.215] | false  235 days Net -0.369 [-0.561, -0.192] | diff +0.107
+   check     true  840 days Net -0.247 [-0.302, -0.193] | false  211 days Net -0.248 [-0.377, -0.120] | diff +0.001
+   -> DROP
+
+===== Stock criteria: quintiles inside each day (Q5 = highest), Net close -> next open
+
+-- ON_MOM20
+   discovery days 1046 | Q1 -0.388 Q2 -0.332 Q3 -0.281 Q4 -0.237 Q5 -0.182 ALL -0.284 | Q5-Q1 +0.206 [+0.170, +0.243] | Q5-ALL +0.102 [+0.080, +0.125]
+   check     days 1051 | Q1 -0.355 Q2 -0.292 Q3 -0.241 Q4 -0.191 Q5 -0.158 ALL -0.247 | Q5-Q1 +0.197 [+0.168, +0.228] | Q5-ALL +0.090 [+0.072, +0.108]
+   -> AVOID (favoured Q5, Net -0.182 / -0.158)
+
+-- ON_MOM60
+   discovery days 1046 | Q1 -0.394 Q2 -0.330 Q3 -0.285 Q4 -0.242 Q5 -0.170 ALL -0.284 | Q5-Q1 +0.224 [+0.192, +0.255] | Q5-ALL +0.114 [+0.092, +0.135]
+   check     days 1051 | Q1 -0.365 Q2 -0.290 Q3 -0.241 Q4 -0.193 Q5 -0.148 ALL -0.247 | Q5-Q1 +0.216 [+0.184, +0.249] | Q5-ALL +0.099 [+0.081, +0.117]
+   -> AVOID (favoured Q5, Net -0.170 / -0.148)
+
+-- ID_MOM20
+   discovery days 1046 | Q1 -0.273 Q2 -0.297 Q3 -0.292 Q4 -0.280 Q5 -0.277 ALL -0.284 | Q5-Q1 -0.004 [-0.030, +0.024] | Q5-ALL +0.007 [-0.009, +0.025]
+   check     days 1051 | Q1 -0.224 Q2 -0.248 Q3 -0.256 Q4 -0.252 Q5 -0.258 ALL -0.247 | Q5-Q1 -0.034 [-0.068, -0.002] | Q5-ALL -0.010 [-0.029, +0.008]
+   -> DROP (favoured Q1, Net -0.273 / -0.224)
+
+-- TUG20
+   discovery days 1046 | Q1 -0.321 Q2 -0.304 Q3 -0.299 Q4 -0.267 Q5 -0.230 ALL -0.284 | Q5-Q1 +0.091 [+0.065, +0.117] | Q5-ALL +0.054 [+0.039, +0.069]
+   check     days 1051 | Q1 -0.293 Q2 -0.274 Q3 -0.256 Q4 -0.227 Q5 -0.187 ALL -0.247 | Q5-Q1 +0.106 [+0.077, +0.137] | Q5-ALL +0.060 [+0.043, +0.079]
+   -> AVOID (favoured Q5, Net -0.230 / -0.187)
+
+-- ON_WIN20
+   discovery days 1046 | Q1 -0.394 Q2 -0.328 Q3 -0.282 Q4 -0.244 Q5 -0.173 ALL -0.284 | Q5-Q1 +0.221 [+0.196, +0.246] | Q5-ALL +0.111 [+0.095, +0.127]
+   check     days 1051 | Q1 -0.375 Q2 -0.299 Q3 -0.239 Q4 -0.190 Q5 -0.134 ALL -0.247 | Q5-Q1 +0.241 [+0.213, +0.269] | Q5-ALL +0.113 [+0.099, +0.128]
+   -> AVOID (favoured Q5, Net -0.173 / -0.134)
+
+-- MAX20
+   discovery days 1046 | Q1 -0.353 Q2 -0.302 Q3 -0.271 Q4 -0.254 Q5 -0.240 ALL -0.284 | Q5-Q1 +0.114 [+0.084, +0.144] | Q5-ALL +0.044 [+0.024, +0.066]
+   check     days 1051 | Q1 -0.328 Q2 -0.266 Q3 -0.225 Q4 -0.196 Q5 -0.222 ALL -0.247 | Q5-Q1 +0.106 [+0.072, +0.139] | Q5-ALL +0.025 [+0.007, +0.044]
+   -> AVOID (favoured Q5, Net -0.240 / -0.222)
+
+-- ABN_VAL
+   discovery days 1046 | Q1 -0.330 Q2 -0.326 Q3 -0.322 Q4 -0.285 Q5 -0.158 ALL -0.284 | Q5-Q1 +0.172 [+0.145, +0.201] | Q5-ALL +0.126 [+0.109, +0.145]
+   check     days 1051 | Q1 -0.295 Q2 -0.271 Q3 -0.267 Q4 -0.255 Q5 -0.150 ALL -0.247 | Q5-Q1 +0.145 [+0.119, +0.172] | Q5-ALL +0.098 [+0.080, +0.116]
+   -> AVOID (favoured Q5, Net -0.158 / -0.150)
+
+-- GAP_TODAY
+   discovery days 1046 | Q1 -0.346 Q2 -0.327 Q3 -0.294 Q4 -0.264 Q5 -0.188 ALL -0.284 | Q5-Q1 +0.158 [+0.107, +0.201] | Q5-ALL +0.096 [+0.071, +0.119]
+   check     days 1051 | Q1 -0.312 Q2 -0.280 Q3 -0.258 Q4 -0.224 Q5 -0.163 ALL -0.247 | Q5-Q1 +0.149 [+0.108, +0.189] | Q5-ALL +0.084 [+0.063, +0.105]
+   -> AVOID (favoured Q5, Net -0.188 / -0.163)
+
+-- ID_TODAY
+   discovery days 1046 | Q1 -0.320 Q2 -0.326 Q3 -0.315 Q4 -0.277 Q5 -0.182 ALL -0.284 | Q5-Q1 +0.138 [+0.099, +0.182] | Q5-ALL +0.102 [+0.080, +0.126]
+   check     days 1051 | Q1 -0.272 Q2 -0.276 Q3 -0.274 Q4 -0.253 Q5 -0.163 ALL -0.247 | Q5-Q1 +0.109 [+0.073, +0.145] | Q5-ALL +0.084 [+0.064, +0.105]
+   -> AVOID (favoured Q5, Net -0.182 / -0.163)
+
+-- LOG_PRICE
+   discovery days 1046 | Q1 -0.275 Q2 -0.264 Q3 -0.271 Q4 -0.297 Q5 -0.312 ALL -0.284 | Q5-Q1 -0.037 [-0.062, -0.011] | Q5-ALL -0.028 [-0.042, -0.013]
+   check     days 1051 | Q1 -0.279 Q2 -0.253 Q3 -0.228 Q4 -0.226 Q5 -0.251 ALL -0.247 | Q5-Q1 +0.028 [-0.001, +0.057] | Q5-ALL -0.004 [-0.019, +0.013]
+   -> DROP (favoured Q1, Net -0.275 / -0.279)
+
+===== KOSPI vs KOSDAQ (descriptive)
+   discovery KOSPI -0.306  KOSDAQ -0.268  diff +0.037 [+0.021, +0.054]
+   check     KOSPI -0.268  KOSDAQ -0.235  diff +0.033 [+0.014, +0.053]
+
+===== Summary (15 criteria)
+   MKT_GAP    filter DROP  true-day Net -0.256 / -0.255, false-day -0.355 / -0.231
+   MKT_ID     filter KEEP  true-day Net -0.153 / -0.223, false-day -0.411 / -0.268
+   MKT_RET    filter KEEP  true-day Net -0.180 / -0.225, false-day -0.418 / -0.274
+   MKT_TREND  filter DROP  true-day Net -0.234 / -0.202, false-day -0.344 / -0.294
+   MKT_ON20   filter DROP  true-day Net -0.262 / -0.247, false-day -0.369 / -0.248
+   ON_MOM20   stock  AVOID favoured Q5 Net -0.182 / -0.158, Q5-Q1 +0.206 / +0.197
+   ON_MOM60   stock  AVOID favoured Q5 Net -0.170 / -0.148, Q5-Q1 +0.224 / +0.216
+   ID_MOM20   stock  DROP  favoured Q1 Net -0.273 / -0.224, Q5-Q1 -0.004 / -0.034
+   TUG20      stock  AVOID favoured Q5 Net -0.230 / -0.187, Q5-Q1 +0.091 / +0.106
+   ON_WIN20   stock  AVOID favoured Q5 Net -0.173 / -0.134, Q5-Q1 +0.221 / +0.241
+   MAX20      stock  AVOID favoured Q5 Net -0.240 / -0.222, Q5-Q1 +0.114 / +0.106
+   ABN_VAL    stock  AVOID favoured Q5 Net -0.158 / -0.150, Q5-Q1 +0.172 / +0.145
+   GAP_TODAY  stock  AVOID favoured Q5 Net -0.188 / -0.163, Q5-Q1 +0.158 / +0.149
+   ID_TODAY   stock  AVOID favoured Q5 Net -0.182 / -0.163, Q5-Q1 +0.138 / +0.109
+   LOG_PRICE  stock  DROP  favoured Q1 Net -0.275 / -0.279, Q5-Q1 -0.037 / +0.028
+exit=0
