@@ -57,6 +57,8 @@ public class BroadCandidateCollector {
                 List<KisRankingEntry> entries = rankings.fetch(type, market, properties.rankingLimit());
                 java.time.Instant receivedAt = java.time.Instant.now();
                 for (KisRankingEntry entry : entries) {
+                    if (!meaningful(entry))
+                        continue;
                     observations.computeIfAbsent(entry.stockCode(), ignored -> new ArrayList<>())
                             .add(new BroadCandidate.RankingObservation(type, entry, receivedAt));
                     ranksByCode.computeIfAbsent(entry.stockCode(), ignored -> new EnumMap<>(RankingType.class))
@@ -84,7 +86,7 @@ public class BroadCandidateCollector {
         // 결과: DB에 있는 거래 가능 종목만 남기고, 랭킹 점수 높은 순(같으면 종목코드 순)으로 정렬해요.
         Map<String, EnumMap<RankingType, Integer>> source = ranksByCode;
         List<BroadCandidate> candidates = stocks.findByStockCodeIn(source.keySet()).stream()
-                .filter(stock -> tradable(stock, market, includeEtf))
+                .filter(stock -> source.containsKey(stock.getStockCode()) && tradable(stock, market, includeEtf))
                 .map(stock -> candidate(stock, source.get(stock.getStockCode()),
                         tradeStrengthByCode.get(stock.getStockCode()), observations.get(stock.getStockCode())))
                 .sorted(Comparator.comparing(BroadCandidate::rankingScore).reversed()
@@ -134,6 +136,21 @@ public class BroadCandidateCollector {
                 && (market == null || stock.getMarket() == market)
                 && (includeEtf || (!stock.isEtf() && !stock.isEtn()
                     && (!properties.excludeStructuredNames() || !StructuredProductFilter.matches(stock.getStockName()))));
+    }
+
+    /**
+     * 하는 일: 순위표 행이 후보로 쓸 만한지 봐요. 스팩과, 거래대금을 알 수 있는데 최소 거래대금보다 작은 행은 빼요.
+     * KIS 체결강도 순위표 위쪽은 체결강도 999.99에 거래량 수백 주인 스팩이, 신고가 근접 순위표에는 거래가 없는 상품이
+     * 섞여 정밀 구독 자리를 차지했어요(audit/2026-11-03-subscription-replay). 거래대금을 모르는 행(값 없음)은 그대로 둬요.
+     * 받는 것: 순위표 행. 돌려주는 것: 후보로 쓸 수 있으면 true.
+     */
+    boolean meaningful(KisRankingEntry entry) {
+        if (entry.stockName() != null && entry.stockName().contains("스팩"))
+            return false;
+        BigDecimal value = entry.accumulatedTradingValue();
+        if (value == null && entry.currentPrice() != null && entry.accumulatedVolume() != null)
+            value = entry.currentPrice().multiply(BigDecimal.valueOf(entry.accumulatedVolume()));
+        return value == null || value.compareTo(BigDecimal.valueOf(properties.minRankingTradingValue())) >= 0;
     }
 
     /**

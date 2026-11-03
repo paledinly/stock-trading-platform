@@ -27,7 +27,7 @@ class BroadCandidateCollectorTest {
     private final MarketRankingProvider rankings = mock(MarketRankingProvider.class);
     private final StockRepository stocks = mock(StockRepository.class);
     private final BroadCandidateCollector collector = new BroadCandidateCollector(rankings, stocks,
-            new com.sunmo.stockplatform.market.config.BroadCollectionProperties(100, 30, null, null, true));
+            new com.sunmo.stockplatform.market.config.BroadCollectionProperties(100, 30, null, null, true, null));
 
     /**
      * 순위 출처를 합치고, 거래 부적합 종목을 거르며, 일부 실패 뒤에도 계속하는지 확인해요.
@@ -104,5 +104,30 @@ class BroadCandidateCollectorTest {
     private Stock stock(String code, String name, boolean managed, boolean halted) {
         return new Stock(code, "KR7" + code + "003", name, Market.KOSPI, MarketType.STOCK,
                 managed, halted, Instant.now());
+    }
+
+    /**
+     * 체결강도·신고가 순위표 위쪽의 스팩과 거의 거래 없는 행을 후보에서 빼는지 확인해요.
+     * 준비: 체결강도 순위 1위 스팩(거래대금 47만 원), 2위 거래 적은 종목(현재가 × 거래량 = 5천만 원), 3위 정상 종목(5억 원).
+     * 기대: 정상 종목만 후보로 남아요. 거래대금을 모르는 행은 거르지 않아요(다른 테스트의 행).
+     */
+    @Test
+    void dropsSpacsAndNearUntradedRankingRows() {
+        Stock spac = stock("0096D0", "미래에셋비전스팩9호", false, false);
+        Stock thin = stock("111110", "거래적음", false, false);
+        Stock active = stock("222220", "정상종목", false, false);
+        when(rankings.fetch(any(), any(), anyInt())).thenReturn(List.of());
+        when(rankings.fetch(eq(RankingType.TRADE_STRENGTH), eq(Market.KOSPI), anyInt())).thenReturn(List.of(
+                new KisRankingEntry("0096D0", "미래에셋비전스팩9호", 1, new java.math.BigDecimal("1997"), null, 237L, null,
+                        new java.math.BigDecimal("999.99"), null, null, null),
+                new KisRankingEntry("111110", "거래적음", 2, new java.math.BigDecimal("5000"), null, 10_000L, null, null,
+                        null, null, null),
+                new KisRankingEntry("222220", "정상종목", 3, new java.math.BigDecimal("5000"), null, 100_000L, null, null,
+                        null, null, null)));
+        when(stocks.findByStockCodeIn(any())).thenReturn(List.of(spac, thin, active));
+
+        var result = collector.collect(Market.KOSPI, 40, false);
+
+        assertThat(result.candidates()).extracting(item -> item.stock().getStockCode()).containsExactly("222220");
     }
 }

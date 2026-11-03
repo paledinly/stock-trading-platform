@@ -27,7 +27,7 @@ class BroadQuoteResolverTest {
     private final QuoteStateStore ticks = mock(QuoteStateStore.class);
     private final QuoteSnapshotCache cache = new QuoteSnapshotCache();
     private final BroadQuoteResolver resolver = new BroadQuoteResolver(provider, ticks, cache,
-            new BroadCollectionProperties(100, 30, null, null, true));
+            new BroadCollectionProperties(100, 30, null, null, true, null));
     private final Stock stock = new Stock("005930", "KR7005930003", "삼성전자", Market.KOSPI, MarketType.STOCK,
             false, false, Instant.now());
 

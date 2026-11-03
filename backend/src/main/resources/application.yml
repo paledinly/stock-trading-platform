@@ -151,6 +151,8 @@ market:
       cache-max-age: ${MARKET_WIDE_QUOTE_CACHE_MAX_AGE:60s}
       tick-max-age: ${MARKET_WIDE_TICK_MAX_AGE:30s}
       exclude-structured-names: ${MARKET_WIDE_EXCLUDE_STRUCTURED_NAMES:true}
+      # 순위표 행 최소 거래대금(원). 스팩·무거래 종목이 정밀 구독 자리를 차지하지 않게 해요.
+      min-ranking-trading-value: ${MARKET_WIDE_MIN_RANKING_TRADING_VALUE:100000000}
     schedule:
       enabled: ${MARKET_WIDE_SCHEDULE_ENABLED:false}
       poll-interval: ${MARKET_WIDE_POLL_INTERVAL:30s}

@@ -16,14 +16,16 @@ import java.time.Duration;
  */
 @ConfigurationProperties(prefix = "market.wide.collection")
 public record BroadCollectionProperties(int rankingLimit, int detailQuoteBudget, Duration cacheMaxAge,
-        Duration tickMaxAge, boolean excludeStructuredNames) {
+        Duration tickMaxAge, boolean excludeStructuredNames, Long minRankingTradingValue) {
     /** 하는 일: 빈 값에 기본값을 채우고 범위를 검사해요. 잘못된 설정이면 IllegalArgumentException을 던져요. */
     public BroadCollectionProperties {
         rankingLimit = rankingLimit <= 0 ? 100 : rankingLimit;
         cacheMaxAge = cacheMaxAge == null ? Duration.ofSeconds(60) : cacheMaxAge;
         tickMaxAge = tickMaxAge == null ? Duration.ofSeconds(30) : tickMaxAge;
+        // 순위표 행의 최소 거래대금(원)이에요. 체결강도·신고가 순위표 위쪽을 차지하던 거의 거래 없는 종목을 걸러요.
+        minRankingTradingValue = minRankingTradingValue == null ? 100_000_000L : minRankingTradingValue;
         if (rankingLimit > 100 || detailQuoteBudget < 0 || detailQuoteBudget > 120
-                || cacheMaxAge.isNegative() || tickMaxAge.isNegative())
+                || cacheMaxAge.isNegative() || tickMaxAge.isNegative() || minRankingTradingValue < 0)
             throw new IllegalArgumentException("Invalid Broad collection configuration");
     }
 }
