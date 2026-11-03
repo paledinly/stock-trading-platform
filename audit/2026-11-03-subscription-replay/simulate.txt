@@ -1,0 +1,31 @@
+  2025-11-03 done (1/234)
+  2025-12-02 done (21/234)
+  2026-01-05 done (41/234)
+  2026-02-02 done (61/234)
+  2026-03-06 done (81/234)
+  2026-04-03 done (101/234)
+  2026-05-04 done (121/234)
+  2026-06-04 done (141/234)
+  2026-07-02 done (161/234)
+  2026-07-31 done (181/234)
+  2026-08-31 done (201/234)
+  2026-09-30 done (221/234)
+
+days 232
+method     set size  evaluable  covers ALL-top5  ML top5 Net %                set mean Net %
+CURRENT          41         33              27%   +0.113 [-0.157, +0.381]   +0.112
+           halves +0.312 / -0.092
+EXPANDED         41         34              26%   +0.103 [-0.132, +0.339]   +0.100
+           halves +0.286 / -0.086
+PREMARKET       300        280              44%   +0.485 [+0.144, +0.816]   -0.041
+           halves +0.799 / +0.160
+ALL             971        971             100%   +0.384 [+0.075, +0.687]   -0.148
+           halves +0.693 / +0.064
+CURRENT    top-5 by the current Broad score:  +0.006 [-0.282, +0.294]
+EXPANDED   top-5 by the current Broad score:  +0.068 [-0.216, +0.365]
+
+paired differences (ML top5 Net, %p):
+   EXPANDED   - CURRENT -0.010 [-0.153, +0.123]  halves -0.026 / +0.006  -> not shown better
+   PREMARKET  - CURRENT +0.372 [+0.136, +0.609]  halves +0.487 / +0.252  -> BETTER
+   ALL        - CURRENT +0.271 [+0.031, +0.521]  halves +0.381 / +0.156  -> BETTER
+exit=0
