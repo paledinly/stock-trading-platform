@@ -1,10 +1,14 @@
 """Shadow Forward, nightly (README.md). Records the PREMARKET and ALL top-5 picks of each new signal day, then fills
-the outcomes of earlier picks once the next day's 09:00 bar exists. Changes nothing in operations.
+the outcomes of earlier picks once the stock trades again after d. Changes nothing in operations.
 
-Definitions are those of ../2026-11-03-ml-feasibility-preregistration/feasibility.py (inputs from 5-minute bars up to
-15:15 and adjusted daily bars up to d-1) and ../2026-11-03-subscription-replay/simulate.py (pre-market list); the
-code is copied here so the nightly job does not depend on other folders.
-Run: python shadow_daily.py   (scheduled 21:30 daily; reads the repository .env, never prints credentials)
+Definitions follow ../2026-11-03-ml-feasibility-preregistration/feasibility.py and ../2026-11-03-subscription-replay/
+simulate.py with the corrections of README.md > 정정 (2026-11-03, before the first signal day):
+  inputs from 5-minute bars starting at or before 15:10 (closed by 15:15), entry at the closing-auction close,
+  tradability from the stock-flag snapshot written on an earlier night (records/flags/), exit at the first bar open
+  after d (normally 09:00 of d+1; later if the stock does not trade at the open).
+The code is copied here so the nightly job does not depend on other folders.
+Run: python shadow_daily.py              (scheduled 21:30 daily; reads the repository .env, never prints credentials)
+     python shadow_daily.py --flags-only (writes tonight's stock-flag snapshot only)
 """
 import datetime as dt
 import json
@@ -25,6 +29,8 @@ from volatility import connect, share  # noqa: E402
 
 FIRST_SIGNAL = dt.date(2026, 11, 4)
 BUY, SELL = 0.00095, 0.00295
+HIGH_BUY, HIGH_SELL = 0.00165, 0.00365     # ADR-008 HIGH: slippage incl. spread 0.15% per side (closing-v9-judge)
+CUTOFF = '15:10'                           # last bar start used as input; that bar closes at 15:15
 MIN_VALUE = 1_000_000_000
 PREMARKET_SIZE, TOP = 300, 5
 STRUCTURED = ('인버스', '레버리지', '선물', 'ETN', 'ETF', '2X')
@@ -33,12 +39,13 @@ SPECIAL = {dt.date(2026, 11, 19): (dt.time(10, 0), dt.time(16, 30))}
 DART_FLAGS = {'D_BUYBACK': '자기주식취득', 'D_SUPPLY': '공급계약', 'D_EARN': '잠정)실적', 'D_RIGHTS': '유상증자결정',
               'D_CB': '전환사채권발행결정'}
 RECORDS = HERE / 'records'
+FLAGS = RECORDS / 'flags'
 STATUS_URL = 'http://localhost:8080/api/v1/market-data/intraday-research/status'
 SEOUL = dt.timezone(dt.timedelta(hours=9))
 
 
-def net(entry, exit_):
-    return (exit_ * (1 - SELL) - entry * (1 + BUY)) / (entry * (1 + BUY)) * 100
+def net(entry, exit_, buy=BUY, sell=SELL):
+    return (exit_ * (1 - sell) - entry * (1 + buy)) / (entry * (1 + buy)) * 100
 
 
 def shift(day):
@@ -50,10 +57,6 @@ def clock(day, hhmm):
     """Wall-clock time of a regular-session time on this day (shifted on special days)."""
     minutes = int(hhmm[:2]) * 60 + int(hhmm[3:]) + shift(day)
     return dt.time(minutes // 60, minutes % 60)
-
-
-def session_open(day):
-    return SPECIAL.get(day, (dt.time(9, 0), None))[0]
 
 
 def collected_through():
@@ -69,10 +72,10 @@ def collected_through():
 
 
 def intraday(c, ids, day):
-    """Per stock on `day`: first bar start/open, 15:15 close, high/low/value/volume of bars up to 15:15, last bar
-    start/close (wall clock, shifted on special days)."""
+    """Per stock on `day`: first bar start/open, close of the bar starting at CUTOFF, high/low/value/volume of bars
+    starting at or before CUTOFF, last bar start/close (wall clock, shifted on special days)."""
     lo = dt.datetime.combine(day, dt.time(0), SEOUL)
-    t1515 = clock(day, '15:15')
+    tcut = clock(day, CUTOFF)
     out = {}
     ids = sorted(ids)
     for k in range(0, len(ids), 300):
@@ -85,7 +88,7 @@ def intraday(c, ids, day):
                           min(low_price) filter (where t <= %s), sum(trading_value) filter (where t <= %s),
                           sum(volume) filter (where t <= %s), max(t), (array_agg(close_price order by start_time desc))[1]
                      from b group by stock_id""",
-                (ids[k:k + 300], lo, lo + dt.timedelta(days=1), t1515, t1515, t1515, t1515, t1515)):
+                (ids[k:k + 300], lo, lo + dt.timedelta(days=1), tcut, tcut, tcut, tcut, tcut)):
             out[r[0]] = r[1:]
     return out
 
@@ -111,7 +114,7 @@ def clv(o, h, l, c):
 
 
 def features(a, i, O, H, L, P, V, VAL):
-    """Study-B inputs at d with today's values from bars up to 15:15; i = position of d-1 (copied from feasibility.py)."""
+    """Study-B inputs at d with today's values from bars up to CUTOFF; i = position of d-1 (copied from feasibility.py)."""
     c, h, l, v, val, o = a['c'], a['h'], a['l'], a['v'], a['val'], a['o']
     prev = c[i]
     rng = H - L
@@ -164,7 +167,8 @@ def premarket(a, i):
     return sum(gaps) / 20, a['val'][i - 19:i + 1].mean()
 
 
-def record_day(c, day, prev_day, model, cols, meta, codes):
+def record_day(c, day, prev_day, model, cols, meta, codes, tradable):
+    """Top-5 picks of `day`. `tradable` = stock ids tradable in the flag snapshot of an earlier night."""
     ids = [s for s, m in meta.items() if m[2]]
     today, before = intraday(c, ids, day), intraday(c, ids, prev_day)
     arrays = daily_arrays(c, list(today), prev_day)
@@ -176,7 +180,7 @@ def record_day(c, day, prev_day, model, cols, meta, codes):
             continue
         i = len(a['d']) - 1
         p = premarket(a, i)
-        if p and p[1] >= MIN_VALUE and meta[sid][3]:
+        if p and p[1] >= MIN_VALUE and sid in tradable:
             pm.append((p[0], -sid, sid))
         b = before.get(sid)
         if i < 78 or not b or not b[8]:
@@ -187,7 +191,7 @@ def record_day(c, day, prev_day, model, cols, meta, codes):
         if f['AVGVAL20'] < MIN_VALUE or f['RET1'] >= 0.29:
             continue
         auction = last_close and str(last_t) == clock(day, '15:25').strftime('%H:%M:%S')
-        f.update(sid=sid, entry_1515=float(P), entry_close=float(last_close) if auction else None)
+        f.update(sid=sid, entry_1510=float(P), entry_close=float(last_close) if auction else None)
         rows.append(f)
     x = pd.DataFrame(rows)
     x['MKT_RET'] = x['RET1'].mean()
@@ -204,36 +208,39 @@ def record_day(c, day, prev_day, model, cols, meta, codes):
         top = frame.sort_values(['pred', 'sid'], ascending=[False, True]).head(TOP)
         for rank, r in enumerate(top.itertuples(), 1):
             picks.append({'signal_day': day.isoformat(), 'method': method, 'rank': rank, 'code': meta[r.sid][0],
-                          'name': meta[r.sid][1], 'pred': round(float(r.pred), 5), 'ret_1515_pct': round(r.RET1 * 100, 2),
-                          'entry_1515': r.entry_1515, 'entry_close': r.entry_close,
+                          'name': meta[r.sid][1], 'pred': round(float(r.pred), 5), 'ret_1510_pct': round(r.RET1 * 100, 2),
+                          'entry_close': r.entry_close, 'entry_1510': r.entry_1510,
                           'universe': len(x), 'premarket_listed': len(listed),
                           'recorded_at': dt.datetime.now(SEOUL).isoformat(timespec='seconds')})
     return picks
 
 
-def fill_outcomes(c, picks, outcomes, days):
+def fill_outcomes(c, picks, outcomes, through):
+    """Exit = open of the stock's first bar after the signal day (normally 09:00 of d+1), among collected days."""
     done = {(o['signal_day'], o['method'], o['code']) for o in outcomes}
     code_to_sid = {code: s for s, code in c.execute('select id, stock_code from stock')}
-    nxt = dict(zip(days, days[1:]))
+    hi = dt.datetime.combine(through + dt.timedelta(days=1), dt.time(0), SEOUL)
     new = []
     for p in picks:
         key = (p['signal_day'], p['method'], p['code'])
         d = dt.date.fromisoformat(p['signal_day'])
-        if key in done or d not in nxt:
+        if key in done or d >= through:
             continue
-        d1 = nxt[d]
-        lo = dt.datetime.combine(d1, session_open(d1), SEOUL)
-        row = c.execute("""select open_price from intraday_research_bar where stock_id = %s and start_time = %s""",
-                        (code_to_sid[p['code']], lo)).fetchone()
+        lo = dt.datetime.combine(d + dt.timedelta(days=1), dt.time(0), SEOUL)
+        row = c.execute("""select start_time, open_price from intraday_research_bar
+                            where stock_id = %s and start_time >= %s and start_time < %s order by start_time limit 1""",
+                        (code_to_sid[p['code']], lo, hi)).fetchone()
         if not row:
-            continue
-        exit_open = float(row[0])
-        e1 = float(p['entry_1515'])
+            continue                                   # not traded since d (e.g. halted): stays pending, reported
+        exit_at, exit_open = row[0].astimezone(SEOUL), float(row[1])
+        e1 = float(p['entry_1510'])
         ec = float(p['entry_close']) if p['entry_close'] not in (None, '', 'None') else None
         new.append({'signal_day': p['signal_day'], 'method': p['method'], 'rank': p['rank'], 'code': p['code'],
-                    'name': p['name'], 'sell_day': d1.isoformat(), 'exit_open': exit_open,
-                    'net_1515_pct': round(net(e1, exit_open), 4),
+                    'name': p['name'], 'sell_day': exit_at.date().isoformat(),
+                    'exit_time': exit_at.strftime('%H:%M'), 'exit_open': exit_open,
                     'net_close_pct': round(net(ec, exit_open), 4) if ec else None,
+                    'net_close_high_pct': round(net(ec, exit_open, HIGH_BUY, HIGH_SELL), 4) if ec else None,
+                    'net_1510_pct': round(net(e1, exit_open), 4),
                     'filled_at': dt.datetime.now(SEOUL).isoformat(timespec='seconds')})
     return new
 
@@ -247,42 +254,73 @@ def append(path, rows):
         pd.DataFrame(rows).to_csv(path, mode='a', header=not path.exists(), index=False, encoding='utf-8')
 
 
-def main():
-    RECORDS.mkdir(exist_ok=True)
-    log = open(RECORDS / 'run.log', 'a', encoding='utf-8')
-    stamp = dt.datetime.now(SEOUL).isoformat(timespec='seconds')
-    c = connect()
-    through = collected_through()
-    days = sorted({d for (d,) in c.execute(
-        "select trade_date from intraday_research_state where trade_date >= %s group by trade_date having count(*) >= 500",
-        (FIRST_SIGNAL - dt.timedelta(days=10),))})
+def load_meta(c):
+    """id -> (code, name, is share, tradable by the current flags)."""
     meta = {}
     for s, code, name, active, managed, halted, etf, etn in c.execute(
             'select id, stock_code, stock_name, is_active, is_managed, is_trading_halted, is_etf, is_etn from stock'):
         upper = (name or '').upper()
         meta[s] = (code, name, share(code, name),
                    bool(active and not managed and not halted and not etf and not etn and not any(x in upper for x in STRUCTURED)))
+    return meta
+
+
+def write_flags(meta, today):
+    """Tonight's tradable set. The master is synced at 06:30 on weekdays, so this reflects this morning's flags."""
+    FLAGS.mkdir(parents=True, exist_ok=True)
+    path = FLAGS / f'{today.isoformat()}.csv'
+    if not path.exists():
+        pd.DataFrame({'stock_id': sorted(s for s, m in meta.items() if m[3])}).to_csv(path, index=False)
+
+
+def flags_before(day):
+    """Tradable set from the latest snapshot written before `day` (None if there is none)."""
+    snaps = sorted(p for p in FLAGS.glob('*.csv') if dt.date.fromisoformat(p.stem) < day)
+    if not snaps:
+        return None
+    return set(pd.read_csv(snaps[-1])['stock_id'].astype(int))
+
+
+def main():
+    RECORDS.mkdir(exist_ok=True)
+    now = dt.datetime.now(SEOUL)
+    stamp = now.isoformat(timespec='seconds')
+    c = connect()
+    meta = load_meta(c)
+    write_flags(meta, now.date())
+    if '--flags-only' in sys.argv:
+        print(f'flag snapshot {now.date()} written')
+        return
+    log = open(RECORDS / 'run.log', 'a', encoding='utf-8')
+    through = collected_through()
+    days = sorted({d for (d,) in c.execute(
+        "select trade_date from intraday_research_state where trade_date >= %s group by trade_date having count(*) >= 500",
+        (FIRST_SIGNAL - dt.timedelta(days=10),))})
     codes = {m[0]: s for s, m in meta.items()}
     picks = read(RECORDS / 'picks.csv')
     recorded = {p['signal_day'] for p in picks}
     booster = lgb.Booster(model_file=str(HERE / 'model.txt'))
     cols = json.loads((HERE / 'features.json').read_text(encoding='utf-8'))
-    added = []
+    added, new = [], []
     if through is None:
-        log.write(f'{stamp} collector running or unreachable; picks skipped\n')
+        log.write(f'{stamp} collector running or unreachable; picks and outcomes skipped\n')
     else:
         for prev_day, day in zip(days, days[1:]):
             if day < FIRST_SIGNAL or day > through or day.isoformat() in recorded:
                 continue
-            day_picks = record_day(c, day, prev_day, booster, cols, meta, codes)
+            tradable = flags_before(day)
+            if tradable is None:
+                log.write(f'{stamp} no flag snapshot before {day}; day not recorded\n')
+                continue
+            day_picks = record_day(c, day, prev_day, booster, cols, meta, codes, tradable)
             append(RECORDS / 'picks.csv', day_picks)
             added.extend(day_picks)
             log.write(f'{stamp} recorded {day}: {len(day_picks)} picks\n')
-    picks = read(RECORDS / 'picks.csv')
-    outcomes = read(RECORDS / 'outcomes.csv')
-    new = fill_outcomes(c, picks, outcomes, days)
-    append(RECORDS / 'outcomes.csv', new)
-    log.write(f'{stamp} outcomes filled: {len(new)}\n')
+        picks = read(RECORDS / 'picks.csv')
+        outcomes = read(RECORDS / 'outcomes.csv')
+        new = fill_outcomes(c, picks, outcomes, through)
+        append(RECORDS / 'outcomes.csv', new)
+        log.write(f'{stamp} outcomes filled: {len(new)}\n')
     log.close()
     print(f'picks added {len(added)}, outcomes filled {len(new)}')
 
