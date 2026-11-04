@@ -302,11 +302,14 @@ def main():
     booster = lgb.Booster(model_file=str(HERE / 'model.txt'))
     cols = json.loads((HERE / 'features.json').read_text(encoding='utf-8'))
     added, new = [], []
-    if through is None:
+    # The collector lists a day's stocks from that day's daily candles, which are still arriving at its 19:00 run, so
+    # `through` itself is only partly collected; the rest follows at the next day's run. Trust only days before it.
+    complete = max((d for d in days if through is not None and d < through), default=None)
+    if complete is None:
         log.write(f'{stamp} collector running or unreachable; picks and outcomes skipped\n')
     else:
         for prev_day, day in zip(days, days[1:]):
-            if day < FIRST_SIGNAL or day > through or day.isoformat() in recorded:
+            if day < FIRST_SIGNAL or day > complete or day.isoformat() in recorded:
                 continue
             tradable = flags_before(day)
             if tradable is None:
@@ -318,7 +321,7 @@ def main():
             log.write(f'{stamp} recorded {day}: {len(day_picks)} picks\n')
         picks = read(RECORDS / 'picks.csv')
         outcomes = read(RECORDS / 'outcomes.csv')
-        new = fill_outcomes(c, picks, outcomes, through)
+        new = fill_outcomes(c, picks, outcomes, complete)
         append(RECORDS / 'outcomes.csv', new)
         log.write(f'{stamp} outcomes filled: {len(new)}\n')
     log.close()
