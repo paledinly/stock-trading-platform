@@ -1,0 +1,41 @@
+  model 2025: train 1837633 rows (to 2024-12-30)
+  model 2026: train 2086536 rows (to 2025-12-30)
+  intraday 150/2601 stocks
+  intraday 300/2601 stocks
+  intraday 450/2601 stocks
+  intraday 600/2601 stocks
+  intraday 750/2601 stocks
+  intraday 900/2601 stocks
+  intraday 1050/2601 stocks
+  intraday 1200/2601 stocks
+  intraday 1350/2601 stocks
+  intraday 1500/2601 stocks
+  intraday 1650/2601 stocks
+  intraday 1800/2601 stocks
+  intraday 1950/2601 stocks
+  intraday 2100/2601 stocks
+  intraday 2250/2601 stocks
+  intraday 2400/2601 stocks
+  intraday 2550/2601 stocks
+  intraday 2601/2601 stocks
+  cut 15:15: rows 235691
+  cut 15:10: rows 235558
+== 2. Leak decomposition: PREMARKET (N=20, K=300) ML top-5 Net %, block 95% interval
+   input 15:15  entry cut      universe OLD  +0.479 [+0.142, +0.810]  halves +0.773 / +0.176  days 232
+   input 15:15  entry cut      universe PIT  +0.448 [+0.119, +0.763]  halves +0.778 / +0.106  days 232
+   input 15:15  entry auction  universe OLD  +0.438 [+0.107, +0.755]  halves +0.720 / +0.146  days 232
+   input 15:15  entry auction  universe PIT  +0.392 [+0.071, +0.699]  halves +0.702 / +0.071  days 232
+   input 15:10  entry cut      universe OLD  +0.567 [+0.251, +0.875]  halves +0.924 / +0.199  days 232
+   input 15:10  entry cut      universe PIT  +0.566 [+0.253, +0.869]  halves +0.952 / +0.166  days 232
+   input 15:10  entry auction  universe OLD  +0.432 [+0.115, +0.738]  halves +0.783 / +0.070  days 232
+   input 15:10  entry auction  universe PIT  +0.422 [+0.110, +0.723]  halves +0.796 / +0.035  days 232
+Traceback (most recent call last):
+  File "D:\Repo\_dev\app\stock-trading-platform\audit\2026-11-03-point-in-time-replay\pit_replay.py", line 357, in <module>
+    main()
+  File "D:\Repo\_dev\app\stock-trading-platform\audit\2026-11-03-point-in-time-replay\pit_replay.py", line 304, in main
+    diffs = [results[k]['mean'] - results[tuple(b[1][0] if j == b[0] else k[j] for j in range(3))]['mean']
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Repo\_dev\app\stock-trading-platform\audit\2026-11-03-point-in-time-replay\pit_replay.py", line 305, in <listcomp>
+    for k in results if k[b[0]] == b[1][1]]
+                        ~^^^^^^
+TypeError: tuple indices must be integers or slices, not str
