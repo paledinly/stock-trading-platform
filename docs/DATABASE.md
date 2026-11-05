@@ -30,6 +30,7 @@ PostgreSQL은 영구 데이터의 시스템 오브 레코드다. Redis와 프로
 | 연구: 정밀 깔때기 그림자 시세 | `funnel_shadow_quote`(V42) |
 | 연구: 장중 5분봉 (과거 1년 재현) | `intraday_research_bar`, `intraday_research_state`(V43) |
 | 연구: 투자자별 일별 순매수 | `investor_daily_flow`, `investor_flow_state`(V44) |
+| 연구: 상장폐지 종목 과거 기록 | `delisted_stock`, `delisted_daily_history`(V45) |
 | 기록 전용: 외부 요인 | `closing_candidate_context`, `dart_filing`(V35), `market_index_daily`(V37), `overseas_daily`(V40) |
 | 사용하지 않음 | `platform_schema_version`(V1), `intraday_input`, `intraday_recommendation`(V27) |
 
@@ -69,6 +70,16 @@ KIS "종목별 투자자매매동향(일별)"(`FHPTJ04160001`)로 받은 종목�
 - **수집 상태:** `investor_flow_state`가 종목별로 받은 범위(`oldest_date`, `newest_date`)와 과거 완료 여부(`complete`)를 기억한다. 끊겨도 이어 받는다. 같은 날짜를 다시 받으면 새 값으로 바꾼다(정정 반영).
 - 추천 전략은 이 테이블을 읽지 않는다.
 - **연구 봉인:** 2024-11-01 ~ 2026-10-30은 시험 구간으로 봉인했다. 연구 코드는 [sealed.py](../audit/2026-11-03-investor-flow-seal/sealed.py)로만 읽고, 사전 등록 전에는 이 구간의 수익률을 보지 않는다([규칙](../audit/2026-11-03-investor-flow-seal/README.md)).
+
+### delisted_stock · delisted_daily_history (V45, 연구용)
+
+`stock`과 다른 모든 표에는 지금 상장된 종목만 있다. 그래서 2018년 이후 연구는 상장폐지 종목이 빠진 생존 편향을 가진다. 이 두 표가 그 빈 곳을 채운다.
+
+- **목록:** KRX KIND 상장폐지현황(회사명, 종목코드, 폐지일자, 폐지사유, 시장)을 `POST /api/v1/market-data/delisted-history/stocks`로 넣는다. 다시 넣어도 받은 범위는 지우지 않는다.
+- **값:** `investor_daily_flow`와 같은 KIS 조회(`FHPTJ04160001`)가 폐지 종목에도 응답한다. 한 행이 (종목코드, 거래일)이다. 가격은 **원주가**(수정하지 않음, 원), 거래량(주), 거래대금(원), 외국인·기관·개인·연기금·기타법인 순매수 금액(백만 원)이다. 거래정지일은 거래량 0으로 온다.
+- **수집:** `POST /api/v1/market-data/delisted-history/backfill`로만 시작한다(스케줄 없음). 종목마다 폐지일부터 30거래일씩 거슬러 `MARKET_INVESTOR_FLOW_FLOOR`(기본 2018-01-01) 또는 상장일까지 받는다. 장중 보호 시간은 투자자 수급 수집과 같다. 진행은 `GET .../status`.
+- 종목코드로 묶는다(`stock.id` 없음). 같은 코드가 지금 `stock`에도 있으면(재상장 등) 연구 코드가 구분한다.
+- 추천 전략은 이 표들을 읽지 않는다.
 
 ### funnel_shadow_quote (V42, 연구용)
 

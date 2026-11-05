@@ -34,6 +34,9 @@ public class KisInvestorDailyClient {
             Long privateFundAmount, Long bankAmount, Long insuranceAmount, Long merchantBankAmount, Long pensionAmount,
             Long otherCorpAmount) { }
 
+    /** 하루치 가격(원주가, 원)과 거래량(주)·거래대금(원)에 순매수를 붙인 행이에요. 상장폐지 종목 연구용이에요. */
+    public record DailyRow(DailyFlow flow, Long open, Long high, Long low, Long close, Long volume, Long tradingValue) { }
+
     private final RestClient client;
     private final KisProperties properties;
     private final KisTokenManager tokens;
@@ -53,6 +56,14 @@ public class KisInvestorDailyClient {
      * 받는 것: 종목코드, 기준일. 돌려주는 것: 날짜 오름차순 목록(그 종목이 상장 전이면 비어 있어요).
      */
     public List<DailyFlow> fetch(String stockCode, LocalDate date) {
+        return fetchRows(stockCode, date).stream().map(DailyRow::flow).toList();
+    }
+
+    /**
+     * 하는 일: fetch와 같은 조회(호출 1회)에서 가격·거래량·거래대금까지 읽어요.
+     * 돌려주는 것: 날짜 오름차순 목록. 가격은 KIS가 준 값 그대로예요(수정주가로 바꾸지 않아요).
+     */
+    public List<DailyRow> fetchRows(String stockCode, LocalDate date) {
         properties.requireCredentials();
         JsonNode body = requests.execute(false, () -> {
             JsonNode response = client.get().uri(builder -> builder.path(ENDPOINT)
@@ -73,18 +84,20 @@ public class KisInvestorDailyClient {
                         response == null ? "EMPTY" : response.path("msg_cd").asText(), "Investor daily flow unavailable");
             return response;
         });
-        List<DailyFlow> rows = new ArrayList<>();
+        List<DailyRow> rows = new ArrayList<>();
         for (JsonNode row : body.path("output2")) {
             String raw = row.path("stck_bsop_date").asText("").trim();
             if (raw.length() != 8)
                 continue;
-            rows.add(new DailyFlow(LocalDate.parse(raw, DATE), number(row, "frgn_ntby_qty"), number(row, "orgn_ntby_qty"),
+            DailyFlow flow = new DailyFlow(LocalDate.parse(raw, DATE), number(row, "frgn_ntby_qty"), number(row, "orgn_ntby_qty"),
                     number(row, "prsn_ntby_qty"), number(row, "frgn_ntby_tr_pbmn"), number(row, "orgn_ntby_tr_pbmn"),
                     number(row, "prsn_ntby_tr_pbmn"), number(row, "scrt_ntby_tr_pbmn"), number(row, "ivtr_ntby_tr_pbmn"),
                     number(row, "pe_fund_ntby_tr_pbmn"), number(row, "bank_ntby_tr_pbmn"), number(row, "insu_ntby_tr_pbmn"),
-                    number(row, "mrbn_ntby_tr_pbmn"), number(row, "fund_ntby_tr_pbmn"), number(row, "etc_corp_ntby_tr_pbmn")));
+                    number(row, "mrbn_ntby_tr_pbmn"), number(row, "fund_ntby_tr_pbmn"), number(row, "etc_corp_ntby_tr_pbmn"));
+            rows.add(new DailyRow(flow, number(row, "stck_oprc"), number(row, "stck_hgpr"), number(row, "stck_lwpr"),
+                    number(row, "stck_clpr"), number(row, "acml_vol"), number(row, "acml_tr_pbmn")));
         }
-        rows.sort(java.util.Comparator.comparing(DailyFlow::date));
+        rows.sort(java.util.Comparator.comparing(r -> r.flow().date()));
         return rows;
     }
 

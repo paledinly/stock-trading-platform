@@ -2,6 +2,13 @@
 
 사용자와 운영에 영향을 주는 주요 변경만 기록한다. 단계별 AI 작업 로그는 Git 이력과 audit에 보존한다.
 
+## 2026-11-05
+
+- 연구용 상장폐지 종목 과거 기록 수집을 추가했다(V45 `delisted_stock`, `delisted_daily_history`).
+  - KRX KIND 상장폐지 목록을 넣으면 종목마다 2018년까지 원주가·거래대금·투자자별 순매수를 받는다. 지금 상장된 종목만 있던 과거 연구의 생존 편향을 줄이려는 것이다.
+  - API로만 시작한다: `POST /api/v1/market-data/delisted-history/stocks`(목록), `POST .../backfill`, `GET .../status`.
+  - 추천 점수는 이 데이터를 읽지 않는다.
+
 ## 2026-11-03
 
 - 시장 전체 스캔 순위표 조회를 고쳤다.

@@ -151,6 +151,9 @@ ScannerType: `VOLUME`, `PRICE_RISE`, `MOMENTUM`, `VOLUME_BREAKOUT`, `TURNOVER_BR
 | --- | --- | --- | --- |
 | POST | `/market-data/adjusted-daily/sweep` | **[운영·연구]** ETF·ETN 제외 전 종목 수정주가 일봉 수집을 백그라운드로 시작. 시작하면 202, 이미 실행 중이거나 KIS 비활성 또는 보호 시간(거래일 08:30~장 종료 15분 후)이면 409. 본문은 현재 상태. | 없음 |
 | GET | `/market-data/adjusted-daily/status` | **[운영·연구]** 진행 상태 | 없음 |
+| POST | `/market-data/delisted-history/stocks` | **[연구]** 상장폐지 목록 등록(KRX KIND). 본문: `[{stockCode, stockName, market, delistedDate, reason}]`. 응답: `received`, `added`(새 종목 수). 다시 넣어도 받은 범위는 유지 | 본문 |
+| POST | `/market-data/delisted-history/backfill` | **[연구]** 등록한 폐지 종목의 원주가·거래대금·투자자별 순매수를 폐지일부터 2018년까지 받기 시작(백그라운드). 202 시작, 409 실행 중·KIS 비활성·보호 시간(거래일 07:30~장 종료 15분 후) | 없음 |
+| GET | `/market-data/delisted-history/status` | **[연구]** 진행 상태: `stocks`, `completed`, `calls`, `rows`, `failed`, `stoppedReason`. 메모리 값 | 없음 |
 
 상태 필드: `running`, `startedAt`/`finishedAt`, `latestSession`(수집 기준 마지막 완료 거래일), `universe`, `processed`, `upToDate`, `fullFetches`, `calls`, `savedRows`, `revisedRows`(가격이 다시 계산된 행), `failed`, `lastStockCode`, `stoppedReason`(`SESSION_GUARD` 등). 메모리 값이며 재시작하면 초기화된다.
 
