@@ -1,0 +1,38 @@
+size-controlled diagnostic, discovery 2018-04-01..2024-10-31, h=20
+
+== FOR5 h=20 (buy side Q1) ==
+A size-neutral buy-side excess  +0.473 [+0.281, +0.654] p=0.0000
+B size-neutral Q1 - Q5          +0.087 [-0.135, +0.303] p=0.2112
+C size-neutral activity (|sig| top 20%) +0.474 [+0.226, +0.725] p=0.0003
+quintile excess raw:          Q1 +0.497, Q2 -0.151, Q3 -0.926, Q4 +0.146, Q5 +0.434
+quintile excess size-neutral: Q1 +0.473, Q2 -0.210, Q3 -0.727, Q4 +0.078, Q5 +0.387
+A by size bucket (B1 smallest): B1 +0.031, B2 +0.188, B3 +0.456, B4 +0.657, B5 +1.034
+reading: ACTIVITY (extremes) effect, not direction
+
+== INS5 h=20 (buy side Q1) ==
+A size-neutral buy-side excess  +0.740 [+0.498, +0.983] p=0.0000
+B size-neutral Q1 - Q5          +0.617 [+0.361, +0.879] p=0.0000
+C size-neutral activity (|sig| top 20%) +0.395 [+0.075, +0.711] p=0.0090
+quintile excess raw:          Q1 +0.716, Q2 +0.069, Q3 -0.609, Q4 -0.288, Q5 +0.113
+quintile excess size-neutral: Q1 +0.740, Q2 +0.125, Q3 -0.785, Q4 -0.194, Q5 +0.123
+A by size bucket (B1 smallest): B1 +0.368, B2 +0.514, B3 +0.787, B4 +0.776, B5 +1.254
+reading: DIRECTION effect survives size
+
+== FI20 h=20 (buy side Q1) ==
+A size-neutral buy-side excess  +0.734 [+0.479, +0.986] p=0.0000
+B size-neutral Q1 - Q5          +0.704 [+0.341, +1.076] p=0.0001
+C size-neutral activity (|sig| top 20%) +0.385 [+0.084, +0.688] p=0.0064
+quintile excess raw:          Q1 +0.747, Q2 +0.104, Q3 -0.917, Q4 +0.027, Q5 +0.040
+quintile excess size-neutral: Q1 +0.734, Q2 -0.034, Q3 -0.679, Q4 -0.043, Q5 +0.030
+A by size bucket (B1 smallest): B1 +0.326, B2 +0.751, B3 +0.597, B4 +0.808, B5 +1.188
+reading: DIRECTION effect survives size
+
+== FI1 h=20 (buy side Q1) ==
+A size-neutral buy-side excess  +0.503 [+0.345, +0.657] p=0.0000
+B size-neutral Q1 - Q5          +0.283 [+0.131, +0.437] p=0.0000
+C size-neutral activity (|sig| top 20%) +0.401 [+0.198, +0.608] p=0.0002
+quintile excess raw:          Q1 +0.529, Q2 -0.032, Q3 -0.667, Q4 -0.094, Q5 +0.264
+quintile excess size-neutral: Q1 +0.503, Q2 -0.050, Q3 -0.570, Q4 -0.099, Q5 +0.219
+A by size bucket (B1 smallest): B1 +0.097, B2 +0.177, B3 +0.487, B4 +0.709, B5 +1.042
+reading: DIRECTION effect survives size
+
