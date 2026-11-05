@@ -27,13 +27,17 @@ def committed(path):
     return tracked and clean
 
 
-def load_flows(c, prereg=None):
-    """DataFrame of investor_daily_flow up to the discovery end, or up to the test end with a committed prereg."""
+def load_flows(c, prereg=None, columns=COLUMNS):
+    """DataFrame of investor_daily_flow up to the discovery end, or up to the test end with a committed prereg.
+    `columns` picks a subset of COLUMNS to keep memory down."""
     if prereg is None:
         end = DISCOVERY_END
     elif committed(prereg):
         end = TEST_END
     else:
         raise PermissionError(f'test window sealed: {prereg} is not a committed pre-registration (README.md > 규칙 3)')
-    rows = c.execute(f"select {', '.join(COLUMNS)} from investor_daily_flow where trade_date <= %s", (end,)).fetchall()
-    return pd.DataFrame(rows, columns=COLUMNS)
+    columns = tuple(columns)
+    if not set(columns) <= set(COLUMNS):
+        raise ValueError(f'unknown columns: {sorted(set(columns) - set(COLUMNS))}')
+    rows = c.execute(f"select {', '.join(columns)} from investor_daily_flow where trade_date <= %s", (end,)).fetchall()
+    return pd.DataFrame(rows, columns=columns)

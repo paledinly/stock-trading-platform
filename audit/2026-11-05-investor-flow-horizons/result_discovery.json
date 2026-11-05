@@ -1,0 +1,382 @@
+{
+  "FOR5/1": {
+    "direction": 1,
+    "days": 1618,
+    "stocks_per_day": 1112.6,
+    "excess": [
+      0.0931,
+      0.077,
+      0.1088,
+      0.0
+    ],
+    "net": [
+      -0.4087,
+      -0.4644,
+      -0.3526,
+      1.0
+    ],
+    "pass": false,
+    "years_positive": 7
+  },
+  "FOR5/3": {
+    "direction": 1,
+    "days": 1616,
+    "stocks_per_day": 1112.8,
+    "excess": [
+      0.1468,
+      0.105,
+      0.1867,
+      0.0
+    ],
+    "net": [
+      -0.3583,
+      -0.557,
+      -0.1665,
+      1.0
+    ],
+    "pass": false,
+    "years_positive": 7
+  },
+  "FOR5/5": {
+    "direction": 1,
+    "days": 1614,
+    "stocks_per_day": 1113.0,
+    "excess": [
+      0.183,
+      0.1228,
+      0.2408,
+      0.0
+    ],
+    "net": [
+      -0.3194,
+      -0.638,
+      -0.0146,
+      0.9795
+    ],
+    "pass": false,
+    "years_positive": 7
+  },
+  "FOR5/10": {
+    "direction": 1,
+    "days": 1609,
+    "stocks_per_day": 1113.4,
+    "excess": [
+      0.2926,
+      0.1887,
+      0.3986,
+      0.0
+    ],
+    "net": [
+      -0.2034,
+      -0.8471,
+      0.4183,
+      0.7366
+    ],
+    "pass": false,
+    "years_positive": 7
+  },
+  "FOR5/20": {
+    "direction": -1,
+    "days": 1599,
+    "stocks_per_day": 1114.3,
+    "excess": [
+      0.4967,
+      0.298,
+      0.686,
+      0.0
+    ],
+    "net": [
+      0.0073,
+      -1.1976,
+      1.157,
+      0.4987
+    ],
+    "pass": true,
+    "years_positive": 6
+  },
+  "INS5/1": {
+    "direction": -1,
+    "days": 1618,
+    "stocks_per_day": 1112.6,
+    "excess": [
+      0.0919,
+      0.0758,
+      0.1078,
+      0.0
+    ],
+    "net": [
+      -0.4099,
+      -0.4655,
+      -0.3554,
+      1.0
+    ],
+    "pass": false,
+    "years_positive": 7
+  },
+  "INS5/3": {
+    "direction": -1,
+    "days": 1616,
+    "stocks_per_day": 1112.8,
+    "excess": [
+      0.1754,
+      0.1297,
+      0.2206,
+      0.0
+    ],
+    "net": [
+      -0.3297,
+      -0.5223,
+      -0.1391,
+      0.9999
+    ],
+    "pass": false,
+    "years_positive": 7
+  },
+  "INS5/5": {
+    "direction": -1,
+    "days": 1614,
+    "stocks_per_day": 1113.0,
+    "excess": [
+      0.2381,
+      0.1695,
+      0.3067,
+      0.0
+    ],
+    "net": [
+      -0.2643,
+      -0.5754,
+      0.0345,
+      0.9534
+    ],
+    "pass": false,
+    "years_positive": 7
+  },
+  "INS5/10": {
+    "direction": -1,
+    "days": 1609,
+    "stocks_per_day": 1113.4,
+    "excess": [
+      0.3882,
+      0.2591,
+      0.5106,
+      0.0
+    ],
+    "net": [
+      -0.1078,
+      -0.7257,
+      0.4943,
+      0.6335
+    ],
+    "pass": false,
+    "years_positive": 7
+  },
+  "INS5/20": {
+    "direction": -1,
+    "days": 1599,
+    "stocks_per_day": 1114.3,
+    "excess": [
+      0.7164,
+      0.4785,
+      0.9533,
+      0.0
+    ],
+    "net": [
+      0.227,
+      -1.0123,
+      1.417,
+      0.3575
+    ],
+    "pass": true,
+    "years_positive": 7
+  },
+  "FI20/1": {
+    "direction": -1,
+    "days": 1618,
+    "stocks_per_day": 1112.7,
+    "excess": [
+      0.0698,
+      0.0521,
+      0.0876,
+      0.0
+    ],
+    "net": [
+      -0.4321,
+      -0.488,
+      -0.3778,
+      1.0
+    ],
+    "pass": false,
+    "years_positive": 7
+  },
+  "FI20/3": {
+    "direction": -1,
+    "days": 1616,
+    "stocks_per_day": 1112.9,
+    "excess": [
+      0.1519,
+      0.1019,
+      0.2034,
+      0.0
+    ],
+    "net": [
+      -0.3536,
+      -0.5473,
+      -0.1621,
+      0.9999
+    ],
+    "pass": false,
+    "years_positive": 7
+  },
+  "FI20/5": {
+    "direction": -1,
+    "days": 1614,
+    "stocks_per_day": 1113.1,
+    "excess": [
+      0.2276,
+      0.1485,
+      0.3062,
+      0.0
+    ],
+    "net": [
+      -0.2754,
+      -0.5884,
+      0.0299,
+      0.9603
+    ],
+    "pass": false,
+    "years_positive": 7
+  },
+  "FI20/10": {
+    "direction": -1,
+    "days": 1609,
+    "stocks_per_day": 1113.5,
+    "excess": [
+      0.4053,
+      0.2553,
+      0.5476,
+      0.0
+    ],
+    "net": [
+      -0.0913,
+      -0.7297,
+      0.5223,
+      0.6153
+    ],
+    "pass": false,
+    "years_positive": 7
+  },
+  "FI20/20": {
+    "direction": -1,
+    "days": 1599,
+    "stocks_per_day": 1114.4,
+    "excess": [
+      0.7474,
+      0.48,
+      1.0075,
+      0.0
+    ],
+    "net": [
+      0.2572,
+      -0.9943,
+      1.4548,
+      0.3406
+    ],
+    "pass": true,
+    "years_positive": 6
+  },
+  "FI1/1": {
+    "direction": 1,
+    "days": 1618,
+    "stocks_per_day": 1112.5,
+    "excess": [
+      0.0948,
+      0.0774,
+      0.1121,
+      0.0
+    ],
+    "net": [
+      -0.4067,
+      -0.4617,
+      -0.352,
+      1.0
+    ],
+    "pass": false,
+    "years_positive": 7
+  },
+  "FI1/3": {
+    "direction": -1,
+    "days": 1616,
+    "stocks_per_day": 1112.7,
+    "excess": [
+      0.124,
+      0.0867,
+      0.1609,
+      0.0
+    ],
+    "net": [
+      -0.3803,
+      -0.5754,
+      -0.1863,
+      1.0
+    ],
+    "pass": false,
+    "years_positive": 7
+  },
+  "FI1/5": {
+    "direction": -1,
+    "days": 1614,
+    "stocks_per_day": 1112.8,
+    "excess": [
+      0.1917,
+      0.1377,
+      0.2452,
+      0.0
+    ],
+    "net": [
+      -0.3099,
+      -0.6284,
+      -0.0055,
+      0.9768
+    ],
+    "pass": false,
+    "years_positive": 7
+  },
+  "FI1/10": {
+    "direction": -1,
+    "days": 1609,
+    "stocks_per_day": 1113.2,
+    "excess": [
+      0.2933,
+      0.1995,
+      0.3839,
+      0.0
+    ],
+    "net": [
+      -0.2013,
+      -0.8395,
+      0.416,
+      0.7338
+    ],
+    "pass": false,
+    "years_positive": 7
+  },
+  "FI1/20": {
+    "direction": -1,
+    "days": 1599,
+    "stocks_per_day": 1114.2,
+    "excess": [
+      0.5289,
+      0.366,
+      0.6871,
+      0.0
+    ],
+    "net": [
+      0.0409,
+      -1.2058,
+      1.2373,
+      0.4765
+    ],
+    "pass": true,
+    "years_positive": 7
+  }
+}

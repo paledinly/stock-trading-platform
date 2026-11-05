@@ -1,0 +1,47 @@
+investor flow study, stage discovery: signal days 2018-04-01..2024-10-31
+
+== FOR5 (direction +, buy side Q5) ==
+days 1618, stocks/day 1110, late exits 0, |net| > 35%: 0
+PRIMARY buy-side excess   -0.018 [-0.025, -0.011] p=1.0000
+long-short Q5-Q1          +0.007 [-0.003, +0.017] p=0.0792
+Q5 excess -0.018, Q1 excess -0.025, buy-side Net -0.308, universe Net -0.290
+5-day-return residual     -0.020 [-0.026, -0.013] p=1.0000
+rank corr with 5-day ret  +0.074
+pre-market list (300)     -0.027 [-0.038, -0.016] p=1.0000
+by year: 2018 -0.030, 2019 -0.030, 2020 -0.028, 2021 -0.008, 2022 -0.021, 2023 -0.008, 2024 -0.000
+DISCOVERY FAIL (mean > 0, CI low > 0, years > 0: 0/7 >= 5)
+
+== INS5 (direction +, buy side Q5) ==
+days 1618, stocks/day 1110, late exits 0, |net| > 35%: 0
+PRIMARY buy-side excess   -0.018 [-0.028, -0.008] p=0.9995
+long-short Q5-Q1          +0.001 [-0.009, +0.011] p=0.4263
+Q5 excess -0.018, Q1 excess -0.019, buy-side Net -0.308, universe Net -0.290
+5-day-return residual     -0.022 [-0.031, -0.014] p=1.0000
+rank corr with 5-day ret  +0.286
+pre-market list (300)     -0.028 [-0.042, -0.015] p=1.0000
+by year: 2018 -0.046, 2019 -0.042, 2020 -0.035, 2021 -0.004, 2022 -0.008, 2023 -0.011, 2024 +0.023
+DISCOVERY FAIL (mean > 0, CI low > 0, years > 0: 1/7 >= 5)
+
+== FI20 (direction +, buy side Q5) ==
+days 1618, stocks/day 1110, late exits 0, |net| > 35%: 0
+PRIMARY buy-side excess   -0.015 [-0.024, -0.007] p=0.9998
+long-short Q5-Q1          +0.008 [-0.002, +0.019] p=0.0602
+Q5 excess -0.015, Q1 excess -0.024, buy-side Net -0.305, universe Net -0.290
+5-day-return residual     -0.018 [-0.026, -0.009] p=1.0000
+rank corr with 5-day ret  +0.103
+pre-market list (300)     -0.027 [-0.040, -0.015] p=0.9999
+by year: 2018 -0.032, 2019 -0.038, 2020 -0.021, 2021 -0.009, 2022 -0.013, 2023 -0.011, 2024 +0.019
+DISCOVERY FAIL (mean > 0, CI low > 0, years > 0: 1/7 >= 5)
+
+== FI1 (direction +, buy side Q5) ==
+days 1618, stocks/day 1110, late exits 0, |net| > 35%: 0
+PRIMARY buy-side excess   -0.014 [-0.021, -0.006] p=1.0000
+long-short Q5-Q1          +0.017 [+0.005, +0.028] p=0.0026
+Q5 excess -0.014, Q1 excess -0.031, buy-side Net -0.304, universe Net -0.290
+5-day-return residual     -0.016 [-0.024, -0.009] p=1.0000
+rank corr with 5-day ret  +0.131
+pre-market list (300)     -0.018 [-0.030, -0.006] p=0.9985
+by year: 2018 -0.051, 2019 -0.018, 2020 -0.018, 2021 -0.001, 2022 -0.010, 2023 -0.012, 2024 +0.006
+DISCOVERY FAIL (mean > 0, CI low > 0, years > 0: 1/7 >= 5)
+
+

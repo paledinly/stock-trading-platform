@@ -1,0 +1,54 @@
+{
+  "FOR5": {
+    "direction": 1,
+    "days": 1618,
+    "stocks_per_day": 1110.2,
+    "excess": [
+      -0.018,
+      -0.025,
+      -0.0113,
+      1.0
+    ],
+    "pass": false,
+    "years_positive": 0
+  },
+  "INS5": {
+    "direction": 1,
+    "days": 1618,
+    "stocks_per_day": 1110.2,
+    "excess": [
+      -0.0175,
+      -0.0278,
+      -0.0075,
+      0.9995
+    ],
+    "pass": false,
+    "years_positive": 1
+  },
+  "FI20": {
+    "direction": 1,
+    "days": 1618,
+    "stocks_per_day": 1110.3,
+    "excess": [
+      -0.0152,
+      -0.0238,
+      -0.0066,
+      0.9998
+    ],
+    "pass": false,
+    "years_positive": 1
+  },
+  "FI1": {
+    "direction": 1,
+    "days": 1618,
+    "stocks_per_day": 1110.1,
+    "excess": [
+      -0.0138,
+      -0.0214,
+      -0.0065,
+      1.0
+    ],
+    "pass": false,
+    "years_positive": 1
+  }
+}
