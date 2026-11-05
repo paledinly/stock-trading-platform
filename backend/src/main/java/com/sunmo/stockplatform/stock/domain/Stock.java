@@ -41,6 +41,12 @@ public class Stock {
     private boolean tradingHalted;
     @Column(name = "is_active", nullable = false)
     private boolean active;
+    @Column(name = "sector_large_code", length = 4)
+    private String sectorLargeCode;
+    @Column(name = "sector_medium_code", length = 4)
+    private String sectorMediumCode;
+    @Column(name = "sector_small_code", length = 4)
+    private String sectorSmallCode;
     @Column(name = "master_synced_at", nullable = false)
     private Instant masterSyncedAt;
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -85,6 +91,16 @@ public class Stock {
         this.tradingHalted = tradingHalted;
         this.active = true;
         this.masterSyncedAt = syncedAt;
+    }
+
+    /**
+     * 마스터의 지수업종 대·중·소분류 코드를 적어요(미분류는 null).
+     * 받는 것: 대분류, 중분류, 소분류 코드. 돌려주는 것: 없음.
+     */
+    public void assignSector(String large, String medium, String small) {
+        this.sectorLargeCode = large;
+        this.sectorMediumCode = medium;
+        this.sectorSmallCode = small;
     }
 
     /**
@@ -155,6 +171,18 @@ public class Stock {
 
     public boolean isActive() {
         return active;
+    }
+
+    public String getSectorLargeCode() {
+        return sectorLargeCode;
+    }
+
+    public String getSectorMediumCode() {
+        return sectorMediumCode;
+    }
+
+    public String getSectorSmallCode() {
+        return sectorSmallCode;
     }
 
     public Instant getMasterSyncedAt() {

@@ -24,6 +24,9 @@ class KisMasterParserTest {
         int[] widths = {2,1,4,4,4,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,9,5,5,1,1,1};
         String suffix = " ".repeat(227);
         suffix = replaceField(suffix, widths, 0, "EF");
+        suffix = replaceField(suffix, widths, 2, "0027");
+        suffix = replaceField(suffix, widths, 3, "0013");
+        suffix = replaceField(suffix, widths, 4, "0000");
         suffix = replaceField(suffix, widths, 12, "2");
         suffix = replaceField(suffix, widths, 34, "Y");
         suffix = replaceField(suffix, widths, 36, "Y");
@@ -37,6 +40,9 @@ class KisMasterParserTest {
                 assertThat(stock.marketType()).isEqualTo(MarketType.ETF);
                 assertThat(stock.managed()).isTrue();
                 assertThat(stock.tradingHalted()).isTrue();
+                assertThat(stock.sectorLarge()).isEqualTo("0027");
+                assertThat(stock.sectorMedium()).isEqualTo("0013");
+                assertThat(stock.sectorSmall()).isNull();
             });
         }
     }
@@ -50,6 +56,8 @@ class KisMasterParserTest {
         int[] widths = {2,1,4,4,4,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,9,5,5,1,1,1};
         String suffix = " ".repeat(221);
         suffix = replaceField(suffix, widths, 0, "ST");
+        suffix = replaceField(suffix, widths, 2, "1009");
+        suffix = replaceField(suffix, widths, 3, "1027");
         suffix = replaceField(suffix, widths, 29, "Y");
         suffix = replaceField(suffix, widths, 31, "Y");
         String line = fixed("036930", 9) + fixed("KR7036930004", 12) + "주성엔지니어링" + suffix;
@@ -60,8 +68,22 @@ class KisMasterParserTest {
                 assertThat(stock.marketType()).isEqualTo(MarketType.STOCK);
                 assertThat(stock.managed()).isTrue();
                 assertThat(stock.tradingHalted()).isTrue();
+                assertThat(stock.sectorLarge()).isEqualTo("1009");
+                assertThat(stock.sectorMedium()).isEqualTo("1027");
+                assertThat(stock.sectorSmall()).isNull();
             });
         }
+    }
+
+    /**
+     * 지수 코드 마스터에서 코드와 이름을 읽는지 확인해요.
+     * 준비: 실제 파일과 같은 모양(구분 1자리 + 코드 4자리 + 공백 채운 이름)의 두 줄과 빈 줄이에요.
+     * 기대: 0013 → 전기·전자, 1027 → 기계·장비, 빈 줄은 무시해요.
+     */
+    @Test void parsesSectorNames() {
+        String text = "00013" + fixed("전기·전자", 36) + "\r\n" + "11027" + fixed("기계·장비", 36) + "\r\n\r\n";
+        var names = new KisMasterParser().parseSectorNames(text.getBytes(Charset.forName("MS949")));
+        assertThat(names).containsExactly(java.util.Map.entry("0013", "전기·전자"), java.util.Map.entry("1027", "기계·장비"));
     }
 
     /** 고정 폭 문자열에서 index번째 필드 자리에 값을 끼워 넣는 도우미예요. */
