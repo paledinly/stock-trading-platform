@@ -1,6 +1,7 @@
 /*
  * KIS 종목 마스터 파일(.mst, MS949 인코딩의 고정 길이 텍스트)을 한 줄씩 잘라 MasterStock 목록으로 바꾸는 파일이에요.
- * 앞부분에서 종목코드, 표준코드, 종목명을 읽고, 뒷부분의 고정 폭 칸에서 종목 유형, 거래정지, 관리종목 여부를 읽어요.
+ * 앞부분에서 종목코드, 표준코드, 종목명을 읽고, 뒷부분의 고정 폭 칸에서 종목 유형, 거래정지, 관리종목 여부와 업종 코드를 읽어요.
+ * 업종 코드의 이름은 지수 코드 마스터(idxcode.mst)에서 읽어요.
  * StockMasterSyncService가 내려받은 마스터 파일을 해석할 때 이 파서를 써요.
  */
 package com.sunmo.stockplatform.kis.master;
@@ -14,7 +15,9 @@ import org.springframework.stereotype.Component;
 
 import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 고정 길이 마스터 파일을 해석하는 파서예요.
@@ -61,10 +64,34 @@ public class KisMasterParser {
             String etpCode = field(suffix, widths, market == Market.KOSPI ? 12 : 8);
             boolean halted = "Y".equals(field(suffix, widths, market == Market.KOSPI ? 34 : 29));
             boolean managed = "Y".equals(field(suffix, widths, market == Market.KOSPI ? 36 : 31));
+            // 2~4번 칸은 지수업종 대·중·소분류 코드예요(두 시장 같은 자리).
             result.add(new MasterStock(stockCode, standardCode, stockName, market,
-                    marketType(groupCode, etpCode), managed, halted));
+                    marketType(groupCode, etpCode), managed, halted, sector(field(suffix, widths, 2)),
+                    sector(field(suffix, widths, 3)), sector(field(suffix, widths, 4))));
         }
         return result;
+    }
+
+    /**
+     * 지수 코드 마스터(idxcode.mst)를 코드 → 이름 표로 읽어요.
+     * 한 줄은 구분 1자리, 코드 4자리, 이름(공백 채움)이에요. 코스피 코드는 0, 코스닥 코드는 1로 시작해 코드만으로 겹치지 않아요.
+     * 받는 것: .mst 파일 바이트. 돌려주는 것: 코드와 이름의 표(빈 줄·짧은 줄은 건너뛰어요).
+     */
+    public Map<String, String> parseSectorNames(byte[] content) {
+        Map<String, String> names = new LinkedHashMap<>();
+        for (String line : new String(content, CP949).split("\\R")) {
+            if (line.length() < 6)
+                continue;
+            String name = line.substring(5).trim();
+            if (!name.isEmpty())
+                names.put(line.substring(1, 5), name);
+        }
+        return names;
+    }
+
+    /** 업종 코드 칸 값을 정리해요. 빈 값과 미분류("0000")는 null이에요. */
+    private static String sector(String code) {
+        return code.isEmpty() || "0000".equals(code) ? null : code;
     }
 
     /**

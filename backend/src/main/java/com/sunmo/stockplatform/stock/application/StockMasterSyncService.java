@@ -1,6 +1,6 @@
 /*
  * KIS 종목 마스터 파일을 내려받아 파싱하고, DB의 종목 테이블을 최신 내용으로 맞추는 파일이에요.
- * 새 종목은 추가하고, 이미 있는 종목은 이름·시장·관리/정지 상태를 갱신해요.
+ * 새 종목은 추가하고, 이미 있는 종목은 이름·시장·관리/정지 상태·업종 코드를 갱신해요. 업종 코드 이름표(sector_code)도 맞춰요.
  * StockMasterBootstrap(시작 시), StockMasterController(수동), 그리고 kis 쪽 마스터 동기화 스케줄러가 사용해요.
  */
 package com.sunmo.stockplatform.stock.application;
@@ -10,9 +10,13 @@ import com.sunmo.stockplatform.kis.master.KisMasterParser;
 import com.sunmo.stockplatform.stock.domain.Market;
 import com.sunmo.stockplatform.stock.domain.Stock;
 import com.sunmo.stockplatform.stock.infrastructure.StockRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.sql.Timestamp;
 import java.time.Clock;
 
 /**
@@ -21,19 +25,23 @@ import java.time.Clock;
  */
 @Service
 public class StockMasterSyncService {
+    private static final Logger log = LoggerFactory.getLogger(StockMasterSyncService.class);
     private final KisMasterFileClient fileClient;
     private final KisMasterParser parser;
     private final StockRepository repository;
+    private final JdbcTemplate jdbc;
     private final Clock clock = Clock.systemUTC();
 
     /**
-     * 마스터 파일 다운로더, 파서, 종목 레포지토리를 주입받아요.
-     * 받는 것: 파일 클라이언트, 파서, 레포지토리. 돌려주는 것: 없음(생성자).
+     * 마스터 파일 다운로더, 파서, 종목 레포지토리, 업종 이름표용 JDBC를 주입받아요.
+     * 받는 것: 파일 클라이언트, 파서, 레포지토리, JdbcTemplate. 돌려주는 것: 없음(생성자).
      */
-    public StockMasterSyncService(KisMasterFileClient fileClient, KisMasterParser parser, StockRepository repository) {
+    public StockMasterSyncService(KisMasterFileClient fileClient, KisMasterParser parser, StockRepository repository,
+            JdbcTemplate jdbc) {
         this.fileClient = fileClient;
         this.parser = parser;
         this.repository = repository;
+        this.jdbc = jdbc;
     }
 
     /**
@@ -59,6 +67,7 @@ public class StockMasterSyncService {
                 stock.synchronize(master.standardCode(), master.stockName(), master.market(), master.marketType(),
                         master.managed(), master.tradingHalted(), synchronizedAt);
             }
+            stock.assignSector(master.sectorLarge(), master.sectorMedium(), master.sectorSmall());
             repository.save(stock);
         }
         return masterStocks.size();
@@ -72,6 +81,29 @@ public class StockMasterSyncService {
      * 그러면 시장 단위로 묶이지 않고 save가 한 건씩 따로 커밋되고, 중간 실패 시 일부만 반영될 수 있어요.
      */
     public int synchronizeAll() {
-        return synchronize(Market.KOSPI) + synchronize(Market.KOSDAQ);
+        int count = synchronize(Market.KOSPI) + synchronize(Market.KOSDAQ);
+        synchronizeSectorNames();
+        return count;
+    }
+
+    /**
+     * 업종 코드 이름표(sector_code)를 KIS 지수 코드 마스터로 맞춰요. 연구용 보조 정보라 실패해도 종목 동기화는 성공으로 둬요.
+     * 받는 것: 없음. 돌려주는 것: 반영한 코드 수(실패하면 0).
+     */
+    public int synchronizeSectorNames() {
+        try {
+            var names = parser.parseSectorNames(fileClient.downloadSectorCodes());
+            var now = Timestamp.from(clock.instant());
+            var rows = names.entrySet().stream()
+                    .map(entry -> new Object[] { entry.getKey(), entry.getValue(), now }).toList();
+            jdbc.batchUpdate("""
+                    insert into sector_code(code, sector_name, updated_at) values (?, ?, ?)
+                    on conflict (code) do update set sector_name = excluded.sector_name, updated_at = excluded.updated_at""",
+                    rows);
+            return names.size();
+        } catch (RuntimeException exception) {
+            log.warn("Sector-code names were not refreshed: {}", exception.getMessage());
+            return 0;
+        }
     }
 }

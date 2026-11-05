@@ -1,6 +1,6 @@
 /*
  * KIS가 공개하는 종목 마스터 파일(시장별 전체 종목 목록이 담긴 zip)을 내려받아 압축을 푸는 파일이에요.
- * 압축 안에서 기대한 파일 이름(kospi_code.mst 또는 kosdaq_code.mst)만 골라 바이트로 돌려줘요.
+ * 압축 안에서 기대한 파일 이름(kospi_code.mst, kosdaq_code.mst 또는 업종 이름용 idxcode.mst)만 골라 바이트로 돌려줘요.
  * StockMasterSyncService가 종목 마스터를 동기화할 때 이 클라이언트로 원본 파일을 가져와요.
  */
 package com.sunmo.stockplatform.kis.master;
@@ -52,6 +52,22 @@ public class KisMasterFileClient {
             return extract(zip, expected);
         } catch (RestClientException exception) {
             throw failure("KIS master download failed for " + market, exception);
+        }
+    }
+
+    /**
+     * 지수(업종) 코드 마스터 zip을 내려받아 idxcode.mst 내용을 꺼내요. 주소는 코스피 마스터와 같은 폴더예요.
+     * 받는 것: 없음. 돌려주는 것: idxcode.mst의 원본 바이트.
+     */
+    public byte[] downloadSectorCodes() {
+        URI uri = properties.master().kospiUrl().resolve("idxcode.mst.zip");
+        try {
+            byte[] zip = restClient.get().uri(uri).retrieve().body(byte[].class);
+            if (zip == null || zip.length == 0)
+                throw failure("KIS index-code master download returned empty data", null);
+            return extract(zip, "idxcode.mst");
+        } catch (RestClientException exception) {
+            throw failure("KIS index-code master download failed", exception);
         }
     }
 

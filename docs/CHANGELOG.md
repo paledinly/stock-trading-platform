@@ -4,6 +4,9 @@
 
 ## 2026-11-05
 
+- 종목 마스터의 업종 코드를 저장한다(V46 `stock.sector_*_code`, `sector_code`).
+  - 마스터 파일에 있던 지수업종 대·중·소분류 코드를 읽고 버리던 것을 저장하고, KIS 지수 코드 마스터에서 코드 이름표를 받는다. 업종별 수급 쏠림 연구용이다.
+  - 종목 마스터 동기화 때 함께 갱신된다. 추천 점수는 이 값을 읽지 않는다.
 - 연구용 상장폐지 종목 과거 기록 수집을 추가했다(V45 `delisted_stock`, `delisted_daily_history`).
   - KRX KIND 상장폐지 목록을 넣으면 종목마다 2018년까지 원주가·거래대금·투자자별 순매수를 받는다. 지금 상장된 종목만 있던 과거 연구의 생존 편향을 줄이려는 것이다.
   - API로만 시작한다: `POST /api/v1/market-data/delisted-history/stocks`(목록), `POST .../backfill`, `GET .../status`.

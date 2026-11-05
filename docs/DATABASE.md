@@ -8,7 +8,7 @@ PostgreSQL은 영구 데이터의 시스템 오브 레코드다. Redis와 프로
 
 | 영역 | 테이블 (만든 migration) |
 | --- | --- |
-| 종목 | `stock`(V2) |
+| 종목 | `stock`(V2, 업종 코드 V46), `sector_code`(V46) |
 | 관심종목 | `watchlist_group`, `watchlist_item`(V3, 실시간 고정 컬럼 V25) |
 | 수동 거래 기록 | `trade`, `trade_reason`, `investment_journal`(V4) |
 | 봉 | `stock_candle`(V5, `5M`·`1D`, 보충 보강 V8) |
@@ -80,6 +80,13 @@ KIS "종목별 투자자매매동향(일별)"(`FHPTJ04160001`)로 받은 종목�
 - **수집:** `POST /api/v1/market-data/delisted-history/backfill`로만 시작한다(스케줄 없음). 종목마다 폐지일부터 30거래일씩 거슬러 `MARKET_INVESTOR_FLOW_FLOOR`(기본 2018-01-01) 또는 상장일까지 받는다. 장중 보호 시간은 투자자 수급 수집과 같다. 진행은 `GET .../status`.
 - 종목코드로 묶는다(`stock.id` 없음). 같은 코드가 지금 `stock`에도 있으면(재상장 등) 연구 코드가 구분한다.
 - 추천 전략은 이 표들을 읽지 않는다.
+
+### stock 업종 코드 · sector_code (V46)
+
+- `stock.sector_large_code`, `sector_medium_code`, `sector_small_code`: KIS 종목 마스터의 지수업종 대·중·소분류 코드다. 미분류(`0000`)는 NULL이다. 코스피 코드는 0, 코스닥 코드는 1로 시작한다(예: 삼성전자 `0027` 제조 › `0013` 전기·전자). 2026-11-05 파일 기준으로 소분류는 모두 미분류다.
+- `sector_code`: 코드 → 이름표. KIS 지수 코드 마스터(`idxcode.mst.zip`, 종목 마스터와 같은 폴더)에서 받는다.
+- 둘 다 종목 마스터 동기화(`POST /api/v1/stocks/master/sync` 또는 `KIS_MASTER_SYNC_ENABLED` 스케줄) 때 갱신된다. 마스터의 **현재** 분류라 과거 업종 변경 이력은 없다. 상장폐지 종목은 마스터에 없어 업종이 없다.
+- 추천 전략은 이 값을 읽지 않는다.
 
 ### funnel_shadow_quote (V42, 연구용)
 
