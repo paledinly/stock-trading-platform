@@ -1,0 +1,66 @@
+final flow study, stage discovery: signal days 2018-04-01..2024-10-31, hold 20 traded rows
+
+delisted stocks loaded 279; universe rows (INS5) 1886349, of which delisted 113951 (226 stocks)
+exit kinds (INS5): NORMAL 1884218, DELIST 1907, STUCK 224
+late exits (halt) 10500, dropped for corporate-action jumps 0
+rows per signal: INS5 1886349, FI20 1886516, FI1 1886026, COMB 1886026
+
+== INS5 h=20 (direction -, buy side Q1) ==
+days 1599, stocks/day 1180, buy-side rows 376628, of which delisted 16612, DELIST exits 197, STUCK 4, |net| > 35%: 81535
+PRIMARY buy-side excess   +0.765 [+0.480, +1.029] p=0.0000
+buy-side Net (BASE)       +0.174 [-1.064, +1.355] p=0.3918
+buy-side Net (HIGH cost)  +0.034 [-1.203, +1.213] p=0.4788
+long-short Q5-Q1          -0.544 [-0.813, -0.284] p=1.0000
+Q5 excess +0.221, Q1 excess +0.765, universe Net -0.591, top 20 Net +0.192
+by year excess/Net: 2018 +0.756/-2.050, 2019 +1.009/+0.097, 2020 +0.379/+3.199, 2021 +0.599/+0.508, 2022 +1.003/-1.530, 2023 +0.233/+0.599, 2024 +1.585/-0.337
+STUCK stress: haircut +0%: excess +0.760, Net +0.175; haircut -100%: excess +0.770, Net +0.174
+diag survivors only excess   +0.718 [+0.480, +0.956] p=0.0000
+diag sector-neutral excess   +0.605 [+0.339, +0.840] p=0.0001
+DISCOVERY PASS (excess > 0, CI low > 0, years 7/7 >= 5, Net > 0)
+
+== FI20 h=20 (direction -, buy side Q1) ==
+days 1599, stocks/day 1180, buy-side rows 376658, of which delisted 18544, DELIST exits 261, STUCK 5, |net| > 35%: 81564
+PRIMARY buy-side excess   +0.797 [+0.484, +1.089] p=0.0000
+buy-side Net (BASE)       +0.205 [-1.034, +1.394] p=0.3700
+buy-side Net (HIGH cost)  +0.065 [-1.173, +1.252] p=0.4596
+long-short Q5-Q1          -0.705 [-1.086, -0.332] p=0.9999
+Q5 excess +0.092, Q1 excess +0.797, universe Net -0.592, top 20 Net +0.253
+by year excess/Net: 2018 +1.241/-1.564, 2019 +1.190/+0.276, 2020 +0.117/+2.935, 2021 +0.720/+0.628, 2022 +1.038/-1.494, 2023 +0.187/+0.551, 2024 +1.346/-0.578
+STUCK stress: haircut +0%: excess +0.793, Net +0.206; haircut -100%: excess +0.802, Net +0.204
+diag survivors only excess   +0.750 [+0.484, +1.008] p=0.0000
+diag sector-neutral excess   +0.738 [+0.432, +0.993] p=0.0001
+DISCOVERY PASS (excess > 0, CI low > 0, years 7/7 >= 5, Net > 0)
+
+== FI1 h=20 (direction -, buy side Q1) ==
+days 1599, stocks/day 1180, buy-side rows 376574, of which delisted 19309, DELIST exits 175, STUCK 17, |net| > 35%: 81449
+PRIMARY buy-side excess   +0.652 [+0.492, +0.810] p=0.0000
+buy-side Net (BASE)       +0.063 [-1.181, +1.278] p=0.4673
+buy-side Net (HIGH cost)  -0.077 [-1.320, +1.137] p=0.5540
+long-short Q5-Q1          -0.189 [-0.404, +0.076] p=0.9289
+Q5 excess +0.463, Q1 excess +0.652, universe Net -0.589, top 20 Net +0.100
+by year excess/Net: 2018 +0.619/-2.184, 2019 +0.846/-0.063, 2020 +0.346/+3.170, 2021 +0.491/+0.399, 2022 +0.774/-1.756, 2023 +0.666/+1.034, 2024 +0.870/-1.050
+STUCK stress: haircut +0%: excess +0.648, Net +0.065; haircut -100%: excess +0.655, Net +0.061
+diag survivors only excess   +0.533 [+0.370, +0.692] p=0.0000
+diag sector-neutral excess   +0.624 [+0.468, +0.816] p=0.0000
+DISCOVERY PASS (excess > 0, CI low > 0, years 7/7 >= 5, Net > 0)
+
+== COMB h=20 (direction -, buy side Q1) ==
+days 1599, stocks/day 1180, buy-side rows 376574, of which delisted 19154, DELIST exits 249, STUCK 11, |net| > 35%: 81449
+PRIMARY buy-side excess   +0.674 [+0.398, +0.916] p=0.0001
+buy-side Net (BASE)       +0.085 [-1.193, +1.312] p=0.4530
+buy-side Net (HIGH cost)  -0.055 [-1.331, +1.171] p=0.5413
+long-short Q5-Q1          -0.592 [-0.952, -0.195] p=0.9982
+Q5 excess +0.082, Q1 excess +0.674, universe Net -0.589, top 20 Net +0.379
+by year excess/Net: 2018 +0.973/-1.830, 2019 +0.984/+0.075, 2020 +0.426/+3.250, 2021 +0.540/+0.448, 2022 +0.805/-1.725, 2023 +0.080/+0.447, 2024 +1.095/-0.825
+STUCK stress: haircut +0%: excess +0.670, Net +0.086; haircut -100%: excess +0.678, Net +0.083
+diag survivors only excess   +0.672 [+0.470, +0.874] p=0.0000
+diag sector-neutral excess   +0.525 [+0.256, +0.743] p=0.0005
+DISCOVERY PASS (excess > 0, CI low > 0, years 7/7 >= 5, Net > 0)
+
+== diag sector flow (sector val20-weighted FI20, sectors other than NA) ==
+Q5 excess +0.199 [-0.055, +0.448] p=0.0607
+Q1 excess +0.177 [-0.100, +0.443] p=0.1034
+Q5-Q1     +0.022 [-0.363, +0.422] p=0.4602
+
+summary: INS5 PASS, FI20 PASS, FI1 PASS, COMB PASS
+
