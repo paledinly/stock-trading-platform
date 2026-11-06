@@ -9,9 +9,10 @@ Committed with the README before the first discovery run. Implementation details
     code in delisted_stock -> its last traded row (DELIST); otherwise, if its last row is before the last trading day
     in the data -> last close x (1 + HAIRCUT) (STUCK); otherwise no exit (row dropped).
   Window: kept when the market's (H-1)-th trading day after d is <= the stage end; a later actual exit (halt) is kept.
-  Corporate actions (delisted source only, raw prices): a traded row t is a jump when |c_t / c_t-1 - 1| > JUMP or
-    |o_t / c_t-1 - 1| > JUMP, except the stock's last TAIL traded rows (정리매매). A holding with a jump in rows i+1..j
-    is dropped and counted.
+  Corporate actions (amended 2026-11-06 before the test stage, README.md > 사전 등록 수정): for every stock a traded row
+    t is a jump when |c_t / c_t-1 - 1| > JUMP or |o_t / c_t-1 - 1| > JUMP; in the stock's last TAIL traded rows
+    (정리매매) only an upward move > JUMP counts. A holding with a jump in rows i+1..j is dropped and counted.
+    (As first registered: delisted source only, and the last TAIL rows fully exempt.)
   COMB = mean of the day rank percentiles of INS5, FI20 and FI1 over rows that have all three.
   Ranking: rows in (sid, d) order, rank(method='first'); Q5 = pct > 0.8, Q1 = pct <= 0.2.
   Sector group = stock.sector_medium_code, else sector_large_code, else 'NA' (delisted stocks are 'NA').
@@ -120,7 +121,11 @@ def stats(df, trading):
     rows_left = g['d'].transform('size') - df['n_prev'] - 1
     has = rows_left >= H - 1
     last_c, last_d, last_pos = g['c'].transform('last'), g['d'].transform('last'), g['pos'].transform('last')
-    jump = (((df['c'] / prev_c - 1).abs() > JUMP) | (df['gap'].abs() > JUMP)) & (df['src'] == 'D') & (rows_left >= TAIL)
+    # amendment 1 (2026-11-06, before the test stage; README.md > 사전 등록 수정): every stock, and inside the last TAIL
+    # rows an upward jump still counts (a capital reduction or reverse split during a long halt); 정리매매 crashes stay
+    any_jump = ((df['c'] / prev_c - 1).abs() > JUMP) | (df['gap'].abs() > JUMP)
+    up_jump = ((df['c'] / prev_c - 1) > JUMP) | (df['gap'] > JUMP)
+    jump = (any_jump & (rows_left >= TAIL)) | (up_jump & (rows_left < TAIL))
     cj = jump.astype(int).groupby(df['sid']).cumsum()
     df['xc'] = g['c'].shift(-(H - 1))
     df['xd'] = g['d'].shift(-(H - 1))
