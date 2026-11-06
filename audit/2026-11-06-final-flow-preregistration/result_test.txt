@@ -1,0 +1,43 @@
+final flow study, stage test: signal days 2024-11-01..2026-10-30, hold 20 traded rows
+
+delisted stocks loaded 279; universe rows (INS5) 498150, of which delisted 3337 (70 stocks)
+exit kinds (INS5): NORMAL 497136, STUCK 618, DELIST 396
+late exits (halt) 3103, dropped for corporate-action jumps 63
+rows per signal: INS5 498150, FI20 498246, FI1 498028, COMB 498028
+
+== INS5 h=20 (direction -, buy side Q1) ==
+days 466, stocks/day 1069, buy-side rows 99452, of which delisted 701, DELIST exits 46, STUCK 79, |net| > 35%: 35343
+PRIMARY buy-side excess   +1.490 [+0.970, +2.038] p=0.0000
+buy-side Net (BASE)       +1.535 [-1.082, +3.981] p=0.1174
+buy-side Net (HIGH cost)  +1.393 [-1.220, +3.835] p=0.1369
+long-short Q5-Q1          -0.383 [-1.024, +0.263] p=0.8869
+Q5 excess +1.107, Q1 excess +1.490, universe Net +0.045, top 20 Net +1.057
+by year excess/Net: 2024 +0.690/+1.274, 2025 +1.624/+2.955, 2026 +1.492/-0.284
+STUCK stress: haircut +0%: excess +1.473, Net +1.564; haircut -100%: excess +1.507, Net +1.506
+halves +1.752 / +1.206
+
+== FI20 h=20 (direction -, buy side Q1) ==
+days 466, stocks/day 1069, buy-side rows 99472, of which delisted 569, DELIST exits 56, STUCK 154, |net| > 35%: 35383
+PRIMARY buy-side excess   +1.174 [+0.634, +1.714] p=0.0000
+buy-side Net (BASE)       +1.218 [-1.414, +3.634] p=0.1661
+buy-side Net (HIGH cost)  +1.076 [-1.552, +3.489] p=0.1964
+long-short Q5-Q1          +0.047 [-0.933, +1.057] p=0.4734
+Q5 excess +1.221, Q1 excess +1.174, universe Net +0.043, top 20 Net +0.785
+by year excess/Net: 2024 +0.879/+1.462, 2025 +1.233/+2.564, 2026 +1.163/-0.617
+STUCK stress: haircut +0%: excess +1.184, Net +1.274; haircut -100%: excess +1.164, Net +1.161
+halves +1.269 / +1.072
+
+== COMB h=20 (direction -, buy side Q1) ==
+days 466, stocks/day 1069, buy-side rows 99427, of which delisted 499, DELIST exits 35, STUCK 141, |net| > 35%: 35293
+PRIMARY buy-side excess   +1.090 [+0.692, +1.501] p=0.0000
+buy-side Net (BASE)       +1.140 [-1.543, +3.632] p=0.1885
+buy-side Net (HIGH cost)  +0.999 [-1.681, +3.486] p=0.2161
+long-short Q5-Q1          -0.331 [-1.130, +0.500] p=0.7914
+Q5 excess +0.760, Q1 excess +1.090, universe Net +0.050, top 20 Net +1.174
+by year excess/Net: 2024 +0.829/+1.412, 2025 +1.040/+2.374, 2026 +1.215/-0.552
+STUCK stress: haircut +0%: excess +1.095, Net +1.191; haircut -100%: excess +1.085, Net +1.090
+halves +1.037 / +1.148
+
+INS5: Holm p 0.0000 (m = 4) -> VERIFIED
+FI20: Holm p 0.0000 (m = 4) -> VERIFIED
+COMB: Holm p 0.0000 (m = 4) -> VERIFIED
