@@ -22,6 +22,7 @@ import argparse
 import datetime as dt
 import json
 import random
+import subprocess
 import sys
 from pathlib import Path
 
@@ -225,6 +226,14 @@ def main():
     ap.add_argument('--stage', choices=('check', 'discovery', 'test'), required=True)
     stage = ap.parse_args().stage
     if stage == 'test':
+        # one-shot guard (added 2026-11-06 before any test run; the study itself is unchanged): the test window is judged
+        # once (../2026-11-03-investor-flow-seal/README.md > 규칙 4), so refuse when a test result exists on disk or in git
+        done = HERE / 'result_test.json'
+        seen = subprocess.run(['git', 'log', '--all', '--format=%h', '--', done.relative_to(ROOT).as_posix()],
+                              cwd=ROOT, capture_output=True, text=True).stdout.strip()
+        if done.exists() or seen:
+            raise SystemExit('the test window was already judged for this study (result_test.json exists); '
+                             'changes are checked by Forward only')
         rel = DISCOVERY_JSON.relative_to(ROOT).as_posix()
         if not committed(rel):
             raise SystemExit(f'{rel} must be committed before the test stage (README.md > 두 단계)')

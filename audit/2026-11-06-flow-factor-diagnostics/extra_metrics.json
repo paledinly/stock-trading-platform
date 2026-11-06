@@ -1,0 +1,86 @@
+{
+  "INS5": {
+    "payoff_net": 1.259,
+    "payoff_excess": 1.388,
+    "ir_ew": 1.503,
+    "ir_vw": 1.487,
+    "tier_share": {
+      "10~30억": 0.373,
+      "30~100억": 0.344,
+      "100억+": 0.283
+    },
+    "breakeven_extra_per_side": 0.0864,
+    "net_tiered_slippage": -0.1863,
+    "dsr_long_n4": 0.2033,
+    "dsr_long_n25": 0.0399,
+    "dsr_long_n50": 0.0215,
+    "dsr_long_n100": 0.0115,
+    "dsr_ex_ew_n4": 0.906,
+    "dsr_ex_ew_n25": 0.8159,
+    "dsr_ex_ew_n50": 0.7828,
+    "dsr_ex_ew_n100": 0.7498
+  },
+  "FI20": {
+    "payoff_net": 1.249,
+    "payoff_excess": 1.392,
+    "ir_ew": 1.507,
+    "ir_vw": 1.503,
+    "tier_share": {
+      "10~30억": 0.439,
+      "30~100억": 0.326,
+      "100억+": 0.234
+    },
+    "breakeven_extra_per_side": 0.1021,
+    "net_tiered_slippage": -0.1837,
+    "dsr_long_n4": 0.2123,
+    "dsr_long_n25": 0.0423,
+    "dsr_long_n50": 0.0228,
+    "dsr_long_n100": 0.0123,
+    "dsr_ex_ew_n4": 0.9211,
+    "dsr_ex_ew_n25": 0.8391,
+    "dsr_ex_ew_n50": 0.8068,
+    "dsr_ex_ew_n100": 0.7734
+  },
+  "FI1": {
+    "payoff_net": 1.287,
+    "payoff_excess": 1.43,
+    "ir_ew": 1.185,
+    "ir_vw": 1.245,
+    "tier_share": {
+      "10~30억": 0.439,
+      "30~100억": 0.327,
+      "100억+": 0.234
+    },
+    "breakeven_extra_per_side": 0.0302,
+    "net_tiered_slippage": -0.3277,
+    "dsr_long_n4": 0.1584,
+    "dsr_long_n25": 0.0261,
+    "dsr_long_n50": 0.0131,
+    "dsr_long_n100": 0.0066,
+    "dsr_ex_ew_n4": 0.8736,
+    "dsr_ex_ew_n25": 0.6882,
+    "dsr_ex_ew_n50": 0.6377,
+    "dsr_ex_ew_n100": 0.5962
+  },
+  "COMB": {
+    "payoff_net": 1.264,
+    "payoff_excess": 1.403,
+    "ir_ew": 1.432,
+    "ir_vw": 1.395,
+    "tier_share": {
+      "10~30억": 0.419,
+      "30~100억": 0.336,
+      "100억+": 0.245
+    },
+    "breakeven_extra_per_side": 0.042,
+    "net_tiered_slippage": -0.2962,
+    "dsr_long_n4": 0.1716,
+    "dsr_long_n25": 0.0305,
+    "dsr_long_n50": 0.0159,
+    "dsr_long_n100": 0.0082,
+    "dsr_ex_ew_n4": 0.8835,
+    "dsr_ex_ew_n25": 0.7893,
+    "dsr_ex_ew_n50": 0.7567,
+    "dsr_ex_ew_n100": 0.7247
+  }
+}

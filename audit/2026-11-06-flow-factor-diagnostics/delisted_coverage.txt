@@ -1,0 +1,11 @@
+delisted coverage check
+
+KIND KOSPI/KOSDAQ rows 477, registered 293, registered but not in KIND 0
+registered without any history row 0: 
+rows missing inside first..last (vs market trading days): total 0, stocks with > 5 missing 0
+history starts after 2018-01-12 (listed later or truncated) 0; of these delisted >= 2 years after their first row 0
+trading days between last history row and delisting date: <=3 293, 4..20 0, >20 0
+trading days between last traded row (volume > 0) and delisting date: <=3 212, 4..60 78, 61..250 1, >250 2
+stocks with no traded row at all 0
+survivor-table stocks whose candles end before 2026-10-08: 58 (in the delisted list 11, not 47)
+registered delistings by year: 2017 37, 2018 23, 2019 11, 2020 29, 2021 29, 2022 31, 2023 18, 2024 28, 2025 35, 2026 52

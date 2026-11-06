@@ -1,0 +1,10 @@
+survivor jumps: the pre-registered >31% jump rule applied to every stock
+
+jump rows: delisted source 1, survivor source 36
+test window (prices only): universe holdings 498352, spanning a survivor jump 0 (0 stocks, dates nan..nan)
+discovery window: universe holdings spanning a survivor jump 3 (1 stocks)
+
+INS5: as registered: excess +0.765 [+0.480, +1.029] p=0.0000, Net +0.174, max buy-side |Net| 297% | all-stock jump rule: excess +0.767 [+0.482, +1.030] p=0.0000, Net +0.174, max buy-side |Net| 297%
+FI20: as registered: excess +0.797 [+0.484, +1.089] p=0.0000, Net +0.205, max buy-side |Net| 275% | all-stock jump rule: excess +0.799 [+0.485, +1.090] p=0.0000, Net +0.205, max buy-side |Net| 275%
+FI1: as registered: excess +0.652 [+0.492, +0.810] p=0.0000, Net +0.063, max buy-side |Net| 20556% | all-stock jump rule: excess +0.651 [+0.491, +0.809] p=0.0000, Net +0.060, max buy-side |Net| 20556%
+COMB: as registered: excess +0.674 [+0.398, +0.916] p=0.0001, Net +0.085, max buy-side |Net| 609% | all-stock jump rule: excess +0.676 [+0.400, +0.917] p=0.0001, Net +0.085, max buy-side |Net| 609%

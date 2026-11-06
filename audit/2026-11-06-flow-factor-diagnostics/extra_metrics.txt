@@ -1,0 +1,38 @@
+extra metrics, discovery window 2018-04-01..2024-10-31, hold 20 rows (test window not loaded)
+
+== INS5 (buy side = top 20% of -INS5) ==
+payoff Net: win rate 45.3%, mean win +11.07%, mean loss -8.79%, ratio 1.26
+payoff excess: win rate 46.2%, mean win +10.06%, mean loss -7.24%, ratio 1.39; holding skew 2.17; excess without the top 1% holdings +0.135
+benchmarks per 20 rows: equal-weight -0.591, val20-weighted -1.254; buy side +0.173; IR vs EW 1.50, vs VW 1.49 (excess vs VW +1.427)
+liquidity tiers (buy side): 10~30억 share 37% gross +0.860 Net +0.467 excess +1.032; 30~100억 share 34% gross +0.599 Net +0.208 excess +0.740; 100억+ share 28% gross +0.268 Net -0.123 excess +0.361
+slippage stress, buy-side Net (BASE +0.173, gross +0.565): +0.05%/side +0.073, +0.10%/side -0.027, +0.20%/side -0.227, +0.30%/side -0.427
+  tiered (+0.30 / +0.15 / +0.05 %/side) -0.186; break-even extra slippage 0.086%/side
+deflated Sharpe P[true SR > 0]: Net (SR 0.08) N=4 0.20; Net (SR 0.08) N=25 0.04; Net (SR 0.08) N=50 0.02; Net (SR 0.08) N=100 0.01; excess EW (SR 1.50) N=4 0.91; excess EW (SR 1.50) N=25 0.82; excess EW (SR 1.50) N=50 0.78; excess EW (SR 1.50) N=100 0.75
+
+== FI20 (buy side = top 20% of -FI20) ==
+payoff Net: win rate 45.6%, mean win +11.08%, mean loss -8.88%, ratio 1.25
+payoff excess: win rate 46.2%, mean win +10.08%, mean loss -7.24%, ratio 1.39; holding skew 2.14; excess without the top 1% holdings +0.141
+benchmarks per 20 rows: equal-weight -0.592, val20-weighted -1.257; buy side +0.204; IR vs EW 1.51, vs VW 1.50 (excess vs VW +1.461)
+liquidity tiers (buy side): 10~30억 share 44% gross +0.881 Net +0.488 excess +1.051; 30~100억 share 33% gross +0.421 Net +0.030 excess +0.687; 100억+ share 23% gross +0.407 Net +0.016 excess +0.313
+slippage stress, buy-side Net (BASE +0.204, gross +0.596): +0.05%/side +0.104, +0.10%/side +0.004, +0.20%/side -0.196, +0.30%/side -0.396
+  tiered (+0.30 / +0.15 / +0.05 %/side) -0.184; break-even extra slippage 0.102%/side
+deflated Sharpe P[true SR > 0]: Net (SR 0.09) N=4 0.21; Net (SR 0.09) N=25 0.04; Net (SR 0.09) N=50 0.02; Net (SR 0.09) N=100 0.01; excess EW (SR 1.51) N=4 0.92; excess EW (SR 1.51) N=25 0.84; excess EW (SR 1.51) N=50 0.81; excess EW (SR 1.51) N=100 0.77
+
+== FI1 (buy side = top 20% of -FI1) ==
+payoff Net: win rate 44.2%, mean win +11.89%, mean loss -9.24%, ratio 1.29
+payoff excess: win rate 44.6%, mean win +10.87%, mean loss -7.60%, ratio 1.43; holding skew 381.49; excess without the top 1% holdings -0.164
+benchmarks per 20 rows: equal-weight -0.589, val20-weighted -1.246; buy side +0.060; IR vs EW 1.19, vs VW 1.25 (excess vs VW +1.307)
+liquidity tiers (buy side): 10~30억 share 44% gross +0.492 Net +0.100 excess +0.718; 30~100억 share 33% gross +0.704 Net +0.312 excess +0.876; 100억+ share 23% gross +0.238 Net -0.153 excess +0.159
+slippage stress, buy-side Net (BASE +0.060, gross +0.452): +0.05%/side -0.040, +0.10%/side -0.140, +0.20%/side -0.340, +0.30%/side -0.540
+  tiered (+0.30 / +0.15 / +0.05 %/side) -0.328; break-even extra slippage 0.030%/side
+deflated Sharpe P[true SR > 0]: Net (SR 0.01) N=4 0.16; Net (SR 0.01) N=25 0.03; Net (SR 0.01) N=50 0.01; Net (SR 0.01) N=100 0.01; excess EW (SR 1.19) N=4 0.87; excess EW (SR 1.19) N=25 0.69; excess EW (SR 1.19) N=50 0.64; excess EW (SR 1.19) N=100 0.60
+
+== COMB (buy side = top 20% of -COMB) ==
+payoff Net: win rate 44.7%, mean win +11.77%, mean loss -9.31%, ratio 1.26
+payoff excess: win rate 45.1%, mean win +10.67%, mean loss -7.60%, ratio 1.40; holding skew 2.69; excess without the top 1% holdings -0.053
+benchmarks per 20 rows: equal-weight -0.589, val20-weighted -1.246; buy side +0.084; IR vs EW 1.43, vs VW 1.40 (excess vs VW +1.330)
+liquidity tiers (buy side): 10~30억 share 42% gross +0.761 Net +0.368 excess +0.946; 30~100억 share 34% gross +0.421 Net +0.030 excess +0.626; 100억+ share 25% gross +0.169 Net -0.221 excess +0.131
+slippage stress, buy-side Net (BASE +0.084, gross +0.475): +0.05%/side -0.016, +0.10%/side -0.116, +0.20%/side -0.316, +0.30%/side -0.516
+  tiered (+0.30 / +0.15 / +0.05 %/side) -0.296; break-even extra slippage 0.042%/side
+deflated Sharpe P[true SR > 0]: Net (SR 0.03) N=4 0.17; Net (SR 0.03) N=25 0.03; Net (SR 0.03) N=50 0.02; Net (SR 0.03) N=100 0.01; excess EW (SR 1.43) N=4 0.88; excess EW (SR 1.43) N=25 0.79; excess EW (SR 1.43) N=50 0.76; excess EW (SR 1.43) N=100 0.72
+

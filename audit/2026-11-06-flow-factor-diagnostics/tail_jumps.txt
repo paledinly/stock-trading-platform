@@ -1,0 +1,18 @@
+tail jumps: amended jump rule (all stocks; upward jumps count inside the 정리매매 tail)
+
+jump rows: registered rule -, amended 110 (delisted source 70, survivors 40)
+discovery: universe holdings 1886684, newly dropped 619 (41 stocks: [-262, -252, -248, -247, -242, -235, -234, -230, -228, -213, -211, -209])
+test (prices only): universe holdings 498352, newly dropped 63 (16 stocks: [-266, -262, -242, -213, -179, -165, -162, -131, -126, -74, -60, -48])
+
+INS5:
+  registered excess +0.765 [+0.480, +1.029] p=0.0000, Net +0.174 [-1.064, +1.355] p=0.3918, Net HIGH +0.034, years 7/7, max buy-side Net 297% -> PASS
+  amended    excess +0.834 [+0.602, +1.067] p=0.0000, Net +0.179 [-1.058, +1.361] p=0.3885, Net HIGH +0.039, years 7/7, max buy-side Net 297% -> PASS
+FI20:
+  registered excess +0.797 [+0.484, +1.089] p=0.0000, Net +0.205 [-1.034, +1.394] p=0.3700, Net HIGH +0.065, years 7/7, max buy-side Net 275% -> PASS
+  amended    excess +0.863 [+0.605, +1.118] p=0.0000, Net +0.207 [-1.030, +1.395] p=0.3689, Net HIGH +0.067, years 7/7, max buy-side Net 275% -> PASS
+FI1:
+  registered excess +0.652 [+0.492, +0.810] p=0.0000, Net +0.063 [-1.181, +1.278] p=0.4673, Net HIGH -0.077, years 7/7, max buy-side Net 20556% -> PASS
+  amended    excess +0.622 [+0.466, +0.776] p=0.0000, Net -0.031 [-1.268, +1.165] p=0.5238, Net HIGH -0.171, years 7/7, max buy-side Net 609% -> FAIL
+COMB:
+  registered excess +0.674 [+0.398, +0.916] p=0.0001, Net +0.085 [-1.193, +1.312] p=0.4530, Net HIGH -0.055, years 7/7, max buy-side Net 609% -> PASS
+  amended    excess +0.749 [+0.551, +0.945] p=0.0000, Net +0.096 [-1.185, +1.320] p=0.4471, Net HIGH -0.044, years 7/7, max buy-side Net 609% -> PASS

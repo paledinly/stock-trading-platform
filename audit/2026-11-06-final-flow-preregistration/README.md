@@ -114,6 +114,8 @@ python final_study.py --stage test        # result_discovery.json이 커밋돼 �
 
 저장소 `.env`를 읽고 인증정보를 출력하지 않는다.
 
+**재실행 차단(2026-11-06 추가, 시험 단계 실행 전):** `--stage test`는 `result_test.json`이 디스크에 있거나 git 이력에 한 번이라도 있으면 실행을 거부한다. 판정 로직은 바꾸지 않았다.
+
 ## 1단계 결과 (2026-11-06)
 
 실행: `python final_study.py --stage discovery` → [result_discovery.txt](result_discovery.txt), [run_discovery.log](run_discovery.log). 사전 등록 커밋(`69d0d39`) 뒤 한 번 실행했고 오류 없이 끝났다. 평가 1,599일, 하루 대상 약 1,180종목. **4개 모두 PASS.** 매수 쪽은 모두 Q1(기관·외국인이 많이 판 종목)이다.
