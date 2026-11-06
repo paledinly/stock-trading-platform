@@ -1,0 +1,54 @@
+factor diagnostics, discovery window 2018-04-01..2024-10-31, hold 20 rows (test window not loaded)
+
+== INS5 (direction -; s = -INS5, buy side = top 20% of s) ==
+rank IC (Net, 20 rows)   +0.0236 [+0.0167, +0.0306]  ICIR(day) 0.413  ICIR x sqrt(250/20) 1.46  IC>0 days 66.7%
+IC decay (gross, open->close of row h): h1 +0.0173, h5 +0.0225, h10 +0.0237, h20 +0.0237, h40 +0.0213, h60 +0.0203
+quintile excess Q1..Q5 of s: +0.223 -0.304 -0.664 -0.020 +0.764  monotonic no
+hit rate (buy side): beats day universe 46.2%, Net > 0 45.3%
+regime excess: mkt60 up +0.744 [+0.278, +1.157] (n 893), mkt60 down +0.789 [+0.498, +1.054] (n 706), vol high +0.640 [+0.358, +0.920] (n 799), vol low +0.888 [+0.391, +1.316] (n 800)
+mean day rank corr of s with: rev5 -0.280, ret20 -0.205, mom -0.008, vol20 -0.037, liq -0.004, price +0.009
+Fama-MacBeth slope of s (top-bottom Net, %): alone +0.698 [+0.316, +1.058], with controls +0.655 [+0.335, +0.974]
+  control slopes: rev5 -0.608, ret20 +0.995, mom +1.149, vol20 -2.894, liq -0.811, price -1.640
+buy-side daily name turnover 18.5%; rank autocorr lag1 0.824, lag20 0.083
+buy-side gross +0.565% per 20 rows -> break-even round trip 0.565% (BASE 0.39%, Net +0.173%)
+20-row rebalance: Sharpe Net 0.08, MDD worst -51.0% / median -44.8%; Sharpe excess 1.50, MDD worst -26.0%
+
+== FI20 (direction -; s = -FI20, buy side = top 20% of s) ==
+rank IC (Net, 20 rows)   +0.0269 [+0.0163, +0.0377]  ICIR(day) 0.397  ICIR x sqrt(250/20) 1.40  IC>0 days 63.6%
+IC decay (gross, open->close of row h): h1 +0.0048, h5 +0.0142, h10 +0.0215, h20 +0.0270, h40 +0.0246, h60 +0.0237
+quintile excess Q1..Q5 of s: +0.090 +0.280 -1.149 -0.019 +0.796  monotonic no
+hit rate (buy side): beats day universe 46.2%, Net > 0 45.6%
+regime excess: mkt60 up +0.658 [+0.169, +1.072] (n 893), mkt60 down +0.972 [+0.616, +1.287] (n 706), vol high +0.930 [+0.583, +1.267] (n 799), vol low +0.663 [+0.137, +1.097] (n 800)
+mean day rank corr of s with: rev5 -0.100, ret20 -0.272, mom -0.113, vol20 -0.028, liq -0.027, price -0.021
+Fama-MacBeth slope of s (top-bottom Net, %): alone +0.621 [+0.007, +1.185], with controls +1.249 [+0.787, +1.728]
+  control slopes: rev5 -0.803, ret20 +1.341, mom +1.363, vol20 -2.991, liq -0.835, price -1.608
+buy-side daily name turnover 10.6%; rank autocorr lag1 0.953, lag20 0.169
+buy-side gross +0.596% per 20 rows -> break-even round trip 0.596% (BASE 0.39%, Net +0.204%)
+20-row rebalance: Sharpe Net 0.09, MDD worst -48.3% / median -40.3%; Sharpe excess 1.51, MDD worst -29.7%
+
+== FI1 (direction -; s = -FI1, buy side = top 20% of s) ==
+rank IC (Net, 20 rows)   +0.0110 [+0.0065, +0.0153]  ICIR(day) 0.169  ICIR x sqrt(250/20) 0.60  IC>0 days 58.2%
+IC decay (gross, open->close of row h): h1 -0.0039, h5 +0.0062, h10 +0.0079, h20 +0.0109, h40 +0.0137, h60 +0.0125
+quintile excess Q1..Q5 of s: +0.463 -0.161 -0.838 -0.113 +0.650  monotonic no
+hit rate (buy side): beats day universe 44.6%, Net > 0 44.2%
+regime excess: mkt60 up +0.649 [+0.423, +0.882] (n 893), mkt60 down +0.650 [+0.450, +0.826] (n 706), vol high +0.577 [+0.377, +0.771] (n 799), vol low +0.722 [+0.493, +0.961] (n 800)
+mean day rank corr of s with: rev5 -0.126, ret20 -0.102, mom -0.027, vol20 -0.022, liq +0.002, price +0.035
+Fama-MacBeth slope of s (top-bottom Net, %): alone +0.201 [-0.114, +0.454], with controls +0.410 [+0.220, +0.594]
+  control slopes: rev5 -0.700, ret20 +1.004, mom +1.172, vol20 -2.904, liq -0.746, price -1.611
+buy-side daily name turnover 67.4%; rank autocorr lag1 0.125, lag20 0.036
+buy-side gross +0.452% per 20 rows -> break-even round trip 0.452% (BASE 0.39%, Net +0.060%)
+20-row rebalance: Sharpe Net 0.01, MDD worst -54.7% / median -46.4%; Sharpe excess 1.19, MDD worst -30.1%
+
+== COMB (direction -; s = -COMB, buy side = top 20% of s) ==
+rank IC (Net, 20 rows)   +0.0258 [+0.0177, +0.0339]  ICIR(day) 0.404  ICIR x sqrt(250/20) 1.43  IC>0 days 65.2%
+IC decay (gross, open->close of row h): h1 +0.0065, h5 +0.0173, h10 +0.0220, h20 +0.0259, h40 +0.0251, h60 +0.0231
+quintile excess Q1..Q5 of s: +0.081 -0.113 -0.622 -0.021 +0.673  monotonic no
+hit rate (buy side): beats day universe 45.1%, Net > 0 44.7%
+regime excess: mkt60 up +0.524 [+0.073, +0.888] (n 893), mkt60 down +0.862 [+0.628, +1.083] (n 706), vol high +0.802 [+0.554, +1.062] (n 799), vol low +0.544 [+0.067, +0.923] (n 800)
+mean day rank corr of s with: rev5 -0.220, ret20 -0.248, mom -0.069, vol20 -0.031, liq -0.011, price +0.010
+Fama-MacBeth slope of s (top-bottom Net, %): alone +0.644 [+0.147, +1.086], with controls +1.025 [+0.652, +1.393]
+  control slopes: rev5 -0.607, ret20 +1.157, mom +1.249, vol20 -2.924, liq -0.809, price -1.643
+buy-side daily name turnover 38.3%; rank autocorr lag1 0.670, lag20 0.134
+buy-side gross +0.475% per 20 rows -> break-even round trip 0.475% (BASE 0.39%, Net +0.084%)
+20-row rebalance: Sharpe Net 0.03, MDD worst -52.3% / median -44.4%; Sharpe excess 1.43, MDD worst -29.0%
+

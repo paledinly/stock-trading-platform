@@ -1,0 +1,230 @@
+{
+  "INS5": {
+    "rank_ic": [
+      0.0236,
+      0.0167,
+      0.0306
+    ],
+    "icir_daily": 0.413,
+    "ic_h1": 0.0173,
+    "ic_h5": 0.0225,
+    "ic_h10": 0.0237,
+    "ic_h20": 0.0237,
+    "ic_h40": 0.0213,
+    "ic_h60": 0.0203,
+    "quintile_excess": [
+      0.2228,
+      -0.3038,
+      -0.6643,
+      -0.0198,
+      0.7639
+    ],
+    "hit_vs_universe": 0.4616,
+    "hit_positive": 0.4534,
+    "regime_excess": {
+      "mkt60 up": 0.7436,
+      "mkt60 down": 0.7895,
+      "vol high": 0.6397,
+      "vol low": 0.8878
+    },
+    "corr": {
+      "rev5": -0.28,
+      "ret20": -0.205,
+      "mom": -0.008,
+      "vol20": -0.037,
+      "liq": -0.004,
+      "price": 0.009
+    },
+    "fm_alone": [
+      0.6976,
+      0.316,
+      1.0575
+    ],
+    "fm_controls": [
+      0.6549,
+      0.3353,
+      0.974
+    ],
+    "turnover_daily": 0.1849,
+    "rank_autocorr": [
+      0.824,
+      0.083
+    ],
+    "gross": 0.5645,
+    "breakeven_roundtrip_pct": 0.5645,
+    "sharpe_long": 0.078,
+    "sharpe_excess": 1.503,
+    "mdd_long_worst": -0.5096
+  },
+  "FI20": {
+    "rank_ic": [
+      0.0269,
+      0.0163,
+      0.0377
+    ],
+    "icir_daily": 0.397,
+    "ic_h1": 0.0048,
+    "ic_h5": 0.0142,
+    "ic_h10": 0.0215,
+    "ic_h20": 0.027,
+    "ic_h40": 0.0246,
+    "ic_h60": 0.0237,
+    "quintile_excess": [
+      0.0899,
+      0.2798,
+      -1.1486,
+      -0.0191,
+      0.7964
+    ],
+    "hit_vs_universe": 0.462,
+    "hit_positive": 0.4561,
+    "regime_excess": {
+      "mkt60 up": 0.6576,
+      "mkt60 down": 0.972,
+      "vol high": 0.9302,
+      "vol low": 0.6628
+    },
+    "corr": {
+      "rev5": -0.1,
+      "ret20": -0.272,
+      "mom": -0.113,
+      "vol20": -0.028,
+      "liq": -0.027,
+      "price": -0.021
+    },
+    "fm_alone": [
+      0.6213,
+      0.0067,
+      1.1848
+    ],
+    "fm_controls": [
+      1.2487,
+      0.7866,
+      1.7284
+    ],
+    "turnover_daily": 0.1059,
+    "rank_autocorr": [
+      0.953,
+      0.169
+    ],
+    "gross": 0.5961,
+    "breakeven_roundtrip_pct": 0.5961,
+    "sharpe_long": 0.094,
+    "sharpe_excess": 1.507,
+    "mdd_long_worst": -0.483
+  },
+  "FI1": {
+    "rank_ic": [
+      0.011,
+      0.0065,
+      0.0153
+    ],
+    "icir_daily": 0.169,
+    "ic_h1": -0.0039,
+    "ic_h5": 0.0062,
+    "ic_h10": 0.0079,
+    "ic_h20": 0.0109,
+    "ic_h40": 0.0137,
+    "ic_h60": 0.0125,
+    "quintile_excess": [
+      0.4629,
+      -0.1612,
+      -0.8379,
+      -0.1134,
+      0.6496
+    ],
+    "hit_vs_universe": 0.4462,
+    "hit_positive": 0.4424,
+    "regime_excess": {
+      "mkt60 up": 0.6494,
+      "mkt60 down": 0.6498,
+      "vol high": 0.577,
+      "vol low": 0.7221
+    },
+    "corr": {
+      "rev5": -0.126,
+      "ret20": -0.102,
+      "mom": -0.027,
+      "vol20": -0.022,
+      "liq": 0.002,
+      "price": 0.035
+    },
+    "fm_alone": [
+      0.2006,
+      -0.1138,
+      0.4537
+    ],
+    "fm_controls": [
+      0.41,
+      0.2205,
+      0.594
+    ],
+    "turnover_daily": 0.6743,
+    "rank_autocorr": [
+      0.125,
+      0.036
+    ],
+    "gross": 0.4518,
+    "breakeven_roundtrip_pct": 0.4518,
+    "sharpe_long": 0.007,
+    "sharpe_excess": 1.185,
+    "mdd_long_worst": -0.547
+  },
+  "COMB": {
+    "rank_ic": [
+      0.0258,
+      0.0177,
+      0.0339
+    ],
+    "icir_daily": 0.404,
+    "ic_h1": 0.0065,
+    "ic_h5": 0.0173,
+    "ic_h10": 0.022,
+    "ic_h20": 0.0259,
+    "ic_h40": 0.0251,
+    "ic_h60": 0.0231,
+    "quintile_excess": [
+      0.0812,
+      -0.1128,
+      -0.6219,
+      -0.0208,
+      0.673
+    ],
+    "hit_vs_universe": 0.4511,
+    "hit_positive": 0.4469,
+    "regime_excess": {
+      "mkt60 up": 0.5236,
+      "mkt60 down": 0.8621,
+      "vol high": 0.8024,
+      "vol low": 0.5439
+    },
+    "corr": {
+      "rev5": -0.22,
+      "ret20": -0.248,
+      "mom": -0.069,
+      "vol20": -0.031,
+      "liq": -0.011,
+      "price": 0.01
+    },
+    "fm_alone": [
+      0.6442,
+      0.1472,
+      1.0862
+    ],
+    "fm_controls": [
+      1.0245,
+      0.6517,
+      1.3935
+    ],
+    "turnover_daily": 0.3827,
+    "rank_autocorr": [
+      0.67,
+      0.134
+    ],
+    "gross": 0.4754,
+    "breakeven_roundtrip_pct": 0.4754,
+    "sharpe_long": 0.032,
+    "sharpe_excess": 1.432,
+    "mdd_long_worst": -0.5225
+  }
+}
