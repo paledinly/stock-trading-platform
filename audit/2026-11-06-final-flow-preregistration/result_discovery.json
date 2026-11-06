@@ -1,0 +1,78 @@
+{
+  "INS5": {
+    "direction": -1,
+    "days": 1599,
+    "stocks_per_day": 1179.3,
+    "excess": [
+      0.8338,
+      0.6016,
+      1.0668,
+      0.0
+    ],
+    "net": [
+      0.1789,
+      -1.0582,
+      1.3609,
+      0.3885
+    ],
+    "pass": true,
+    "years_positive": 7
+  },
+  "FI20": {
+    "direction": -1,
+    "days": 1599,
+    "stocks_per_day": 1179.4,
+    "excess": [
+      0.8633,
+      0.6049,
+      1.118,
+      0.0
+    ],
+    "net": [
+      0.2072,
+      -1.03,
+      1.3953,
+      0.3689
+    ],
+    "pass": true,
+    "years_positive": 7
+  },
+  "FI1": {
+    "direction": -1,
+    "days": 1599,
+    "stocks_per_day": 1179.1,
+    "excess": [
+      0.622,
+      0.4656,
+      0.7765,
+      0.0
+    ],
+    "net": [
+      -0.031,
+      -1.2682,
+      1.1654,
+      0.5238
+    ],
+    "pass": false,
+    "years_positive": 7
+  },
+  "COMB": {
+    "direction": -1,
+    "days": 1599,
+    "stocks_per_day": 1179.1,
+    "excess": [
+      0.7493,
+      0.551,
+      0.945,
+      0.0
+    ],
+    "net": [
+      0.0962,
+      -1.1846,
+      1.3204,
+      0.4471
+    ],
+    "pass": true,
+    "years_positive": 7
+  }
+}

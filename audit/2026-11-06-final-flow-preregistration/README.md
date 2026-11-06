@@ -149,3 +149,16 @@ python final_study.py --stage test        # result_discovery.json이 커밋돼 �
 ### 다음 결정 (사용자)
 
 - 2단계(시험 구간 2024-11 ~ 2026-10, 한 번)를 실행하면 4개를 Holm m = 4로 판정한다. 판정에는 매수 쪽 Net > 0도 들어가는데, 이 기간 Net은 신호보다 그 기간 시장 흐름에 크게 좌우된다.
+
+## 1단계 재실행 (수정 1, 2026-11-06)
+
+실행: 수정 커밋(`eabcdc8`) 뒤 `python final_study.py --stage discovery` → [result_discovery.txt](result_discovery.txt), [run_discovery.log](run_discovery.log). 기업행사 점프로 뺀 보유 619건.
+
+| 가설 | 매수 쪽 초과 | 매수 쪽 Net (BASE) | 1단계 |
+| --- | --- | --- | --- |
+| INS5 | +0.834 [+0.602, +1.067] | +0.179 | PASS |
+| FI20 | +0.863 [+0.605, +1.118] | +0.207 | PASS |
+| FI1 | +0.622 [+0.466, +0.776] | −0.031 | **FAIL** |
+| COMB | +0.749 [+0.551, +0.945] | +0.096 | PASS |
+
+2단계는 INS5, FI20, COMB를 Holm m = 4로 판정한다.
