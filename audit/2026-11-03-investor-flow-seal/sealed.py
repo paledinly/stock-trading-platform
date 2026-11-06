@@ -41,3 +41,23 @@ def load_flows(c, prereg=None, columns=COLUMNS):
         raise ValueError(f'unknown columns: {sorted(set(columns) - set(COLUMNS))}')
     rows = c.execute(f"select {', '.join(columns)} from investor_daily_flow where trade_date <= %s", (end,)).fetchall()
     return pd.DataFrame(rows, columns=columns)
+
+
+DELISTED_COLUMNS = ('stock_code', 'trade_date', 'open_price', 'close_price', 'volume', 'trading_value',
+                    'foreign_amount', 'institution_amount')
+
+
+def load_delisted(c, prereg=None):
+    """DataFrame of delisted_daily_history (added 2026-11-06). Prices come for every date; the foreign / institution
+    amounts are blanked (NaN) after the discovery end, or after the test end with a committed prereg."""
+    if prereg is None:
+        end = DISCOVERY_END
+    elif committed(prereg):
+        end = TEST_END
+    else:
+        raise PermissionError(f'test window sealed: {prereg} is not a committed pre-registration (README.md > 규칙 3)')
+    rows = c.execute("""select stock_code, trade_date, open_price, close_price, volume, trading_value,
+                               case when trade_date <= %s then foreign_amount end,
+                               case when trade_date <= %s then institution_amount end
+                          from delisted_daily_history order by stock_code, trade_date""", (end, end)).fetchall()
+    return pd.DataFrame(rows, columns=DELISTED_COLUMNS)
