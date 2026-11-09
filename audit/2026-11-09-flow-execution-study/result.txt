@@ -1,0 +1,47 @@
+flow execution study (exploratory; flow-conditioned parts on the discovery window only)
+
+== 2b. intraday, all stocks with val20 >= 10억, 2025-10-30 ~ (price only) ==
+stock-days 265378, stocks 2146
+10~30억: stock-days 89264, no closing print 0.3%, closing-auction value median 20백만 (p25 9, p75 40), |15:20 -> close| median 0.190%
+30~100억: stock-days 79602, no closing print 0.4%, closing-auction value median 56백만 (p25 25, p75 120), |15:20 -> close| median 0.182%
+100억+: stock-days 96512, no closing print 0.6%, closing-auction value median 437백만 (p25 145, p75 1,583), |15:20 -> close| median 0.174%
+Abdi-Ranaldo spread from 5M bars (24 days spread over the period, full round trip %):
+  10~30억: median 0.243, p75 0.351 (stock-days 8633)
+  30~100억: median 0.230, p75 0.331 (stock-days 7571)
+  100억+: median 0.185, p75 0.286 (stock-days 9209)
+
+== 1. entry timing (discovery, buy side = Q1, BASE cost) ==
+open entry = registered (row i open -> row i+19 close); close entry = row i close -> row i+20 close
+
+INS5 open  entry: excess +0.834 [+0.602, +1.067] p=0.0000, Net +0.179 [-1.058, +1.361] p=0.3885, years 7/7, days 1599
+INS5 close entry: excess +0.770 [+0.539, +1.008] p=0.0000, Net +0.227 [-1.019, +1.422] p=0.3614, years 7/7, days 1598
+INS5 buy side, mean same-day open->close move -0.023% (universe -0.118%)
+
+FI20 open  entry: excess +0.863 [+0.605, +1.118] p=0.0000, Net +0.207 [-1.030, +1.395] p=0.3689, years 7/7, days 1599
+FI20 close entry: excess +0.821 [+0.552, +1.076] p=0.0000, Net +0.277 [-0.975, +1.467] p=0.3312, years 6/7, days 1598
+FI20 buy side, mean same-day open->close move -0.045% (universe -0.118%)
+
+COMB open  entry: excess +0.749 [+0.551, +0.945] p=0.0000, Net +0.096 [-1.185, +1.320] p=0.4472, years 7/7, days 1599
+COMB close entry: excess +0.726 [+0.525, +0.924] p=0.0000, Net +0.185 [-1.097, +1.426] p=0.3903, years 7/7, days 1598
+COMB buy side, mean same-day open->close move -0.063% (universe -0.118%)
+
+== 3. U-shape as an exclusion filter (discovery, closing entry, gross excess vs universe, %) ==
+quintiles of the signal (Q1 = most net selling, Q5 = most net buying)
+
+INS5 overnight (close -> next open): Q1..Q5 -0.025 +0.015 +0.012 +0.020 -0.023 | Q3 +0.012 [-0.001, +0.025] p=0.0312 | universe without Q3 -0.003 [-0.006, +0.000] p=0.9689
+INS5 1 day (close -> next close): Q1..Q5 +0.058 +0.021 -0.052 -0.031 +0.003 | Q3 -0.052 [-0.072, -0.031] p=1.0000 | universe without Q3 +0.013 [+0.008, +0.018] p=0.0000
+INS5 20 rows (close entry): Q1..Q5 +0.773 +0.059 -0.871 -0.235 +0.276 | Q3 -0.871 [-1.191, -0.553] p=1.0000 | universe without Q3 +0.218 [+0.138, +0.298] p=0.0000
+
+FI20 overnight (close -> next open): Q1..Q5 -0.029 +0.005 +0.032 +0.014 -0.022 | Q3 +0.032 [+0.019, +0.046] p=0.0000 | universe without Q3 -0.008 [-0.011, -0.005] p=1.0000
+FI20 1 day (close -> next close): Q1..Q5 +0.049 -0.004 -0.065 +0.007 +0.012 | Q3 -0.065 [-0.087, -0.042] p=1.0000 | universe without Q3 +0.016 [+0.011, +0.022] p=0.0000
+FI20 20 rows (close entry): Q1..Q5 +0.824 +0.105 -0.997 -0.069 +0.139 | Q3 -0.997 [-1.285, -0.713] p=1.0000 | universe without Q3 +0.249 [+0.178, +0.321] p=0.0000
+
+COMB overnight (close -> next open): Q1..Q5 -0.021 +0.002 +0.016 +0.015 -0.012 | Q3 +0.016 [+0.007, +0.025] p=0.0001 | universe without Q3 -0.004 [-0.006, -0.002] p=0.9999
+COMB 1 day (close -> next close): Q1..Q5 +0.052 +0.004 -0.044 -0.015 +0.003 | Q3 -0.044 [-0.059, -0.029] p=1.0000 | universe without Q3 +0.011 [+0.007, +0.015] p=0.0000
+COMB 20 rows (close entry): Q1..Q5 +0.729 -0.002 -0.562 -0.188 +0.024 | Q3 -0.562 [-0.740, -0.386] p=1.0000 | universe without Q3 +0.140 [+0.097, +0.185] p=0.0000
+
+== 2a. half-tick floor (discovery buy side, % per side at the entry price) ==
+INS5: all median 0.062, mean 0.065; 10~30억 median 0.061, 30~100억 median 0.064, 100억+ median 0.064; share of buy side priced < 2,000 won 1%
+FI20: all median 0.063, mean 0.065; 10~30억 median 0.061, 30~100억 median 0.064, 100억+ median 0.064; share of buy side priced < 2,000 won 1%
+COMB: all median 0.062, mean 0.065; 10~30억 median 0.061, 30~100억 median 0.063, 100억+ median 0.064; share of buy side priced < 2,000 won 2%
+
