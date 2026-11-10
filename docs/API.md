@@ -143,6 +143,18 @@ ScannerType: `VOLUME`, `PRICE_RISE`, `MOMENTUM`, `VOLUME_BREAKOUT`, `TURNOVER_BR
 
 판정 기준은 [운영 가이드](OPERATIONS.md#마감-파이프라인-일별-완결성)를 따른다.
 
+## AI 장전 계획
+
+**AiPlanController** (`/api/v1/ai-plans`). 규격과 채점 규칙은 [AI_PREMARKET](AI_PREMARKET.md).
+
+- `POST /ai-plans`: 본문은 붙여넣은 JSON 원문. 저장하면 201, 검사 실패면 422. 응답 `{saved, errors[], warnings[], plan}`. 같은 날짜를 다시 넣으면 다음 `revision`으로 저장한다
+- `POST /ai-plans/check`: 저장하지 않고 검사만(항상 200)
+- `GET /ai-plans?from&to`: 날짜별 최신 판 요약(기본 오늘+7일부터 68일). `onTime`(장 시작 전 저장), `scored`(집계에 쓰는 판)
+- `GET /ai-plans/{id}`: 원본 `rawJson`, 종목별 `outcome`(채점 전이면 null), 같은 날짜의 모든 판
+- `POST /ai-plans/evaluate`: 채점을 바로 실행. 돌려주는 값은 채점한 종목 수
+- `GET /ai-plans/summary`: 1단계 판정(`gateVerdict` PENDING/PASS/FAIL)과 누적 통계, 채점일 목록
+- `GET /ai-plans/template`: 다음 분석 거래일을 채운 ChatGPT 프롬프트와 JSON 예시
+
 ## 수정주가 일봉 (연구)
 
 **AdjustedDailySweepController**

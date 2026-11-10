@@ -284,5 +284,10 @@ closing:
     buy-slippage-percent: ${CLOSING_BUY_SLIPPAGE_PERCENT:0}
     sell-slippage-percent: ${CLOSING_SELL_SLIPPAGE_PERCENT:0}
 
+# AI 장전 계획(ADR-012) 자동 채점. 수정주가 일봉 갱신(18:30) 뒤 DB만 읽고 써요. KIS를 부르지 않아요.
+ai-plan:
+  evaluation-enabled: ${AI_PLAN_EVALUATION_ENABLED:true}
+  evaluation-cron: ${AI_PLAN_EVALUATION_CRON:0 30 21 * * *}
+
 dart:
   api-key: ${DART_API_KEY:}
