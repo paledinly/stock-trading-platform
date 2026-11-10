@@ -1,0 +1,9 @@
+{
+  "sampled_trades": 100,
+  "max_return_error_pp": 2.3092638912203256e-14,
+  "all_sample_exits_exactly_five_market_sessions": true,
+  "independent_ledger": "check_a/BUYBACK_QUIET",
+  "ledger_sessions": 489,
+  "ledger_max_equity_difference": 4.440892098500626e-16,
+  "future_data_invariance": "passed in check"
+}

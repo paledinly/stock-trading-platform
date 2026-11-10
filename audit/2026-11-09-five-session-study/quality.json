@@ -1,0 +1,29 @@
+{
+  "snapshot": "2026-11-09 07:55:21.948700+00:00",
+  "sessions": 2188,
+  "first": "2017-12-04",
+  "last": "2026-11-06",
+  "official_sessions": 20,
+  "proxy_sessions": 2168,
+  "calendar_disagreements": [],
+  "duplicate_stock_dates": 0,
+  "bad_ohlc_rows": 2,
+  "abnormal_jump_rows": 114,
+  "eligible_stock_sessions": 2413513,
+  "valid_rows": 4953339,
+  "nontrading_or_invalid_rows": 191339,
+  "delisted_symbols_used": 293,
+  "recent_eligible": {
+    "2026-10-26": 848,
+    "2026-10-27": 845,
+    "2026-10-28": 840,
+    "2026-10-29": 839,
+    "2026-10-30": 833,
+    "2026-11-02": 834,
+    "2026-11-03": 829,
+    "2026-11-04": 818,
+    "2026-11-05": 808,
+    "2026-11-06": 800
+  },
+  "missing_or_halted_inside_history": 150557
+}

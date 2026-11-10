@@ -1,0 +1,11 @@
+{
+  "prior_five_day_matched_trades": 94664,
+  "prior_max_error_pp": 0.0,
+  "raw_price_samples": 140,
+  "all_horizons_sampled": 14,
+  "raw_max_error_pp": 2.220446049250313e-14,
+  "exact_exit_session_offsets": true,
+  "independent_ledger": "check_a/BUYBACK_QUIET/h10",
+  "ledger_sessions": 489,
+  "ledger_max_equity_error": 4.440892098500626e-16
+}
