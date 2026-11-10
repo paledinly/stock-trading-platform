@@ -1,6 +1,6 @@
 # AI 장전 계획 (1단계: 기록과 채점)
 
-ChatGPT가 장 시작 전에 고른 종목을 기록하고, 장 마감 뒤 실제 시장과 비교한다. 결정과 통과 기준은 [ADR-012](decisions/ADR-012-AI-PREMARKET-FORWARD-RECORD.md)에 있다. 매매 신호가 아니고, 운영 마감 추천에 영향을 주지 않는다.
+ChatGPT가 장 시작 전에 고른 종목을 기록하고, 장 마감 뒤 실제 시장과 비교한다. 2단계(실시간 감시·가상 매수) 설계 초안은 [AI_PREMARKET_PHASE2](AI_PREMARKET_PHASE2.md). 결정과 통과 기준은 [ADR-012](decisions/ADR-012-AI-PREMARKET-FORWARD-RECORD.md)에 있다. 매매 신호가 아니고, 운영 마감 추천에 영향을 주지 않는다.
 
 ## 매일 하는 일
 
