@@ -2,7 +2,7 @@
 
 ## 역할
 
-PostgreSQL은 영구 데이터의 시스템 오브 레코드다. Redis와 프로세스 메모리는 캐시와 실시간 상태이며 영구 이력으로 간주하지 않는다. Schema는 `backend/src/main/resources/db/migration`의 Flyway migration(`V1`~`V48`)으로 관리하고, `spring.jpa.hibernate.ddl-auto=validate`라 엔티티가 스키마를 바꾸지 않는다. 정확한 컬럼과 제약은 최신 migration을 기준으로 한다.
+PostgreSQL은 영구 데이터의 시스템 오브 레코드다. Redis와 프로세스 메모리는 캐시와 실시간 상태이며 영구 이력으로 간주하지 않는다. Schema는 `backend/src/main/resources/db/migration`의 Flyway migration(`V1`~`V49`)으로 관리하고, `spring.jpa.hibernate.ddl-auto=validate`라 엔티티가 스키마를 바꾸지 않는다. 정확한 컬럼과 제약은 최신 migration을 기준으로 한다.
 
 ## 테이블 목록
 
@@ -32,6 +32,7 @@ PostgreSQL은 영구 데이터의 시스템 오브 레코드다. Redis와 프로
 | 연구: 투자자별 일별 순매수 | `investor_daily_flow`, `investor_flow_state`(V44) |
 | 연구: 상장폐지 종목 과거 기록 | `delisted_stock`, `delisted_daily_history`(V45) |
 | AI 장전 계획 (Forward 기록) | `ai_premarket_plan`, `ai_premarket_pick`, `ai_premarket_outcome`, `ai_premarket_universe`(V47, v2 칸 V48) |
+| AI 장전 계획 실시간 감시 (2단계) | `ai_watch_session`, `ai_signal_event`, `ai_virtual_position`(V49) |
 | 기록 전용: 외부 요인 | `closing_candidate_context`, `dart_filing`(V35), `market_index_daily`(V37), `overseas_daily`(V40) |
 | 사용하지 않음 | `platform_schema_version`(V1), `intraday_input`, `intraday_recommendation`(V27) |
 
@@ -56,6 +57,10 @@ KIS 국내휴장일조회로 받은 날짜별 개장 여부(`market_open`), 출�
 ### ai_premarket_plan · ai_premarket_pick · ai_premarket_outcome · ai_premarket_universe (V47, V48)
 
 [ADR-012](decisions/ADR-012-AI-PREMARKET-FORWARD-RECORD.md)의 AI 장전 계획 기록이다. `ai_premarket_plan.raw_json`은 붙여넣은 원문 그대로이며 고치지 않는다. 같은 `target_date`를 다시 넣으면 `revision`이 늘어난다. `on_time`은 그날 장 시작 전 저장 여부이고, 집계는 날짜별 `on_time` 마지막 판만 쓴다. `ai_premarket_pick`은 원본에서 뽑은 종목(`kind` PICK/AVOID, 종목 마스터 id)이다. AI가 적은 가격·조건은 원본에만 있다. `ai_premarket_outcome`(종목별)과 `ai_premarket_universe`(날짜별 시장 평균)는 장 마감 뒤 `daily_adjusted_candle`로 잰 값이며 다시 채점하면 바꿔 쓴다. 채점 규칙은 [AI_PREMARKET](AI_PREMARKET.md#채점). V48은 v2 규격 칸을 더했다: `analyzed_at` null 허용, `analysis_id`, `analysis_mode`, `market_regime`, `risk_level`, 종목의 `top_priority`, `confidence`.
+
+### ai_watch_session · ai_signal_event · ai_virtual_position (V49)
+
+2단계 장중 감시 기록이다([AI_PREMARKET_PHASE2](AI_PREMARKET_PHASE2.md)). 틱은 저장하지 않는다. `ai_watch_session`은 날짜별 한 줄(계획 판, 구독 수, 구독 못 한 종목, 1회 금액, 규칙 버전, 시작·종료 시각)이다. `ai_signal_event`는 종목·규칙(P/A)별 상태 변화로, 원천 체결시각(`source_at`)·수신시각(`received_at`)·평가시각(`evaluated_at`)을 따로 두고 그 순간 지표를 JSON으로 남긴다. `ai_virtual_position`은 날짜·종목·규칙마다 가상 진입 한 건이며 청산 E1(구조 손절+마감)·E2(+3%/−2%)를 함께 담는다. `shadow`는 계획이 TRADE가 아니던 날의 진입이다. 청산이 나면 같은 줄을 고친다.
 
 ### limit_up_watch (V34·V36, 연구용)
 

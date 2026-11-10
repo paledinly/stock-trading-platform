@@ -1,12 +1,14 @@
 /**
  * AI 장전 계획 화면(AiPlanPage)이에요(ADR-012 1단계: 기록과 채점).
  * ChatGPT용 프롬프트를 복사하고, ChatGPT가 만든 JSON을 붙여넣어 검사·저장하고, 장 마감 뒤 채점 결과와 1단계 통과 기준을 봐요.
- * 실시간 매매 신호가 아니에요. AI가 적은 가격·조건은 원본에만 남고, 채점은 실제 일봉으로만 해요.
+ * 기록·채점 탭의 채점은 실제 일봉으로만 해요. AI가 적은 가격·조건은 원본에만 남아요.
+ * '실시간 감시' 탭(AiWatchPanel)은 2단계: 장중에 계획 종목을 감시하고 조건이 맞으면 가상으로 사고팔아 기록해요(실주문 없음).
  * 화면 이동과 메뉴는 AppShell.tsx가 맡아요.
  */
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import './aiPlan.css'
+import { AiWatchPanel } from './AiWatchPanel'
 
 // 아래 타입은 /api/v1/ai-plans 응답 모양이에요. 퍼센트 값은 2가 2%예요.
 /** 날짜별 계획 한 판의 요약이에요. scored는 성과 집계에 쓰는 판(장 시작 전 마지막 판)인지예요. */
@@ -67,6 +69,7 @@ export function AiPlanPage() {
   const [showPrompt, setShowPrompt] = useState(false)
   const [copied, setCopied] = useState(false)
   const [showRaw, setShowRaw] = useState(false)
+  const [tab, setTab] = useState<'plan' | 'watch'>('plan')
   const summary = useQuery({ queryKey: ['ai-plans', 'summary'], queryFn: () => get<Summary>('/api/v1/ai-plans/summary') })
   const plans = useQuery({ queryKey: ['ai-plans', 'list'], queryFn: () => get<PlanSummary[]>('/api/v1/ai-plans') })
   const template = useQuery({ queryKey: ['ai-plans', 'template'], queryFn: () => get<Template>('/api/v1/ai-plans/template'), enabled: showPrompt })
@@ -111,9 +114,13 @@ export function AiPlanPage() {
     <div className="aiPlanPage">
       <header>
         <h1>AI 장전 계획</h1>
-        <span>ChatGPT 장전 분석을 장 시작 전에 기록하고, 장 마감 뒤 실제 시장과 비교해요. 매매 신호가 아니라 검증용 기록이에요.</span>
+        <span>ChatGPT 장전 분석을 장 시작 전에 기록하고, 장 마감 뒤 실제 시장과 비교해요. 장중에는 계획 종목을 감시하며 가상으로만 사고팔아요.</span>
+        <nav className="aiTabs" role="tablist" aria-label="AI 장전 계획 보기">
+          <button type="button" role="tab" aria-selected={tab === 'plan'} className={tab === 'plan' ? 'active' : ''} onClick={() => setTab('plan')}>기록·채점</button>
+          <button type="button" role="tab" aria-selected={tab === 'watch'} className={tab === 'watch' ? 'active' : ''} onClick={() => setTab('watch')}>실시간 감시</button>
+        </nav>
       </header>
-      <main>
+      {tab === 'watch' ? <main><AiWatchPanel /></main> : <main>
         <section className="aiGate" aria-label="1단계 통과 기준">
           <article>
             <small>1단계 판정 (처음 {s?.gateDays ?? 20}개 채점일)</small>
@@ -189,7 +196,7 @@ export function AiPlanPage() {
               onSelect={id => { setSelected(id); setShowRaw(false) }} />}
           </div>
         </section>
-      </main>
+      </main>}
     </div>
   )
 }

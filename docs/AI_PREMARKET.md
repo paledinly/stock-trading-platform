@@ -1,6 +1,6 @@
 # AI 장전 계획 (1단계: 기록과 채점)
 
-ChatGPT가 장 시작 전에 고른 종목을 기록하고, 장 마감 뒤 실제 시장과 비교한다. 2단계(실시간 감시·가상 매수) 설계 초안은 [AI_PREMARKET_PHASE2](AI_PREMARKET_PHASE2.md). 결정과 통과 기준은 [ADR-012](decisions/ADR-012-AI-PREMARKET-FORWARD-RECORD.md)에 있다. 매매 신호가 아니고, 운영 마감 추천에 영향을 주지 않는다.
+ChatGPT가 장 시작 전에 고른 종목을 기록하고, 장 마감 뒤 실제 시장과 비교한다. 2단계(실시간 감시·가상 매수)는 [AI_PREMARKET_PHASE2](AI_PREMARKET_PHASE2.md)(2026-11-11부터 기록). 결정과 통과 기준은 [ADR-012](decisions/ADR-012-AI-PREMARKET-FORWARD-RECORD.md)에 있다. 매매 신호가 아니고, 운영 마감 추천에 영향을 주지 않는다.
 
 ## 매일 하는 일
 
@@ -32,7 +32,7 @@ ChatGPT가 장 시작 전에 고른 종목을 기록하고, 장 마감 뒤 실�
 
 - ChatGPT가 JSON을 코드 블록(```json … ```)으로 감싸 보내도 벗겨서 읽는다.
 - 같은 종목이 두 번 나오면 거부한다. 종목명이 마스터와 다르면 경고하고 코드 기준으로 저장한다.
-- `marketData`, `keyLevels`, `entryStrategy.conditions`, `exitPlan` 같은 AI가 적은 가격·조건은 **원본 JSON에만** 남는다. 확정 매매 가격으로 쓰지 않는다. 2단계에서 실시간 데이터로 다시 확인한다.
+- `marketData`, `keyLevels`, `entryStrategy.conditions`, `exitPlan` 같은 AI가 적은 가격·조건은 **원본 JSON에만** 남는다. 확정 매매 가격으로 쓰지 않는다. 2단계는 `entryStrategy.conditions` 중 계산할 수 있는 것만 실시간 지표로 다시 판단한다(규칙 A).
 
 ## 채점
 
