@@ -66,6 +66,7 @@
 | 시장 전체 스캐너 | 시장 전체 (`MarketWidePage`) | 운영 | [API](API.md#시장-전체-스캔) |
 | 전략 재생 | 백테스트 (`BacktestPage`) | 실험 | [BACKTESTING](BACKTESTING.md) |
 | 오늘의 마감 추천 | 마감 추천 (`ClosingRecommendationPage`) | 실험 | [TRADING_STRATEGY](TRADING_STRATEGY.md) |
+| AI 장전 계획 기록·채점 (`AI_PLAN_EVALUATION_ENABLED`, 기본 켜짐, 매일 21:30) | AI 장전 (`AiPlanPage`) | 실험 (Forward 기록, 1단계) | [AI_PREMARKET](AI_PREMARKET.md), [ADR-012](decisions/ADR-012-AI-PREMARKET-FORWARD-RECORD.md) |
 
 ### 제거됨
 
@@ -76,8 +77,8 @@
 
 ## 신규 기능 추가 규칙
 
-마감 v9.1의 1차 체크포인트([ADR-008](decisions/ADR-008-CLOSING-V9-DECISION-CRITERIA.md), 표본 정의는 [ADR-010](decisions/ADR-010-CLOSING-PRIMARY-SAMPLE-ALL-PRECISION.md))가 나올 때까지 다음을 지킨다.
+"마감 v9.1 1차 체크포인트까지 새 수집·전략·화면 금지" 규칙은 2026-11-10 [ADR-012](decisions/ADR-012-AI-PREMARKET-FORWARD-RECORD.md)로 풀었다(v9.1 판정 2026-11-09 "중단", 사용자 결정).
 
-- 새 데이터 수집, 새 전략, 새 화면은 추가하지 않는다. 측정 신뢰성 수정, 버그 수정, 이미 등록된 비교 실험은 예외다.
-- 새 실험 옵션은 기존 옵션 하나를 정리하거나, 결과가 나온 실험이 있을 때만 추가한다.
+- 새 기능을 추가하면 이 표를 같은 커밋에서 갱신한다.
+- 운영 기본값을 바꾸는 가중치·임계값은 같은 Universe·진입·청산·비용 조건의 비교 검증을 먼저 남긴다(AGENTS.md).
 - 동결 기능은 다른 작업의 전제가 될 때만 재개하고, 재개하면 이 표의 상태를 바꾼다.

@@ -13,6 +13,7 @@ import { AnalyticsPage } from './Phase7App'
 import { MarketWidePage } from './Phase8App'
 import { BacktestPage } from './BacktestPage'
 import { ClosingRecommendationPage } from './ClosingRecommendationApp'
+import { AiPlanPage } from './AiPlanPage'
 import { GROUPS, ROUTES, routeFromHash, type RouteId } from './routes'
 import { NavIcon } from './NavIcon'
 import { MarketIndices } from './MarketIndices'
@@ -93,6 +94,7 @@ export function AppShell() {
         {route === 'today' && <TodayPage />}
         {route === 'dashboard' && <Phase3App />}
         {route === 'closing' && <ClosingRecommendationPage advanced />}
+        {route === 'ai' && <AiPlanPage />}
         {route === 'wide' && <MarketWidePage />}
         {route === 'scanner' && <ScannerPage />}
         {route === 'analytics' && <AnalyticsPage />}

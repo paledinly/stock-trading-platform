@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "ai-premarket-v1",
+  "targetDate": "2026-11-11",
+  "analyzedAt": "2026-11-11T07:50:00+09:00",
+  "validUntil": "2026-11-11T15:30:00+09:00",
+  "model": {
+    "name": "ChatGPT",
+    "version": "모델 이름과 버전을 그대로 적기",
+    "promptVersion": "premarket-v1",
+    "temperature": null
+  },
+  "market": {
+    "outlook": "NEUTRAL",
+    "summary": "오늘 국내 시장 전망 한두 문장",
+    "reasons": ["전망 근거 1", "전망 근거 2"],
+    "news": [
+      { "title": "기사 제목", "source": "언론사", "url": "https://...", "publishedAt": "2026-11-11T06:30:00+09:00" }
+    ],
+    "overseas": "전일 미국 증시·주요 업종 동향",
+    "macro": "환율·금리 등",
+    "themes": ["관심 테마"],
+    "risks": ["시장 위험 요인"],
+    "dataCheckedAt": "2026-11-11T07:45:00+09:00"
+  },
+  "tradeDecision": "TRADE",
+  "picks": [
+    {
+      "stockCode": "005930",
+      "stockName": "삼성전자",
+      "priority": 1,
+      "themes": ["반도체"],
+      "reason": "선정 이유",
+      "sources": [
+        { "title": "근거 기사 제목", "source": "언론사", "url": "https://...", "publishedAt": "2026-11-11T06:00:00+09:00" }
+      ],
+      "scenario": { "bull": "상승 시나리오", "bear": "하락 시나리오" },
+      "keyLevels": [
+        { "label": "전일 고가", "price": 0, "basis": "가격 산출 근거(확인 못 했으면 price를 null로)" }
+      ],
+      "volumeCondition": "관찰할 거래량·거래대금 조건",
+      "entryCondition": "매수 후보로 전환할 조건",
+      "noBuyCondition": "매수 금지 조건",
+      "invalidation": "시나리오 무효화 조건",
+      "exitPlan": { "takeProfit": "익절 기준 산출 방식", "stopLoss": "손절 기준 산출 방식" },
+      "overnightReview": "장마감 보유 여부 재평가 조건"
+    }
+  ],
+  "avoid": [
+    { "stockCode": "000660", "stockName": "SK하이닉스", "reason": "오늘 사지 말아야 할 이유" }
+  ]
+}

@@ -6,6 +6,7 @@ export const ROUTES = [
   { id: 'today', label: '오늘', group: '운영' },
   { id: 'dashboard', label: '대시보드', group: '운영' },
   { id: 'closing', label: '마감 추천', group: '운영' },
+  { id: 'ai', label: 'AI 장전', group: '운영' },
   { id: 'wide', label: '시장 스캐너', group: '탐색' },
   { id: 'scanner', label: '실시간 레이더', group: '탐색' },
   { id: 'analytics', label: '성과 분석', group: '검증' },
