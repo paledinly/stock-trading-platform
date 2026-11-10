@@ -25,6 +25,7 @@ type Subscriptions = {
 // 서버 코드값을 화면용 한국어 이름으로 바꾸는 표예요.
 const SOURCE_LABEL: Record<string, string> = {
   PRECISION: '정밀', OVERNIGHT: '다음날 관측', WATCHLIST: '관심 고정', MANUAL: '수동', QUOTE: '화면 조회', CORE: '핵심',
+  AI_PLAN: 'AI 감시',
 }
 const STATE_LABEL: Record<string, string> = {
   SUBSCRIBED: '수신 중', REQUESTED: '요청 중', QUEUED: '연결 대기', FAILED: '실패',

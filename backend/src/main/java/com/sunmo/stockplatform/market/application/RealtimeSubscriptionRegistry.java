@@ -22,9 +22,10 @@ public class RealtimeSubscriptionRegistry {
      * 구독을 원하는 이유(출처)예요.
      * WATCHLIST는 실시간 고정한 관심종목, MANUAL은 수동 구독, PRECISION은 정밀 후보, OVERNIGHT는 전일 추천 다음 날 추적이에요.
      * QUOTE는 출처 없이 add(code)를 부를 때의 기본값이고, CORE는 현재 운영 코드에서 쓰는 곳이 없는 것으로 보여요.
+     * AI_PLAN은 그날 AI 장전 계획 종목의 실시간 감시(2단계)예요. 정밀 후보보다 먼저 자리를 받아요.
      */
     public enum Source {
-        QUOTE, WATCHLIST, MANUAL, CORE, PRECISION, OVERNIGHT
+        QUOTE, WATCHLIST, MANUAL, CORE, PRECISION, OVERNIGHT, AI_PLAN
     }
 
     /** KIS가 구독/해제 요청에 응답한 결과예요. subscribing은 구독 요청이었는지(false면 해제), success는 성공 여부예요. */

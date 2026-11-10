@@ -252,7 +252,7 @@ public class AiPlanValidator {
     }
 
     /** ChatGPT가 JSON을 코드 블록(```json ... ```)으로 감싸 보내도 읽을 수 있게 벗겨요. */
-    static String stripFence(String raw) {
+    public static String stripFence(String raw) {
         String text = raw == null ? "" : raw.strip();
         if (text.startsWith("```")) {
             int firstLine = text.indexOf('\n');

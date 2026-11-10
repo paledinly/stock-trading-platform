@@ -155,6 +155,12 @@ ScannerType: `VOLUME`, `PRICE_RISE`, `MOMENTUM`, `VOLUME_BREAKOUT`, `TURNOVER_BR
 - `GET /ai-plans/summary`: 1단계 판정(`gateVerdict` PENDING/PASS/FAIL)과 누적 통계, 채점일 목록
 - `GET /ai-plans/template`: 다음 분석 거래일을 채운 ChatGPT 프롬프트(`ai-premarket-v2`)와 JSON 예시
 
+**AiWatchController** (`/api/v1/ai-plans/watch`, 읽기 전용). 규칙은 [AI_PREMARKET_PHASE2](AI_PREMARKET_PHASE2.md).
+
+- `GET /ai-plans/watch?date`: 그날 실시간 감시(기본 오늘). `live`(지금 감시 중), `session`(계획 판·구독 수·구독 못 한 종목·1회 금액), `stocks[]`(규칙 P·A 상태 `stateP`/`stateA`, `indicators`, 조건별 `checksP`/`checksA` PASS/FAIL/UNAVAILABLE, `unsupportedA`, `positions`), `positions[]`(가상 진입·E1·E2 청산), `events[]`(상태 변화, 최근 1,000건). 지난 날짜는 저장된 마지막 상태로 만든다(지표 없음)
+- `GET /ai-plans/watch/summary`: 2단계 판정 `verdict`(PENDING/PASS/FAIL), 판정 표본 `gate`, 규칙(P/A)·청산(E1/E2)·구분(ALL/LIVE/SHADOW)별 `groups[]`(건수, 거래일, 비용 뺀 평균, 이긴 비율, 시가 매수 대비)
+- SSE: `ai.signal.changed`(상태 변화), `ai.position.changed`(가상 진입·청산)
+
 ## 수정주가 일봉 (연구)
 
 **AdjustedDailySweepController**

@@ -257,6 +257,30 @@ class PrecisionSubscriptionAllocatorTest {
                 Duration.ZERO, Duration.ofHours(1), 10, limit, Duration.ofMinutes(1)));
     }
 
+    /**
+     * AI 장전 계획 감시가 꽉 찬 등록부에서 자리를 받는지 확인해요.
+     * 준비: 한도 4(예비 1)에 관심종목 1개, 정밀 2개(A00001 점수 90, A00002 점수 80, 최소 유지 15분)를 두고 바로 AI 종목을 넣어요.
+     * 기대: 최소 유지 시간과 상관없이 가장 약한 정밀 A00002가 빠지고 AI 종목이 들어가요. 관심종목은 내주지 않고,
+     * 다음 배분에서 정밀 자리는 1개로 줄어 A00002를 다시 넣지 않아요. 정밀 자리가 없으면 false예요.
+     */
+    @Test
+    void yieldsTheWeakestPrecisionSlotToTheAiPlanWatch() {
+        RealtimeSubscriptionRegistry registry = registry(4);
+        registry.add("005930", RealtimeSubscriptionRegistry.Source.WATCHLIST);
+        PrecisionSubscriptionAllocator allocator = allocator(registry, Duration.ofMinutes(15), "10");
+        Instant at = Instant.parse("2026-09-07T04:00:00Z");
+        allocator.reconcile(List.of(candidate("A00001", "90"), candidate("A00002", "80")), at);
+
+        assertThat(allocator.yieldSlotTo("247540", RealtimeSubscriptionRegistry.Source.AI_PLAN)).isTrue();
+        var next = allocator.reconcile(List.of(candidate("A00001", "90"), candidate("A00002", "80")), at.plusSeconds(1));
+
+        assertThat(registry.all()).containsExactlyInAnyOrder("005930", "A00001", "247540");
+        assertThat(next.capacity()).isEqualTo(1);
+        assertThat(allocator.yieldSlotTo("196170", RealtimeSubscriptionRegistry.Source.AI_PLAN)).isTrue();
+        assertThat(allocator.yieldSlotTo("028300", RealtimeSubscriptionRegistry.Source.AI_PLAN)).isFalse();
+        assertThat(registry.all()).containsExactlyInAnyOrder("005930", "247540", "196170");
+    }
+
     /** 종목코드와 점수로 배분 후보를 만드는 도우미예요. */
     private PrecisionSubscriptionAllocator.Candidate candidate(String code, String score) {
         return new PrecisionSubscriptionAllocator.Candidate(code, new BigDecimal(score));

@@ -67,6 +67,7 @@
 | 전략 재생 | 백테스트 (`BacktestPage`) | 실험 | [BACKTESTING](BACKTESTING.md) |
 | 오늘의 마감 추천 | 마감 추천 (`ClosingRecommendationPage`) | 실험 | [TRADING_STRATEGY](TRADING_STRATEGY.md) |
 | AI 장전 계획 기록·채점 (`AI_PLAN_EVALUATION_ENABLED`, 기본 켜짐, 매일 21:30) | AI 장전 (`AiPlanPage`) | 실험 (Forward 기록, 1단계) | [AI_PREMARKET](AI_PREMARKET.md), [ADR-012](decisions/ADR-012-AI-PREMARKET-FORWARD-RECORD.md) |
+| AI 장전 계획 실시간 감시·가상 매수 (`AI_PLAN_WATCH_ENABLED`, 기본 켜짐, 08:50~15:20, 1회 `AI_PLAN_WATCH_POSITION_AMOUNT` 1,000만 원). 계획 종목을 `AI_PLAN` 출처로 구독하고 자리가 없으면 정밀 후보 자리를 양보받음. KOSPI·KOSDAQ 1분 조회, 매수 신호 때 호가 1회 | AI 장전 → 실시간 감시 (`AiWatchPanel`) | 실험 (Forward 기록, 2단계) | [AI_PREMARKET_PHASE2](AI_PREMARKET_PHASE2.md) |
 
 ### 제거됨
 

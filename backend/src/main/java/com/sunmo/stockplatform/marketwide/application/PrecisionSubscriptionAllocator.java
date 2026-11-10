@@ -281,14 +281,45 @@ public class PrecisionSubscriptionAllocator {
     }
 
     /**
+     * 하는 일: 등록부가 꽉 찼을 때 다른 출처(AI 장전 계획 감시)에 자리를 내줘요.
+     * 정밀 출처만 가진 배정 중 가장 약한 것(교체 대기 제외, 최소 유지 시간은 무시)을 빼고, 같은 잠금 안에서 새 종목을 등록해요.
+     * 잠금 밖에서 나눠 하면 그 사이 reconcile이 빈자리를 다시 채울 수 있어서 한 번에 해요.
+     * 받는 것: 종목코드, 출처. 돌려주는 것: 등록했으면 true, 내줄 정밀 자리가 없으면 false.
+     */
+    public synchronized boolean yieldSlotTo(String stockCode, RealtimeSubscriptionRegistry.Source source) {
+        Allocation weakest = allocations.values().stream()
+                .filter(allocation -> precisionOnly(allocation.stockCode()))
+                .filter(allocation -> !pendingReplacements.containsKey(allocation.stockCode()))
+                .filter(allocation -> pendingReplacements.values().stream()
+                        .noneMatch(pending -> pending.oldCode().equals(allocation.stockCode())))
+                .min(Comparator.comparing(Allocation::score).thenComparing(Allocation::addedAt))
+                .orElse(null);
+        if (weakest == null)
+            return false;
+        remove(weakest.stockCode(), "YIELDED_" + source.name());
+        try {
+            registry.add(stockCode, source);
+            return true;
+        } catch (IllegalStateException rejected) {
+            log.warn("Subscription for {} ({}) rejected after a precision slot was yielded: {}", stockCode, source,
+                    rejected.getMessage());
+            return false;
+        }
+    }
+
+    /**
      * 하는 일: 종목의 정밀 구독을 해지하고 배정에서 지운 뒤 종료 이력을 남겨요.
      * 받는 것: 종목코드.
      * 돌려주는 것: 없음.
      */
     private void remove(String stockCode) {
+        remove(stockCode, "ALLOCATOR_REMOVED");
+    }
+
+    private void remove(String stockCode, String reason) {
         registry.remove(stockCode, RealtimeSubscriptionRegistry.Source.PRECISION);
         allocations.remove(stockCode);
-        recordHistory(() -> history.ended(stockCode, Instant.now(), "ALLOCATOR_REMOVED"));
+        recordHistory(() -> history.ended(stockCode, Instant.now(), reason));
     }
 
     /**
