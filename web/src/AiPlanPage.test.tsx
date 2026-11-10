@@ -5,13 +5,13 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AiPlanPage, pct } from './AiPlanPage'
 
-const plan = { id: 7, targetDate: '2026-11-11', revision: 2, analyzedAt: '2026-11-10T22:50:00Z', submittedAt: '2026-11-10T23:10:00Z', onTime: true, scored: true, tradeDecision: 'TRADE', marketOutlook: 'BULLISH', modelName: 'ChatGPT', modelVersion: 'test', promptVersion: 'premarket-v1', pickCount: 1, avoidCount: 1, warnings: [] }
-const summary = { scoredDays: 3, gateDays: 20, gateWinDaysRequired: 12, gateVerdict: 'PENDING', gateMeanExcess: 0.5, gateWinDays: 2, meanPickOpenClose: 1.2, meanPickNet: 0.8, meanUniverseOpenClose: 0.7, meanExcess: 0.5, winDays: 2, pickCount: 4, meanAvoidExcess: -0.4, avoidCount: 2, noTradeDays: 0, noTradeUniverseOpenClose: null, tradeUniverseOpenClose: 0.7, days: [] }
+const plan = { id: 7, targetDate: '2026-11-11', revision: 2, schemaVersion: 'ai-premarket-v2', analysisId: '20261111-PREMARKET', analysisMode: 'PREMARKET', analyzedAt: null, submittedAt: '2026-11-10T23:10:00Z', onTime: true, scored: true, tradeDecision: 'WATCH_ONLY', marketOutlook: 'BULLISH', marketRegime: 'VOLATILE_MIXED', riskLevel: 'HIGH', modelName: 'ChatGPT', modelVersion: 'test', promptVersion: 'premarket-v1', pickCount: 1, avoidCount: 1, warnings: [] }
+const summary = { scoredDays: 3, gateDays: 20, gateWinDaysRequired: 12, gateVerdict: 'PENDING', gateMeanExcess: 0.5, gateWinDays: 2, meanPickOpenClose: 1.2, meanPickNet: 0.8, meanUniverseOpenClose: 0.7, meanExcess: 0.5, winDays: 2, pickCount: 4, meanAvoidExcess: -0.4, avoidCount: 2, noTradeDays: 0, noTradeUniverseOpenClose: null, tradeUniverseOpenClose: 0.7, meanTopExcess: 1.5, topCount: 2, days: [] }
 const detail = {
   plan, rawJson: '{"schemaVersion":"ai-premarket-v1"}', revisions: [plan],
   picks: [
-    { id: 1, kind: 'PICK', stockCode: '005930', stockName: '삼성전자', priority: 1, reason: '테스트', outcome: { tradeDate: '2026-11-11', status: 'COMPLETE', gapPct: -0.99, openClosePct: 4, highPct: 5, lowPct: -1, netOpenClosePct: 3.59, universeOpenClosePct: 1.02, excessOpenClosePct: 2.98, universeCount: 150 } },
-    { id: 2, kind: 'AVOID', stockCode: '000660', stockName: 'SK하이닉스', priority: null, reason: '과열', outcome: null },
+    { id: 1, kind: 'PICK', stockCode: '005930', stockName: '삼성전자', priority: 1, reason: '테스트', topPriority: true, confidence: 'MEDIUM', outcome: { tradeDate: '2026-11-11', status: 'COMPLETE', gapPct: -0.99, openClosePct: 4, highPct: 5, lowPct: -1, netOpenClosePct: 3.59, universeOpenClosePct: 1.02, excessOpenClosePct: 2.98, universeCount: 150 } },
+    { id: 2, kind: 'AVOID', stockCode: '000660', stockName: 'SK하이닉스', priority: null, reason: '과열', topPriority: false, confidence: null, outcome: null },
   ],
 }
 
@@ -45,6 +45,10 @@ it('shows the gate progress and the scored picks of the latest plan', async () =
   expect(screen.getByText('매수 금지')).toBeInTheDocument()
   expect(screen.getByText(/채점 전/)).toBeInTheDocument()
   expect(screen.getByText('집계 대상')).toBeInTheDocument()
+  expect(screen.getByText('1순위 ★')).toBeInTheDocument()
+  expect(screen.getByText('+1.50%')).toBeInTheDocument()
+  expect(screen.getByText(/감시만 · 강세 · 위험 높음/)).toBeInTheDocument()
+  expect(screen.getByText(/분석 시각 없음/)).toBeInTheDocument()
 })
 
 it('lists validation errors when saving fails', async () => {

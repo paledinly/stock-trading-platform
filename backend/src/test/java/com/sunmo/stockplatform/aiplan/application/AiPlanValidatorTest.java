@@ -109,4 +109,64 @@ class AiPlanValidatorTest {
                 .anyMatch(e -> e.contains("picks가 하나 이상"));
         assertThat(beforeOpen().validate("{ not json").errors()).anyMatch(e -> e.contains("JSON 형식"));
     }
+
+    /** v2 계획이에요. analyzedAt은 null, 판단은 WATCH_ONLY, 최우선 감시 종목은 삼성전자예요. */
+    private static String v2(String mode, String top, String picks) {
+        return """
+                {"schemaVersion":"ai-premarket-v2","analysisId":"20261111-PREMARKET","targetDate":"2026-11-11",
+                 "analysisMode":"%s","analyzedAt":null,"analysisValidUntil":"2026-11-11T09:00:00+09:00",
+                 "model":{"name":"ChatGPT","version":null,"promptVersion":"premarket-v2","temperature":null},
+                 "market":{"outlook":"NEUTRAL","regime":"VOLATILE_MIXED","riskLevel":"HIGH","news":[]},
+                 "tradeDecision":"WATCH_ONLY","topPriorityStockCodes":[%s],"picks":[%s],
+                 "avoid":[{"stockCode":"000660","stockName":"SK하이닉스","reason":"과열","riskType":"OVEREXTENDED"}]}"""
+                .formatted(mode, top, picks);
+    }
+
+    private static final String SAMSUNG_V2 = """
+            {"stockCode":"005930","stockName":"삼성전자","priority":1,"status":"WATCH","reason":"테스트","confidence":"MEDIUM",
+             "sources":[{"title":"t","url":"https://x","publishedAt":"2026-11-11T06:00:00+09:00"}],
+             "noBuyConditions":["갭 3% 이상"],"invalidationConditions":[]}""";
+
+    /**
+     * 기대: v2 계획은 analyzedAt이 null이어도 저장할 수 있고(경고), WATCH_ONLY와 최우선 종목 표시가 들어가요.
+     * ChatGPT가 코드 블록으로 감싸 보내도 읽어요.
+     */
+    @Test
+    void acceptsVersionTwoPlansWrappedInACodeBlock() {
+        String raw = "```json\n" + v2("PREMARKET", "\"005930\"", SAMSUNG_V2) + "\n```";
+        var result = beforeOpen().validate(raw);
+
+        assertThat(result.errors()).isEmpty();
+        assertThat(result.warnings()).anyMatch(w -> w.contains("analyzedAt이 없어요")).anyMatch(w -> w.contains("model.version"));
+        var plan = result.plan();
+        assertThat(plan.schemaVersion()).isEqualTo("ai-premarket-v2");
+        assertThat(plan.analysisId()).isEqualTo("20261111-PREMARKET");
+        assertThat(plan.tradeDecision()).isEqualTo("WATCH_ONLY");
+        assertThat(plan.riskLevel()).isEqualTo("HIGH");
+        assertThat(plan.onTime()).isTrue();
+        assertThat(plan.validUntil()).isEqualTo(Instant.parse("2026-11-11T00:00:00Z"));
+        assertThat(plan.picks()).filteredOn(p -> p.kind().equals("PICK")).singleElement()
+                .satisfies(p -> assertThat(p.topPriority()).isTrue());
+        assertThat(plan.picks()).filteredOn(p -> p.kind().equals("AVOID")).singleElement()
+                .satisfies(p -> assertThat(p.topPriority()).isFalse());
+    }
+
+    /** 기대: 최우선 감시 종목이 picks에 없거나 3개를 넘으면 거부해요. */
+    @Test
+    void checksTopPriorityCodes() {
+        assertThat(beforeOpen().validate(v2("PREMARKET", "\"000660\"", SAMSUNG_V2)).errors())
+                .anyMatch(e -> e.contains("topPriorityStockCodes의 000660"));
+        assertThat(beforeOpen().validate(v2("PREMARKET", "\"005930\",\"1\",\"2\",\"3\"", SAMSUNG_V2)).errors())
+                .anyMatch(e -> e.contains("최대 3개"));
+    }
+
+    /** 기대: analysisMode가 INTRADAY면 장 시작 전에 넣어도 집계에서 빠져요. */
+    @Test
+    void excludesIntradayAnalysis() {
+        var result = beforeOpen().validate(v2("INTRADAY", "", SAMSUNG_V2));
+
+        assertThat(result.errors()).isEmpty();
+        assertThat(result.plan().onTime()).isFalse();
+        assertThat(result.warnings()).anyMatch(w -> w.contains("INTRADAY"));
+    }
 }
