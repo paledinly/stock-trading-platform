@@ -2,7 +2,7 @@
 
 ## 역할
 
-PostgreSQL은 영구 데이터의 시스템 오브 레코드다. Redis와 프로세스 메모리는 캐시와 실시간 상태이며 영구 이력으로 간주하지 않는다. Schema는 `backend/src/main/resources/db/migration`의 Flyway migration(`V1`~`V47`)으로 관리하고, `spring.jpa.hibernate.ddl-auto=validate`라 엔티티가 스키마를 바꾸지 않는다. 정확한 컬럼과 제약은 최신 migration을 기준으로 한다.
+PostgreSQL은 영구 데이터의 시스템 오브 레코드다. Redis와 프로세스 메모리는 캐시와 실시간 상태이며 영구 이력으로 간주하지 않는다. Schema는 `backend/src/main/resources/db/migration`의 Flyway migration(`V1`~`V48`)으로 관리하고, `spring.jpa.hibernate.ddl-auto=validate`라 엔티티가 스키마를 바꾸지 않는다. 정확한 컬럼과 제약은 최신 migration을 기준으로 한다.
 
 ## 테이블 목록
 
@@ -31,7 +31,7 @@ PostgreSQL은 영구 데이터의 시스템 오브 레코드다. Redis와 프로
 | 연구: 장중 5분봉 (과거 1년 재현) | `intraday_research_bar`, `intraday_research_state`(V43) |
 | 연구: 투자자별 일별 순매수 | `investor_daily_flow`, `investor_flow_state`(V44) |
 | 연구: 상장폐지 종목 과거 기록 | `delisted_stock`, `delisted_daily_history`(V45) |
-| AI 장전 계획 (Forward 기록) | `ai_premarket_plan`, `ai_premarket_pick`, `ai_premarket_outcome`, `ai_premarket_universe`(V47) |
+| AI 장전 계획 (Forward 기록) | `ai_premarket_plan`, `ai_premarket_pick`, `ai_premarket_outcome`, `ai_premarket_universe`(V47, v2 칸 V48) |
 | 기록 전용: 외부 요인 | `closing_candidate_context`, `dart_filing`(V35), `market_index_daily`(V37), `overseas_daily`(V40) |
 | 사용하지 않음 | `platform_schema_version`(V1), `intraday_input`, `intraday_recommendation`(V27) |
 
@@ -53,9 +53,9 @@ KIS 국내휴장일조회로 받은 날짜별 개장 여부(`market_open`), 출�
 
 `daily_adjusted_candle`은 ETF·ETN을 제외한 상장 종목 전체의 수정주가 일봉을 `(stock_id, trade_date)` 기본키로 저장한다. 시점 기준 Universe(각 날짜 이전 거래대금 순위 등)를 재구성하기 위한 테이블이다. 수정주가는 기업행사 후 과거 값이 다시 계산되므로 `stock_candle`과 달리 행을 갱신하며 `fetched_at`은 마지막 기록시각이다. 운영 이동평균이 쓰는 `stock_candle`의 `1D`(원주가)는 바뀌지 않는다. `daily_adjusted_sweep_state`는 종목별 수집 범위(`covered_from`~`covered_through`)로 중단된 수집을 이어 가고 최근 구간만 다시 읽게 한다.
 
-### ai_premarket_plan · ai_premarket_pick · ai_premarket_outcome · ai_premarket_universe (V47)
+### ai_premarket_plan · ai_premarket_pick · ai_premarket_outcome · ai_premarket_universe (V47, V48)
 
-[ADR-012](decisions/ADR-012-AI-PREMARKET-FORWARD-RECORD.md)의 AI 장전 계획 기록이다. `ai_premarket_plan.raw_json`은 붙여넣은 원문 그대로이며 고치지 않는다. 같은 `target_date`를 다시 넣으면 `revision`이 늘어난다. `on_time`은 그날 장 시작 전 저장 여부이고, 집계는 날짜별 `on_time` 마지막 판만 쓴다. `ai_premarket_pick`은 원본에서 뽑은 종목(`kind` PICK/AVOID, 종목 마스터 id)이다. AI가 적은 가격·조건은 원본에만 있다. `ai_premarket_outcome`(종목별)과 `ai_premarket_universe`(날짜별 시장 평균)는 장 마감 뒤 `daily_adjusted_candle`로 잰 값이며 다시 채점하면 바꿔 쓴다. 채점 규칙은 [AI_PREMARKET](AI_PREMARKET.md#채점).
+[ADR-012](decisions/ADR-012-AI-PREMARKET-FORWARD-RECORD.md)의 AI 장전 계획 기록이다. `ai_premarket_plan.raw_json`은 붙여넣은 원문 그대로이며 고치지 않는다. 같은 `target_date`를 다시 넣으면 `revision`이 늘어난다. `on_time`은 그날 장 시작 전 저장 여부이고, 집계는 날짜별 `on_time` 마지막 판만 쓴다. `ai_premarket_pick`은 원본에서 뽑은 종목(`kind` PICK/AVOID, 종목 마스터 id)이다. AI가 적은 가격·조건은 원본에만 있다. `ai_premarket_outcome`(종목별)과 `ai_premarket_universe`(날짜별 시장 평균)는 장 마감 뒤 `daily_adjusted_candle`로 잰 값이며 다시 채점하면 바꿔 쓴다. 채점 규칙은 [AI_PREMARKET](AI_PREMARKET.md#채점). V48은 v2 규격 칸을 더했다: `analyzed_at` null 허용, `analysis_id`, `analysis_mode`, `market_regime`, `risk_level`, 종목의 `top_priority`, `confidence`.
 
 ### limit_up_watch (V34·V36, 연구용)
 

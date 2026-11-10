@@ -1,0 +1,158 @@
+{
+  "schemaVersion": "ai-premarket-v2",
+  "analysisId": "20261111-PREMARKET",
+  "targetDate": "2026-11-11",
+  "analysisMode": "PREMARKET",
+  "analyzedAt": null,
+  "analysisValidUntil": "2026-11-11T09:00:00+09:00",
+  "timezone": "Asia/Seoul",
+  "model": {
+    "name": "ChatGPT",
+    "version": null,
+    "promptVersion": "premarket-v2",
+    "temperature": null
+  },
+  "market": {
+    "outlook": "NEUTRAL",
+    "regime": "VOLATILE_MIXED",
+    "riskLevel": "HIGH",
+    "summary": "",
+    "reasons": [],
+    "overseas": {
+      "summary": "",
+      "indices": [],
+      "leadingSectors": [],
+      "weakSectors": [],
+      "keyStocks": []
+    },
+    "macro": {
+      "usdKrw": null,
+      "us10yYield": null,
+      "dxy": null,
+      "wti": null,
+      "brent": null
+    },
+    "domestic": {
+      "kospiPreviousClose": null,
+      "kosdaqPreviousClose": null,
+      "foreignNetBuyKRW": null,
+      "institutionNetBuyKRW": null,
+      "kospi200NightFutures": null
+    },
+    "themes": [],
+    "risks": [],
+    "news": [],
+    "dataCheckedAt": null
+  },
+  "tradeDecision": "WATCH_ONLY",
+  "tradeDecisionReason": "",
+  "marketNoTradeConditions": [],
+  "topPriorityStockCodes": [],
+  "picks": [
+    {
+      "stockCode": "005930",
+      "stockName": "삼성전자",
+      "priority": 1,
+      "status": "WATCH",
+      "themes": [],
+      "reason": "",
+      "selectionReasonCodes": [],
+      "confidence": "MEDIUM",
+      "dataQuality": "PARTIAL",
+      "missingData": [],
+      "sources": [],
+      "marketData": {
+        "previousOpenKRW": null,
+        "previousHighKRW": null,
+        "previousLowKRW": null,
+        "previousCloseKRW": null,
+        "previousVolumeShares": null,
+        "previousTurnoverKRW": null,
+        "averageTurnover20dKRW": null,
+        "marketDataAsOf": null,
+        "source": null,
+        "verified": false
+      },
+      "scenario": {
+        "bull": "",
+        "bear": "",
+        "catalystPersistence": ""
+      },
+      "keyLevels": [
+        {
+          "label": "PREVIOUS_HIGH",
+          "priceKRW": null,
+          "basis": "",
+          "verified": false
+        }
+      ],
+      "entryStrategy": {
+        "type": "OPENING_RANGE_BREAKOUT",
+        "description": "",
+        "conditions": [
+          {
+            "metric": "RVOL_5M",
+            "operator": ">=",
+            "value": null,
+            "reference": null,
+            "unit": "RATIO",
+            "validationStatus": "REALTIME_REQUIRED",
+            "basis": ""
+          },
+          {
+            "metric": "PRICE_VS_VWAP",
+            "operator": ">",
+            "value": 0,
+            "reference": null,
+            "unit": "KRW",
+            "validationStatus": "REALTIME_REQUIRED",
+            "basis": ""
+          },
+          {
+            "metric": "CLOSE_5M",
+            "operator": ">",
+            "value": null,
+            "reference": "OPENING_RANGE_15M_HIGH",
+            "unit": "KRW",
+            "validationStatus": "REALTIME_REQUIRED",
+            "basis": ""
+          }
+        ]
+      },
+      "noBuyConditions": [],
+      "invalidationConditions": [],
+      "exitPlan": {
+        "stopLoss": {
+          "method": "STRUCTURE_LOW",
+          "priceKRW": null,
+          "basis": ""
+        },
+        "takeProfit": {
+          "method": "R_MULTIPLE_AND_RESISTANCE",
+          "target1KRW": null,
+          "target2KRW": null,
+          "minRewardRiskRatio": null,
+          "basis": ""
+        },
+        "trailingStop": {
+          "enabled": false,
+          "method": null
+        }
+      },
+      "overnightReview": {
+        "defaultAllowed": false,
+        "conditions": [],
+        "risks": []
+      },
+      "signalValidUntil": null
+    }
+  ],
+  "avoid": [
+    {
+      "stockCode": "000660",
+      "stockName": "SK하이닉스",
+      "reason": "",
+      "riskType": "OVEREXTENDED"
+    }
+  ]
+}

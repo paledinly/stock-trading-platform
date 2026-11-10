@@ -37,13 +37,14 @@ public class AiPlanService {
     public record SubmitResult(boolean saved, List<String> errors, List<String> warnings, PlanSummary plan) { }
 
     /** 계획 목록의 한 줄이에요. scored는 성과 집계에 쓰이는 판(장 시작 전 마지막 판)인지예요. */
-    public record PlanSummary(long id, LocalDate targetDate, int revision, Instant analyzedAt, Instant submittedAt,
-            boolean onTime, boolean scored, String tradeDecision, String marketOutlook, String modelName,
+    public record PlanSummary(long id, LocalDate targetDate, int revision, String schemaVersion, String analysisId,
+            String analysisMode, Instant analyzedAt, Instant submittedAt, boolean onTime, boolean scored,
+            String tradeDecision, String marketOutlook, String marketRegime, String riskLevel, String modelName,
             String modelVersion, String promptVersion, int pickCount, int avoidCount, List<String> warnings) { }
 
     /** 종목 하나와 그 종목의 채점 결과예요(아직 채점 전이면 outcome이 null). */
     public record PickView(long id, String kind, String stockCode, String stockName, Integer priority, String reason,
-            Outcome outcome) { }
+            boolean topPriority, String confidence, Outcome outcome) { }
 
     /** 장 마감 뒤 실제 시장 데이터로 잰 값이에요. 퍼센트 단위(2는 2%)예요. AI가 적은 값은 들어 있지 않아요. */
     public record Outcome(LocalDate tradeDate, String status, BigDecimal prevClose, BigDecimal open, BigDecimal high,
@@ -88,12 +89,13 @@ public class AiPlanService {
         jdbc.update(connection -> {
             PreparedStatement ps = connection.prepareStatement("""
                     insert into ai_premarket_plan(target_date, revision, schema_version, analyzed_at, valid_until, submitted_at,
-                      on_time, trade_decision, market_outlook, model_name, model_version, prompt_version, raw_json, warnings)
-                    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", new String[] { "id" });
+                      on_time, trade_decision, market_outlook, model_name, model_version, prompt_version, raw_json, warnings,
+                      analysis_id, analysis_mode, market_regime, risk_level)
+                    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", new String[] { "id" });
             ps.setDate(1, Date.valueOf(plan.targetDate()));
             ps.setInt(2, revision);
-            ps.setString(3, AiPlanValidator.SCHEMA_VERSION);
-            ps.setTimestamp(4, Timestamp.from(plan.analyzedAt()));
+            ps.setString(3, plan.schemaVersion());
+            ps.setTimestamp(4, plan.analyzedAt() == null ? null : Timestamp.from(plan.analyzedAt()));
             ps.setTimestamp(5, Timestamp.from(plan.validUntil()));
             ps.setTimestamp(6, Timestamp.from(calendar.now()));
             ps.setBoolean(7, plan.onTime());
@@ -104,14 +106,19 @@ public class AiPlanService {
             ps.setString(12, plan.promptVersion());
             ps.setString(13, raw);
             ps.setString(14, warnings);
+            ps.setString(15, plan.analysisId());
+            ps.setString(16, plan.analysisMode());
+            ps.setString(17, plan.regime());
+            ps.setString(18, plan.riskLevel());
             return ps;
         }, key);
         long planId = key.getKey().longValue();
         for (ParsedPick pick : plan.picks())
             jdbc.update("""
-                    insert into ai_premarket_pick(plan_id, kind, stock_id, stock_code, stock_name, priority, reason)
-                    values (?, ?, ?, ?, ?, ?, ?)""", planId, pick.kind(), pick.stock().id(), pick.stock().code(),
-                    pick.stock().name(), pick.priority(), pick.reason());
+                    insert into ai_premarket_pick(plan_id, kind, stock_id, stock_code, stock_name, priority, reason,
+                      top_priority, confidence) values (?, ?, ?, ?, ?, ?, ?, ?, ?)""", planId, pick.kind(), pick.stock().id(),
+                    pick.stock().code(), pick.stock().name(), pick.priority(), pick.reason(), pick.topPriority(),
+                    pick.confidence());
         return new SubmitResult(true, List.of(), result.warnings(), summary(planId));
     }
 
@@ -128,11 +135,12 @@ public class AiPlanService {
         PlanSummary plan = summary(id);
         String raw = jdbc.queryForObject("select raw_json from ai_premarket_plan where id = ?", String.class, id);
         List<PickView> picks = jdbc.query("""
-                select k.id, k.kind, k.stock_code, k.stock_name, k.priority, k.reason, o.*
+                select k.id, k.kind, k.stock_code, k.stock_name, k.priority, k.reason, k.top_priority, k.confidence, o.*
                 from ai_premarket_pick k left join ai_premarket_outcome o on o.pick_id = k.id
                 where k.plan_id = ? order by k.kind desc, k.priority nulls last, k.id""", (rs, i) -> new PickView(
                 rs.getLong("id"), rs.getString("kind"), rs.getString("stock_code"), rs.getString("stock_name"),
-                (Integer) rs.getObject("priority"), rs.getString("reason"), outcome(rs)), id);
+                (Integer) rs.getObject("priority"), rs.getString("reason"), rs.getBoolean("top_priority"),
+                rs.getString("confidence"), outcome(rs)), id);
         List<PlanSummary> revisions = jdbc.query(SUMMARY_SQL + " where p.target_date = ? order by p.revision desc",
                 this::summaryRow, Date.valueOf(plan.targetDate()));
         return new PlanDetail(plan, raw, picks, revisions);
@@ -157,10 +165,13 @@ public class AiPlanService {
 
     private PlanSummary summaryRow(ResultSet rs, int row) throws SQLException {
         String warnings = rs.getString("warnings");
+        Timestamp analyzedAt = rs.getTimestamp("analyzed_at");
         return new PlanSummary(rs.getLong("id"), rs.getDate("target_date").toLocalDate(), rs.getInt("revision"),
-                rs.getTimestamp("analyzed_at").toInstant(), rs.getTimestamp("submitted_at").toInstant(),
+                rs.getString("schema_version"), rs.getString("analysis_id"), rs.getString("analysis_mode"),
+                analyzedAt == null ? null : analyzedAt.toInstant(), rs.getTimestamp("submitted_at").toInstant(),
                 rs.getBoolean("on_time"), rs.getBoolean("scored"), rs.getString("trade_decision"),
-                rs.getString("market_outlook"), rs.getString("model_name"), rs.getString("model_version"),
+                rs.getString("market_outlook"), rs.getString("market_regime"), rs.getString("risk_level"),
+                rs.getString("model_name"), rs.getString("model_version"),
                 rs.getString("prompt_version"), rs.getInt("picks"), rs.getInt("avoids"),
                 warnings == null ? List.of() : List.of(warnings.split("\n")));
     }

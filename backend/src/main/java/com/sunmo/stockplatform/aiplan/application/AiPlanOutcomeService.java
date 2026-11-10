@@ -47,7 +47,7 @@ public class AiPlanOutcomeService {
             BigDecimal gateMeanExcess, int gateWinDays, BigDecimal meanPickOpenClose, BigDecimal meanPickNet,
             BigDecimal meanUniverseOpenClose, BigDecimal meanExcess, int winDays, int pickCount,
             BigDecimal meanAvoidExcess, int avoidCount, int noTradeDays, BigDecimal noTradeUniverseOpenClose,
-            BigDecimal tradeUniverseOpenClose, List<Day> days) { }
+            BigDecimal tradeUniverseOpenClose, BigDecimal meanTopExcess, int topCount, List<Day> days) { }
 
     /** 채점일 하루예요. excess = 그날 AI 종목 평균 − 시장 평균이에요. */
     public record Day(LocalDate date, String tradeDecision, int picks, BigDecimal pickOpenClose, BigDecimal pickNet,
@@ -166,11 +166,12 @@ public class AiPlanOutcomeService {
 
     /**
      * 하는 일: 1단계 통과 기준의 진행 상황과 누적 통계를 계산해요.
-     * 채점일은 TRADE로 판단한 날 중 COMPLETE 종목이 하나 이상 있는 날이에요. NO_TRADE 날은 따로 세요.
+     * 채점일은 TRADE·WATCH_ONLY로 판단한 날 중 COMPLETE 종목이 하나 이상 있는 날이에요.
+     * NO_TRADE·DATA_INSUFFICIENT 날은 '매매 안 함' 날로 따로 세요.
      */
     public Summary summary() {
         List<Map<String, Object>> rows = jdbc.queryForList("""
-                select p.target_date, p.trade_decision, k.kind, o.open_close_pct, o.net_open_close_pct,
+                select p.target_date, p.trade_decision, k.kind, k.top_priority, o.open_close_pct, o.net_open_close_pct,
                   o.universe_open_close_pct, o.excess_open_close_pct
                 from ai_premarket_plan p join ai_premarket_pick k on k.plan_id = p.id
                   join ai_premarket_outcome o on o.pick_id = k.id
@@ -185,13 +186,14 @@ public class AiPlanOutcomeService {
         for (Map<String, Object> row : jdbc.queryForList("""
                 select p.target_date, u.open_close_pct from ai_premarket_plan p
                   join ai_premarket_universe u on u.trade_date = p.target_date
-                where p.on_time and p.trade_decision = 'NO_TRADE'
+                where p.on_time and p.trade_decision not in ('TRADE', 'WATCH_ONLY')
                   and p.revision = (select max(q.revision) from ai_premarket_plan q where q.target_date = p.target_date and q.on_time)
                 """))
             if (!byDate.containsKey(((Date) row.get("target_date")).toLocalDate()))
                 extraNoTrade.add(decimal(row.get("open_close_pct")));
         List<Day> days = new ArrayList<>();
         List<BigDecimal> noTradeUniverse = new ArrayList<>(extraNoTrade), tradeUniverse = new ArrayList<>(), avoidAll = new ArrayList<>();
+        List<BigDecimal> topAll = new ArrayList<>();
         int pickCount = 0;
         for (var entry : byDate.entrySet()) {
             List<Map<String, Object>> list = entry.getValue();
@@ -201,7 +203,7 @@ public class AiPlanOutcomeService {
                     .map(r -> decimal(r.get("excess_open_close_pct"))).toList();
             avoidAll.addAll(avoid);
             BigDecimal universe = decimal(list.get(0).get("universe_open_close_pct"));
-            if ("NO_TRADE".equals(decision)) {
+            if (!AiPlanValidator.PICK_DECISIONS.contains(decision)) {
                 noTradeUniverse.add(universe);
                 continue;
             }
@@ -209,6 +211,8 @@ public class AiPlanOutcomeService {
             if (picks.isEmpty())
                 continue;
             pickCount += picks.size();
+            picks.stream().filter(r -> Boolean.TRUE.equals(r.get("top_priority")))
+                    .forEach(r -> topAll.add(decimal(r.get("excess_open_close_pct"))));
             BigDecimal oc = mean(picks.stream().map(r -> decimal(r.get("open_close_pct"))).toList());
             BigDecimal net = mean(picks.stream().map(r -> decimal(r.get("net_open_close_pct"))).toList());
             days.add(new Day(entry.getKey(), decision, picks.size(), oc, net, universe,
@@ -224,7 +228,7 @@ public class AiPlanOutcomeService {
                 mean(days.stream().map(Day::universeOpenClose).toList()), mean(days.stream().map(Day::excess).toList()),
                 (int) days.stream().filter(d -> d.excess() != null && d.excess().signum() > 0).count(), pickCount,
                 mean(avoidAll), avoidAll.size(), noTradeUniverse.size(), mean(noTradeUniverse), mean(tradeUniverse),
-                List.copyOf(days));
+                mean(topAll), topAll.size(), List.copyOf(days));
     }
 
     /** 시가 매수 → 종가 매도의 비용 뺀 수익률(%)이에요. 매수 쪽은 수수료+슬리피지, 매도 쪽은 수수료+세금+슬리피지예요. */

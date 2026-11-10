@@ -1,6 +1,6 @@
 /*
  * AI 장전 계획이 원본 그대로 판(revision)으로 쌓이고, 장 마감 뒤 일봉으로 채점되며, 1단계 기준이 계산되는지 확인해요.
- * H2(PostgreSQL 흉내 모드)에 실제 마이그레이션 V47을 그대로 실행해요.
+ * H2(PostgreSQL 흉내 모드)에 실제 마이그레이션 V47·V48을 그대로 실행해요.
  */
 package com.sunmo.stockplatform.aiplan.application;
 
@@ -39,11 +39,12 @@ class AiPlanServiceTest {
         jdbc.execute("create table daily_adjusted_candle(stock_id bigint, trade_date date, open_price numeric(20,4), "
                 + "high_price numeric(20,4), low_price numeric(20,4), close_price numeric(20,4), trading_value numeric(24,4), "
                 + "primary key(stock_id, trade_date))");
-        String migration = new ClassPathResource("db/migration/V47__create_ai_premarket_plan.sql")
-                .getContentAsString(StandardCharsets.UTF_8);
-        for (String statement : migration.replaceAll("(?m)^\s*--.*$", "").split(";"))
-            if (!statement.isBlank())
-                jdbc.execute(statement);
+        for (String file : List.of("V47__create_ai_premarket_plan.sql", "V48__ai_premarket_plan_v2.sql")) {
+            String migration = new ClassPathResource("db/migration/" + file).getContentAsString(StandardCharsets.UTF_8);
+            for (String statement : migration.replaceAll("(?m)^\s*--.*$", "").split(";"))
+                if (!statement.isBlank())
+                    jdbc.execute(statement);
+        }
         // 종목 1~150은 시장 평균용(시가 100 → 종가 101, +1%)이고 종목 1이 삼성전자예요. 종목 151은 ETF라 평균에서 빠져요.
         // 10-12 ~ 11-11 평일 23일이라 11-11에는 직전 20행이 모두 있어요.
         for (long id = 1; id <= 151; id++)
@@ -170,5 +171,38 @@ class AiPlanServiceTest {
 
         assertThat(outcomes("2026-11-11T12:30:00Z").evaluate()).isZero();
         assertThat(jdbc.queryForObject("select count(*) from ai_premarket_outcome", Integer.class)).isZero();
+    }
+
+    /**
+     * 기대: v2의 WATCH_ONLY 날도 종목을 채점해 채점일로 세고, 최우선 감시 종목(삼성전자)의 초과를 따로 집계해요.
+     * 다음 날 DATA_INSUFFICIENT는 '매매 안 함' 날이에요.
+     */
+    @Test
+    void scoresWatchOnlyDaysAndTopPriorityPicks() {
+        String watchOnly = """
+                {"schemaVersion":"ai-premarket-v2","targetDate":"2026-11-11","analysisMode":"PREMARKET","analyzedAt":null,
+                 "model":{"name":"ChatGPT","version":null,"promptVersion":"premarket-v2"},
+                 "market":{"outlook":"NEUTRAL","regime":"VOLATILE_MIXED","riskLevel":"HIGH"},
+                 "tradeDecision":"WATCH_ONLY","topPriorityStockCodes":["005930"],
+                 "picks":[{"stockCode":"005930","priority":1,"status":"WATCH","reason":"r","noBuyConditions":["n"],
+                           "sources":[{"title":"t"}]},
+                          {"stockCode":"000660","priority":2,"status":"WATCH","reason":"r","noBuyConditions":["n"],
+                           "sources":[{"title":"t"}]}]}""";
+        var saved = plans("2026-11-10T23:10:00Z").submit(watchOnly);
+        assertThat(saved.errors()).isEmpty();
+        assertThat(saved.plan().analyzedAt()).isNull();
+        assertThat(saved.plan().marketRegime()).isEqualTo("VOLATILE_MIXED");
+
+        assertThat(outcomes("2026-11-11T12:30:00Z").evaluate()).isEqualTo(2);
+        var summary = outcomes("2026-11-11T12:30:00Z").summary();
+
+        assertThat(summary.scoredDays()).isEqualTo(1);
+        assertThat(summary.topCount()).isEqualTo(1);
+        assertThat(summary.meanTopExcess()).isEqualByComparingTo("2.98");
+        // 그날 평균: (+4% + −2%) / 2 = +1%, 시장 +1.02% → 초과 −0.02%p
+        assertThat(summary.meanExcess()).isEqualByComparingTo("-0.02");
+        var detail = plans("2026-11-11T12:30:00Z").detail(saved.plan().id());
+        assertThat(detail.picks()).filteredOn(AiPlanService.PickView::topPriority)
+                .extracting(AiPlanService.PickView::stockCode).containsExactly("005930");
     }
 }

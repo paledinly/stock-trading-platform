@@ -18,7 +18,6 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 /** AI 장전 계획 창구예요. 답안지를 받는 접수처이자, 채점표를 보여 주는 게시판이에요. */
@@ -79,16 +78,18 @@ public class AiPlanController {
         return outcomes.summary();
     }
 
-    /** 하는 일: GET /template. 다음 분석 거래일과 시각을 채운 프롬프트, JSON 예시예요. */
+    /** 하는 일: GET /template. 다음 분석 거래일을 채운 ai-premarket-v2 프롬프트와 JSON 예시예요. */
     @GetMapping("/template")
     public Template template() {
         LocalDate today = calendar.today();
         LocalDate target = calendar.isTradingDay(today) && calendar.now().isBefore(calendar.open(today))
                 ? today : calendar.nextTradingDay(today);
-        String example = read("ai-premarket/ai-premarket-v1.example.json").replace("2026-11-11", target.toString());
-        String now = calendar.now().atZone(ClosingTradingCalendar.ZONE).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
-        String prompt = read("ai-premarket/ai-premarket-v1.prompt.md").replace("{{targetDate}}", target.toString())
-                .replace("{{now}}", now).replace("{{example}}", example);
+        // 규격 v2 프롬프트(사용자가 정한 원문)와 예시에는 날짜가 2026-11-11로 적혀 있어요. 분석할 거래일로 바꿔 넣어요.
+        String date = target.toString(), compact = date.replace("-", "");
+        String example = read("ai-premarket/ai-premarket-v2.example.json").replace("2026-11-11", date)
+                .replace("20261111", compact);
+        String prompt = read("ai-premarket/ai-premarket-v2.prompt.md").replace("{{example}}", example.strip())
+                .replace("2026-11-11", date).replace("20261111", compact);
         return new Template(AiPlanValidator.SCHEMA_VERSION, target, prompt, example);
     }
 
