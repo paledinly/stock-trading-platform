@@ -198,13 +198,64 @@ class AiPlanValidatorTest {
     }
 
     /**
-     * 기대: 화면이 내려주는 v3 예시(ai-premarket-v3.example.json)에 선정 이유·매수 금지 사유·출처만 채우면 저장할 수 있어요.
-     * v3는 진입 조건을 적지 않으므로 규칙 A 경고가 없고, 매수 금지는 noBuyReasons·invalidationReasons로 봐요.
+     * 기대: 화면이 내려주는 v4 예시(ai-premarket-v4.example.json)에 선정 이유·매수 금지 사유·출처만 채우면 저장할 수 있어요.
+     * 예시의 확인형 진입 조건(CLOSE_5M > 15분 고가, RVOL_5M >= 프로그램 기준)은 규칙 A가 계산할 수 있어 경고가 없어요.
      */
     @Test
-    void acceptsTheVersionThreeExample() throws Exception {
+    void acceptsTheVersionFourExample() throws Exception {
         var mapper = new ObjectMapper();
-        String example = new org.springframework.core.io.ClassPathResource("ai-premarket/ai-premarket-v3.example.json")
+        var root = versionFourExample(mapper);
+
+        var result = beforeOpen().validate(mapper.writeValueAsString(root));
+
+        assertThat(result.errors()).isEmpty();
+        assertThat(result.warnings()).noneMatch(w -> w.contains("규칙 A")).noneMatch(w -> w.contains("매수 금지·무효화 조건이 없어요"));
+        assertThat(result.plan().schemaVersion()).isEqualTo("ai-premarket-v4");
+        assertThat(result.plan().promptVersion()).isEqualTo("premarket-v4");
+        assertThat(result.plan().picks()).filteredOn(p -> p.kind().equals("PICK")).singleElement()
+                .satisfies(p -> assertThat(p.topPriority()).isTrue());
+        var parsed = com.sunmo.stockplatform.aiplan.realtime.AiCondition.parse(root.withArray("picks").get(0));
+        assertThat(parsed.supported()).isTrue();
+        assertThat(parsed.conditions()).extracting(c -> c.metric() + " " + c.operator() + " " + c.reference() + " " + c.value())
+                .containsExactly("CLOSE_5M > OPENING_RANGE_15M_HIGH null", "RVOL_5M >= null null");
+    }
+
+    /**
+     * 기대: v4 원문은 모델 정보를 지어내지 말라고 해서 model 칸이 빠질 수 있어요. 오류 없이 UNKNOWN으로 저장하고 경고만 해요.
+     * 확인형 진입 전략이 없거나(조기 진입만) 계산 못 하는 지표가 있으면 규칙 A 경고를 내요. PRICE > VWAP은 PRICE_VS_VWAP으로 읽어요.
+     */
+    @Test
+    void acceptsVersionFourWithoutModelAndWarnsWhenOnlyEarlyMomentum() throws Exception {
+        var mapper = new ObjectMapper();
+        var root = versionFourExample(mapper);
+        root.remove("model");
+        var strategies = ((com.fasterxml.jackson.databind.node.ObjectNode) root.withArray("picks").get(0)).withArray("strategies");
+        strategies.remove(1);
+
+        var result = beforeOpen().validate(mapper.writeValueAsString(root));
+
+        assertThat(result.errors()).isEmpty();
+        assertThat(result.plan().modelName()).isEqualTo("UNKNOWN");
+        assertThat(result.plan().promptVersion()).isEqualTo("premarket-v4");
+        assertThat(result.warnings()).anyMatch(w -> w.startsWith("picks[0].strategies") && w.contains("CONFIRMED_ENTRY"));
+
+        var confirmed = (com.fasterxml.jackson.databind.node.ObjectNode) strategies.get(0).deepCopy();
+        confirmed.put("strategyType", "CONFIRMED_ENTRY");
+        var conditions = (com.fasterxml.jackson.databind.node.ArrayNode) confirmed.get("entryRules").get("conditions");
+        conditions.addObject().put("metric", "ORDERBOOK_SPREAD").put("operator", "<=").put("required", false);
+        var parsed = com.sunmo.stockplatform.aiplan.realtime.AiCondition.parse(mapper.createObjectNode()
+                .set("strategies", mapper.createArrayNode().add(confirmed)));
+        assertThat(parsed.supported()).isTrue();
+        assertThat(parsed.conditions()).extracting(c -> c.metric()).containsExactly("RVOL_5M", "PRICE_VS_VWAP");
+        conditions.addObject().put("metric", "VOLUME_1M").put("operator", ">=").put("required", true);
+        parsed = com.sunmo.stockplatform.aiplan.realtime.AiCondition.parse(mapper.createObjectNode()
+                .set("strategies", mapper.createArrayNode().add(confirmed)));
+        assertThat(parsed.supported()).isFalse();
+        assertThat(parsed.unsupported()).containsExactly("지표 VOLUME_1M");
+    }
+
+    private static com.fasterxml.jackson.databind.node.ObjectNode versionFourExample(ObjectMapper mapper) throws Exception {
+        String example = new org.springframework.core.io.ClassPathResource("ai-premarket/ai-premarket-v4.example.json")
                 .getContentAsString(java.nio.charset.StandardCharsets.UTF_8).replace("2026-11-12", "2026-11-11").replace("20261112", "20261111");
         var root = (com.fasterxml.jackson.databind.node.ObjectNode) mapper.readTree(example);
         var pick = (com.fasterxml.jackson.databind.node.ObjectNode) root.withArray("picks").get(0);
@@ -212,14 +263,6 @@ class AiPlanValidatorTest {
         pick.withArray("noBuyReasons").add("갭 3% 이상");
         pick.withArray("sources").addObject().put("title", "t").put("url", "https://x").put("publishedAt", "2026-11-11T06:00:00+09:00");
         root.withArray("topPriorityStockCodes").add("005930");
-
-        var result = beforeOpen().validate(mapper.writeValueAsString(root));
-
-        assertThat(result.errors()).isEmpty();
-        assertThat(result.warnings()).noneMatch(w -> w.contains("entryStrategy")).noneMatch(w -> w.contains("매수 금지·무효화 조건이 없어요"));
-        assertThat(result.plan().schemaVersion()).isEqualTo("ai-premarket-v3");
-        assertThat(result.plan().tradeDecision()).isEqualTo("WATCH_ONLY");
-        assertThat(result.plan().picks()).filteredOn(p -> p.kind().equals("PICK")).singleElement()
-                .satisfies(p -> assertThat(p.topPriority()).isTrue());
+        return root;
     }
 }

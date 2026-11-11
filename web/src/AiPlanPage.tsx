@@ -163,7 +163,7 @@ export function AiPlanPage() {
             </div>
           )}
           <textarea aria-label="AI 장전 분석 JSON" value={raw} onChange={event => { setRaw(event.target.value); setResult(null) }}
-            placeholder='{"schemaVersion":"ai-premarket-v3", ...}' rows={10} spellCheck={false} />
+            placeholder='{"schemaVersion":"ai-premarket-v4", ...}' rows={10} spellCheck={false} />
           <div className="aiActions">
             <button type="button" onClick={() => check.mutate()} disabled={!raw.trim() || check.isPending}>검사만 하기</button>
             <button type="button" className="primary" onClick={() => save.mutate()} disabled={!raw.trim() || save.isPending}>검사 후 저장</button>

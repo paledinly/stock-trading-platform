@@ -153,7 +153,7 @@ ScannerType: `VOLUME`, `PRICE_RISE`, `MOMENTUM`, `VOLUME_BREAKOUT`, `TURNOVER_BR
 - `GET /ai-plans/{id}`: 원본 `rawJson`, 종목별 `outcome`(채점 전이면 null), 같은 날짜의 모든 판
 - `POST /ai-plans/evaluate`: 채점을 바로 실행. 돌려주는 값은 채점한 종목 수
 - `GET /ai-plans/summary`: 1단계 판정(`gateVerdict` PENDING/PASS/FAIL)과 누적 통계, 채점일 목록
-- `GET /ai-plans/template`: 다음 분석 거래일을 채운 ChatGPT 프롬프트(`ai-premarket-v3`)와 JSON 예시
+- `GET /ai-plans/template`: 다음 분석 거래일을 채운 ChatGPT 프롬프트(`ai-premarket-v4`)와 JSON 예시
 
 **AiWatchController** (`/api/v1/ai-plans/watch`, 읽기 전용). 규칙은 [AI_PREMARKET_PHASE2](AI_PREMARKET_PHASE2.md).
 
