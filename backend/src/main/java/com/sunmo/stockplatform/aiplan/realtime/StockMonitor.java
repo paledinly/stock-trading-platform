@@ -1,6 +1,7 @@
 /*
  * AI 감시 종목 하나의 장중 지표를 실시간 체결(틱)로 계산하는 파일이에요.
  * 1분·5분 칸, 시가 범위(최초 5분·15분 고가·저가), VWAP, ATR5m, RVOL_5M, 자료 끊김을 메모리에서만 들고 있어요(틱은 저장하지 않아요).
+ * 칸 거래량은 누적 거래량 증가분으로 더해요. KIS가 작은 체결 몇 건을 빼고 보내도 거래량은 맞아요(2026-11-11 확인).
  * 칸은 끝난 뒤 2초가 지나면 닫고, 늦게 온 틱은 닫힌 칸에 넣지 않아요. AiWatchEngine이 종목마다 하나씩 만들어 써요.
  */
 package com.sunmo.stockplatform.aiplan.realtime;
@@ -40,7 +41,7 @@ final class StockMonitor {
         static Profile empty() { return new Profile(Map.of(), 0, null, null, null); }
     }
 
-    /** 확정된(또는 채우는 중인) 칸 하나예요. 거래대금은 누적 거래대금 증가분으로 더해요. */
+    /** 확정된(또는 채우는 중인) 칸 하나예요. 거래량·거래대금은 누적값 증가분으로 더해요. */
     static final class Bar {
         final Instant start;
         final BigDecimal open;
@@ -49,9 +50,9 @@ final class StockMonitor {
 
         Bar(Instant start, BigDecimal price) { this.start = start; open = high = low = close = price; }
 
-        void add(BigDecimal price, long tradeVolume, BigDecimal tradeValue) {
+        void add(BigDecimal price, long volumeDelta, BigDecimal tradeValue) {
             high = high.max(price); low = low.min(price); close = price;
-            volume += tradeVolume; value = value.add(tradeValue);
+            volume += volumeDelta; value = value.add(tradeValue);
         }
     }
 
@@ -60,6 +61,7 @@ final class StockMonitor {
     private MarketTick last;
     private Instant lastReceivedAt;
     private Instant lastGapAt;
+    private int volumeMismatches;
     private BigDecimal or5High, or15High, or15Low;
     private Bar minute, five;
     private final Deque<Bar> minutes = new ArrayDeque<>();
@@ -69,7 +71,8 @@ final class StockMonitor {
 
     /**
      * 하는 일: 틱 하나로 지표를 갱신해요.
-     * 순서가 뒤바뀐 틱과 누적 거래량이 늘지 않은 중복 틱은 버려요. 끊김(dataLoss, 누적 거래량 불일치, 장중에 처음 받은 틱)은 시각을 남겨요.
+     * 순서가 뒤바뀐 틱과 누적 거래량이 늘지 않은 중복 틱은 버려요. 끊김(dataLoss, 장중에 처음 받은 틱)은 시각을 남겨요.
+     * 누적 거래량 증가분이 이번 체결량과 다른 것(KIS가 체결 일부를 빼고 보냄)은 끊김으로 보지 않고 횟수만 세요.
      * 돌려주는 것: 반영했으면 true.
      */
     boolean accept(ObservedMarketTick event) {
@@ -79,11 +82,11 @@ final class StockMonitor {
             return false;
         if (last != null && (tick.occurredAt().isBefore(last.occurredAt()) || tick.cumulativeVolume() <= last.cumulativeVolume()))
             return false;
-        boolean gap = event.dataLoss()
-                || (last == null && !time.isBefore(LocalTime.of(9, 1)))
-                || (last != null && tick.cumulativeVolume() - last.cumulativeVolume() != tick.tradeVolume());
-        if (gap)
+        if (event.dataLoss() || (last == null && !time.isBefore(LocalTime.of(9, 1))))
             lastGapAt = event.receivedAt();
+        long volume = last == null ? tick.tradeVolume() : tick.cumulativeVolume() - last.cumulativeVolume();
+        if (last != null && volume != tick.tradeVolume())
+            volumeMismatches++;
         // 시가 범위: 틱의 당일 고가·저가는 그 순간까지의 범위라서, 범위가 끝나기 전 마지막 틱의 값이 곧 시가 범위예요.
         if (time.isBefore(WatchRules.OPENING_RANGE_5_END))
             or5High = max(or5High, tick.highPrice() != null ? tick.highPrice() : tick.price());
@@ -101,12 +104,12 @@ final class StockMonitor {
         if (event.receivedAt().isBefore(minuteStart.plusSeconds(60).plus(WatchRules.BAR_WATERMARK))) {
             if (minute != null && minuteStart.isAfter(minute.start)) close(minutes, minute, 30);
             if (minute == null || minuteStart.isAfter(minute.start)) minute = new Bar(minuteStart, tick.price());
-            minute.add(tick.price(), tick.tradeVolume(), value);
+            minute.add(tick.price(), volume, value);
         }
         if (event.receivedAt().isBefore(fiveStart.plusSeconds(300).plus(WatchRules.BAR_WATERMARK))) {
             if (five != null && fiveStart.isAfter(five.start)) close(fives, five, 80);
             if (five == null || fiveStart.isAfter(five.start)) five = new Bar(fiveStart, tick.price());
-            five.add(tick.price(), tick.tradeVolume(), value);
+            five.add(tick.price(), volume, value);
         }
         last = tick;
         lastReceivedAt = event.receivedAt();
@@ -140,6 +143,7 @@ final class StockMonitor {
 
     MarketTick last() { return last; }
     Instant lastReceivedAt() { return lastReceivedAt; }
+    int volumeMismatches() { return volumeMismatches; }
     Bar lastFive() { return fives.peekLast(); }
     Bar lastMinute() { return minutes.peekLast(); }
     BigDecimal or5High() { return or5High; }
@@ -180,7 +184,7 @@ final class StockMonitor {
                 && (lastGapAt == null || Duration.between(lastGapAt, now).compareTo(WatchRules.DATA_GAP_LOOKBACK) > 0);
     }
 
-    /** 최근 5분 안에 끊김(dataLoss·누적 거래량 불일치·장중 첫 수신)이 있었는지예요. 조용한 것(체결 없음)과는 달라요. */
+    /** 최근 5분 안에 끊김(dataLoss·장중 첫 수신)이 있었는지예요. 조용한 것(체결 없음)과는 달라요. */
     boolean recentGap(Instant now) {
         return lastGapAt != null && Duration.between(lastGapAt, now).compareTo(WatchRules.DATA_GAP_LOOKBACK) <= 0;
     }
