@@ -1,5 +1,5 @@
 /*
- * AI 장전 분석 JSON(규격 ai-premarket-v1, ai-premarket-v2)을 읽어 형식·종목·거래일·시각을 검사하는 파일이에요.
+ * AI 장전 분석 JSON(규격 ai-premarket-v1, v2, v3)을 읽어 형식·종목·거래일·시각을 검사하는 파일이에요.
  * 저장을 막는 문제는 errors, 저장은 하되 알려 줄 문제는 warnings로 나눠요.
  * AiPlanService가 저장 전에, 검사만 하는 API가 미리보기로 불러요. 규격 설명은 docs/AI_PREMARKET.md에 있어요.
  */
@@ -30,8 +30,10 @@ import java.util.function.Function;
 public class AiPlanValidator {
     public static final String SCHEMA_V1 = "ai-premarket-v1";
     public static final String SCHEMA_V2 = "ai-premarket-v2";
-    // 새로 만드는 프롬프트가 쓰는 규격이에요. v1도 계속 받아요.
-    public static final String SCHEMA_VERSION = SCHEMA_V2;
+    // v3(2026-11-11): 진입 조건(entryStrategy) 대신 전략 유형(strategy)·필요 지표만 적고, 수치 기준은 프로그램이 정해요.
+    public static final String SCHEMA_V3 = "ai-premarket-v3";
+    // 새로 만드는 프롬프트가 쓰는 규격이에요. v1·v2도 계속 받아요.
+    public static final String SCHEMA_VERSION = SCHEMA_V3;
     public static final int MAX_PICKS = 20;
     public static final int MAX_TOP_PRIORITY = 3;
     public static final int MAX_AVOID = 20;
@@ -90,9 +92,11 @@ public class AiPlanValidator {
             return new Result(List.of("JSON 최상위는 객체({ ... })여야 해요."), List.of(), null);
 
         String schema = text(root, "schemaVersion");
-        boolean v2 = SCHEMA_V2.equals(schema);
+        // v2: v2 이후 규격(v2·v3)에 공통인 칸을 봐요. v3만 다른 칸은 v3로 따로 봐요.
+        boolean v3 = SCHEMA_V3.equals(schema);
+        boolean v2 = v3 || SCHEMA_V2.equals(schema);
         if (!v2 && !SCHEMA_V1.equals(schema))
-            errors.add("schemaVersion은 \"" + SCHEMA_V2 + "\" 또는 \"" + SCHEMA_V1 + "\"이어야 해요(받은 값: " + schema + ").");
+            errors.add("schemaVersion은 \"" + SCHEMA_V3 + "\", \"" + SCHEMA_V2 + "\", \"" + SCHEMA_V1 + "\" 중 하나여야 해요(받은 값: " + schema + ").");
         String mode = v2 ? text(root, "analysisMode") : "PREMARKET";
         if (!MODES.contains(mode)) errors.add("analysisMode는 PREMARKET 또는 INTRADAY여야 해요.");
 
@@ -133,7 +137,7 @@ public class AiPlanValidator {
         String modelName = text(model, "name");
         String promptVersion = text(model, "promptVersion");
         if (blank(modelName)) errors.add("model.name이 필요해요(예: ChatGPT).");
-        if (blank(promptVersion)) errors.add("model.promptVersion이 필요해요(예: premarket-v2).");
+        if (blank(promptVersion)) errors.add("model.promptVersion이 필요해요(예: premarket-v3).");
         if (blank(text(model, "version")))
             warnings.add("model.version이 없어요. 모델이 바뀌면 결과를 나눠 볼 수 없어요.");
 
@@ -191,13 +195,15 @@ public class AiPlanValidator {
             if (!node.path("sources").isArray() || node.path("sources").isEmpty())
                 warnings.add(where + "에 sources(출처)가 없어요.");
             checkSources(node.path("sources"), where + ".sources", now, errors, warnings);
-            boolean conditions = v2 ? node.path("noBuyConditions").size() > 0 || node.path("invalidationConditions").size() > 0
+            boolean conditions = v3 ? node.path("noBuyReasons").size() > 0 || node.path("invalidationReasons").size() > 0
+                    : v2 ? node.path("noBuyConditions").size() > 0 || node.path("invalidationConditions").size() > 0
                     : !blank(text(node, "noBuyCondition")) || !blank(text(node, "invalidation"));
             if (!conditions)
                 warnings.add(where + "에 매수 금지·무효화 조건이 없어요.");
             // v2: 실시간 감시의 규칙 A는 계산할 수 있는 조건만 받아요. 하나라도 모르면 그 종목은 규칙 A를 기록하지 않아요.
+            // v3는 진입 조건을 적지 않는 규격이라 규칙 A가 없어요(경고하지 않음).
             AiCondition.Parsed entry = AiCondition.parse(node);
-            if (v2 && !entry.supported())
+            if (v2 && !v3 && !entry.supported())
                 warnings.add(where + ".entryStrategy.conditions를 프로그램이 계산할 수 없어 이 종목의 AI 조건 감시(규칙 A)는 기록되지 않아요: "
                         + String.join(", ", entry.unsupported()));
             if (pick != null) picks.add(pick);

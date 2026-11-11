@@ -31,8 +31,11 @@ public record AiCondition(String metric, String operator, BigDecimal value, Stri
         List<AiCondition> conditions = new ArrayList<>();
         List<String> unsupported = new ArrayList<>();
         JsonNode nodes = pick == null ? null : pick.path("entryStrategy").path("conditions");
-        if (nodes == null || !nodes.isArray() || nodes.isEmpty())
-            return new Parsed(List.of(), false, List.of("조건 없음"));
+        if (nodes == null || !nodes.isArray() || nodes.isEmpty()) {
+            // v3는 진입 조건 없이 전략 유형(strategy.strategyType)만 적어요. 수치 기준은 프로그램이 정해요.
+            String strategy = pick == null ? null : text(pick.path("strategy"), "strategyType");
+            return new Parsed(List.of(), false, List.of(strategy != null ? "진입 조건 없음(v3 전략 " + strategy + ")" : "조건 없음"));
+        }
         for (JsonNode node : nodes) {
             String metric = text(node, "metric"), operator = text(node, "operator"), reference = text(node, "reference");
             BigDecimal value = node.path("value").isNumber() ? node.path("value").decimalValue() : null;

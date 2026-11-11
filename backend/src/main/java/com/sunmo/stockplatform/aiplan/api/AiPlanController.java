@@ -78,18 +78,18 @@ public class AiPlanController {
         return outcomes.summary();
     }
 
-    /** 하는 일: GET /template. 다음 분석 거래일을 채운 ai-premarket-v2 프롬프트와 JSON 예시예요. */
+    /** 하는 일: GET /template. 다음 분석 거래일을 채운 ai-premarket-v3 프롬프트와 JSON 예시예요. */
     @GetMapping("/template")
     public Template template() {
         LocalDate today = calendar.today();
         LocalDate target = calendar.isTradingDay(today) && calendar.now().isBefore(calendar.open(today))
                 ? today : calendar.nextTradingDay(today);
-        // 규격 v2 프롬프트(사용자가 정한 원문)와 예시에는 날짜가 2026-11-11로 적혀 있어요. 분석할 거래일로 바꿔 넣어요.
+        // 규격 v3 프롬프트(사용자가 정한 원문)와 예시에는 날짜가 2026-11-12로 적혀 있어요. 분석할 거래일로 바꿔 넣어요.
         String date = target.toString(), compact = date.replace("-", "");
-        String example = read("ai-premarket/ai-premarket-v2.example.json").replace("2026-11-11", date)
-                .replace("20261111", compact);
-        String prompt = read("ai-premarket/ai-premarket-v2.prompt.md").replace("{{example}}", example.strip())
-                .replace("2026-11-11", date).replace("20261111", compact);
+        String example = read("ai-premarket/ai-premarket-v3.example.json").replace("2026-11-12", date)
+                .replace("20261112", compact);
+        String prompt = read("ai-premarket/ai-premarket-v3.prompt.md").replace("{{example}}", example.strip())
+                .replace("2026-11-12", date).replace("20261112", compact);
         return new Template(AiPlanValidator.SCHEMA_VERSION, target, prompt, example);
     }
 

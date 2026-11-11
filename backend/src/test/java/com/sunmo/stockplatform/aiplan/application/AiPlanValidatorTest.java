@@ -196,4 +196,30 @@ class AiPlanValidatorTest {
             assertThat(w).contains("RVOL_5M 기준 VALIDATED_RVOL_THRESHOLD").contains("지표 MARKET_TRADE_PERMISSION");
         });
     }
+
+    /**
+     * 기대: 화면이 내려주는 v3 예시(ai-premarket-v3.example.json)에 선정 이유·매수 금지 사유·출처만 채우면 저장할 수 있어요.
+     * v3는 진입 조건을 적지 않으므로 규칙 A 경고가 없고, 매수 금지는 noBuyReasons·invalidationReasons로 봐요.
+     */
+    @Test
+    void acceptsTheVersionThreeExample() throws Exception {
+        var mapper = new ObjectMapper();
+        String example = new org.springframework.core.io.ClassPathResource("ai-premarket/ai-premarket-v3.example.json")
+                .getContentAsString(java.nio.charset.StandardCharsets.UTF_8).replace("2026-11-12", "2026-11-11").replace("20261112", "20261111");
+        var root = (com.fasterxml.jackson.databind.node.ObjectNode) mapper.readTree(example);
+        var pick = (com.fasterxml.jackson.databind.node.ObjectNode) root.withArray("picks").get(0);
+        pick.put("reason", "테스트");
+        pick.withArray("noBuyReasons").add("갭 3% 이상");
+        pick.withArray("sources").addObject().put("title", "t").put("url", "https://x").put("publishedAt", "2026-11-11T06:00:00+09:00");
+        root.withArray("topPriorityStockCodes").add("005930");
+
+        var result = beforeOpen().validate(mapper.writeValueAsString(root));
+
+        assertThat(result.errors()).isEmpty();
+        assertThat(result.warnings()).noneMatch(w -> w.contains("entryStrategy")).noneMatch(w -> w.contains("매수 금지·무효화 조건이 없어요"));
+        assertThat(result.plan().schemaVersion()).isEqualTo("ai-premarket-v3");
+        assertThat(result.plan().tradeDecision()).isEqualTo("WATCH_ONLY");
+        assertThat(result.plan().picks()).filteredOn(p -> p.kind().equals("PICK")).singleElement()
+                .satisfies(p -> assertThat(p.topPriority()).isTrue());
+    }
 }
