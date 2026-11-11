@@ -8,6 +8,7 @@ package com.sunmo.stockplatform.aiplan.application;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sunmo.stockplatform.aiplan.realtime.AiCondition;
 import com.sunmo.stockplatform.closing.application.ClosingTradingCalendar;
 
 import java.time.Duration;
@@ -194,6 +195,11 @@ public class AiPlanValidator {
                     : !blank(text(node, "noBuyCondition")) || !blank(text(node, "invalidation"));
             if (!conditions)
                 warnings.add(where + "에 매수 금지·무효화 조건이 없어요.");
+            // v2: 실시간 감시의 규칙 A는 계산할 수 있는 조건만 받아요. 하나라도 모르면 그 종목은 규칙 A를 기록하지 않아요.
+            AiCondition.Parsed entry = AiCondition.parse(node);
+            if (v2 && !entry.supported())
+                warnings.add(where + ".entryStrategy.conditions를 프로그램이 계산할 수 없어 이 종목의 AI 조건 감시(규칙 A)는 기록되지 않아요: "
+                        + String.join(", ", entry.unsupported()));
             if (pick != null) picks.add(pick);
         }
         JsonNode avoidNodes = root.path("avoid");

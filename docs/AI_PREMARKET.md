@@ -12,7 +12,7 @@ ChatGPT가 장 시작 전에 고른 종목을 기록하고, 장 마감 뒤 실�
 
 ## JSON 규격 `ai-premarket-v2`
 
-프롬프트는 사용자가 정한 원문 [`ai-premarket-v2.prompt.md`](../backend/src/main/resources/ai-premarket/ai-premarket-v2.prompt.md)이고, 화면의 프롬프트 복사는 날짜(2026-11-11, 20261111)를 다음 분석 거래일로 바꿔 준다. 출력 구조 예시는 [`ai-premarket-v2.example.json`](../backend/src/main/resources/ai-premarket/ai-premarket-v2.example.json). 처음 만든 `ai-premarket-v1`(2026-11-10)도 계속 받는다. 규격을 바꾸면 `schemaVersion`을 올린다.
+프롬프트는 사용자가 정한 원문 [`ai-premarket-v2.prompt.md`](../backend/src/main/resources/ai-premarket/ai-premarket-v2.prompt.md)이고, 화면의 프롬프트 복사는 날짜(2026-11-11, 20261111)를 다음 분석 거래일로 바꿔 준다. 출력 구조 예시는 [`ai-premarket-v2.example.json`](../backend/src/main/resources/ai-premarket/ai-premarket-v2.example.json). 2026-11-11에 프롬프트에 "프로그램이 계산하는 진입 조건" 절을 더했다(JSON 구조는 같아 `schemaVersion`은 그대로). 처음 만든 `ai-premarket-v1`(2026-11-10)도 계속 받는다. 규격을 바꾸면 `schemaVersion`을 올린다.
 
 | 칸 | 필수 | 검사 |
 | --- | --- | --- |

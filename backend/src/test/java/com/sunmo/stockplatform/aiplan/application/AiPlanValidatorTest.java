@@ -169,4 +169,31 @@ class AiPlanValidatorTest {
         assertThat(result.plan().onTime()).isFalse();
         assertThat(result.warnings()).anyMatch(w -> w.contains("INTRADAY"));
     }
+
+    /**
+     * 기대: 프로그램이 계산할 수 없는 진입 조건(지어낸 기준 이름, 시장 허용 같은 지표)이 있으면 저장은 하되 규칙 A가 기록되지 않는다고 경고해요.
+     * 지원 목록 안의 조건만 쓴 종목은 경고하지 않아요.
+     */
+    @Test
+    void warnsWhenEntryConditionsCannotBeComputed() {
+        String supported = SAMSUNG_V2.replace("\"invalidationConditions\":[]", """
+                "invalidationConditions":[],"entryStrategy":{"conditions":[
+                  {"metric":"RVOL_5M","operator":">=","value":null,"reference":null,"unit":"RATIO"},
+                  {"metric":"CLOSE_5M","operator":">","value":null,"reference":"OPENING_RANGE_15M_HIGH","unit":"KRW"}]}""");
+        String unsupported = SAMSUNG_V2.replace("005930", "000660").replace("삼성전자", "SK하이닉스").replace("\"priority\":1", "\"priority\":2")
+                .replace("\"invalidationConditions\":[]", """
+                "invalidationConditions":[],"entryStrategy":{"conditions":[
+                  {"metric":"RVOL_5M","operator":">=","value":null,"reference":"VALIDATED_RVOL_THRESHOLD","unit":"RATIO"},
+                  {"metric":"MARKET_TRADE_PERMISSION","operator":"=","value":1,"reference":null,"unit":"FLAG"}]}""");
+        // 하이닉스를 picks에 넣으므로 예시의 avoid(하이닉스)는 비워요.
+        String plan = v2("PREMARKET", "", supported + "," + unsupported).replaceAll("\"avoid\":\\[\\{[^\\]]*\\]", "\"avoid\":[]");
+
+        var result = beforeOpen().validate(plan);
+
+        assertThat(result.errors()).isEmpty();
+        assertThat(result.warnings()).filteredOn(w -> w.contains("entryStrategy.conditions")).singleElement().satisfies(w -> {
+            assertThat(w).startsWith("picks[1]");
+            assertThat(w).contains("RVOL_5M 기준 VALIDATED_RVOL_THRESHOLD").contains("지표 MARKET_TRADE_PERMISSION");
+        });
+    }
 }

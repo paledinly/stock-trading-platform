@@ -330,7 +330,25 @@ AI는 종목별 매매 전략을 설명하되 실제 신호 확정은 프로그�
 
 과거 데이터가 없다면 임의로 최적값을 만들어내지 않는다.
 
-프로그램에서 지원하지 않는 지표는 추가 구현이 필요한 조건으로 표시한다.
+프로그램에서 지원하지 않는 지표는 `entryStrategy.conditions`에 넣지 않는다. 필요하면 `entryStrategy.description`이나 `noBuyConditions`에 문장으로 적는다.
+
+### 프로그램이 계산하는 진입 조건 (`entryStrategy.conditions`)
+
+프로그램은 `entryStrategy.conditions`를 장중에 그대로 계산해 가상 매수 여부를 정한다(규칙 A). 아래 목록 밖의 지표·기준·연산자가 **하나라도** 있으면 그 종목은 조건 전체를 계산하지 못하고 기록되지 않는다. 조건은 모두 AND로 묶인다.
+
+| `metric` | 뜻 | `value` | `reference` | `unit` |
+| --- | --- | --- | --- | --- |
+| `RVOL_5M` | 마지막 완료 5분봉 거래량 ÷ 같은 시간대 직전 20거래일 평균 | 배수(예: 2.0). null이면 프로그램 기본값 2.0 | 항상 null | `RATIO` |
+| `TURNOVER_5M` | 마지막 완료 5분봉 거래대금(원) | 원 단위 금액. null이면 전일 5분 평균 거래대금 × 2 | 항상 null | `KRW` |
+| `PRICE_VS_VWAP` | 현재가 − VWAP | 숫자. null이면 0 | 항상 null | `KRW`(원 차이) 또는 `PERCENT`(% 차이) |
+| `CLOSE_5M` | 마지막 완료 5분봉 종가 | 가격(원). `reference`를 쓰면 null | 아래 기준 중 하나. `value`와 `reference`가 모두 null이면 `OPENING_RANGE_15M_HIGH` | `KRW` |
+| `PRICE_CHANGE_FROM_OPEN` | 현재가의 당일 시가 대비 등락률(%) | % 숫자. null이면 8 | 항상 null | `PERCENT` |
+
+- `operator`: `>`, `>=`, `<`, `<=`만 쓴다.
+- `CLOSE_5M`의 `reference`: `OPENING_RANGE_5M_HIGH`, `OPENING_RANGE_15M_HIGH`, `PREVIOUS_HIGH`, `PREVIOUS_CLOSE`, `VWAP`만 쓴다. 가격은 프로그램이 장중 실제 값으로 계산한다.
+- 검증된 임계값을 모르면 이름을 지어내지 말고(`VALIDATED_RVOL_THRESHOLD` 같은 값 금지) `value`를 null로 두어 프로그램 기본값(검증 전 가설)을 쓰게 한다. `validationStatus`에 그 사실을 적는다.
+- 프로그램이 따로 더하는 조건은 적지 않는다: 손절가 계산 가능 여부, 진입 시간 09:15~14:30, 데이터 지연·결측.
+- 시장·업종 허용 여부, 호가 스프레드, 손익비, 눌림목 회복 같은 판단은 계산 대상이 아니다. `entryStrategy.description`, `noBuyConditions`, `invalidationConditions`에 문장으로 적는다.
 
 ---
 
