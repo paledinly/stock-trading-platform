@@ -1,6 +1,7 @@
 /*
  * AI 장전 계획 2단계(실시간 감시)의 고정 규칙 P 임계값과 상태 이름을 모아 둔 파일이에요.
  * 값은 모두 검증 전 가설(HYPOTHESIS)이고, 2026-11-10 기록 시작 전에 정했어요. 기록 중에는 바꾸지 않아요.
+ * 거래량 2배는 과거 1년 5분봉 비교(audit/2026-11-11-ai-watch-volume-study)에서 낮출 근거가 없어 그대로 둬요.
  * 바꿔야 하면 RULE_VERSION을 올리고 그날부터 따로 집계해요(docs/AI_PREMARKET_PHASE2.md).
  */
 package com.sunmo.stockplatform.aiplan.realtime;
@@ -11,7 +12,8 @@ import java.time.LocalTime;
 
 /** 규칙 P 임계값이에요. 시각은 모두 정규장 기준 시각(MarketSessionHours.regularTime)이에요. */
 public final class WatchRules {
-    public static final String RULE_VERSION = "ai-watch-p1";
+    // p2(2026-11-12~): 누적 거래량 불일치를 끊김으로 보지 않고, 칸 거래량을 누적 거래량 증가분으로 계산해요. 임계값은 p1과 같아요.
+    public static final String RULE_VERSION = "ai-watch-p2";
 
     /** 종목별 감시 상태예요. 우선순위는 INVALIDATED > CAUTION > BUY_CANDIDATE > READY > WATCH. */
     public enum State { NOT_SUBSCRIBED, WATCH, READY, BUY_CANDIDATE, CAUTION, INVALIDATED, EXPIRED, UNSUPPORTED }
@@ -52,7 +54,7 @@ public final class WatchRules {
     // READY: 15분 시가 범위 고가 1% 이내로 다가오고 VWAP 위
     static final BigDecimal READY_NEAR_PCT = new BigDecimal("1");
 
-    // 자료 품질: 최근 5분 안에 끊김(dataLoss·누적 거래량 불일치)이 있거나 마지막 틱 수신이 60초 넘게 지났으면 매수 금지
+    // 자료 품질: 최근 5분 안에 끊김(dataLoss: 재연결·처리 대기열 넘침·처리 실패)이 있거나 마지막 틱 수신이 60초 넘게 지났으면 매수 금지
     static final Duration DATA_GAP_LOOKBACK = Duration.ofMinutes(5);
     static final Duration DATA_MAX_SILENCE = Duration.ofSeconds(60);
     // 1분·5분 칸은 끝난 뒤 2초를 더 기다렸다가 닫아요(늦게 온 틱은 닫힌 칸에 넣지 않아요).

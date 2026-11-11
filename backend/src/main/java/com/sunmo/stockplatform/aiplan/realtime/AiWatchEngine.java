@@ -311,7 +311,7 @@ public final class AiWatchEngine {
             put(v, "last5mVolume", five.volume); put(v, "last5mTurnover", five.value.setScale(0, RoundingMode.HALF_UP));
         }
         put(v, "rvol5m", rvol); put(v, "rvolDays", m.profile.days()); put(v, "fallbackTurnover5m", fallback);
-        put(v, "atr5m", atr); put(v, "stop", x.stop);
+        put(v, "atr5m", atr); put(v, "stop", x.stop); put(v, "volumeMismatches", m.volumeMismatches());
         IndexValue kospi = market.get("KOSPI"), kosdaq = market.get("KOSDAQ");
         if (kospi != null) put(v, "kospiFromOpenPct", kospi.fromOpenPct());
         if (kosdaq != null) put(v, "kosdaqFromOpenPct", kosdaq.fromOpenPct());

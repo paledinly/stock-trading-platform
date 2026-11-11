@@ -171,6 +171,7 @@ class AiWatchServiceTest {
     /**
      * 기대: 규칙 P·E1 판정은 날짜 순으로 쌓아 40건·15거래일이 처음 된 날까지의 표본으로만 해요.
      * 3종목 × 14일(42건)은 PENDING, 15일째에 PASS(비용 뺀 평균 +0.5%, 시가 매수 +0.1%보다 나음), 그 뒤의 큰 손실은 판정을 바꾸지 않아요.
+     * 다른 규칙 버전으로 감시한 날의 거래는 빼요.
      */
     @Test
     void judgesPhaseTwoOnTheFirstSampleThatReachesTheGate() {
@@ -185,6 +186,10 @@ class AiWatchServiceTest {
             jdbc.update("insert into ai_premarket_outcome(pick_id, trade_date, status, net_open_close_pct, evaluated_at) "
                     + "values (?, '2026-11-11', 'COMPLETE', 0.1, now())", picks[i]);
         }
+        // 이전 규칙 버전(p1)으로 감시한 날의 거래는 판정에도 집계에도 넣지 않아요.
+        jdbc.update("insert into ai_watch_session(trade_date, plan_id, trade_decision, started_at, pick_count, subscribed_count, "
+                + "position_amount, rule_version) values ('2026-11-30', ?, 'TRADE', now(), 3, 3, 10000000, 'ai-watch-p1')", planId);
+        store.position(LocalDate.of(2026, 11, 30), position(picks[0], "-50"), "{}");
         LocalDate day = LocalDate.of(2026, 12, 1);
         for (int d = 0; d < 16; d++, day = day.plusDays(1)) {
             for (int i = 0; i < 3; i++)

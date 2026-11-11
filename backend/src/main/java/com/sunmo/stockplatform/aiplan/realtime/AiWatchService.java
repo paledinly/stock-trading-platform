@@ -297,9 +297,10 @@ public class AiWatchService {
     /**
      * 하는 일: 가상 거래를 규칙(P/A)·청산(E1/E2)·구분(전체/실제/shadow)별로 집계하고, 규칙 P·E1으로 판정해요.
      * 판정 표본은 날짜 순으로 쌓아 40건 이상·15거래일 이상이 처음 된 날까지예요. 그 뒤 거래는 판정을 바꾸지 않아요.
+     * 지금 규칙 버전(WatchRules.RULE_VERSION)으로 감시한 날의 거래만 세요.
      */
     public Summary summary() {
-        List<AiWatchStore.TradeRow> trades = store.trades();
+        List<AiWatchStore.TradeRow> trades = store.trades(WatchRules.RULE_VERSION);
         List<Group> groups = new ArrayList<>();
         for (String rule : List.of(AiWatchEngine.RULE_P, AiWatchEngine.RULE_A))
             for (String exit : List.of("E1", "E2"))

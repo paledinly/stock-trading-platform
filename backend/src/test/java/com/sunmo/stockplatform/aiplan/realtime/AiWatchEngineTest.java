@@ -263,4 +263,45 @@ class AiWatchEngineTest {
             assertThat(s.reasons()).containsExactly("HALTED");
         });
     }
+
+    /**
+     * 기대: KIS가 체결 일부를 빼고 보내 누적 거래량이 체결량보다 더 늘어도 끊김(CAUTION)으로 보지 않고 그대로 매수 후보가 돼요.
+     * 5분 거래량은 빠진 체결까지 포함한 누적 거래량 증가분이고, 불일치 횟수는 지표로 남아요.
+     */
+    @Test
+    void countsMissingExecutionsWithoutTreatingThemAsDataGaps() throws Exception {
+        var engine = engine("TRADE", EXAMPLE_CONDITIONS);
+        market(engine, "09:00:30", "0.4");
+        openingAndBreakout(engine, java.util.Arrays.copyOf(BREAKOUT, 5));
+        cumulativeVolume += 2;   // 받지 못한 체결 2주
+        cumulativeValue = cumulativeValue.add(new BigDecimal("204.6"));
+        for (int i = 5; i < BREAKOUT.length; i++)
+            tick(engine, LocalTime.of(9, 15 + i / 2, i % 2 == 0 ? 5 : 35).toString(), BREAKOUT[i], 500);
+        market(engine, "09:19:50", "0.4");
+
+        effects.addAll(engine.evaluate(at("09:20:03")));
+
+        assertThat(signals("P")).extracting(SignalChanged::to).doesNotContain(State.CAUTION).last().isEqualTo(State.BUY_CANDIDATE);
+        assertThat(engine.view().get(0).indicators())
+                .containsEntry("last5mVolume", 5002L).containsEntry("volumeMismatches", 1);
+    }
+
+    /** 기대: 재연결·대기열 넘침으로 dataLoss가 표시된 틱이 오면 5분 동안 CAUTION이고 매수하지 않아요. */
+    @Test
+    void cautionsAfterRealDataLoss() throws Exception {
+        var engine = engine("TRADE", EXAMPLE_CONDITIONS);
+        market(engine, "09:00:30", "0.4");
+        openingAndBreakout(engine, java.util.Arrays.copyOf(BREAKOUT, 9));
+        cumulativeVolume += 500;
+        cumulativeValue = cumulativeValue.add(new BigDecimal("51300"));
+        var lost = new MarketTick("005930", DAY, at("09:19:35"), new BigDecimal("102.6"), 500, cumulativeVolume, cumulativeValue,
+                ++sequence, open, high, low, null, null, null, null, false, null, null);
+        effects.addAll(engine.accept(new ObservedMarketTick(lost, null, at("09:19:35").plusMillis(100), true)));
+        market(engine, "09:19:50", "0.4");
+
+        effects.addAll(engine.evaluate(at("09:20:03")));
+
+        assertThat(signals("P")).last().extracting(SignalChanged::to).isEqualTo(State.CAUTION);
+        assertThat(effects).noneMatch(EntryRequested.class::isInstance);
+    }
 }

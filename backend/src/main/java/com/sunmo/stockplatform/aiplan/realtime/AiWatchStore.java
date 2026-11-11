@@ -203,16 +203,18 @@ public class AiWatchStore {
     public record TradeRow(LocalDate tradeDate, String stockCode, String rule, boolean shadow, BigDecimal e1NetPct,
             BigDecimal e2NetPct, BigDecimal openCloseNetPct) { }
 
-    public List<TradeRow> trades() {
+    /** 하는 일: 청산이 끝난 가상 거래를 읽어요. 다른 규칙 버전으로 감시한 날은 빼요(버전마다 따로 집계). */
+    public List<TradeRow> trades(String ruleVersion) {
         return jdbc.query("""
                 select v.trade_date, v.stock_code, v.rule, v.shadow, v.e1_net_pct, v.e2_net_pct,
                   case when o.status = 'COMPLETE' then o.net_open_close_pct end as open_close_net
                 from ai_virtual_position v left join ai_premarket_outcome o on o.pick_id = v.pick_id
                 where v.e1_net_pct is not null and v.e2_net_pct is not null
+                  and not exists (select 1 from ai_watch_session s where s.trade_date = v.trade_date and s.rule_version <> ?)
                 order by v.trade_date, v.id""",
                 (rs, i) -> new TradeRow(rs.getDate("trade_date").toLocalDate(), rs.getString("stock_code"), rs.getString("rule"),
                         rs.getBoolean("shadow"), rs.getBigDecimal("e1_net_pct"), rs.getBigDecimal("e2_net_pct"),
-                        rs.getBigDecimal("open_close_net")));
+                        rs.getBigDecimal("open_close_net")), ruleVersion);
     }
 
     private static Exit exit(ResultSet rs, String prefix) throws SQLException {
