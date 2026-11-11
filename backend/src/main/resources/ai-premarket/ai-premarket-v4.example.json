@@ -1,0 +1,170 @@
+{
+  "schemaVersion": "ai-premarket-v4",
+  "analysisId": "20261112-PREMARKET",
+  "targetDate": "2026-11-12",
+  "analysisMode": "PREMARKET",
+  "analyzedAt": null,
+  "analysisValidUntil": "2026-11-12T09:00:00+09:00",
+  "timezone": "Asia/Seoul",
+  "model": {
+    "name": "ChatGPT",
+    "version": null,
+    "promptVersion": "premarket-v4"
+  },
+  "market": {
+    "outlook": "NEUTRAL",
+    "regime": "VOLATILE_MIXED",
+    "riskLevel": "HIGH",
+    "summary": "",
+    "reasons": [],
+    "overseas": {
+      "summary": "",
+      "indices": [],
+      "leadingSectors": [],
+      "weakSectors": []
+    },
+    "domestic": {
+      "kospiPreviousClose": null,
+      "kosdaqPreviousClose": null,
+      "foreignNetBuyKRW": null,
+      "institutionNetBuyKRW": null
+    },
+    "themes": [],
+    "risks": [],
+    "news": [],
+    "dataCheckedAt": null
+  },
+  "tradeDecision": "WATCH_ONLY",
+  "tradeDecisionReason": "",
+  "marketNoTradeConditions": [],
+  "topPriorityStockCodes": [],
+  "picks": [
+    {
+      "stockCode": "005930",
+      "stockName": "삼성전자",
+      "priority": 1,
+      "status": "WATCH",
+      "themes": [],
+      "reason": "",
+      "confidence": "MEDIUM",
+      "dataQuality": "PARTIAL",
+      "sources": [],
+      "marketData": {
+        "previousOpenKRW": null,
+        "previousHighKRW": null,
+        "previousLowKRW": null,
+        "previousCloseKRW": null,
+        "previousVolumeShares": null,
+        "previousTurnoverKRW": null,
+        "marketDataAsOf": null,
+        "source": null,
+        "verified": false
+      },
+      "scenario": {
+        "bull": "",
+        "bear": "",
+        "pricedInRisk": "UNKNOWN"
+      },
+      "keyLevels": [],
+      "strategies": [
+        {
+          "strategyType": "EARLY_MOMENTUM",
+          "profileId": null,
+          "enabled": false,
+          "thresholdSource": "PROGRAM_CONFIG",
+          "requiredIndicators": [
+            "PRICE",
+            "VOLUME_1M",
+            "TURNOVER_1M",
+            "TURNOVER_5M",
+            "RVOL_5M",
+            "VWAP",
+            "ORDERBOOK_SPREAD"
+          ],
+          "entryRules": {
+            "operator": "AND",
+            "conditions": [
+              {
+                "metric": "RVOL_5M",
+                "operator": ">=",
+                "value": null,
+                "reference": "PROGRAM_CONFIG",
+                "unit": "RATIO",
+                "valueSource": "PROGRAM_CONFIG",
+                "validationStatus": "REALTIME_REQUIRED",
+                "required": true
+              },
+              {
+                "metric": "PRICE",
+                "operator": ">",
+                "value": null,
+                "reference": "VWAP",
+                "unit": "KRW",
+                "valueSource": "REALTIME_CALCULATION",
+                "validationStatus": "REALTIME_REQUIRED",
+                "required": true
+              }
+            ]
+          },
+          "entryPriceKRW": null,
+          "stopLossPriceKRW": null,
+          "takeProfit1KRW": null,
+          "takeProfit2KRW": null
+        },
+        {
+          "strategyType": "CONFIRMED_ENTRY",
+          "subtype": "OPENING_RANGE_BREAKOUT",
+          "profileId": null,
+          "enabled": false,
+          "thresholdSource": "PROGRAM_CONFIG",
+          "requiredIndicators": [
+            "PRICE",
+            "VOLUME_5M",
+            "TURNOVER_5M",
+            "RVOL_5M",
+            "VWAP",
+            "OPENING_RANGE_15M"
+          ],
+          "entryRules": {
+            "operator": "AND",
+            "conditions": [
+              {
+                "metric": "CLOSE_5M",
+                "operator": ">",
+                "value": null,
+                "reference": "OPENING_RANGE_15M_HIGH",
+                "unit": "KRW",
+                "valueSource": "REALTIME_CALCULATION",
+                "validationStatus": "REALTIME_REQUIRED",
+                "required": true
+              },
+              {
+                "metric": "RVOL_5M",
+                "operator": ">=",
+                "value": null,
+                "reference": "PROGRAM_CONFIG",
+                "unit": "RATIO",
+                "valueSource": "PROGRAM_CONFIG",
+                "validationStatus": "REALTIME_REQUIRED",
+                "required": true
+              }
+            ]
+          },
+          "entryPriceKRW": null,
+          "stopLossPriceKRW": null,
+          "takeProfit1KRW": null,
+          "takeProfit2KRW": null
+        }
+      ],
+      "noBuyReasons": [],
+      "invalidationReasons": [],
+      "exitStrategy": {
+        "stopLossMethod": "STRUCTURAL_SUPPORT",
+        "takeProfitMethod": "RISK_REWARD_BASED",
+        "calculationOwner": "TRADING_ENGINE",
+        "overnightAllowed": false
+      }
+    }
+  ],
+  "avoid": []
+}

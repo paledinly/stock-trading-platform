@@ -106,6 +106,11 @@ AI JSON `picks[].entryStrategy.conditions[]`를 그대로 적용하고 `STOP_AVA
 - 지원 지표: `RVOL_5M`, `PRICE_VS_VWAP`(단위 KRW 또는 PERCENT), `CLOSE_5M`(기준 `OPENING_RANGE_5M_HIGH`, `OPENING_RANGE_15M_HIGH`, `PREVIOUS_HIGH`, `PREVIOUS_CLOSE`, `VWAP` 또는 숫자), `TURNOVER_5M`, `PRICE_CHANGE_FROM_OPEN`. 연산자 `> >= < <=`.
 - `value`가 null이면 규칙 P의 같은 기준으로 바꾼다(RVOL 2, 돌파선 15분 고가, 거래대금 전일 평균 × 2, 시가 대비 8%).
 - 모르는 지표·연산자·기준이 하나라도 있거나 조건이 없으면 그 종목의 규칙 A는 `UNSUPPORTED`.
+- 11-11에는 세 종목 모두 `UNSUPPORTED`였다(AI가 `VALIDATED_RVOL_THRESHOLD`, `PULLBACK_RECOVERY_LEVEL`, `MARKET_TRADE_PERMISSION`을 적음). v2 계획을 저장할 때 계산할 수 없는 조건이 있으면 종목별로 경고한다(저장은 한다).
+- 11-12부터 쓰는 v4 프롬프트는 종목마다 전략 여러 개(`strategies[]`)에 진입 조건을 적는다. 규칙 A는 확인형 진입(`CONFIRMED_ENTRY`)의 `entryRules.conditions` 중 `required`가 false가 아닌 것만 따라간다. 조건 결합(`entryRules.operator`)이 AND가 아니면 `UNSUPPORTED`.
+  - v4 표기 읽기: `PRICE > VWAP`(숫자 없음)은 `PRICE_VS_VWAP > 0`, 기준 `PROGRAM_CONFIG`는 값 없음(규칙 P 기준)으로 본다. `enabled`·`profileId`는 실주문 활성화 표시라 가상 기록에는 쓰지 않는다.
+  - 조기 진입(`EARLY_MOMENTUM`)은 1분 거래량·거래대금, 호가 스프레드가 없어 아직 기록하지 않는다. 확인형 진입이 없는 종목은 규칙 A가 `UNSUPPORTED`다. 조기·확인형 성과를 따로 기록하려면 규칙을 하나 더 두는 작업이 필요하다.
+  - v3 계획(배포 안 됨)은 진입 조건이 없어 규칙 A가 `UNSUPPORTED`("진입 조건 없음(v3 전략 …)")다.
 
 ## 5. 가상 진입과 청산
 

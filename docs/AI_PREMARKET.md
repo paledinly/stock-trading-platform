@@ -10,18 +10,20 @@ ChatGPT가 장 시작 전에 고른 종목을 기록하고, 장 마감 뒤 실�
 4. 다시 넣으면 새 판으로 저장된다. 장 시작 전 마지막 판만 집계한다. 장 시작 뒤 판은 저장만 한다.
 5. 매일 21:30에 자동 채점한다(`AI_PLAN_EVALUATION_ENABLED`, `AI_PLAN_EVALUATION_CRON`). 화면의 "채점 지금 실행"으로 바로 돌릴 수 있다. 그날 수정주가 일봉(18:30 갱신)이 들어오기 전에는 채점을 미룬다.
 
-## JSON 규격 `ai-premarket-v2`
+## JSON 규격 `ai-premarket-v4`
 
-프롬프트는 사용자가 정한 원문 [`ai-premarket-v2.prompt.md`](../backend/src/main/resources/ai-premarket/ai-premarket-v2.prompt.md)이고, 화면의 프롬프트 복사는 날짜(2026-11-11, 20261111)를 다음 분석 거래일로 바꿔 준다. 출력 구조 예시는 [`ai-premarket-v2.example.json`](../backend/src/main/resources/ai-premarket/ai-premarket-v2.example.json). 처음 만든 `ai-premarket-v1`(2026-11-10)도 계속 받는다. 규격을 바꾸면 `schemaVersion`을 올린다.
+프롬프트는 사용자가 정한 원문 [`ai-premarket-v4.prompt.md`](../backend/src/main/resources/ai-premarket/ai-premarket-v4.prompt.md)이고(2026-11-12 계획부터), 화면의 프롬프트 복사는 날짜(2026-11-12, 20261112)를 다음 분석 거래일로 바꿔 준다. 출력 구조 예시는 [`ai-premarket-v4.example.json`](../backend/src/main/resources/ai-premarket/ai-premarket-v4.example.json)이고 프롬프트 14절 자리(`{{example}}`)에 그대로 들어간다. 원문 예시에 없던 `model` 칸만 예시에 더했다. 이전 규격 `ai-premarket-v3`(배포 전 하루 쓴 초안, 화면에서 준 적 없음), `ai-premarket-v2`(11-10~11-11, [프롬프트](../backend/src/main/resources/ai-premarket/ai-premarket-v2.prompt.md))와 `ai-premarket-v1`(11-10)도 계속 받는다. 규격을 바꾸면 `schemaVersion`을 올린다.
+
+v4가 v2와 다른 점: 종목마다 전략 배열(`strategies[]`: `EARLY_MOMENTUM`, `CONFIRMED_ENTRY`+`subtype`)이 있고, 각 전략의 진입 조건은 `entryRules.conditions[]`에 적는다. 수치 기준(`value`)은 비워 두고(`PROGRAM_CONFIG`) 프로그램이 정한다. 진입가·손절·익절도 프로그램이 정한다. 매수 금지·무효화는 `noBuyReasons`, `invalidationReasons`(v2는 `noBuyConditions`, `invalidationConditions`). v3는 진입 조건 없이 `strategy.strategyType`만 적는 규격이다.
 
 | 칸 | 필수 | 검사 |
 | --- | --- | --- |
-| `schemaVersion` | ✓ | `ai-premarket-v2` (또는 `ai-premarket-v1`) |
+| `schemaVersion` | ✓ | `ai-premarket-v4` (또는 `ai-premarket-v3`, `ai-premarket-v2`, `ai-premarket-v1`) |
 | `targetDate` | ✓ | YYYY-MM-DD, 거래일, 오늘 이후. 지난 날짜는 거부 |
 | `analysisMode` | ✓ | PREMARKET / INTRADAY. INTRADAY는 저장만 하고 집계에서 뺀다 |
 | `analyzedAt` | | 시간대 포함 시각 또는 null. null이면 경고하고 저장 시각으로만 장 시작 전 여부를 판단한다. 지금보다 5분 넘게 미래면 거부 |
 | `analysisValidUntil` | | 없으면 targetDate 장 마감. analyzedAt보다 뒤 |
-| `model.name`, `model.promptVersion` | ✓ | 비면 거부. `model.version`이 없으면 경고 |
+| `model.name`, `model.promptVersion` | ✓ | 비면 거부(v4는 경고하고 `UNKNOWN`, `premarket-v4`로 저장). `model.version`이 없으면 경고 |
 | `market.outlook` | ✓ | BULLISH / NEUTRAL / BEARISH |
 | `market.regime`, `market.riskLevel` | | 정해진 값이 아니면 경고. 저장해 두고 나중에 나눠 본다 |
 | `market.news[].publishedAt`, `picks[].sources[].publishedAt` | | 지금보다 미래면 거부(미래 정보) |
@@ -32,7 +34,7 @@ ChatGPT가 장 시작 전에 고른 종목을 기록하고, 장 마감 뒤 실�
 
 - ChatGPT가 JSON을 코드 블록(```json … ```)으로 감싸 보내도 벗겨서 읽는다.
 - 같은 종목이 두 번 나오면 거부한다. 종목명이 마스터와 다르면 경고하고 코드 기준으로 저장한다.
-- `marketData`, `keyLevels`, `entryStrategy.conditions`, `exitPlan` 같은 AI가 적은 가격·조건은 **원본 JSON에만** 남는다. 확정 매매 가격으로 쓰지 않는다. 2단계는 `entryStrategy.conditions` 중 계산할 수 있는 것만 실시간 지표로 다시 판단한다(규칙 A).
+- `marketData`, `keyLevels`, `strategies`, `exitStrategy`(v2는 `entryStrategy`, `exitPlan`) 같은 AI가 적은 가격·조건은 **원본 JSON에만** 남는다. 확정 매매 가격으로 쓰지 않는다. 2단계 규칙 A는 v2의 `entryStrategy.conditions`, v4의 `CONFIRMED_ENTRY` 조건 중 계산할 수 있는 것만 다시 판단한다. v3 계획에는 진입 조건이 없어 규칙 A가 `UNSUPPORTED`다.
 
 ## 채점
 
