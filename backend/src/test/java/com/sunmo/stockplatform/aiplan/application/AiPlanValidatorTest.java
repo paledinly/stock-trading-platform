@@ -254,6 +254,31 @@ class AiPlanValidatorTest {
         assertThat(parsed.unsupported()).containsExactly("지표 VOLUME_1M");
     }
 
+    /**
+     * 기대: 11-12 실제 v4 답처럼 AI가 기준을 PROGRAM_CONFIG.CONFIRMED_ENTRY.RVOL_5M_MIN으로 적어도 프로그램 기준으로 읽어요.
+     * 계산식이 없는 눌림목 회복선(PULLBACK_RECOVERY_LEVEL)은 계속 지원하지 않아요.
+     */
+    @Test
+    void readsNamedProgramConfigReferencesInVersionFour() throws Exception {
+        var mapper = new ObjectMapper();
+        String strategy = """
+                {"strategies":[{"strategyType":"CONFIRMED_ENTRY","entryRules":{"operator":"AND","conditions":[
+                  {"metric":"CLOSE_5M","operator":">","value":null,"reference":"OPENING_RANGE_15M_HIGH","required":true},
+                  {"metric":"RVOL_5M","operator":">=","value":null,"reference":"PROGRAM_CONFIG.CONFIRMED_ENTRY.RVOL_5M_MIN","required":true},
+                  {"metric":"TURNOVER_5M","operator":">=","value":null,"reference":"PROGRAM_CONFIG.CONFIRMED_ENTRY.TURNOVER_5M_MIN","required":true}
+                ]}}]}""";
+
+        var parsed = com.sunmo.stockplatform.aiplan.realtime.AiCondition.parse(mapper.readTree(strategy));
+        var pullback = com.sunmo.stockplatform.aiplan.realtime.AiCondition.parse(mapper.readTree(
+                strategy.replace("OPENING_RANGE_15M_HIGH", "PULLBACK_RECOVERY_LEVEL")));
+
+        assertThat(parsed.supported()).isTrue();
+        assertThat(parsed.conditions()).extracting(c -> c.metric() + " " + c.reference())
+                .containsExactly("CLOSE_5M OPENING_RANGE_15M_HIGH", "RVOL_5M null", "TURNOVER_5M null");
+        assertThat(pullback.supported()).isFalse();
+        assertThat(pullback.unsupported()).containsExactly("CLOSE_5M 기준 PULLBACK_RECOVERY_LEVEL");
+    }
+
     private static com.fasterxml.jackson.databind.node.ObjectNode versionFourExample(ObjectMapper mapper) throws Exception {
         String example = new org.springframework.core.io.ClassPathResource("ai-premarket/ai-premarket-v4.example.json")
                 .getContentAsString(java.nio.charset.StandardCharsets.UTF_8).replace("2026-11-12", "2026-11-11").replace("20261112", "20261111");

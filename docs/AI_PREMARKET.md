@@ -12,7 +12,7 @@ ChatGPT가 장 시작 전에 고른 종목을 기록하고, 장 마감 뒤 실�
 
 ## JSON 규격 `ai-premarket-v4`
 
-프롬프트는 사용자가 정한 원문 [`ai-premarket-v4.prompt.md`](../backend/src/main/resources/ai-premarket/ai-premarket-v4.prompt.md)이고(2026-11-12 계획부터), 화면의 프롬프트 복사는 날짜(2026-11-12, 20261112)를 다음 분석 거래일로 바꿔 준다. 출력 구조 예시는 [`ai-premarket-v4.example.json`](../backend/src/main/resources/ai-premarket/ai-premarket-v4.example.json)이고 프롬프트 14절 자리(`{{example}}`)에 그대로 들어간다. 원문 예시에 없던 `model` 칸만 예시에 더했다. 이전 규격 `ai-premarket-v3`(배포 전 하루 쓴 초안, 화면에서 준 적 없음), `ai-premarket-v2`(11-10~11-11, [프롬프트](../backend/src/main/resources/ai-premarket/ai-premarket-v2.prompt.md))와 `ai-premarket-v1`(11-10)도 계속 받는다. 규격을 바꾸면 `schemaVersion`을 올린다.
+프롬프트는 사용자가 정한 원문 [`ai-premarket-v4.prompt.md`](../backend/src/main/resources/ai-premarket/ai-premarket-v4.prompt.md)이고(2026-11-12 계획부터), 화면의 프롬프트 복사는 날짜(2026-11-12, 20261112)를 다음 분석 거래일로 바꿔 준다. 출력 구조 예시는 [`ai-premarket-v4.example.json`](../backend/src/main/resources/ai-premarket/ai-premarket-v4.example.json)이고 프롬프트 14절 자리(`{{example}}`)에 그대로 들어간다. 원문 예시에 없던 `model` 칸을 예시에 더했고, 프롬프트 끝에 계산 가능한 조건 부록을 붙였다(11-12). 이전 규격 `ai-premarket-v3`(배포 전 하루 쓴 초안, 화면에서 준 적 없음), `ai-premarket-v2`(11-10~11-11, [프롬프트](../backend/src/main/resources/ai-premarket/ai-premarket-v2.prompt.md))와 `ai-premarket-v1`(11-10)도 계속 받는다. 규격을 바꾸면 `schemaVersion`을 올린다.
 
 v4가 v2와 다른 점: 종목마다 전략 배열(`strategies[]`: `EARLY_MOMENTUM`, `CONFIRMED_ENTRY`+`subtype`)이 있고, 각 전략의 진입 조건은 `entryRules.conditions[]`에 적는다. 수치 기준(`value`)은 비워 두고(`PROGRAM_CONFIG`) 프로그램이 정한다. 진입가·손절·익절도 프로그램이 정한다. 매수 금지·무효화는 `noBuyReasons`, `invalidationReasons`(v2는 `noBuyConditions`, `invalidationConditions`). v3는 진입 조건 없이 `strategy.strategyType`만 적는 규격이다.
 

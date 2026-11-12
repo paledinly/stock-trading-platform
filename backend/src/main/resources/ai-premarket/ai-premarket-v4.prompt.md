@@ -697,4 +697,23 @@ AI는 성과 수치나 승률을 추정하여 생성하지 않는다.
 14. 승률이나 예상 수익률을 근거 없이 생성하지 않는다.
 15. 최종 출력은 단일 JSON 객체 하나로 제한한다.
 
+## 부록. 실시간 프로그램이 계산할 수 있는 조건
+
+실시간 프로그램은 확인형 진입(`CONFIRMED_ENTRY`)의 `entryRules.conditions` 중 아래 조건만 계산한다. 목록에 없는 지표나 기준이 하나라도 있으면 그 종목의 AI 조건 감시는 기록되지 않는다. 조기 진입(`EARLY_MOMENTUM`) 조건은 아직 계산하지 않는다.
+
+| metric | 뜻 | reference |
+| --- | --- | --- |
+| `CLOSE_5M` | 완료된 5분봉 종가 | `OPENING_RANGE_5M_HIGH`, `OPENING_RANGE_15M_HIGH`, `PREVIOUS_HIGH`, `PREVIOUS_CLOSE`, `VWAP` 중 하나 |
+| `PRICE` | 현재가 | `VWAP`만 |
+| `RVOL_5M` | 과거 동시간대 대비 5분 거래량 배수 | `PROGRAM_CONFIG` |
+| `TURNOVER_5M` | 5분 거래대금 | `PROGRAM_CONFIG` |
+| `PRICE_CHANGE_FROM_OPEN` | 당일 시가 대비 등락률 | `PROGRAM_CONFIG` |
+
+- `operator`는 `>`, `>=`, `<`, `<=`만 사용한다. `entryRules.operator`는 `AND`만 사용한다.
+- 프로그램 기준값을 쓰는 조건의 `reference`는 정확히 `PROGRAM_CONFIG`로 적고 `value`는 `null`로 둔다.
+- 눌림목 회복선, 지지선 등 위 목록에 없는 가격 기준은 `reference`로 쓰지 않는다. 그런 판단은 `noBuyReasons`, `invalidationReasons`, `keyLevels`에 적는다.
+- 사용하는 모델 이름을 확인할 수 있으면 `model.name`에 적는다. 확인할 수 없는 값은 `null`로 둔다.
+
+---
+
 **이제 대상 거래일의 국내 주식시장에 대해 실제 최신 데이터를 검색하고, 관심 종목과 조기 진입·확인형 진입 전략을 생성하라. 최종 결과는 `ai-premarket-v4` 구조의 JSON 객체 하나로 출력하라.**
