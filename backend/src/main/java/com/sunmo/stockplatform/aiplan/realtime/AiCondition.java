@@ -65,8 +65,9 @@ public record AiCondition(String metric, String operator, BigDecimal value, Stri
         List<String> unsupported = new ArrayList<>(initial);
         for (JsonNode node : nodes) {
             String metric = text(node, "metric"), operator = text(node, "operator"), reference = text(node, "reference");
-            // v4 표기: 기준값을 프로그램이 정하면 reference가 PROGRAM_CONFIG예요. 현재가 > VWAP은 PRICE_VS_VWAP과 같아요.
-            if ("PROGRAM_CONFIG".equals(reference)) reference = null;
+            // v4 표기: 기준값을 프로그램이 정하면 reference가 PROGRAM_CONFIG예요(AI가 PROGRAM_CONFIG.CONFIRMED_ENTRY.RVOL_5M_MIN처럼
+            // 뒤에 이름을 붙이기도 해요). 현재가 > VWAP은 PRICE_VS_VWAP과 같아요.
+            if (reference != null && (reference.equals("PROGRAM_CONFIG") || reference.startsWith("PROGRAM_CONFIG."))) reference = null;
             if ("PRICE".equals(metric) && "VWAP".equals(reference) && !node.path("value").isNumber()) {
                 metric = "PRICE_VS_VWAP";
                 reference = null;

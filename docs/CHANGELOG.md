@@ -12,6 +12,8 @@
 - AI 장전 프롬프트를 사용자가 정한 v4(`ai-premarket-v4`)로 바꿨다. 화면의 "프롬프트 복사"가 v4를 준다. v1~v3 JSON도 계속 받는다.
   - AI는 종목마다 조기 진입(`EARLY_MOMENTUM`)·확인형 진입(`CONFIRMED_ENTRY`) 전략과 그 진입 조건을 적고, 수치 기준은 비워 둔다(프로그램 기준 사용). 진입가·손절·익절은 적지 않는다. 매수 금지·무효화는 `noBuyReasons`, `invalidationReasons`.
   - AI 조건 감시(규칙 A)는 확인형 진입 조건만 따라간다. `PRICE > VWAP`은 `PRICE_VS_VWAP`, 기준 `PROGRAM_CONFIG`는 규칙 P 기준으로 읽는다. 조기 진입은 1분 지표·호가 스프레드가 없어 아직 계산하지 않는다.
+  - 11-13 계획부터 프롬프트를 사용자가 정한 v4.1(`premarket-v4.1`)로 바꿨다. 규격(`ai-premarket-v4`)은 같다. 11-12 첫 v4 답에서 세 종목 모두 규칙 A가 동작하지 않아서, 규칙 A가 계산할 수 있는 지표·기준만 쓰고 종목당 `CONFIRMED_ENTRY` 하나, `model` 필수로 정했다. 날짜를 적지 않아 화면은 원문을 그대로 준다.
+  - 기준을 `PROGRAM_CONFIG.CONFIRMED_ENTRY.RVOL_5M_MIN`처럼 이름을 붙여 적어도 프로그램 기준으로 읽는다.
   - v4 원문에는 `model` 칸이 없어서 예시 JSON에만 넣었다. 빠지면 모델 `UNKNOWN`으로 저장하고 경고한다.
   - v2·v4 계획을 저장할 때 계산할 수 없는 진입 조건이 있으면 종목별로 경고한다. 11-11에는 AI가 지어낸 기준 이름 때문에 세 종목 모두 규칙 A가 동작하지 않았다.
 

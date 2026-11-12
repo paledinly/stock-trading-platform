@@ -199,7 +199,7 @@ class AiPlanValidatorTest {
 
     /**
      * 기대: 화면이 내려주는 v4 예시(ai-premarket-v4.example.json)에 선정 이유·매수 금지 사유·출처만 채우면 저장할 수 있어요.
-     * 예시의 확인형 진입 조건(CLOSE_5M > 15분 고가, RVOL_5M >= 프로그램 기준)은 규칙 A가 계산할 수 있어 경고가 없어요.
+     * 예시(v4.1 프롬프트)의 확인형 진입 조건 4개는 모두 규칙 A가 계산할 수 있어 경고가 없어요.
      */
     @Test
     void acceptsTheVersionFourExample() throws Exception {
@@ -211,13 +211,14 @@ class AiPlanValidatorTest {
         assertThat(result.errors()).isEmpty();
         assertThat(result.warnings()).noneMatch(w -> w.contains("규칙 A")).noneMatch(w -> w.contains("매수 금지·무효화 조건이 없어요"));
         assertThat(result.plan().schemaVersion()).isEqualTo("ai-premarket-v4");
-        assertThat(result.plan().promptVersion()).isEqualTo("premarket-v4");
+        assertThat(result.plan().promptVersion()).isEqualTo("premarket-v4.1");
         assertThat(result.plan().picks()).filteredOn(p -> p.kind().equals("PICK")).singleElement()
                 .satisfies(p -> assertThat(p.topPriority()).isTrue());
         var parsed = com.sunmo.stockplatform.aiplan.realtime.AiCondition.parse(root.withArray("picks").get(0));
         assertThat(parsed.supported()).isTrue();
         assertThat(parsed.conditions()).extracting(c -> c.metric() + " " + c.operator() + " " + c.reference() + " " + c.value())
-                .containsExactly("CLOSE_5M > OPENING_RANGE_15M_HIGH null", "RVOL_5M >= null null");
+                .containsExactly("CLOSE_5M > OPENING_RANGE_15M_HIGH null", "PRICE_VS_VWAP > null 0",
+                        "RVOL_5M >= null null", "TURNOVER_5M >= null null");
     }
 
     /**
@@ -230,7 +231,7 @@ class AiPlanValidatorTest {
         var root = versionFourExample(mapper);
         root.remove("model");
         var strategies = ((com.fasterxml.jackson.databind.node.ObjectNode) root.withArray("picks").get(0)).withArray("strategies");
-        strategies.remove(1);
+        ((com.fasterxml.jackson.databind.node.ObjectNode) strategies.get(0)).put("strategyType", "EARLY_MOMENTUM");
 
         var result = beforeOpen().validate(mapper.writeValueAsString(root));
 
@@ -242,6 +243,9 @@ class AiPlanValidatorTest {
         var confirmed = (com.fasterxml.jackson.databind.node.ObjectNode) strategies.get(0).deepCopy();
         confirmed.put("strategyType", "CONFIRMED_ENTRY");
         var conditions = (com.fasterxml.jackson.databind.node.ArrayNode) confirmed.get("entryRules").get("conditions");
+        conditions.removeAll();
+        conditions.addObject().put("metric", "RVOL_5M").put("operator", ">=").putNull("value").put("reference", "PROGRAM_CONFIG");
+        conditions.addObject().put("metric", "PRICE").put("operator", ">").putNull("value").put("reference", "VWAP");
         conditions.addObject().put("metric", "ORDERBOOK_SPREAD").put("operator", "<=").put("required", false);
         var parsed = com.sunmo.stockplatform.aiplan.realtime.AiCondition.parse(mapper.createObjectNode()
                 .set("strategies", mapper.createArrayNode().add(confirmed)));
@@ -254,9 +258,34 @@ class AiPlanValidatorTest {
         assertThat(parsed.unsupported()).containsExactly("지표 VOLUME_1M");
     }
 
+    /**
+     * 기대: 11-12 실제 v4 답처럼 AI가 기준을 PROGRAM_CONFIG.CONFIRMED_ENTRY.RVOL_5M_MIN으로 적어도 프로그램 기준으로 읽어요.
+     * 계산식이 없는 눌림목 회복선(PULLBACK_RECOVERY_LEVEL)은 계속 지원하지 않아요.
+     */
+    @Test
+    void readsNamedProgramConfigReferencesInVersionFour() throws Exception {
+        var mapper = new ObjectMapper();
+        String strategy = """
+                {"strategies":[{"strategyType":"CONFIRMED_ENTRY","entryRules":{"operator":"AND","conditions":[
+                  {"metric":"CLOSE_5M","operator":">","value":null,"reference":"OPENING_RANGE_15M_HIGH","required":true},
+                  {"metric":"RVOL_5M","operator":">=","value":null,"reference":"PROGRAM_CONFIG.CONFIRMED_ENTRY.RVOL_5M_MIN","required":true},
+                  {"metric":"TURNOVER_5M","operator":">=","value":null,"reference":"PROGRAM_CONFIG.CONFIRMED_ENTRY.TURNOVER_5M_MIN","required":true}
+                ]}}]}""";
+
+        var parsed = com.sunmo.stockplatform.aiplan.realtime.AiCondition.parse(mapper.readTree(strategy));
+        var pullback = com.sunmo.stockplatform.aiplan.realtime.AiCondition.parse(mapper.readTree(
+                strategy.replace("OPENING_RANGE_15M_HIGH", "PULLBACK_RECOVERY_LEVEL")));
+
+        assertThat(parsed.supported()).isTrue();
+        assertThat(parsed.conditions()).extracting(c -> c.metric() + " " + c.reference())
+                .containsExactly("CLOSE_5M OPENING_RANGE_15M_HIGH", "RVOL_5M null", "TURNOVER_5M null");
+        assertThat(pullback.supported()).isFalse();
+        assertThat(pullback.unsupported()).containsExactly("CLOSE_5M 기준 PULLBACK_RECOVERY_LEVEL");
+    }
+
     private static com.fasterxml.jackson.databind.node.ObjectNode versionFourExample(ObjectMapper mapper) throws Exception {
         String example = new org.springframework.core.io.ClassPathResource("ai-premarket/ai-premarket-v4.example.json")
-                .getContentAsString(java.nio.charset.StandardCharsets.UTF_8).replace("2026-11-12", "2026-11-11").replace("20261112", "20261111");
+                .getContentAsString(java.nio.charset.StandardCharsets.UTF_8).replace("YYYY-MM-DD", "2026-11-11").replace("YYYYMMDD", "20261111");
         var root = (com.fasterxml.jackson.databind.node.ObjectNode) mapper.readTree(example);
         var pick = (com.fasterxml.jackson.databind.node.ObjectNode) root.withArray("picks").get(0);
         pick.put("reason", "테스트");
