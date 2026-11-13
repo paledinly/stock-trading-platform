@@ -199,7 +199,7 @@ class AiPlanValidatorTest {
 
     /**
      * 기대: 화면이 내려주는 v4 예시(ai-premarket-v4.example.json)에 선정 이유·매수 금지 사유·출처만 채우면 저장할 수 있어요.
-     * 예시(v4.1 프롬프트)의 확인형 진입 조건 4개는 모두 규칙 A가 계산할 수 있어 경고가 없어요.
+     * 예시(v4.2 프롬프트)의 확인형 진입 조건 4개는 모두 규칙 A가 계산할 수 있어 경고가 없어요.
      */
     @Test
     void acceptsTheVersionFourExample() throws Exception {
@@ -211,7 +211,7 @@ class AiPlanValidatorTest {
         assertThat(result.errors()).isEmpty();
         assertThat(result.warnings()).noneMatch(w -> w.contains("규칙 A")).noneMatch(w -> w.contains("매수 금지·무효화 조건이 없어요"));
         assertThat(result.plan().schemaVersion()).isEqualTo("ai-premarket-v4");
-        assertThat(result.plan().promptVersion()).isEqualTo("premarket-v4.1");
+        assertThat(result.plan().promptVersion()).isEqualTo("premarket-v4.2");
         assertThat(result.plan().picks()).filteredOn(p -> p.kind().equals("PICK")).singleElement()
                 .satisfies(p -> assertThat(p.topPriority()).isTrue());
         var parsed = com.sunmo.stockplatform.aiplan.realtime.AiCondition.parse(root.withArray("picks").get(0));
