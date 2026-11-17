@@ -9,7 +9,7 @@
   "model": {
     "name": "ChatGPT",
     "version": null,
-    "promptVersion": "premarket-v4.1",
+    "promptVersion": "premarket-v4.2",
     "temperature": null
   },
   "market": {
@@ -47,6 +47,8 @@
       "status": "WATCH",
       "themes": [],
       "reason": "",
+      "marketCapCategory": null,
+      "relativeTurnoverRatio": null,
       "confidence": "MEDIUM",
       "dataQuality": "PARTIAL",
       "sources": [],
@@ -57,6 +59,7 @@
         "previousCloseKRW": null,
         "previousVolumeShares": null,
         "previousTurnoverKRW": null,
+        "averageTurnover20dKRW": null,
         "marketDataAsOf": null,
         "source": null,
         "verified": false
