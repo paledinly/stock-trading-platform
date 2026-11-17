@@ -27,8 +27,6 @@ class StockRepository {
   Future<void> addWatchlist(int groupId,String code) => _dio.post('/api/v1/watchlists',data:{'groupId':groupId,'stockCode':code});
   /// 관심종목 항목을 지워요. 받는 것: 항목 id.
   Future<void> removeWatchlist(int id) => _dio.delete('/api/v1/watchlists/$id');
-  /// Scanner 탐지 목록을 가져와요. 받는 것: 탐지 종류(null이면 전체). 돌려주는 것: 최대 50건.
-  Future<List<Detection>> detections(String? type) async => ((await _dio.get<List<dynamic>>('/api/v1/scanner-detections',queryParameters:{if(type!=null)'type':type,'limit':50})).data??[]).map((e)=>Detection.fromJson((e as Map).cast())).toList();
   /// 최근 수동 매매 기록 최대 100건을 가져와요.
   Future<List<TradeRecord>> trades() async => ((await _dio.get<List<dynamic>>('/api/v1/trades',queryParameters:{'limit':100})).data??[]).map((e)=>TradeRecord.fromJson((e as Map).cast())).toList();
   /// 수동 매매 기록을 저장해요(실제 주문 아님). 받는 것: 종목 코드, BUY/SELL, 가격, 수량.
@@ -38,10 +36,9 @@ class StockRepository {
 }
 
 // 아래는 화면이 구독하는 FutureProvider(한 번 불러온 결과를 캐시해 두는 provider)들이에요.
-// family는 인자(탐지 종류, 종목 코드, 검색어)마다 따로 캐시를 둬요.
+// family는 인자(종목 코드, 검색어)마다 따로 캐시를 둬요.
 final watchlistsProvider = FutureProvider((ref) => ref.watch(repositoryProvider).watchlists());
 final tradesProvider = FutureProvider((ref) => ref.watch(repositoryProvider).trades());
-final detectionProvider = FutureProvider.family<List<Detection>, String?>((ref,type) => ref.watch(repositoryProvider).detections(type));
 final quoteProvider = FutureProvider.family<Quote,String>((ref,code)=>ref.watch(repositoryProvider).quote(code));
 // 검색어가 비어 있으면 서버를 부르지 않고 빈 목록을 돌려줘요.
 final searchProvider = FutureProvider.family<List<Stock>,String>((ref,query)=>query.trim().isEmpty?Future.value([]):ref.watch(repositoryProvider).search(query));

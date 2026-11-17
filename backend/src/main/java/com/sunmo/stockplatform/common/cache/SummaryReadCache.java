@@ -1,9 +1,9 @@
 /*
  * 자주 요청되는 요약 응답을 잠깐(기본 60초, 최대 5분) 메모리에 보관해 두는 작은 캐시(결과를 잠시 보관하는 곳) 파일이에요.
  * 같은 조건 요청이 다시 오면 계산을 건너뛰고 보관한 응답을 돌려줘요. 최대 64개까지만 보관해요.
- * ScannerAnalyticsService가 통계 응답을 보관할 때 써요.
+ * 시장 커버리지 요약(MarketCoverageService)이 응답을 보관할 때 써요.
  */
-package com.sunmo.stockplatform.analytics.application;
+package com.sunmo.stockplatform.common.cache;
 
 import org.springframework.stereotype.Component;
 import org.springframework.beans.factory.annotation.Autowired;

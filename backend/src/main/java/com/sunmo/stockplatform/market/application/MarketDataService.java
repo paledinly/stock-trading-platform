@@ -13,7 +13,6 @@ import com.sunmo.stockplatform.market.domain.MarketTick;
 import com.sunmo.stockplatform.market.feature.application.MarketFeatureEngine;
 import com.sunmo.stockplatform.stock.infrastructure.StockRepository;
 import com.sunmo.stockplatform.scanner.application.ScannerEngine;
-import com.sunmo.stockplatform.analytics.application.DetectionPerformanceTracker;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import java.time.Instant;
@@ -34,7 +33,6 @@ public class MarketDataService {
     private final MarketEventGateway events;
     private final FiveMinuteCandleAggregator aggregator;
     private final ScannerEngine scanner;
-    private final DetectionPerformanceTracker performance;
     private final RealtimeDiagnostics diagnostics;
     private final MarketFeatureEngine features;
     private final org.springframework.context.ApplicationEventPublisher publisher;
@@ -47,14 +45,14 @@ public class MarketDataService {
     /**
      * 하는 일: 틱 처리에 필요한 부품을 주입받고, 5분봉 집계기와 트랜잭션 템플릿을 직접 만들어요.
      * 받는 것: 시세 저장소, 종목·봉 레포지토리(DB 테이블을 읽고 쓰는 창구), SSE 게이트웨이, 실시간 설정(봉 확정 watermark),
-     * Scanner, 성과 추적기, 진단, Feature 엔진, 스프링 이벤트 발행기, 트랜잭션 관리자.
+     * Scanner, 진단, Feature 엔진, 스프링 이벤트 발행기, 트랜잭션 관리자.
      */
     public MarketDataService(QuoteStateStore quotes, StockRepository stocks, StockCandleRepository candles,
             MarketEventGateway events, RealtimeMarketProperties properties, ScannerEngine scanner,
-            DetectionPerformanceTracker performance, RealtimeDiagnostics diagnostics, MarketFeatureEngine features,
+            RealtimeDiagnostics diagnostics, MarketFeatureEngine features,
             org.springframework.context.ApplicationEventPublisher publisher,
             org.springframework.transaction.PlatformTransactionManager transactions) {
-        this(quotes, stocks, candles, events, properties, scanner, performance, diagnostics, features, publisher,
+        this(quotes, stocks, candles, events, properties, scanner, diagnostics, features, publisher,
                 transactions, RealtimeCoverage.untracked());
     }
 
@@ -64,7 +62,7 @@ public class MarketDataService {
     @org.springframework.beans.factory.annotation.Autowired
     public MarketDataService(QuoteStateStore quotes, StockRepository stocks, StockCandleRepository candles,
             MarketEventGateway events, RealtimeMarketProperties properties, ScannerEngine scanner,
-            DetectionPerformanceTracker performance, RealtimeDiagnostics diagnostics, MarketFeatureEngine features,
+            RealtimeDiagnostics diagnostics, MarketFeatureEngine features,
             org.springframework.context.ApplicationEventPublisher publisher,
             org.springframework.transaction.PlatformTransactionManager transactions, RealtimeCoverage coverage) {
         this.coverage = coverage;
@@ -75,7 +73,6 @@ public class MarketDataService {
         this.events = events;
         this.aggregator = new FiveMinuteCandleAggregator(properties.candleWatermark());
         this.scanner = scanner;
-        this.performance = performance;
         this.diagnostics = diagnostics;
         this.features = features;
         this.publisher = publisher;
@@ -121,9 +118,7 @@ public class MarketDataService {
             finally { diagnostics.timing("candleTransaction", System.nanoTime() - dbStart); }
         } else snapshots.forEach(this::handle);
         } finally { candleLock.unlock(); }
-        // 3) 탐지 성과 추적을 갱신하고, 다른 기능이 들을 수 있게 관측 이벤트를 발행해요.
-        long performanceStart = System.nanoTime();
-        try { performance.onTick(tick); } finally { diagnostics.timing("performanceAndSse", System.nanoTime() - performanceStart); }
+        // 3) 다른 기능이 들을 수 있게 관측 이벤트를 발행해요.
         publisher.publishEvent(new ObservedMarketTick(tick, feature, receivedAt, dataLoss));
         return System.nanoTime() - bodyStart;
         } finally { diagnostics.timing("tickBody", System.nanoTime() - bodyStart); }

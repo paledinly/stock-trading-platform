@@ -42,9 +42,6 @@ KIS 국내주식 데이터를 수집해 5분봉과 Feature를 만들고, 실시�
 | 운영 | 대시보드 (`#/dashboard`) | `Phase3App` (`Phase3App.tsx`) |
 | 운영 | 마감 추천 (`#/closing`) | `ClosingRecommendationPage` (`ClosingRecommendationApp.tsx`) |
 | 탐색 | 시장 스캐너 (`#/wide`) | `MarketWidePage` (`Phase8App.tsx`) |
-| 탐색 | 실시간 레이더 (`#/scanner`) | `ScannerPage` (`Phase6App.tsx`) |
-| 검증 | 성과 분석 (`#/analytics`) | `AnalyticsPage` (`Phase7App.tsx`) |
-| 검증 | 백테스트 (`#/backtest`) | `BacktestPage` (`BacktestPage.tsx`) |
 | 기록 | 투자기록 (`#/journal`) | `JournalPage` (`Phase4App.tsx`) |
 
 `RealtimeBridge`가 SSE를 받아 TanStack Query 캐시를 갱신한다. 파일 이름의 `PhaseN`은 과거 개발 단계 이름이 남은 것이다.

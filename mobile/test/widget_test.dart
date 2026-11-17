@@ -10,18 +10,18 @@ import 'package:stock_platform_mobile/main.dart';
 /// 테스트 진입점이에요. 받는 것·돌려주는 것 없음.
 void main() {
   testWidgets('renders phase 8 mobile shell', (tester) async {
-    // overrides로 SSE 스트림·관심종목·탐지 provider를 빈 결과로 바꿔 실제 HTTP 호출을 막아요.
+    // overrides로 SSE 스트림·관심종목 provider를 빈 결과로 바꿔 실제 HTTP 호출을 막아요.
     await tester.pumpWidget(ProviderScope(
       overrides: [
         marketEventProvider.overrideWith((ref) => const Stream.empty()),
         watchlistsProvider.overrideWith((ref) async => []),
-        detectionProvider.overrideWith((ref, type) async => []),
       ],
       child: const StockPlatformApp(),
     ));
     // 홈 화면 제목과 하단 탭 이름이 보이면 앱 틀이 정상으로 그려진 것으로 판단해요.
     expect(find.text('오늘의 시장'), findsOneWidget);
     expect(find.text('홈'), findsOneWidget);
-    expect(find.text('Scanner'), findsOneWidget);
+    expect(find.text('노트'), findsOneWidget);
+    expect(find.text('Scanner'), findsNothing);
   });
 }

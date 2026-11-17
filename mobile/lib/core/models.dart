@@ -1,5 +1,5 @@
 // 서버 JSON 응답을 앱에서 쓰는 Dart 객체(모델)로 바꾸는 파일이에요.
-// 종목, 시세, 관심종목 그룹, 탐지 결과, 수동 거래 기록 모델을 정의해요.
+// 종목, 시세, 관심종목 그룹, 수동 거래 기록 모델을 정의해요.
 // repositories.dart가 응답을 변환할 때, 화면들이 값을 보여 줄 때 사용해요.
 
 /// 숫자 또는 숫자 문자열을 num으로 바꿔요. 받는 것: 아무 값. 돌려주는 것: 숫자(해석 실패나 null이면 0).
@@ -55,27 +55,6 @@ class WatchlistItem extends Stock {
   factory WatchlistItem.fromJson(Map<String, dynamic> json) => WatchlistItem(
     id: _number(json['id']).toInt(), code: '${json['stockCode']}',
     name: '${json['stockName']}', market: '${json['market']}',
-  );
-}
-
-/// Scanner가 조건을 만족한 종목을 포착한 기록 한 건이에요. 과속 단속 카메라 사진처럼 언제·얼마에·어떤 조건으로 잡혔는지 담아요.
-class Detection {
-  const Detection({required this.id, required this.type, required this.stock,
-    required this.detectedAt, required this.price, required this.changeRate,
-    required this.volumeRatio, required this.score});
-  final int id;
-  final String type;
-  final Stock stock;
-  final DateTime detectedAt;
-  final num price, changeRate, volumeRatio, score;
-  /// 서버 탐지 JSON을 읽어 Detection을 만들어요.
-  /// changeRate는 5분 등락률(fiveMinuteChangeRate), score는 모멘텀 점수(momentumScore)예요. 상승 확률이 아니에요.
-  factory Detection.fromJson(Map<String, dynamic> json) => Detection(
-    id: _number(json['id']).toInt(), type: '${json['scannerType']}',
-    stock: Stock(code: '${json['stockCode']}', name: '${json['stockName']}', market: '${json['market']}'),
-    detectedAt: DateTime.parse('${json['detectedAt']}'), price: _number(json['detectedPrice']),
-    changeRate: _number(json['fiveMinuteChangeRate']), volumeRatio: _number(json['volumeRatio']),
-    score: _number(json['momentumScore']),
   );
 }
 

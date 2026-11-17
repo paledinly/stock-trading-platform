@@ -21,7 +21,7 @@
 | --- | --- | --- | --- | --- | --- |
 | KIS REST 연동 | `KIS_ENABLED` | 꺼짐 | 켜짐 | 운영 | [MARKET_DATA](MARKET_DATA.md) |
 | 실시간 체결 WebSocket | `MARKET_REALTIME_ENABLED` | 꺼짐 | 켜짐 | 운영 | [MARKET_DATA](MARKET_DATA.md) |
-| 5분봉 집계·Scanner·실시간 레이더 | 실시간 수집에 포함 | — | 켜짐 | 운영 | [MARKET_DATA](MARKET_DATA.md) |
+| 5분봉 집계·Scanner (마감 정밀 후보 입력) | 실시간 수집에 포함 | — | 켜짐 | 운영 | [MARKET_DATA](MARKET_DATA.md) |
 | 분봉 보충 | `MARKET_BACKFILL_ENABLED` | 켜짐 | 켜짐 | 운영 | [MARKET_DATA](MARKET_DATA.md#분봉-보충backfill) |
 | 일봉 준비 (마감 후보용) | `CLOSING_DAILY_BACKFILL_ENABLED` | 켜짐 | 켜짐 | 운영 | [OPERATIONS](OPERATIONS.md) |
 | KIS 공식 거래일 달력 | `CLOSING_CALENDAR_KIS_REFRESH_ENABLED` | 꺼짐 | 켜짐 | 운영 | [OPERATIONS](OPERATIONS.md#실시간-수집-운영시간) |
@@ -37,8 +37,6 @@
 | 마감 추천 v9.1 자동 실행·가상 진입·성과 | `CLOSING_AUTOMATION_ENABLED` | 켜짐 | 켜짐 | 실험 ([ADR-008](decisions/ADR-008-CLOSING-V9-DECISION-CRITERIA.md)·[ADR-010](decisions/ADR-010-CLOSING-PRIMARY-SAMPLE-ALL-PRECISION.md) 판단 대기) | [TRADING_STRATEGY](TRADING_STRATEGY.md) |
 | 마감 후보 관측 (미선정 후보 동일 규칙 평가) | 자동화에 포함, `CLOSING_OBSERVATION_SUBSCRIPTION_LIMIT` | 켜짐, 10 | 켜짐, 10 | 실험 | [TRADING_STRATEGY](TRADING_STRATEGY.md) |
 | 일별 수집 완결성 | 자동화에 포함 | 켜짐 | 켜짐 | 운영 | [OPERATIONS](OPERATIONS.md#마감-파이프라인-일별-완결성) |
-| 신호 성과 분석 (Scanner 탐지 성과) | 실시간 수집에 포함 | — | 켜짐 | 실험 | [BACKTESTING](BACKTESTING.md) |
-| 전략 재생·백테스트 | API·화면에서 실행 | — | — | 실험 | [BACKTESTING](BACKTESTING.md) |
 
 ### 연구용 수집
 
@@ -61,10 +59,7 @@
 | --- | --- | --- | --- |
 | 관심종목·초기 관심종목 (`WATCHLIST_INITIAL_ENABLED`, 기본 켜짐) | 대시보드 (`Phase3App`) | 운영 | [README](../README.md) |
 | 투자기록 (수동 거래 원장) | 투자기록 (`JournalPage`) | 운영 | [ADR-007](decisions/ADR-007-TRADE-LEDGER.md) |
-| 실시간 레이더 | 실시간 레이더 (`ScannerPage`) | 운영 | [MARKET_DATA](MARKET_DATA.md) |
-| 신호 성과 분석 | 성과 분석 (`AnalyticsPage`) | 실험 | [BACKTESTING](BACKTESTING.md) |
 | 시장 전체 스캐너 | 시장 전체 (`MarketWidePage`) | 운영 | [API](API.md#시장-전체-스캔) |
-| 전략 재생 | 백테스트 (`BacktestPage`) | 실험 | [BACKTESTING](BACKTESTING.md) |
 | 오늘의 마감 추천 | 마감 추천 (`ClosingRecommendationPage`) | 실험 | [TRADING_STRATEGY](TRADING_STRATEGY.md) |
 | AI 장전 계획 기록·채점 (`AI_PLAN_EVALUATION_ENABLED`, 기본 켜짐, 매일 21:30) | AI 장전 (`AiPlanPage`) | 실험 (Forward 기록, 1단계) | [AI_PREMARKET](AI_PREMARKET.md), [ADR-012](decisions/ADR-012-AI-PREMARKET-FORWARD-RECORD.md) |
 | AI 장전 계획 실시간 감시·가상 매수 (`AI_PLAN_WATCH_ENABLED`, 기본 켜짐, 08:50~15:20, 1회 `AI_PLAN_WATCH_POSITION_AMOUNT` 1,000만 원). 계획 종목을 `AI_PLAN` 출처로 구독하고 자리가 없으면 정밀 후보 자리를 양보받음. KOSPI·KOSDAQ 1분 조회, 매수 신호 때 호가 1회 | AI 장전 → 실시간 감시 (`AiWatchPanel`) | 실험 (Forward 기록, 2단계) | [AI_PREMARKET_PHASE2](AI_PREMARKET_PHASE2.md) |
@@ -73,6 +68,7 @@
 
 - 2026-10-13: 장중 추천(`INTRADAY_ENABLED`), 장중 비용 Net 전용(`INTRADAY_COSTS_FOR_NET_ONLY`), 장중 진입·청산 비교 실험, 실시간 장중 추천 화면(`IntradayApp`)을 기준선 검증 실패로 제거했다([진입 비교](../audit/2026-10-13-intraday-entry-comparison/README.md), [실패 분석](../audit/2026-10-13-intraday-failure-analysis/README.md)).
 - 2026-10-14 정리: 호출되지 않던 API 5개([API](API.md#삭제된-api-과거-기록)), Web의 옛 `Phase4App`/`Phase6App`/`Phase7App`/`Phase8App` 래퍼 함수와 `zustand`·`react-router-dom` 의존성, Backend의 Spring WebSocket 의존성.
+- 2026-11-17: Scanner 탐지를 매수 신호처럼 보여 주던 기능을 제거했다. Web 실시간 레이더(`ScannerPage`)·성과 분석(`AnalyticsPage`)·백테스트(`BacktestPage`) 화면, Mobile 탐지·Scanner 탭, Backend 탐지 성과 계산(`DetectionPerformanceTracker`)·집계 API·Scanner 재생 API. 탐지 성과는 9~11월 평균이 비용 전에도 0 이하였고(11월 종가 기준 −0.71%), 장중 돌파 추천은 2026-10-13에 이미 실패로 판정됐다. Scanner 엔진과 탐지 저장은 마감 추천 정밀 후보 입력이라 그대로 둔다. `detection_performance` 기존 행은 보존한다.
 
 현재 "폐기 후보"는 없다. 동결 기능 중 3개월 동안 재개 계획이 없는 것은 폐기 후보로 옮겨 사용자에게 묻는다.
 

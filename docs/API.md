@@ -65,9 +65,9 @@ SSE 이벤트: `quote.updated`, `candle.5m.updated`, `candle.5m.closed`, `scanne
 
 `stockCodes`, `sources`, `limit`, `remaining`, `items`(종목코드순: `stockCode`, `stockName`, `market`, `sources`, `state`/`stateMessage`/`stateUpdatedAt`, `precisionScore`/`precisionAddedAt`(정밀이 아니면 null)), `precisionState`(`ACTIVE`/`FROZEN`/`DISABLED`, 배정기가 없으면 null), `precisionCapacity`. 상태 시각은 호스트 시각이며 체결 원천시각이 아니다.
 
-## Scanner·성과 분석·백테스트
+## Scanner
 
-**ScannerController**, **ScannerAnalyticsController**, **BacktestController**
+**ScannerController**
 
 | 메서드 | 경로 | 용도 | 주요 파라미터 |
 | --- | --- | --- | --- |
@@ -77,10 +77,6 @@ SSE 이벤트: `quote.updated`, `candle.5m.updated`, `candle.5m.closed`, `scanne
 | DELETE | `/scanner-settings/{id}` | 설정 삭제(204) | 없음 |
 | GET | `/scanner-detections` | 탐지 목록 | `type`(ScannerType), `limit`(1~100, 기본 50), `todayOnly`(기본 true) |
 | GET | `/scanner-detections/{id}` | 탐지 상세 | 없음 |
-| GET | `/scanner-detections/{id}/performance` | 탐지 이후 성과 | 없음 |
-| GET | `/scanner-analytics` | 기간별 탐지 성과 집계 | `from`, `to`(필수, Instant), `settingId`, `targetRate`(기본 3), `stopRate`(기본 -2), `minimumSampleSize`(기본 20) |
-| GET | `/backtests/stocks` | 5분봉이 저장된 백테스트 가능 종목 | 없음 |
-| GET | `/backtests/run` | 저장된 5분봉으로 Scanner 재생 | `stockCode`, `from`, `to`(필수, Instant), `settingId`, `limit`(1~200, 기본 50) |
 
 ScannerType: `VOLUME`, `PRICE_RISE`, `MOMENTUM`, `VOLUME_BREAKOUT`, `TURNOVER_BREAKOUT`, `HIGH_BREAKOUT`, `VWAP_BREAKOUT`, `VWAP_RECLAIM`, `PULLBACK_REBREAK`.
 
@@ -231,6 +227,7 @@ ScannerType: `VOLUME`, `PRICE_RISE`, `MOMENTUM`, `VOLUME_BREAKOUT`, `TURNOVER_BR
 
 - 2026-10-13: `/api/v1/intraday/*`와 SSE `intraday.entry-ready` (장중 추천 모듈 제거)
 - 2026-10-14 정리: `GET /market-wide/snapshots`, `GET /market-wide/precision`, `GET /scanners/{kind}`(→ `/scanner-detections?type=` 사용), `GET /stocks/{code}/features/latest`, `GET /stocks/{code}`
+- 2026-11-17: `GET /scanner-detections/{id}/performance`, `GET /scanner-analytics`, `GET /backtests/stocks`, `GET /backtests/run` (Scanner 탐지 성과·Scanner 재생 제거)
 
 ## 원칙
 

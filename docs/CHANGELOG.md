@@ -2,6 +2,15 @@
 
 사용자와 운영에 영향을 주는 주요 변경만 기록한다. 단계별 AI 작업 로그는 Git 이력과 audit에 보존한다.
 
+## 2026-11-17
+
+- Scanner 탐지를 매수 신호처럼 보여 주던 기능을 제거했다. 다음 백엔드 재시작부터 적용된다.
+  - Web: 실시간 레이더·성과 분석·백테스트 메뉴. 옛 주소(`#/scanner` 등)는 '오늘' 화면으로 간다.
+  - Mobile: 탐지·Scanner 탭과 홈의 Momentum 목록.
+  - Backend: 탐지 이후 성과 계산(틱마다 돌던 `DetectionPerformanceTracker`), `GET /scanner-analytics`, `GET /scanner-detections/{id}/performance`, `GET /backtests/*`. 설정 `MARKET_PERFORMANCE_FLUSH_INTERVAL`도 없어졌다.
+  - 근거: 탐지 이후 종가까지 평균(비용 전)이 9월 0.00%, 10월 −0.34%, 11월 −0.71%였고, 장중 돌파 추천은 10-13에 실패로 판정됐다.
+  - 그대로 두는 것: Scanner 엔진과 탐지 저장(마감 추천 정밀 후보 입력), `/scanner-detections`·`/scanner-settings` API, `detection_performance` 기존 행. 마감 추천의 점수·선정·구독·가상 진입은 바뀌지 않는다.
+
 ## 2026-11-13
 
 - AI 장전 프롬프트를 사용자가 정한 v4.2(`premarket-v4.2`)로 바꿨다(11-16 계획부터). 규격(`ai-premarket-v4`)과 규칙 A가 읽는 조건은 같다.

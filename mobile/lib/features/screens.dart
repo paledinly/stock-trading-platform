@@ -1,11 +1,10 @@
 // 모바일 앱의 모든 화면 위젯을 모아 둔 파일이에요.
-// 홈, 관심종목, 실시간 탐지, Scanner, 투자 노트, 종목 검색, 종목 상세 화면과 공통 부품을 정의해요.
+// 홈, 관심종목, 투자 노트, 종목 검색, 종목 상세 화면과 공통 부품을 정의해요.
 // app/app.dart의 GoRouter가 경로마다 이 화면들을 연결해요.
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../core/api_client.dart';
 import '../core/models.dart';
 import '../core/repositories.dart';
 
@@ -75,26 +74,17 @@ class _Metric extends StatelessWidget {
       ]);
 }
 
-/// 홈 탭 화면이에요. 아침 신문 1면처럼 관심종목 수, Momentum 탐지 수, 상위 탐지 5건을 요약해요.
+/// 홈 탭 화면이에요. 관심종목 수와 연결 상태를 요약해요.
 /// ConsumerWidget이라 Riverpod provider를 직접 읽어요. 돌려주는 것: 스크롤 가능한 홈 화면.
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final watchlists = ref.watch(watchlistsProvider),
-        momentum = ref.watch(detectionProvider('MOMENTUM'));
-    // SSE 이벤트 종류에 'detected'가 들어 있으면 Momentum 목록 캐시를 무효화해 다시 불러오게 해요.
-    ref.listen(marketEventProvider, (previous, next) {
-      next.whenData((event) {
-        if (event.type.contains('detected')) {
-          ref.invalidate(detectionProvider('MOMENTUM'));
-        }
-      });
-    });
+    final watchlists = ref.watch(watchlistsProvider);
     return CustomScrollView(slivers: [
       SliverToBoxAdapter(
           child: PageHeader('오늘의 시장',
-              subtitle: '관심 종목과 Momentum을 확인하세요.',
+              subtitle: '관심 종목을 확인하세요.',
               action: IconButton(
                   onPressed: () => context.push('/search'),
                   icon: const Icon(Icons.search)))),
@@ -112,31 +102,9 @@ class HomeScreen extends ConsumerWidget {
                                 watchlists.asData?.value.fold<int>(
                                         0, (sum, g) => sum + g.items.length) ??
                                     0),
-                            _Metric(
-                                'Momentum', momentum.asData?.value.length ?? 0),
                             // ⚠️ 확인 필요: '연결 LIVE'는 실제 SSE 연결 상태와 상관없이 항상 고정 문구로 보여요.
                             const _Metric('연결', 'LIVE')
                           ]))))),
-      SliverToBoxAdapter(
-          child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 10),
-              child: Text('Momentum Top',
-                  style: Theme.of(context).textTheme.titleLarge))),
-      SliverToBoxAdapter(
-          child: SizedBox(
-              height: 280,
-              child: AsyncPane(
-                  value: momentum,
-                  data: (items) => items.isEmpty
-                      ? const Center(
-                          child: Text('아직 실시간 탐지가 없습니다',
-                              style: TextStyle(color: Colors.white54)))
-                      : ListView.separated(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          itemCount: items.take(5).length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(height: 8),
-                          itemBuilder: (_, i) => DetectionTile(items[i])))))
     ]);
   }
 }
@@ -218,101 +186,6 @@ class WatchlistScreen extends ConsumerWidget {
       ref.invalidate(watchlistsProvider);
     }
   }
-}
-
-/// 실시간 탐지 탭 화면이에요. 속보 게시판처럼 Momentum 조건에 처음 들어온 종목 목록을 보여 줘요.
-/// 받는 것: 없음. 돌려주는 것: 당겨서 새로고침 가능한 탐지 목록.
-class DetectionScreen extends ConsumerWidget {
-  const DetectionScreen({super.key});
-  @override
-  Widget build(BuildContext context, WidgetRef ref) => Column(children: [
-        const PageHeader('실시간 탐지', subtitle: 'Momentum 최초 진입 이벤트'),
-        Expanded(
-            child: AsyncPane(
-                value: ref.watch(detectionProvider('MOMENTUM')),
-                data: (items) => RefreshIndicator(
-                    onRefresh: () =>
-                        ref.refresh(detectionProvider('MOMENTUM').future),
-                    child: items.isEmpty
-                        ? ListView(children: const [
-                            Padding(
-                                padding: EdgeInsets.only(top: 180),
-                                child: Center(child: Text('포착된 종목이 없습니다')))
-                          ])
-                        : ListView.separated(
-                            padding: const EdgeInsets.all(16),
-                            itemCount: items.length,
-                            separatorBuilder: (_, __) =>
-                                const SizedBox(height: 8),
-                            itemBuilder: (_, i) => DetectionTile(items[i])))))
-      ]);
-}
-
-/// 탐지 결과 한 건을 보여 주는 카드예요. 단속 카메라 사진 한 장처럼 종목·조건·가격·등락률을 담아요.
-/// 받는 것: item(Detection). 누르면 종목 상세로 이동해요. 상승은 빨강, 하락은 파랑으로 보여 줘요(한국 관례).
-class DetectionTile extends StatelessWidget {
-  const DetectionTile(this.item, {super.key});
-  final Detection item;
-  @override
-  Widget build(BuildContext context) => Card(
-      child: ListTile(
-          onTap: () => openStock(context, item.stock),
-          leading: CircleAvatar(child: Text(item.stock.name[0])),
-          title: Text(item.stock.name),
-          subtitle: Text(
-              '${item.type} · 거래량 ${item.volumeRatio.toStringAsFixed(2)}×'),
-          trailing: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(money(item.price)),
-                Text(
-                    '${item.changeRate >= 0 ? '+' : ''}${item.changeRate.toStringAsFixed(2)}%',
-                    style: TextStyle(
-                        color: item.changeRate >= 0
-                            ? Colors.redAccent
-                            : Colors.blueAccent))
-              ])));
-}
-
-/// Scanner 탭 화면이에요. 조건을 바꿔 가며 거르는 체처럼 거래량·급등·Momentum 중 하나를 골라 탐지 목록을 봐요.
-/// StatefulWidget이라 선택한 조건을 상태(state)로 기억해요.
-class ScannerScreen extends ConsumerStatefulWidget {
-  const ScannerScreen({super.key});
-  @override
-  ConsumerState<ScannerScreen> createState() => _ScannerScreenState();
-}
-
-/// ScannerScreen의 상태 클래스예요. type은 현재 선택한 탐지 종류이고 기본값은 VOLUME이에요.
-class _ScannerScreenState extends ConsumerState<ScannerScreen> {
-  String type = 'VOLUME';
-  @override
-  Widget build(BuildContext context) => Column(children: [
-        const PageHeader('시장 Scanner', subtitle: '5분봉 가격·거래량 조건'),
-        Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: 'VOLUME', label: Text('거래량')),
-                  ButtonSegment(value: 'PRICE_RISE', label: Text('급등')),
-                  ButtonSegment(value: 'MOMENTUM', label: Text('Momentum'))
-                ],
-                selected: {
-                  type
-                },
-                onSelectionChanged: (value) =>
-                    setState(() => type = value.first))),
-        Expanded(
-            child: AsyncPane(
-                value: ref.watch(detectionProvider(type)),
-                data: (items) => items.isEmpty
-                    ? const Center(child: Text('현재 조건을 통과한 종목이 없습니다'))
-                    : ListView.separated(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: items.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 8),
-                        itemBuilder: (_, i) => DetectionTile(items[i]))))
-      ]);
 }
 
 /// 투자 노트 탭 화면이에요. 가계부처럼 사용자가 직접 남긴 매수·매도 기록을 보여 줘요. 실제 주문이 아니에요.

@@ -38,7 +38,7 @@ public class MarketCoverageService {
     private final ClosingRecommendationRepository recommendations;
     private final OvernightPerformanceRepository performances;
     private final MarketWideScanRunRepository runs;
-    private final com.sunmo.stockplatform.analytics.application.SummaryReadCache cache;
+    private final com.sunmo.stockplatform.common.cache.SummaryReadCache cache;
 
     /**
      * 하는 일: 캐시 없이(보관 시간 0) 서비스를 만드는 생성자예요. 테스트 등에서 쓰는 것으로 보여요.
@@ -49,7 +49,7 @@ public class MarketCoverageService {
             ClosingRecommendationRepository recommendations, OvernightPerformanceRepository performances,
             MarketWideScanRunRepository runs) {
         this(stocks, snapshots, subscriptions, detections, recommendations, performances, runs,
-                new com.sunmo.stockplatform.analytics.application.SummaryReadCache(Duration.ZERO));
+                new com.sunmo.stockplatform.common.cache.SummaryReadCache(Duration.ZERO));
     }
 
     /**
@@ -60,7 +60,7 @@ public class MarketCoverageService {
     public MarketCoverageService(StockRepository stocks, MarketBroadSnapshotRepository snapshots,
             PrecisionSubscriptionSessionRepository subscriptions, ScannerDetectionRepository detections,
             ClosingRecommendationRepository recommendations, OvernightPerformanceRepository performances,
-            MarketWideScanRunRepository runs, com.sunmo.stockplatform.analytics.application.SummaryReadCache cache) {
+            MarketWideScanRunRepository runs, com.sunmo.stockplatform.common.cache.SummaryReadCache cache) {
         this.stocks = stocks; this.snapshots = snapshots; this.subscriptions = subscriptions;
         this.detections = detections; this.recommendations = recommendations; this.performances = performances;
         this.runs = runs;

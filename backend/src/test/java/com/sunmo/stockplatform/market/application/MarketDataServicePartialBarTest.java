@@ -4,7 +4,6 @@
  */
 package com.sunmo.stockplatform.market.application;
 
-import com.sunmo.stockplatform.analytics.application.DetectionPerformanceTracker;
 import com.sunmo.stockplatform.candle.domain.CandleSource;
 import com.sunmo.stockplatform.candle.domain.StockCandle;
 import com.sunmo.stockplatform.candle.infrastructure.StockCandleRepository;
@@ -43,7 +42,7 @@ class MarketDataServicePartialBarTest {
         when(stock.getId()).thenReturn(1L);
         when(stocks.findByStockCodeAndActiveTrue("A")).thenReturn(Optional.of(stock));
         return new MarketDataService(mock(QuoteStateStore.class), stocks, candles, mock(MarketEventGateway.class),
-                properties, mock(ScannerEngine.class), mock(DetectionPerformanceTracker.class), new RealtimeDiagnostics(),
+                properties, mock(ScannerEngine.class), new RealtimeDiagnostics(),
                 mock(MarketFeatureEngine.class), mock(ApplicationEventPublisher.class), mock(PlatformTransactionManager.class),
                 coverage);
     }

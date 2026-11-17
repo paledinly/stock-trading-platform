@@ -13,7 +13,7 @@ PostgreSQL은 영구 데이터의 시스템 오브 레코드다. Redis와 프로
 | 수동 거래 기록 | `trade`, `trade_reason`, `investment_journal`(V4) |
 | 봉 | `stock_candle`(V5, `5M`·`1D`, 보충 보강 V8) |
 | 탐지 | `scanner_setting`, `scanner_detection`(V6, 확장 V10~V12·V23) |
-| 탐지 성과 | `detection_performance`(V7, V9) |
+| 탐지 성과 | `detection_performance`(V7, V9). 2026-11-17부터 갱신하지 않는다(계산 코드 제거, 기존 행 보존) |
 | 시장 전체 스캔 | `market_broad_snapshot`(V16, V21), `market_wide_scan_run`(V17) |
 | 정밀 구독 이력 | `precision_subscription_session`(V19) |
 | 마감 추천 | `closing_recommendation_run`(V20, V22), `closing_recommendation`(V13, V18, V22) |

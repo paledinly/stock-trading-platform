@@ -2,8 +2,7 @@
  * SummaryReadCache(요약 조회 결과를 잠깐 저장해 두는 캐시)를 확인해요.
  * 무거운 집계 조회를 반복하지 않으면서도 만료 시간이 지나면 새로 읽어야 해서 중요해요.
  */
-package com.sunmo.stockplatform.analytics;
-import com.sunmo.stockplatform.analytics.application.SummaryReadCache;
+package com.sunmo.stockplatform.common.cache;
 import org.junit.jupiter.api.Test;
 import java.time.*;
 import java.util.concurrent.atomic.AtomicInteger;
