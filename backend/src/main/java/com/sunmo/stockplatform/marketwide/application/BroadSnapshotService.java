@@ -114,6 +114,8 @@ public class BroadSnapshotService {
         value.put("ranks", ranks);
         value.put("rankingScore", candidate.rankingScore().toPlainString());
         value.put("observations", candidate.observations());
+        if (candidate.origin() != null)
+            value.put("origin", candidate.origin());
         try {
             return objectMapper.writeValueAsString(value);
         } catch (JsonProcessingException error) {

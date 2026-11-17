@@ -42,7 +42,8 @@ class MarketWideQuoteBudgetTest {
         var resolver = new BroadQuoteResolver(provider, ticks, new QuoteSnapshotCache(), properties);
         var executor = new KisRequestExecutor(new KisRequestProperties(Duration.ZERO, Duration.ZERO, Duration.ZERO, 0));
         var service = new MarketWideScannerService(stocks, resolver, subscriptions, collector, persistence, precision,
-                properties, executor, mock(BroadEnrichmentQueue.class));
+                properties, executor, mock(BroadEnrichmentQueue.class),
+                new com.sunmo.stockplatform.market.config.VolatilityUniverseProperties(true, 300, 20, null, 30, null));
         List<BroadCandidate> candidates = java.util.stream.IntStream.range(0, 5).mapToObj(index -> {
             Stock stock = mock(Stock.class);
             when(stock.getId()).thenReturn((long) index + 1);
