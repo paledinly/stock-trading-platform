@@ -28,13 +28,14 @@
 | 종목 마스터 정기 동기화 | `KIS_MASTER_SYNC_ENABLED` | 꺼짐 | 꺼짐 | 동결 | [API](API.md#종목시세) |
 | 종목 마스터 최초 적재 (종목 테이블이 비었을 때만) | `KIS_MASTER_SYNC_ON_STARTUP` | 켜짐 | ? | 운영 | [README](../README.md) |
 | 시장 전체 Broad 스캔 | `MARKET_WIDE_SCHEDULE_ENABLED`, `MARKET_WIDE_ENRICHMENT_ENABLED` | 꺼짐 / 켜짐 | 켜짐 / 켜짐 | 운영 | [MARKET_DATA](MARKET_DATA.md#구독과-후보) |
+| 스캔 후보 = 장 전 변동성 명단 300 + 오늘 상승률 상위 ([ADR-013](decisions/ADR-013-VOLATILITY-SUBSCRIPTION-UNIVERSE.md)) | `MARKET_WIDE_VOLATILITY_ENABLED` | 켜짐 | 켜짐 | 운영 (2026-11-17~, 꺼지면 순위표 방식) | [MARKET_DATA](MARKET_DATA.md#구독과-후보) |
 | Precision 정밀 구독 | `MARKET_PRECISION_ENABLED` | 꺼짐 | 켜짐 | 운영 | [OPERATIONS](OPERATIONS.md#kis-한도) |
 
 ### 전략
 
 | 기능 | 설정 | 코드 기본값 | 운영 PC | 상태 | 문서 |
 | --- | --- | --- | --- | --- | --- |
-| 마감 추천 v9.1 자동 실행·가상 진입·성과 | `CLOSING_AUTOMATION_ENABLED` | 켜짐 | 켜짐 | 실험 ([ADR-008](decisions/ADR-008-CLOSING-V9-DECISION-CRITERIA.md)·[ADR-010](decisions/ADR-010-CLOSING-PRIMARY-SAMPLE-ALL-PRECISION.md) 판단 대기) | [TRADING_STRATEGY](TRADING_STRATEGY.md) |
+| 마감 추천 v9.1 자동 실행·가상 진입·성과 | `CLOSING_AUTOMATION_ENABLED` | 켜짐 | 켜짐 | 실험 ([ADR-008](decisions/ADR-008-CLOSING-V9-DECISION-CRITERIA.md)·[ADR-010](decisions/ADR-010-CLOSING-PRIMARY-SAMPLE-ALL-PRECISION.md) 판정 2026-11-09 "중단", 자동 실행·기록은 계속) | [TRADING_STRATEGY](TRADING_STRATEGY.md) |
 | 마감 후보 관측 (미선정 후보 동일 규칙 평가) | 자동화에 포함, `CLOSING_OBSERVATION_SUBSCRIPTION_LIMIT` | 켜짐, 10 | 켜짐, 10 | 실험 | [TRADING_STRATEGY](TRADING_STRATEGY.md) |
 | 일별 수집 완결성 | 자동화에 포함 | 켜짐 | 켜짐 | 운영 | [OPERATIONS](OPERATIONS.md#마감-파이프라인-일별-완결성) |
 

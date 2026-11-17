@@ -11,6 +11,8 @@ import com.sunmo.stockplatform.kis.ranking.RankingType;
 import com.sunmo.stockplatform.marketwide.domain.BroadCandidate;
 import com.sunmo.stockplatform.marketwide.domain.StructuredProductFilter;
 import com.sunmo.stockplatform.market.config.BroadCollectionProperties;
+import com.sunmo.stockplatform.market.config.VolatilityUniverseProperties;
+import org.springframework.beans.factory.annotation.Autowired;
 import com.sunmo.stockplatform.stock.domain.Market;
 import com.sunmo.stockplatform.stock.domain.Stock;
 import com.sunmo.stockplatform.stock.infrastructure.StockRepository;
@@ -26,26 +28,103 @@ import java.util.*;
  */
 @Component
 public class BroadCandidateCollector {
+    static final String VOLATILITY = "VOLATILITY_20D";
+    static final String GAINER = "PRICE_RISE_TODAY";
     private final MarketRankingProvider rankings;
     private final StockRepository stocks;
     private final BroadCollectionProperties properties;
+    private final VolatilityUniverse volatility;
+    private final VolatilityUniverseProperties volatilityProperties;
 
     /**
-     * 하는 일: 랭킹 제공자, 종목 레포지토리(DB 창구), 수집 설정을 받아 둬요.
-     * 받는 것: 위 세 협력 객체.
+     * 하는 일: 랭킹 제공자, 종목 레포지토리(DB 창구), 수집 설정, 장 전 변동성 명단을 받아 둬요.
+     * 받는 것: 위 협력 객체. 변동성 명단이 null이면 순위표 방식만 써요.
      */
-    public BroadCandidateCollector(MarketRankingProvider rankings, StockRepository stocks, BroadCollectionProperties properties) {
+    @Autowired
+    public BroadCandidateCollector(MarketRankingProvider rankings, StockRepository stocks, BroadCollectionProperties properties,
+            VolatilityUniverse volatility, VolatilityUniverseProperties volatilityProperties) {
         this.rankings = rankings;
         this.stocks = stocks;
         this.properties = properties;
+        this.volatility = volatility;
+        this.volatilityProperties = volatilityProperties;
+    }
+
+    /** 하는 일: 순위표 방식만 쓰는 수집기를 만들어요(테스트와 변동성 명단이 없는 경우). */
+    public BroadCandidateCollector(MarketRankingProvider rankings, StockRepository stocks, BroadCollectionProperties properties) {
+        this(rankings, stocks, properties, null, null);
     }
 
     /**
-     * 하는 일: 모든 랭킹 종류를 조회해 후보를 모으고 랭킹 점수 순으로 정렬해요.
+     * 하는 일: 후보를 모아요. 장 전 변동성 명단이 있으면 그 명단 + 오늘 상승률 상위로 만들고,
+     * 없으면(꺼짐·계산 실패) 기존처럼 모든 순위표를 합쳐요.
      * 받는 것: 시장(null이면 전체), 대체 목록 최대 개수, ETF 포함 여부.
-     * 돌려주는 것: 후보 목록, 랭킹 출처별 성공/실패 상태, 대체 목록을 썼는지 여부를 담은 Result.
+     * 돌려주는 것: 후보 목록, 출처별 성공/실패 상태, 대체 목록을 썼는지 여부, 장 전 명단 수를 담은 Result.
      */
     public Result collect(Market market, int fallbackLimit, boolean includeEtf) {
+        List<Stock> premarket = volatility == null ? List.of() : volatility.today();
+        if (!premarket.isEmpty())
+            return collectVolatility(market, premarket, includeEtf);
+        return collectRankings(market, fallbackLimit, includeEtf);
+    }
+
+    /**
+     * 하는 일: 장 전 변동성 명단에 오늘 상승률 순위표(코스피·코스닥 각각) 종목을 더해요.
+     * 상승률 종목을 앞에 두고(실시간 관측값이 있어 바로 점수를 낼 수 있어요) 명단을 변동성 순으로 이어요.
+     * 근거: audit/2026-11-17-subscription-criteria. 변동성 300 + 당일 상승 상위 100이 다음 날 시가 상위 20종목의 약 2/3를 담았어요.
+     */
+    private Result collectVolatility(Market market, List<Stock> premarket, boolean includeEtf) {
+        Set<String> premarketCodes = new HashSet<>();
+        premarket.forEach(stock -> premarketCodes.add(stock.getStockCode()));
+        Map<String, Integer> gainerRanks = new LinkedHashMap<>();
+        Map<String, List<BroadCandidate.RankingObservation>> observations = new HashMap<>();
+        Map<String, BigDecimal> strength = new HashMap<>();
+        List<SourceStatus> statuses = new ArrayList<>();
+        List<Market> markets = market == null ? List.of(Market.KOSPI, Market.KOSDAQ) : List.of(market);
+        for (Market each : markets) {
+            try {
+                List<KisRankingEntry> entries = rankings.fetch(RankingType.PRICE_RISE, each,
+                        volatilityProperties.gainersPerMarket());
+                java.time.Instant receivedAt = java.time.Instant.now();
+                for (KisRankingEntry entry : entries) {
+                    if (!meaningful(entry))
+                        continue;
+                    gainerRanks.putIfAbsent(entry.stockCode(), entry.rank());
+                    observations.computeIfAbsent(entry.stockCode(), ignored -> new ArrayList<>())
+                            .add(new BroadCandidate.RankingObservation(RankingType.PRICE_RISE, entry, receivedAt));
+                    if (entry.tradeStrength() != null)
+                        strength.put(entry.stockCode(), entry.tradeStrength());
+                }
+                statuses.add(new SourceStatus(RankingType.PRICE_RISE, true, entries.size(), null));
+            } catch (RuntimeException error) {
+                statuses.add(new SourceStatus(RankingType.PRICE_RISE, false, 0, rootMessage(error)));
+            }
+        }
+        List<BroadCandidate> result = new ArrayList<>();
+        Set<String> added = new HashSet<>();
+        // 상승률 종목: DB에 있는 거래 가능 종목만, 순위 순서대로.
+        Map<String, Stock> gainerStocks = new HashMap<>();
+        stocks.findByStockCodeIn(gainerRanks.keySet()).forEach(stock -> gainerStocks.put(stock.getStockCode(), stock));
+        for (var entry : gainerRanks.entrySet()) {
+            Stock stock = gainerStocks.get(entry.getKey());
+            if (stock == null || !tradable(stock, market, includeEtf))
+                continue;
+            String origin = premarketCodes.contains(stock.getStockCode()) ? VOLATILITY + "+" + GAINER : GAINER;
+            result.add(new BroadCandidate(stock, BigDecimal.ZERO, Map.of(RankingType.PRICE_RISE, entry.getValue()),
+                    strength.get(stock.getStockCode()), List.copyOf(observations.get(stock.getStockCode())), origin));
+            added.add(stock.getStockCode());
+        }
+        // 장 전 명단: 변동성 순서 그대로.
+        for (Stock stock : premarket) {
+            if (added.contains(stock.getStockCode()) || !tradable(stock, market, includeEtf))
+                continue;
+            result.add(new BroadCandidate(stock, BigDecimal.ZERO, Map.of(), null, List.of(), VOLATILITY));
+        }
+        return new Result(List.copyOf(result), List.copyOf(statuses), false, premarket.size());
+    }
+
+    /** 하는 일: 기존 방식이에요. 모든 랭킹 종류를 조회해 후보를 모으고 랭킹 점수 순으로 정렬해요. */
+    private Result collectRankings(Market market, int fallbackLimit, boolean includeEtf) {
         Map<String, EnumMap<RankingType, Integer>> ranksByCode = new LinkedHashMap<>();
         Map<String, BigDecimal> tradeStrengthByCode = new HashMap<>();
         Map<String, List<BroadCandidate.RankingObservation>> observations = new HashMap<>();
@@ -169,7 +248,11 @@ public class BroadCandidateCollector {
     /**
      * 수집 결과예요. candidates는 정렬된 후보, sources는 랭킹별 상태, fallback은 DB 대체 목록을 썼는지예요.
      */
-    public record Result(List<BroadCandidate> candidates, List<SourceStatus> sources, boolean fallback) {
+    public record Result(List<BroadCandidate> candidates, List<SourceStatus> sources, boolean fallback, int premarketCount) {
+        /** 순위표 방식 결과예요(장 전 명단 0). */
+        public Result(List<BroadCandidate> candidates, List<SourceStatus> sources, boolean fallback) {
+            this(candidates, sources, fallback, 0);
+        }
     }
 
     /**

@@ -153,6 +153,15 @@ market:
       exclude-structured-names: ${MARKET_WIDE_EXCLUDE_STRUCTURED_NAMES:true}
       # 순위표 행 최소 거래대금(원). 스팩·무거래 종목이 정밀 구독 자리를 차지하지 않게 해요.
       min-ranking-trading-value: ${MARKET_WIDE_MIN_RANKING_TRADING_VALUE:100000000}
+    # 시장 전체 스캔 후보를 순위표 대신 "최근 20거래일 변동성 상위 300 + 오늘 상승률 상위(시장별 30)"로 만들어요(ADR-013).
+    # 꺼지거나 일봉으로 명단을 못 만들면 기존 순위표 방식으로 돌아가요.
+    volatility:
+      enabled: ${MARKET_WIDE_VOLATILITY_ENABLED:true}
+      size: ${MARKET_WIDE_VOLATILITY_SIZE:300}
+      lookback-days: ${MARKET_WIDE_VOLATILITY_LOOKBACK_DAYS:20}
+      min-average-trading-value: ${MARKET_WIDE_VOLATILITY_MIN_AVERAGE_TRADING_VALUE:1000000000}
+      gainers-per-market: ${MARKET_WIDE_VOLATILITY_GAINERS_PER_MARKET:30}
+      quote-max-age: ${MARKET_WIDE_VOLATILITY_QUOTE_MAX_AGE:10m}
     schedule:
       enabled: ${MARKET_WIDE_SCHEDULE_ENABLED:false}
       poll-interval: ${MARKET_WIDE_POLL_INTERVAL:30s}

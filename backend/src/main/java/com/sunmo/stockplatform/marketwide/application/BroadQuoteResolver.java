@@ -41,6 +41,14 @@ public class BroadQuoteResolver {
      * 돌려주는 것: 고른 시세 데이터, 오류 메시지(없으면 null), REST를 실제로 시도했는지를 담은 Resolution.
      */
     public Resolution resolve(BroadCandidate candidate, boolean allowRest) {
+        return resolve(candidate, allowRest, properties.cacheMaxAge());
+    }
+
+    /**
+     * 하는 일: 위와 같지만 캐시 시세를 믿을 최대 나이를 따로 정해요.
+     * 장 전 변동성 명단(약 360종목)은 매 스캔 모두 새로 받을 수 없어서 더 오래된 캐시도 써요.
+     */
+    public Resolution resolve(BroadCandidate candidate, boolean allowRest, Duration cacheMaxAge) {
         // 준비: 랭킹 API 관측값 중 신선하고 핵심 필드가 가장 많이 채워진(같으면 더 최근) 것을 골라요.
         Instant now = Instant.now();
         String code = candidate.stock().getStockCode();
@@ -72,7 +80,7 @@ public class BroadQuoteResolver {
             if (ranking == null) ranking = realtime;
         }
         // 3~4순위: 신선한 캐시, 그다음 핵심 필드가 다 찬 랭킹 관측값.
-        StockQuote recent = cache.fresh(code, now, properties.cacheMaxAge()).orElse(null);
+        StockQuote recent = cache.fresh(code, now, cacheMaxAge).orElse(null);
         if (recent != null) return new Resolution(BroadQuoteData.fromQuote(recent, "CACHE"), null, false);
         if (ranking != null && ranking.complete()) return new Resolution(ranking, null, false);
         // REST 호출 예산이 없으면 불완전한 값이라도 사유와 함께 돌려줘요.

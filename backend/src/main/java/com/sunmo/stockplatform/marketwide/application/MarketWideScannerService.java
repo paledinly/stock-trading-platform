@@ -17,6 +17,7 @@ import com.sunmo.stockplatform.marketwide.domain.BroadCandidate;
 import com.sunmo.stockplatform.marketwide.domain.MarketBroadSnapshot;
 import com.sunmo.stockplatform.marketwide.domain.BroadQuoteData;
 import com.sunmo.stockplatform.market.config.BroadCollectionProperties;
+import com.sunmo.stockplatform.market.config.VolatilityUniverseProperties;
 import com.sunmo.stockplatform.marketwide.api.MarketWideDtos.CollectionSummary;
 import com.sunmo.stockplatform.kis.config.KisRequestExecutor;
 import com.sunmo.stockplatform.stock.domain.Market;
@@ -49,16 +50,20 @@ public class MarketWideScannerService {
     private final BroadSnapshotService broadSnapshots;
     private final PrecisionSubscriptionAllocator precision;
     private final BroadEnrichmentQueue enrichment;
+    private final VolatilityUniverseProperties volatilityProperties;
 
     /**
      * 하는 일: 스캔 한 번에 필요한 협력 객체들을 받아 둬요.
      * 받는 것: 종목 레포지토리(DB 창구), 시세 선택기, 실시간 구독 등록부, 후보 수집기, 스냅샷 서비스,
-     * 정밀 구독 배정기, 수집 설정, KIS 요청 실행기(진단용), 시세 보강 대기열.
+     * 정밀 구독 배정기, 수집 설정, KIS 요청 실행기(진단용), 시세 보강 대기열, 장 전 변동성 명단 설정.
      */
+    @org.springframework.beans.factory.annotation.Autowired
     public MarketWideScannerService(StockRepository stocks, BroadQuoteResolver quotes,
             RealtimeSubscriptionRegistry subscriptions, BroadCandidateCollector collector,
             BroadSnapshotService broadSnapshots, PrecisionSubscriptionAllocator precision,
-            BroadCollectionProperties properties, KisRequestExecutor requests, BroadEnrichmentQueue enrichment) {
+            BroadCollectionProperties properties, KisRequestExecutor requests, BroadEnrichmentQueue enrichment,
+            VolatilityUniverseProperties volatilityProperties) {
+        this.volatilityProperties = volatilityProperties;
         this.stocks = stocks;
         this.quotes = quotes;
         this.subscriptions = subscriptions;
@@ -79,27 +84,38 @@ public class MarketWideScannerService {
         int safeLimit = Math.min(Math.max(limit, 1), 120);
         // Up to the KIS realtime limit so precision can fill every free slot (ADR-010).
         int safeCandidates = Math.min(Math.max(candidates, 1), 41);
-        // 준비: 랭킹으로 후보를 모으고, 상위 safeLimit개만 종목코드 기준으로 중복 없이 남겨요.
+        // 준비: 후보를 모으고 종목코드 기준으로 중복 없이 남겨요.
+        // 순위표 방식은 상위 safeLimit개, 장 전 변동성 명단 방식(ADR-013)은 명단 전체(최대 450)를 봐요.
         BroadCandidateCollector.Result collected = collector.collect(market, safeLimit, includeEtf);
+        boolean premarket = collected.premarketCount() > 0;
+        if (premarket)
+            safeLimit = Math.min(collected.candidates().size(), 450);
         Instant scannedAt = Instant.now();
         Map<String, BroadCandidate> byCode = collected.candidates().stream()
                 .limit(safeLimit)
                 .collect(Collectors.toMap(item -> item.stock().getStockCode(), item -> item,
                         (left, right) -> left, LinkedHashMap::new));
         // 처리 1: 후보마다 시세를 채워요. REST 조회는 detailQuoteBudget 횟수까지만 허락해요.
-        // 시세가 완전하면 시세+랭킹 합산 점수, 아니면 랭킹 점수만 써요.
+        // 시세가 완전하면 시세+랭킹 합산 점수(변동성 명단 방식은 시세 점수만), 아니면 랭킹 점수만 써요.
         List<QuoteAttempt> attempts = new ArrayList<>();
         int restLookups = 0;
         int restFailures = 0;
-        for (BroadCandidate broad : byCode.values()) {
-            var resolved = quotes.resolve(broad, restLookups < properties.detailQuoteBudget());
-            if (resolved.restAttempted()) {
-                restLookups++;
-                if (resolved.error() != null) restFailures++;
+        if (premarket) {
+            QuotePass pass = premarketQuotes(new ArrayList<>(byCode.values()));
+            attempts = pass.attempts();
+            restLookups = pass.restLookups();
+            restFailures = pass.restFailures();
+        } else {
+            for (BroadCandidate broad : byCode.values()) {
+                var resolved = quotes.resolve(broad, restLookups < properties.detailQuoteBudget());
+                if (resolved.restAttempted()) {
+                    restLookups++;
+                    if (resolved.error() != null) restFailures++;
+                }
+                BigDecimal score = resolved.data() != null && resolved.data().complete()
+                        ? combinedScore(resolved.data(), broad) : rankingScore(broad);
+                attempts.add(new QuoteAttempt(broad, resolved.data(), score, resolved.error()));
             }
-            BigDecimal score = resolved.data() != null && resolved.data().complete()
-                    ? combinedScore(resolved.data(), broad) : rankingScore(broad);
-            attempts.add(new QuoteAttempt(broad, resolved.data(), score, resolved.error()));
         }
         // 처리 2: 모든 시도를 스냅샷으로 저장하고, 시세가 불완전한 후보는 보강 대기열에 넘겨요.
         List<BroadSnapshotService.Capture> captures = attempts.stream()
@@ -151,6 +167,63 @@ public class MarketWideScannerService {
     }
 
     /**
+     * 하는 일: 장 전 변동성 명단 방식의 시세를 채워요.
+     * 1차: REST 없이 실시간 틱·캐시(최대 quoteMaxAge)·순위 관측값으로 채워요.
+     * 2차: 시세가 없거나 가장 오래된 종목부터 detailQuoteBudget개까지 REST로 새로 받아요. 360종목을 매번 다 받을 수 없어서
+     * 오래된 것부터 돌아가며 갱신해요. 시세가 아예 없는 종목은 보강 대기열도 채워요.
+     * 받는 것: 후보 목록. 돌려주는 것: 시도 목록과 REST 횟수·실패 수.
+     */
+    private QuotePass premarketQuotes(List<BroadCandidate> candidates) {
+        java.time.Duration staleAge = volatilityProperties.quoteMaxAge();
+        Instant now = Instant.now();
+        List<BroadQuoteResolver.Resolution> first = new ArrayList<>();
+        for (BroadCandidate broad : candidates)
+            first.add(quotes.resolve(broad, false, staleAge));
+        // 새로 받을 순서: 시세 없음 → 관측 시각이 오래된 순. 신선 기준(cacheMaxAge) 안의 시세는 다시 받지 않아요.
+        List<Integer> order = new ArrayList<>();
+        for (int i = 0; i < candidates.size(); i++) {
+            BroadQuoteData data = first.get(i).data();
+            boolean usable = data != null && data.complete();
+            if (!usable || data.observedAt() == null
+                    || data.observedAt().isBefore(now.minus(properties.cacheMaxAge())))
+                order.add(i);
+        }
+        order.sort(Comparator.comparing(i -> {
+            BroadQuoteData data = first.get(i).data();
+            return data == null || !data.complete() || data.observedAt() == null ? Instant.EPOCH : data.observedAt();
+        }));
+        BroadQuoteResolver.Resolution[] chosen = first.toArray(BroadQuoteResolver.Resolution[]::new);
+        int restLookups = 0;
+        int restFailures = 0;
+        for (int i : order) {
+            if (restLookups >= properties.detailQuoteBudget())
+                break;
+            var fresh = quotes.resolve(candidates.get(i), true);
+            if (fresh.restAttempted()) {
+                restLookups++;
+                if (fresh.error() != null) restFailures++;
+            }
+            if (fresh.data() != null && fresh.data().complete())
+                chosen[i] = fresh;
+            else if (chosen[i].data() == null || !chosen[i].data().complete())
+                chosen[i] = fresh;
+        }
+        List<QuoteAttempt> attempts = new ArrayList<>();
+        for (int i = 0; i < candidates.size(); i++) {
+            BroadCandidate broad = candidates.get(i);
+            var resolved = chosen[i];
+            BigDecimal score = resolved.data() != null && resolved.data().complete()
+                    ? combinedScore(resolved.data(), broad) : BigDecimal.ZERO;
+            attempts.add(new QuoteAttempt(broad, resolved.data(), score, resolved.error()));
+        }
+        return new QuotePass(attempts, restLookups, restFailures);
+    }
+
+    /** 변동성 명단 방식 시세 채우기 결과예요. */
+    private record QuotePass(List<QuoteAttempt> attempts, int restLookups, int restFailures) {
+    }
+
+    /**
      * 하는 일: 정밀 구독 배정 스냅샷을 API 응답 형태로 바꿔요.
      * 받는 것: 배정 스냅샷.
      * 돌려주는 것: 정밀 배정 응답.
@@ -183,7 +256,8 @@ public class MarketWideScannerService {
         BroadQuoteData quote = attempt.quote();
         BroadCandidate broad = attempt.broad();
         List<String> sources = broad.ranks().keySet().stream().map(Enum::name).sorted().toList();
-        String reason = sources.isEmpty() ? "FALLBACK_SAMPLE" : String.join("+", sources);
+        String reason = broad.origin() != null ? broad.origin()
+                : sources.isEmpty() ? "FALLBACK_SAMPLE" : String.join("+", sources);
         Map<String, Integer> ranks = broad.ranks().entrySet().stream()
                 .collect(Collectors.toMap(entry -> entry.getKey().name(), Map.Entry::getValue));
         return new CandidateResponse(
@@ -211,6 +285,9 @@ public class MarketWideScannerService {
      * 돌려주는 것: 합산 점수(소수 3자리).
      */
     static BigDecimal combinedScore(BroadQuoteData quote, BroadCandidate broad) {
+        // 장 전 변동성 명단 방식(origin 있음)은 순위표 점수가 기준이 아니라 시세 점수만 써요(ADR-013).
+        if (broad.origin() != null)
+            return score(quote);
         return score(quote).multiply(bd("0.65")).add(rankingScore(broad).multiply(bd("0.35")))
                 .setScale(3, RoundingMode.HALF_UP);
     }

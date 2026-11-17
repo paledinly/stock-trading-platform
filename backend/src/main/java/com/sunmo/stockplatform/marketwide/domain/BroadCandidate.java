@@ -19,7 +19,15 @@ import com.sunmo.stockplatform.kis.ranking.KisRankingEntry;
  * 여러 신문의 "인기 순위"에서 같은 가게가 몇 등씩 했는지 모아 적은 메모 카드라고 생각하면 돼요.
  */
 public record BroadCandidate(Stock stock, BigDecimal rankingScore, Map<RankingType, Integer> ranks,
-        BigDecimal tradeStrength, List<RankingObservation> observations) {
+        BigDecimal tradeStrength, List<RankingObservation> observations, String origin) {
+    /**
+     * 순위표 방식 후보예요(origin 없음). origin은 장 전 변동성 명단 방식에서 후보가 들어온 경로예요
+     * (VOLATILITY_20D, PRICE_RISE_TODAY, 둘 다면 +로 이어요).
+     */
+    public BroadCandidate(Stock stock, BigDecimal rankingScore, Map<RankingType, Integer> ranks,
+            BigDecimal tradeStrength, List<RankingObservation> observations) {
+        this(stock, rankingScore, ranks, tradeStrength, observations, null);
+    }
     /**
      * 하는 일: 원본 순위 관측값 없이 후보를 만들어요(관측 목록은 빈 목록으로 채워요).
      * 받는 것: 종목, 순위 점수, 순위표별 등수, 체결강도.
