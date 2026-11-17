@@ -7,7 +7,6 @@ package com.sunmo.stockplatform.scanner.application;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sunmo.stockplatform.analytics.application.DetectionPerformanceTracker;
 import com.sunmo.stockplatform.candle.application.CandleSnapshot;
 import com.sunmo.stockplatform.candle.infrastructure.StockCandleRepository;
 import com.sunmo.stockplatform.market.application.*;
@@ -46,7 +45,6 @@ public class ScannerEngine {
     private final ScannerEvaluator evaluator;
     private final MarketEventGateway events;
     private final StringRedisTemplate redis;
-    private final DetectionPerformanceTracker tracker;
     private final RealtimeDiagnostics diagnostics;
     private final MarketFeatureEngine features;
     private final ObjectMapper objectMapper;
@@ -63,13 +61,13 @@ public class ScannerEngine {
     /**
      * 하는 일: 필요한 저장소와 도구를 받아 보관해요.
      * 받는 것: 설정·감지·종목·캔들 레포지토리(DB 조회 담당), 시세 상태, 평가기, 이벤트 발행기,
-     * Redis(없을 수도 있어서 ObjectProvider로 받아요), 성과 추적기, 진단 카운터, 특징값 엔진, JSON 변환기, 기회/위험 점수기.
+     * Redis(없을 수도 있어서 ObjectProvider로 받아요), 진단 카운터, 특징값 엔진, JSON 변환기, 기회/위험 점수기.
      * 돌려주는 것: 없음(생성자). Redis가 없으면 redis 필드는 null이에요.
      */
     public ScannerEngine(ScannerSettingRepository settings, ScannerDetectionRepository detections,
             StockRepository stocks, StockCandleRepository candles, QuoteStateStore quotes,
             ScannerEvaluator evaluator, MarketEventGateway events,
-            ObjectProvider<StringRedisTemplate> redis, DetectionPerformanceTracker tracker,
+            ObjectProvider<StringRedisTemplate> redis,
             RealtimeDiagnostics diagnostics, MarketFeatureEngine features, ObjectMapper objectMapper,
             OpportunityRiskScorer scorer) {
         this.settings = settings;
@@ -80,7 +78,6 @@ public class ScannerEngine {
         this.evaluator = evaluator;
         this.events = events;
         this.redis = redis.getIfAvailable();
-        this.tracker = tracker;
         this.diagnostics = diagnostics;
         this.features = features;
         this.objectMapper = objectMapper;
@@ -140,9 +137,8 @@ public class ScannerEngine {
             if (feature.isPresent())
                 attachFeature(detection, feature.get());
             attachScore(detection, scorer.score(metrics, feature.orElse(null)));
-            // 결과: 저장 → 성과 추적 시작 → 랭킹 반영 → 이벤트 발행 순서로 마무리해요.
+            // 결과: 저장 → 랭킹 반영 → 이벤트 발행 순서로 마무리해요.
             detection = detections.save(detection);
-            tracker.initialize(detection);
             diagnostics.detectionCreated();
             rank(setting, stock, decision.score());
             events.publish("scanner." + eventName(setting.getType()) + ".detected",

@@ -121,7 +121,7 @@ class ScannerEngineCooldownTest {
     private ScannerEngine engine(StringRedisTemplate redis) {
         @SuppressWarnings("unchecked") ObjectProvider<StringRedisTemplate> provider = mock(ObjectProvider.class);
         when(provider.getIfAvailable()).thenReturn(redis);
-        return new ScannerEngine(null, null, null, null, null, null, null, provider, null, diagnostics, null,
+        return new ScannerEngine(null, null, null, null, null, null, null, provider, diagnostics, null,
                 new ObjectMapper(), null);
     }
 

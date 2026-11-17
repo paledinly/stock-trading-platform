@@ -21,7 +21,6 @@
 - `web/vite.config.ts`의 하드코딩된 ngrok 허용 호스트
 - Mobile 앱 유지 여부(2026-09-28 이후 변경 없음, Android 릴리스 manifest에 `INTERNET` 권한 없음)
 - `application.yml`에만 있고 `.env.example`에 없는 설정 키 보완
-- 실시간 레이더(`ScannerPage`)가 `RealtimeBridge`와 별도로 SSE 연결을 하나 더 여는 구조
 
 ## AI 장전 계획 (ADR-012)
 

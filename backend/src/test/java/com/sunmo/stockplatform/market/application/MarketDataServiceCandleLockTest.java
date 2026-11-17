@@ -4,7 +4,6 @@
  */
 package com.sunmo.stockplatform.market.application;
 
-import com.sunmo.stockplatform.analytics.application.DetectionPerformanceTracker;
 import com.sunmo.stockplatform.candle.application.CandleSnapshot;
 import com.sunmo.stockplatform.candle.infrastructure.StockCandleRepository;
 import com.sunmo.stockplatform.market.config.RealtimeMarketProperties;
@@ -86,7 +85,7 @@ class MarketDataServiceCandleLockTest {
         when(properties.candleWatermark()).thenReturn(Duration.ofSeconds(2));
         return new MarketDataService(mock(QuoteStateStore.class), mock(StockRepository.class),
                 mock(StockCandleRepository.class), mock(MarketEventGateway.class), properties, scanner,
-                mock(DetectionPerformanceTracker.class), new RealtimeDiagnostics(), mock(MarketFeatureEngine.class),
+                new RealtimeDiagnostics(), mock(MarketFeatureEngine.class),
                 mock(ApplicationEventPublisher.class), transactions);
     }
 

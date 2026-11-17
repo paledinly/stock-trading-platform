@@ -8,10 +8,7 @@ import { useEffect, useState } from 'react'
 import { TodayPage } from './TodayPage'
 import { Phase3App } from './Phase3App'
 import { JournalPage } from './Phase4App'
-import { ScannerPage } from './Phase6App'
-import { AnalyticsPage } from './Phase7App'
 import { MarketWidePage } from './Phase8App'
-import { BacktestPage } from './BacktestPage'
 import { ClosingRecommendationPage } from './ClosingRecommendationApp'
 import { AiPlanPage } from './AiPlanPage'
 import { GROUPS, ROUTES, routeFromHash, type RouteId } from './routes'
@@ -96,9 +93,6 @@ export function AppShell() {
         {route === 'closing' && <ClosingRecommendationPage advanced />}
         {route === 'ai' && <AiPlanPage />}
         {route === 'wide' && <MarketWidePage />}
-        {route === 'scanner' && <ScannerPage />}
-        {route === 'analytics' && <AnalyticsPage />}
-        {route === 'backtest' && <BacktestPage />}
         {route === 'journal' && <JournalPage />}
       </div>
     </div>

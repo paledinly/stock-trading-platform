@@ -24,8 +24,6 @@ class StockPlatformApplicationTests {
     @org.springframework.beans.factory.annotation.Autowired
     com.sunmo.stockplatform.stock.infrastructure.StockRepository stocks;
     @org.springframework.beans.factory.annotation.Autowired
-    com.sunmo.stockplatform.analytics.infrastructure.DetectionPerformanceRepository performances;
-    @org.springframework.beans.factory.annotation.Autowired
     com.sunmo.stockplatform.closing.infrastructure.ClosingRecommendationRunRepository closingRuns;
     @org.springframework.beans.factory.annotation.Autowired
     com.sunmo.stockplatform.closing.infrastructure.ClosingRecommendationRepository closingRecommendations;
@@ -35,9 +33,9 @@ class StockPlatformApplicationTests {
     com.sunmo.stockplatform.closing.infrastructure.OvernightPositionDecisionRepository overnightDecisions;
 
     /**
-     * 최신 스냅샷만 고르는 커버리지 쿼리와, 설정 ID가 null인 성과 조회가 동작하는지 확인해요.
+     * 최신 스냅샷만 고르는 커버리지 쿼리가 동작하는지 확인해요.
      * 준비: 같은 종목·같은 날에 05:00 실패 스냅샷과 05:02 수집 성공 스냅샷을 저장해요.
-     * 기대: 최신 커버리지는 1건이고 COLLECTED 상태이며, null 필터 성과 조회는 빈 목록이에요.
+     * 기대: 최신 커버리지는 1건이고 COLLECTED 상태예요.
      */
     @Test
     @org.springframework.transaction.annotation.Transactional
@@ -61,7 +59,6 @@ class StockPlatformApplicationTests {
         org.assertj.core.api.Assertions.assertThat(snapshots.findLatestCoverage(date)).hasSize(1)
                 .first().satisfies(row -> org.assertj.core.api.Assertions.assertThat(row.getCollectionStatus())
                         .isEqualTo(com.sunmo.stockplatform.marketwide.domain.BroadSnapshotStatus.COLLECTED));
-        org.assertj.core.api.Assertions.assertThat(performances.findAnalyticsRows(null, at, at.plusSeconds(1))).isEmpty();
     }
 
     /**

@@ -53,8 +53,8 @@
 .appMain { min-width: 0; }
 
 /* 공통 화면 머리: 화면마다 달랐던 큰 제목 영역을 같은 높이·글자 크기로 맞춰요. */
-.appMain :is(.journalPage, .scannerPage, .analyticsPage, .widePage, .backtestPage, .closingPage) > header { min-height: 0; padding: 28px 0 20px; }
-.appMain :is(.journalPage, .scannerPage, .analyticsPage, .widePage, .backtestPage, .closingPage) > header h1 { margin: 0 0 6px; font-size: 30px; line-height: 1.2; letter-spacing: -.02em; }
+.appMain :is(.journalPage, .widePage, .closingPage) > header { min-height: 0; padding: 28px 0 20px; }
+.appMain :is(.journalPage, .widePage, .closingPage) > header h1 { margin: 0 0 6px; font-size: 30px; line-height: 1.2; letter-spacing: -.02em; }
 .appMain .phase3 .hero { min-height: 0; padding: 28px 0 20px; }
 .appMain .phase3 .hero h1 { margin: 0 0 6px; font-size: 30px; line-height: 1.2; letter-spacing: -.02em; }
 .appMain .phase3 .hero h1 span { color: inherit; }

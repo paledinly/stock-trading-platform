@@ -1,7 +1,7 @@
 /*
  * stock_candle 테이블을 읽고 쓰는 레포지토리(DB 테이블을 객체처럼 조회·저장하게 해 주는 창구)예요.
  * 메서드 이름 규칙으로 Spring Data JPA가 SQL을 자동으로 만들어 주고, 백테스트 가능 종목 집계는 직접 쓴 쿼리를 써요.
- * 실시간 저장(MarketDataService), 보충, 조회(CandleQueryService), Scanner, 백테스트(BacktestService) 등이 사용해요.
+ * 실시간 저장(MarketDataService), 보충, 조회(CandleQueryService), Scanner 등이 사용해요.
  */
 package com.sunmo.stockplatform.candle.infrastructure;
 
