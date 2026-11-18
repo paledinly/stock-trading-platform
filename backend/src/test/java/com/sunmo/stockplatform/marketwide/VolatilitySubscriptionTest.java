@@ -36,7 +36,7 @@ import static org.mockito.Mockito.*;
 /** 장 전 변동성 명단 방식의 후보 수집과 시세 갱신 순서를 점검해요. */
 class VolatilitySubscriptionTest {
     private final VolatilityUniverseProperties volatilityProperties =
-            new VolatilityUniverseProperties(true, 300, 20, null, 30, null);
+            new VolatilityUniverseProperties(true, 300, 20, null, 30, null, null);
 
     /**
      * 명단이 있으면 오늘 상승률 종목을 앞에, 명단 종목을 변동성 순서로 뒤에 두고, 다른 순위표는 부르지 않는지 확인해요.
@@ -136,6 +136,45 @@ class VolatilitySubscriptionTest {
         assertThat(response.collection().restLookups()).isEqualTo(1);
         assertThat(response.candidateCount()).isEqualTo(3);
         assertThat(response.candidates()).extracting(item -> item.reason()).containsOnly("VOLATILITY_20D");
+    }
+
+    /**
+     * 장 시작 직후처럼 시세가 없는 종목이 평소 REST 예산보다 많으면, 빠진 종목은 missingQuoteBudget까지 한 번에 받는지 확인해요.
+     * 준비: 명단 4종목, 평소 REST 예산 1. 0번은 5분 전 캐시, 1~3번은 시세 없음.
+     * 기대: 예산 3(빠진 3종목)으로 1~3번만 받고 0번은 캐시를 써요. 일괄 예산을 0으로 끄면 평소 예산 1만 써요.
+     */
+    @Test
+    void fetchesEveryMissingQuoteAtOnceButNotStaleOnes() {
+        assertThat(burstScan(volatilityProperties)).isEqualTo(3);
+        assertThat(burstScan(new VolatilityUniverseProperties(true, 300, 20, null, 30, null, 0))).isEqualTo(1);
+    }
+
+    /** 위 시험의 스캔 한 번을 돌리고 REST 횟수를 돌려줘요. */
+    private int burstScan(VolatilityUniverseProperties volatility) {
+        var provider = mock(QuoteProvider.class);
+        var cache = new QuoteSnapshotCache();
+        var collector = mock(BroadCandidateCollector.class);
+        var persistence = mock(BroadSnapshotService.class);
+        var precision = mock(PrecisionSubscriptionAllocator.class);
+        var properties = new BroadCollectionProperties(100, 1, null, null, true, null);
+        var resolver = new BroadQuoteResolver(provider, mock(QuoteStateStore.class), cache, properties);
+        var service = new MarketWideScannerService(mock(StockRepository.class), resolver,
+                mock(RealtimeSubscriptionRegistry.class), collector, persistence, precision, properties,
+                new KisRequestExecutor(new KisRequestProperties(Duration.ZERO, Duration.ZERO, Duration.ZERO, 0)),
+                mock(BroadEnrichmentQueue.class), volatility);
+        List<Stock> list = List.of(stock("111110", "영"), stock("222220", "일"), stock("333330", "이"), stock("444440", "삼"));
+        cache.remember(quote(list.get(0), Instant.now().minus(Duration.ofMinutes(5))));
+        List<BroadCandidate> candidates = list.stream()
+                .map(s -> new BroadCandidate(s, BigDecimal.ZERO, Map.of(), null, List.of(), "VOLATILITY_20D")).toList();
+        when(collector.collect(null, 120, false)).thenReturn(new BroadCandidateCollector.Result(candidates, List.of(), false, 4));
+        when(provider.getQuote(any())).thenAnswer(call -> quote(call.getArgument(0), Instant.now()));
+        when(persistence.save(any(), anyList())).thenReturn(Map.of());
+        when(precision.reconcile(anyList())).thenReturn(mock(PrecisionSubscriptionAllocator.Snapshot.class));
+
+        var response = service.scan(null, 120, 41, false);
+
+        verify(provider, never()).getQuote(list.get(0));
+        return response.collection().restLookups();
     }
 
     private static Stock stock(String code, String name) {

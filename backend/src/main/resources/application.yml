@@ -162,6 +162,8 @@ market:
       min-average-trading-value: ${MARKET_WIDE_VOLATILITY_MIN_AVERAGE_TRADING_VALUE:1000000000}
       gainers-per-market: ${MARKET_WIDE_VOLATILITY_GAINERS_PER_MARKET:30}
       quote-max-age: ${MARKET_WIDE_VOLATILITY_QUOTE_MAX_AGE:10m}
+      # 시세가 아예 없는 명단 종목을 한 스캔에서 REST로 받을 최대 수예요. 장 시작 직후 첫 스캔에서 명단 전체를 채워요(0이면 끔).
+      missing-quote-budget: ${MARKET_WIDE_VOLATILITY_MISSING_QUOTE_BUDGET:450}
     schedule:
       enabled: ${MARKET_WIDE_SCHEDULE_ENABLED:false}
       poll-interval: ${MARKET_WIDE_POLL_INTERVAL:30s}
