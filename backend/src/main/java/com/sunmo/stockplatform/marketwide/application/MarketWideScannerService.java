@@ -169,8 +169,8 @@ public class MarketWideScannerService {
     /**
      * 하는 일: 장 전 변동성 명단 방식의 시세를 채워요.
      * 1차: REST 없이 실시간 틱·캐시(최대 quoteMaxAge)·순위 관측값으로 채워요.
-     * 2차: 시세가 없거나 가장 오래된 종목부터 detailQuoteBudget개까지 REST로 새로 받아요. 360종목을 매번 다 받을 수 없어서
-     * 오래된 것부터 돌아가며 갱신해요. 시세가 아예 없는 종목은 보강 대기열도 채워요.
+     * 2차: 시세가 없거나 가장 오래된 종목부터 REST로 새로 받아요. 시세가 아예 없는 종목은 missingQuoteBudget까지 모두 받고
+     * (장 시작 직후 첫 스캔), 오래된 시세는 360종목을 매번 다 받을 수 없어서 detailQuoteBudget개씩 돌아가며 갱신해요.
      * 받는 것: 후보 목록. 돌려주는 것: 시도 목록과 REST 횟수·실패 수.
      */
     private QuotePass premarketQuotes(List<BroadCandidate> candidates) {
@@ -193,10 +193,15 @@ public class MarketWideScannerService {
             return data == null || !data.complete() || data.observedAt() == null ? Instant.EPOCH : data.observedAt();
         }));
         BroadQuoteResolver.Resolution[] chosen = first.toArray(BroadQuoteResolver.Resolution[]::new);
+        // 예산: 시세가 아예 없는 종목은 missingQuoteBudget까지 한 번에 받고(장 시작 직후 첫 스캔·장중 재시작),
+        // 오래된 시세 갱신은 평소처럼 detailQuoteBudget까지만 해요. order가 "시세 없음"을 앞에 두므로 둘 중 큰 값이면 돼요.
+        long missing = first.stream().filter(r -> r.data() == null || !r.data().complete()).count();
+        int budget = Math.max(properties.detailQuoteBudget(),
+                (int) Math.min(missing, volatilityProperties.missingQuoteBudget()));
         int restLookups = 0;
         int restFailures = 0;
         for (int i : order) {
-            if (restLookups >= properties.detailQuoteBudget())
+            if (restLookups >= budget)
                 break;
             var fresh = quotes.resolve(candidates.get(i), true);
             if (fresh.restAttempted()) {
