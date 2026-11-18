@@ -157,6 +157,16 @@ ScannerType: `VOLUME`, `PRICE_RISE`, `MOMENTUM`, `VOLUME_BREAKOUT`, `TURNOVER_BR
 - `GET /ai-plans/watch/summary`: 2단계 판정 `verdict`(PENDING/PASS/FAIL), 판정 표본 `gate`, 규칙(P/A)·청산(E1/E2)·구분(ALL/LIVE/SHADOW)별 `groups[]`(건수, 거래일, 비용 뺀 평균, 이긴 비율, 시가 매수 대비)
 - SSE: `ai.signal.changed`(상태 변화), `ai.position.changed`(가상 진입·청산)
 
+**AiCandidateController** (`/api/v1/ai-candidates`). 설계와 판정 기준은 [AI_CANDIDATE_EVALUATION](AI_CANDIDATE_EVALUATION.md).
+
+- `GET /ai-candidates/card`: 다음 평가 거래일의 명단(`pool`: `targetDate`, `poolId`, `dataDate`, `stored`, `message`, `stocks[]`)과 ChatGPT 프롬프트(`prompt` = 지시문 + 예시 + 카드). 대상 거래일 07:55 ~ 장 시작 사이 첫 호출에 명단과 카드를 고정 저장하고, 그 밖에는 저장 안 하는 미리보기(`stored` false). 전일 일봉이 아직 없으면 409
+- `POST /ai-candidates`: 본문은 응답 JSON 원문(`ai-candidate-v1`). 저장하면 201, 검사 실패면 422. 응답 `{saved, errors[], warnings[], evaluation}`. 저장된 명단의 `poolId`와 같아야 하고 명단 종목을 모두 평가해야 한다
+- `POST /ai-candidates/check`: 저장하지 않고 검사만(항상 200)
+- `GET /ai-candidates?from&to`: 모든 판 요약(기본 오늘+7일부터 98일). `counted`(장 시작 전 첫 판, 집계 대상), 등급별 개수
+- `GET /ai-candidates/{id}`: 원본 `rawJson`, 명단 순서대로 종목별 등급·채점표·매수 방식·손절/목표·채점 결과, 같은 날의 모든 판
+- `POST /ai-candidates/evaluate`: 명단 채점을 바로 실행(매일 21:35 자동). 돌려주는 값은 채점한 종목 수
+- `GET /ai-candidates/summary`: 고르기(`selection`)·수익(`profitVerdict`)·걸러내기(`filter`) 판정 진행(처음 40채점일, 22일), 함께 보는 값(A − 무작위·규칙·확신도 상위, 회피 뺀 명단 − 명단), 날짜별 바구니(`days[]`)
+
 ## 수정주가 일봉 (연구)
 
 **AdjustedDailySweepController**

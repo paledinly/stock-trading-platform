@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "ai-candidate-v1",
+  "targetDate": "YYYY-MM-DD",
+  "poolId": "카드의 poolId",
+  "analyzedAt": "YYYY-MM-DDTHH:MM:SS+09:00",
+  "model": { "name": "ChatGPT", "version": "모델 이름", "promptVersion": "candidate-v1" },
+  "market": { "outlook": "NEUTRAL", "summary": "시장 판단 한두 문장" },
+  "evaluations": [
+    {
+      "stockCode": "000000",
+      "grade": "B",
+      "rubric": { "catalyst": 1, "flow": 1, "trend": 2, "overheat": 1, "disclosureRisk": 0 },
+      "riskFlags": [],
+      "reasons": ["근거 1", "근거 2"],
+      "entry": { "type": "BREAKOUT_15M" },
+      "exit": { "stopPct": 3.0, "targetPct": 6.0, "timeExit": "CLOSE" },
+      "confidence": 55,
+      "usedExternalInfo": false,
+      "sources": []
+    },
+    {
+      "stockCode": "000001",
+      "grade": "AVOID",
+      "rubric": { "catalyst": 0, "flow": 0, "trend": 0, "overheat": 2, "disclosureRisk": 2 },
+      "riskFlags": ["DILUTION"],
+      "reasons": ["유상증자 공시 직후"],
+      "entry": { "type": "NONE" },
+      "exit": null,
+      "confidence": 70,
+      "usedExternalInfo": false,
+      "sources": []
+    }
+  ]
+}

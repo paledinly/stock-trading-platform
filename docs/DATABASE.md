@@ -33,6 +33,7 @@ PostgreSQL은 영구 데이터의 시스템 오브 레코드다. Redis와 프로
 | 연구: 상장폐지 종목 과거 기록 | `delisted_stock`, `delisted_daily_history`(V45) |
 | AI 장전 계획 (Forward 기록) | `ai_premarket_plan`, `ai_premarket_pick`, `ai_premarket_outcome`, `ai_premarket_universe`(V47, v2 칸 V48) |
 | AI 장전 계획 실시간 감시 (2단계) | `ai_watch_session`, `ai_signal_event`, `ai_virtual_position`(V49) |
+| AI 후보 평가 (Forward 기록, ADR-014) | `ai_candidate_pool`, `ai_candidate_pool_stock`(그날 명단과 카드 글, 고정), `ai_candidate_eval`(응답 원본, 판), `ai_candidate_grade`(종목별 등급), `ai_candidate_outcome`(명단 전체 시가→종가)(V50) |
 | 기록 전용: 외부 요인 | `closing_candidate_context`, `dart_filing`(V35), `market_index_daily`(V37), `overseas_daily`(V40) |
 | 사용하지 않음 | `platform_schema_version`(V1), `intraday_input`, `intraday_recommendation`(V27) |
 

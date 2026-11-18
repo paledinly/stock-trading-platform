@@ -109,24 +109,36 @@ public class VolatilityUniverse {
         }
     }
 
-    /** 하는 일: 일봉으로 변동성 순위를 계산하고, 거래 가능한 보통주만 남겨 size개로 잘라요. */
-    private List<Stock> compute(LocalDate date) {
+    /** 명단의 한 종목과 그 20일 변동성(일간 종가 등락 표준편차, 0.05는 5%)이에요. */
+    public record Ranked(Stock stock, double volatility) { }
+
+    /**
+     * 하는 일: 거래일 date의 명단을 변동성 순서로 계산해요(캐시 없음, 꺼져 있어도 계산). date 이전 일봉만 써요.
+     * AI 후보 평가(ADR-014)가 대상 거래일의 명단을 만들 때 써요.
+     */
+    public List<Ranked> ranked(LocalDate date) {
         int days = properties.lookbackDays();
         LocalDate from = date.minusDays(days * 2L + 10);
         // 거르면서 줄어들 몫을 감안해 세 배까지 받아요.
-        List<Long> ids = jdbc.query(SQL, (rs, i) -> rs.getLong("stock_id"), Date.valueOf(date), Date.valueOf(from),
+        List<Map.Entry<Long, Double>> rows = jdbc.query(SQL,
+                (rs, i) -> Map.entry(rs.getLong("stock_id"), rs.getDouble("vol")), Date.valueOf(date), Date.valueOf(from),
                 days, Math.max(5, days * 3 / 4), properties.minAverageTradingValue(), properties.size() * 3);
-        Map<Long, Stock> byId = stocks.findAllById(ids).stream()
+        Map<Long, Stock> byId = stocks.findAllById(rows.stream().map(Map.Entry::getKey).toList()).stream()
                 .collect(Collectors.toMap(Stock::getId, Function.identity()));
-        List<Stock> result = new ArrayList<>();
-        for (Long id : ids) {
-            Stock stock = byId.get(id);
+        List<Ranked> result = new ArrayList<>();
+        for (Map.Entry<Long, Double> row : rows) {
+            Stock stock = byId.get(row.getKey());
             if (stock != null && eligible(stock))
-                result.add(stock);
+                result.add(new Ranked(stock, row.getValue()));
             if (result.size() >= properties.size())
                 break;
         }
         return List.copyOf(result);
+    }
+
+    /** 하는 일: 일봉으로 변동성 순위를 계산하고, 거래 가능한 보통주만 남겨 size개로 잘라요. */
+    private List<Stock> compute(LocalDate date) {
+        return ranked(date).stream().map(Ranked::stock).toList();
     }
 
     /**
