@@ -64,7 +64,7 @@
 | 오늘의 마감 추천 | 마감 추천 (`ClosingRecommendationPage`) | 실험 | [TRADING_STRATEGY](TRADING_STRATEGY.md) |
 | AI 장전 계획 기록·채점 (`AI_PLAN_EVALUATION_ENABLED`, 기본 켜짐, 매일 21:30) | AI 장전 (`AiPlanPage`) | 실험 (Forward 기록, 1단계) | [AI_PREMARKET](AI_PREMARKET.md), [ADR-012](decisions/ADR-012-AI-PREMARKET-FORWARD-RECORD.md) |
 | AI 장전 계획 실시간 감시·가상 매수 (`AI_PLAN_WATCH_ENABLED`, 기본 켜짐, 08:50~15:20, 1회 `AI_PLAN_WATCH_POSITION_AMOUNT` 1,000만 원). 계획 종목을 `AI_PLAN` 출처로 구독하고 자리가 없으면 정밀 후보 자리를 양보받음. KOSPI·KOSDAQ 1분 조회, 매수 신호 때 호가 1회 | AI 장전 → 실시간 감시 (`AiWatchPanel`) | 실험 (Forward 기록, 2단계) | [AI_PREMARKET_PHASE2](AI_PREMARKET_PHASE2.md) |
-| AI 후보 평가: 변동성 명단 상위 40종목 카드를 AI가 등급·위험·매수 방식·매도 기준으로 평가, 같은 명단 대비 채점 | (구현 전) | 설계 고정 (2026-11-18) | [AI_CANDIDATE_EVALUATION](AI_CANDIDATE_EVALUATION.md), [ADR-014](decisions/ADR-014-AI-CANDIDATE-EVALUATION.md) |
+| AI 후보 평가: 변동성 명단 상위 40종목 카드를 AI가 등급·위험·매수 방식·매도 기준으로 평가, 같은 명단 대비 채점(매일 21:35, `AI_PLAN_EVALUATION_ENABLED`) | AI 장전 → 후보 평가 (`AiCandidatePanel`) | 실험 (Forward 기록) | [AI_CANDIDATE_EVALUATION](AI_CANDIDATE_EVALUATION.md), [ADR-014](decisions/ADR-014-AI-CANDIDATE-EVALUATION.md) |
 
 ### 제거됨
 

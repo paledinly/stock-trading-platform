@@ -1,6 +1,14 @@
 # AI 후보 평가 (설계, 사전 등록)
 
-상태: **설계 고정(2026-11-18), 구현 전.** 결정과 이유는 [ADR-014](decisions/ADR-014-AI-CANDIDATE-EVALUATION.md). 기록 시작일은 구현 배포 후 첫 거래일이며 CHANGELOG에 적는다.
+상태: **설계 고정(2026-11-18), 구현(2026-11-18).** 결정과 이유는 [ADR-014](decisions/ADR-014-AI-CANDIDATE-EVALUATION.md). 기록 시작일은 배포 후 첫 거래일이며 CHANGELOG에 적는다.
+
+코드: `backend/.../aiplan/candidate`(`AiCandidatePoolService` 명단·카드, `AiCandidateValidator`, `AiCandidateService` 저장·조회, `AiCandidateOutcomeService` 채점·판정), `AiCandidateController`(`/api/v1/ai-candidates`, [API](API.md#ai-장전-계획)), `V50__create_ai_candidate_evaluation.sql`, 프롬프트 `backend/src/main/resources/ai-candidate/`, Web `AI 장전` → `후보 평가` 탭(`AiCandidatePanel.tsx`).
+
+## 매일 하는 일
+
+1. 대상 거래일 07:55 이후, 장 시작 전에 `AI 장전` → `후보 평가` → "후보 카드·프롬프트 보기". 이때 그날 명단과 카드가 고정된다(그 전에는 미리보기).
+2. "프롬프트 복사" → ChatGPT에 붙여넣고, 나온 JSON을 입력 칸에 넣어 "검사 후 저장". **장 시작 전 첫 저장 판만 집계한다.** 다시 넣은 판은 일관성 확인용으로만 남는다.
+3. 매일 21:35에 명단 전체를 자동 채점한다(`AI_PLAN_EVALUATION_ENABLED`와 같은 켜짐 설정, `ai-plan.candidate-evaluation-cron`).
 
 프로그램이 정한 후보 명단을 ChatGPT가 종목별로 평가한다. 장 마감 뒤 같은 명단의 다른 선택 방법과 비교해 채점한다. 매매 신호가 아니고, 운영 마감 추천·정밀 구독·실주문에 영향을 주지 않는다. 기존 [AI 장전 계획](AI_PREMARKET.md)(ChatGPT가 종목을 직접 찾는 방식)은 그대로 두고 따로 센다.
 
@@ -28,7 +36,7 @@
 | --- | --- |
 | S&P500·나스닥·다우·SOX·VIX 전일 등락, 원/달러, EWY | `overseas_daily` |
 | 코스피·코스닥 전일·5일·20일 등락 | `market_index_daily` |
-| 전일 상승·하락 종목 비율(평균 거래대금 10억 이상 보통주) | `daily_adjusted_candle` |
+| 전일 상승·하락 종목 수(그날 거래대금 10억 이상, ETF·ETN 제외) | `daily_adjusted_candle` |
 
 ### 종목별 (40장)
 
@@ -111,13 +119,24 @@
 - 고르기 또는 걸러내기가 PASS인 것만 [2단계 실시간 감시](AI_PREMARKET_PHASE2.md)에 연결한다. AI의 `entry.type`과 `exit`를 고정 규칙(P·E1·E2)과 같은 날 비교 기록한다. 이 연결 규칙과 판정 기준은 그때 따로 사전 등록한다.
 - OpenAI API 자동 호출, KIS 조건검색 출처 추가는 수동 기록이 안정된 뒤 검토한다. API 자동화는 비용이 들고 종목코드·시세 자료를 외부로 보낸다. 개인정보는 보내지 않는다.
 
-## 8. 구현 범위 (다음 작업)
+## 8. 구현 범위
 
-| 단계 | 내용 |
-| --- | --- |
-| 2 | 명단·카드 생성 API와 화면(`AI 장전` 안 새 탭): 카드+프롬프트 복사 |
-| 3 | 응답 검사·저장(첫 판 규칙), 일별 채점(바구니 7개), 판정 요약 API, DB 마이그레이션 |
-| 4 | 매일 기록 시작(기존 v4.2 계획과 병행) |
+| 단계 | 내용 | 상태 |
+| --- | --- | --- |
+| 2 | 명단·카드 생성 API와 화면(`AI 장전` → `후보 평가`): 카드+프롬프트 복사 | 2026-11-18 구현 |
+| 3 | 응답 검사·저장(첫 판 규칙), 일별 채점(바구니 7개), 판정 요약 API, DB 마이그레이션 V50 | 2026-11-18 구현 |
+| 4 | 매일 기록(기존 v4.2 계획과 병행) | 배포 후 첫 거래일부터 |
+
+구현에서 정한 세부(첫 기록 전):
+
+- 명단 고정 시간대: 대상 거래일 07:55 ~ 장 시작. 그 전·후 호출은 저장하지 않는 미리보기다. 전일 일봉이 100행 미만이면 409.
+- `poolId`: 명단 종목코드를 순서대로 쉼표로 이은 글의 SHA-256 앞 12자리.
+- 공시 "최근 5거래일": 대상일 기준 5거래일 전부터 대상일 전날까지 접수일. 대상일 당일 접수분은 넣지 않는다.
+- 수급: 대상일 전 최근 5행(외국인·기관·개인 순매수 금액, 억 원).
+- `RULE` 키 `value_ratio20`: 전일 거래대금 ÷ 그 전 20행 평균. 같으면 명단 순위 순.
+- `AI_TOP_CONF`: A·B 중 confidence 높은 순, 같으면 명단 순위 순.
+- `RANDOM`: 그날 `COMPLETE` 종목을 명단 순위 순으로 놓고 `java.util.Random(YYYYMMDD)`로 섞어 앞에서 n개.
+- 판정의 "이긴 날": 고르기는 초과 > 0, 걸러내기는 초과 < 0. 평균도 같은 방향이어야 PASS.
 
 ## 한계
 
