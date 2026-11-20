@@ -3,11 +3,11 @@
  * 아래쪽 "공통 화면 머리"는 각 화면의 큰 제목 영역을 같은 크기로 맞춰요(화면별 CSS보다 우선).
  */
 .appShell { display: grid; grid-template-columns: 228px minmax(0, 1fr); min-height: 100vh; background: var(--bg); color: var(--text); }
-.appSidebar { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; gap: 20px; padding: 18px 12px 14px; border-right: 1px solid var(--border); background: linear-gradient(180deg, var(--surface) 0%, var(--surface-2) 100%); overflow-y: auto; scrollbar-width: thin; }
+.appSidebar { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; gap: 20px; padding: 18px 12px 14px; border-right: 1px solid var(--border-soft); background: var(--surface); overflow-y: auto; scrollbar-width: thin; }
 
 /* 로고: 그라데이션 아이콘 + 이름 */
-.appBrand { display: flex; align-items: center; gap: 11px; padding: 4px 8px 14px; border-bottom: 1px solid var(--border); }
-.appBrand i { display: grid; flex: none; place-items: center; width: 36px; height: 36px; border-radius: 11px; background: linear-gradient(135deg, var(--down-solid), var(--violet-solid)); color: var(--on-solid); box-shadow: 0 6px 16px var(--shadow-color); }
+.appBrand { display: flex; align-items: center; gap: 11px; padding: 4px 8px 16px; border-bottom: 1px solid var(--border-soft); }
+.appBrand i { display: grid; flex: none; place-items: center; width: 36px; height: 36px; border-radius: var(--r-md); background: var(--accent-solid); color: var(--on-solid); }
 .appBrand span { display: flex; flex-direction: column; min-width: 0; }
 .appBrand b { color: var(--text-strong); font-size: 15px; letter-spacing: -.01em; }
 .appBrand small { color: var(--text-muted); font-size: 11px; }
@@ -15,19 +15,19 @@
 /* 메뉴: 묶음 이름(작은 대문자풍) + 아이콘 달린 줄, 선택된 줄은 왼쪽 강조 막대 */
 .appSidebar nav { display: flex; flex-direction: column; gap: 16px; }
 .appNavGroup { display: flex; flex-direction: column; gap: 2px; }
-.appNavGroup small { padding: 0 12px 6px; color: var(--text-muted); font-size: 10.5px; font-weight: 700; letter-spacing: .14em; opacity: .85; }
-.appNavGroup a { position: relative; display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 9px; color: var(--text-2); font-size: 14px; text-decoration: none; transition: background .12s, color .12s; }
+.appNavGroup small { padding: 0 12px 6px; color: var(--text-muted); font-size: var(--fs-2xs); font-weight: 600; letter-spacing: .04em; }
+.appNavGroup a { position: relative; display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: var(--r-md); color: var(--text-2); font-size: var(--fs-md); text-decoration: none; transition: background .16s var(--ease), color .16s var(--ease); }
 .appNavGroup a .navIcon { flex: none; color: var(--text-muted); transition: color .12s; }
 .appNavGroup a:hover { background: var(--surface-3); color: var(--text); }
 .appNavGroup a:hover .navIcon { color: var(--text-2); }
-.appNavGroup a[aria-current='page'] { background: var(--down-bg); color: var(--down-fg); font-weight: 700; }
-.appNavGroup a[aria-current='page'] .navIcon { color: var(--down-fg); }
-.appNavGroup a[aria-current='page']::before { content: ''; position: absolute; top: 8px; bottom: 8px; left: -12px; width: 4px; border-radius: 0 4px 4px 0; background: var(--down-solid); }
-.appNavGroup a:focus-visible, .themeSwitch button:focus-visible { outline: 2px solid var(--down-fg); outline-offset: 1px; }
+.appNavGroup a[aria-current='page'] { background: var(--accent-bg); color: var(--accent-fg); font-weight: 650; }
+.appNavGroup a[aria-current='page'] .navIcon { color: var(--accent-fg); }
+.appNavGroup a[aria-current='page']::before { content: ''; position: absolute; top: 10px; bottom: 10px; left: -12px; width: 3px; border-radius: 0 3px 3px 0; background: var(--accent-solid); }
+.appNavGroup a:focus-visible, .themeSwitch button:focus-visible { outline: 2px solid var(--accent-fg); outline-offset: 1px; }
 
 /* 아래쪽: 장 상태 칸 + 테마 스위치 */
 .appSidebarFoot { display: flex; flex-direction: column; gap: 10px; margin-top: auto; }
-.sidebarStatus { padding: 11px 12px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface); }
+.sidebarStatus { padding: 11px 12px; border-radius: var(--r-lg); background: var(--surface-2); }
 .sidebarSession { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .sidebarSession b { color: var(--text-strong); font-size: 13px; }
 .sidebarSession time { color: var(--text-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
@@ -37,7 +37,7 @@
 .sidebarLive.off i { background: var(--up-fg); box-shadow: 0 0 0 3px var(--up-bg); }
 .sidebarNext { margin: 6px 0 0; color: var(--text-muted); font-size: 11.5px; line-height: 1.45; }
 @keyframes livePulse { 50% { box-shadow: 0 0 0 5px var(--ok-bg); } }
-.marketIndices { display: grid; gap: 4px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface); }
+.marketIndices { display: grid; gap: 4px; padding: 10px 12px; border-radius: var(--r-lg); background: var(--surface-2); }
 .marketIndex { display: grid; grid-template-columns: 1fr auto auto; align-items: baseline; gap: 8px; margin: 0; font-size: 12px; font-variant-numeric: tabular-nums; }
 .marketIndex b { color: var(--text-2); font-size: 11.5px; font-weight: 700; }
 .marketIndex span { color: var(--text-strong); font-weight: 600; }
@@ -46,22 +46,36 @@
 .marketIndex.down em { color: var(--down-fg); }
 .marketIndicesBasis { color: var(--text-muted); font-size: 10.5px; }
 @media (prefers-reduced-motion: reduce) { .sidebarLive.on i { animation: none; } }
-.themeSwitch { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; padding: 3px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
-.themeSwitch button { padding: 7px 6px; border: 0; border-radius: 7px; background: transparent; color: var(--text-muted); font: inherit; font-size: 12px; cursor: pointer; }
+.themeSwitch { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; padding: 3px; border-radius: var(--r-md); background: var(--surface-2); }
+.themeSwitch button { padding: 7px 6px; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text-muted); font: inherit; font-size: var(--fs-xs); cursor: pointer; transition: background .16s var(--ease), color .16s var(--ease); }
 .themeSwitch button:hover { color: var(--text); }
 .themeSwitch button[aria-pressed='true'] { background: var(--surface); color: var(--text-strong); font-weight: 600; box-shadow: 0 1px 3px var(--shadow-color); }
 .appMain { min-width: 0; }
 
-/* 공통 화면 머리: 화면마다 달랐던 큰 제목 영역을 같은 높이·글자 크기로 맞춰요. */
-.appMain :is(.journalPage, .widePage, .closingPage) > header { min-height: 0; padding: 28px 0 20px; }
-.appMain :is(.journalPage, .widePage, .closingPage) > header h1 { margin: 0 0 6px; font-size: 30px; line-height: 1.2; letter-spacing: -.02em; }
-.appMain .phase3 .hero { min-height: 0; padding: 28px 0 20px; }
-.appMain .phase3 .hero h1 { margin: 0 0 6px; font-size: 30px; line-height: 1.2; letter-spacing: -.02em; }
+/*
+ * 공통 화면 머리: 모든 화면의 큰 제목 영역을 같은 높이·글자 크기로 맞춰요(화면별 CSS보다 우선).
+ * 위 작은 머리글(p)은 흐린 글자, 오른쪽 요약 칸(aside)은 같은 카드 모양이에요.
+ */
+.appMain :is(.journalPage, .widePage, .closingPage, .todayPage, .aiPlanPage) > header,
+.appMain .phase3 .hero { min-height: 0; padding: 32px 0 22px; }
+.appMain :is(.journalPage, .widePage, .closingPage, .todayPage, .aiPlanPage) > header h1,
+.appMain .phase3 .hero h1 { margin: 0 0 6px; font-size: var(--fs-2xl); font-weight: 750; line-height: 1.25; letter-spacing: -.025em; }
+.appMain :is(.journalPage, .widePage, .closingPage, .todayPage, .aiPlanPage) > header > div > span,
+.appMain :is(.journalPage, .widePage, .closingPage, .todayPage, .aiPlanPage) > header > span,
+.appMain .phase3 .hero > div > small { color: var(--text-muted); font-size: var(--fs-md); }
+.appMain :is(.journalPage, .widePage, .closingPage) > header p,
+.appMain .phase3 .hero p { margin: 0 0 4px; color: var(--accent-fg); font-size: var(--fs-2xs); font-weight: 650; letter-spacing: .08em; }
 .appMain .phase3 .hero h1 span { color: inherit; }
+.appMain :is(.journalPage, .widePage, .closingPage, .todayPage) > header aside,
+.appMain .phase3 .hero aside { width: auto; min-width: 180px; padding: 14px 18px; border: 1px solid var(--border-soft); border-radius: var(--r-lg); background: var(--surface); box-shadow: var(--shadow-card); }
+.appMain :is(.journalPage, .widePage, .closingPage, .todayPage) > header aside b,
+.appMain .phase3 .hero aside b { margin: 2px 0; color: var(--text-strong); font-size: 22px; font-weight: 750; line-height: 1.3; }
+.appMain :is(.journalPage, .widePage, .closingPage, .todayPage) > header aside :is(small, span),
+.appMain .phase3 .hero aside :is(small, span) { color: var(--text-muted); font-size: var(--fs-xs); }
 
 @media (max-width: 1100px) {
   .appShell { grid-template-columns: 1fr; }
-  .appSidebar { position: sticky; z-index: 30; height: auto; flex-direction: row; align-items: center; gap: 12px; padding: 8px 12px; border-right: 0; border-bottom: 1px solid var(--border); background: var(--surface); overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+  .appSidebar { position: sticky; z-index: 30; height: auto; flex-direction: row; align-items: center; gap: 12px; padding: 8px 12px; border-right: 0; border-bottom: 1px solid var(--border-soft); background: var(--surface); overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
   .appBrand { padding: 0; border-bottom: 0; }
   .appBrand i { width: 32px; height: 32px; }
   .appBrand span { display: none; }
