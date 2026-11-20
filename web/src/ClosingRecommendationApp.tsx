@@ -3,7 +3,7 @@
  * 추천 점수는 상승 확률이 아니고, 진입과 청산은 모두 가상 실행이에요(실주문 없음).
  * AppShell(앱 전체 껍데기)이 '마감 추천' 메뉴(#/closing)에서 ClosingRecommendationPage를 띄워요.
  */
-import { CANDIDATE_GROUPS, candidateGroup, tradingValueLabel } from './candidateGroups'
+import { CANDIDATE_GROUPS, byScoreThenTradingValue, candidateGroup, tradingValueLabel } from './candidateGroups'
 import { indicatorLine, type HealthIndicators } from './todayTimeline'
 import { FormEvent, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -999,7 +999,7 @@ export function ClosingRecommendationPage({ advanced = false }: { advanced?: boo
           {selectedRun?.executionMode === 'REPLAY' && <p>과거 재생은 당시 수신 시각이 없는 탐지 기록을 포함할 수 있습니다. 수신 여부가 확인되지 않은 결과는 전진 검증 성과로 해석하지 마세요.</p>}
           {CANDIDATE_GROUPS.map(({ group, title }) => <div key={group}>
             <h3>{title}</h3>
-            {lastRun.evaluations.filter(row => candidateGroup(row) === group).map(row => <details key={`${row.candidateSource}-${row.stockCode}`}>
+            {(group === 'WATCH' ? lastRun.evaluations.filter(row => candidateGroup(row) === group).sort(byScoreThenTradingValue) : lastRun.evaluations.filter(row => candidateGroup(row) === group)).map(row => <details key={`${row.candidateSource}-${row.stockCode}`}>
               <summary>{row.stockName} ({row.stockCode}) · {row.candidateSource} · 점수 {num(row.finalScore)}{tradingValueLabel(row.dataReadiness?.dailyTradingValue) ? ` · 거래대금 ${tradingValueLabel(row.dataReadiness?.dailyTradingValue)}` : ''} · {closingExclusionLabel(row.decisionReason)}</summary>
               <p>탐지 {new Date(row.observedAt).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul' })} · {row.scannerType ?? 'Broad'} · 가격 {num(row.referencePrice)} · Opportunity {num(row.opportunityScore)} / Risk {num(row.riskScore)}</p>
               <p>{row.dataQuality} · 확정 봉 {row.finalCandles}개 · 관측 범위 {row.coverageMinutes}분 · 부족 항목 {row.missingFeatures.join(', ') || '없음'}</p>

@@ -39,3 +39,19 @@ export function tradingValueLabel(value?: number | string | null) {
   if (!Number.isFinite(amount)) return null
   return `${(amount / 100_000_000).toLocaleString('ko-KR', { maximumFractionDigits: 1 })}억`
 }
+
+/** 숫자로 바꿀 수 없는 값은 null이에요. */
+function numeric(value?: number | string | null) {
+  const amount = value == null ? NaN : Number(value)
+  return Number.isFinite(amount) ? amount : null
+}
+
+/**
+ * 관찰 후보 표시 순서예요. 1순위 점수(finalScore) 높은 순, 2순위 그날 거래대금 높은 순이에요. 값이 없으면 뒤로 가요.
+ * 화면 표시 순서만 바꾸고 처분·추천 순위에는 영향이 없어요.
+ */
+export function byScoreThenTradingValue<T extends { finalScore: number | null; dataReadiness?: { dailyTradingValue?: number | string | null } | null }>(a: T, b: T) {
+  const desc = (x: number | null, y: number | null) => x === y ? 0 : x == null ? 1 : y == null ? -1 : y - x
+  return desc(numeric(a.finalScore), numeric(b.finalScore))
+    || desc(numeric(a.dataReadiness?.dailyTradingValue), numeric(b.dataReadiness?.dailyTradingValue))
+}
