@@ -1,5 +1,5 @@
 /** 마감 평가 후보 화면 묶음(candidateGroups.ts) 테스트예요. */
-import { candidateGroup, tradingValueLabel } from './candidateGroups'
+import { byScoreThenTradingValue, candidateGroup, tradingValueLabel } from './candidateGroups'
 
 // 데이터가 부족해 관찰로 간 정밀 후보는 '판단 보류'로, 조건을 통과한 관찰은 그대로 '관찰'로 나눠요.
 test('separates data holds from real watch candidates', () => {
@@ -15,4 +15,12 @@ test('formats trading value in 억', () => {
   expect(tradingValueLabel('7752265058.0000')).toBe('77.5억')
   expect(tradingValueLabel(30_000_000)).toBe('0.3억')
   expect(tradingValueLabel(null)).toBeNull()
+})
+
+describe('byScoreThenTradingValue', () => {
+  it('orders watch candidates by score, then by trading value, missing values last', () => {
+    const row = (code: string, finalScore: number | null, dailyTradingValue?: number | string) => ({ code, finalScore, dataReadiness: { dailyTradingValue } })
+    const rows = [row('A', 60, 1e9), row('B', 72, '5000000000'), row('C', 72, 9e9), row('D', null, 2e10), row('E', 60), row('F', 60, 3e9)]
+    expect(rows.sort(byScoreThenTradingValue).map(r => r.code)).toEqual(['C', 'B', 'F', 'A', 'E', 'D'])
+  })
 })
