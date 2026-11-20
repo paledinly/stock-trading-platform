@@ -56,7 +56,8 @@ class AiWatchServiceTest {
                 + "primary key(stock_id, trade_date))");
         jdbc.execute("create table intraday_research_bar(stock_id bigint, start_time timestamp with time zone, open_price int, "
                 + "high_price int, low_price int, close_price int, volume bigint, trading_value bigint, primary key(stock_id, start_time))");
-        for (String file : List.of("V47__create_ai_premarket_plan.sql", "V48__ai_premarket_plan_v2.sql", "V49__create_ai_watch.sql")) {
+        for (String file : List.of("V47__create_ai_premarket_plan.sql", "V48__ai_premarket_plan_v2.sql", "V49__create_ai_watch.sql",
+                "V51__ai_premarket_plan_v5_nxt.sql")) {
             String migration = new ClassPathResource("db/migration/" + file).getContentAsString(StandardCharsets.UTF_8);
             for (String statement : migration.replaceAll("(?m)^\\s*--.*$", "").split(";"))
                 if (!statement.isBlank()) jdbc.execute(statement);

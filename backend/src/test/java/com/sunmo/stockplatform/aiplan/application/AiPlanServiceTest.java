@@ -1,6 +1,6 @@
 /*
  * AI 장전 계획이 원본 그대로 판(revision)으로 쌓이고, 장 마감 뒤 일봉으로 채점되며, 1단계 기준이 계산되는지 확인해요.
- * H2(PostgreSQL 흉내 모드)에 실제 마이그레이션 V47·V48을 그대로 실행해요.
+ * H2(PostgreSQL 흉내 모드)에 실제 마이그레이션 V47·V48·V51을 그대로 실행해요.
  */
 package com.sunmo.stockplatform.aiplan.application;
 
@@ -39,7 +39,8 @@ class AiPlanServiceTest {
         jdbc.execute("create table daily_adjusted_candle(stock_id bigint, trade_date date, open_price numeric(20,4), "
                 + "high_price numeric(20,4), low_price numeric(20,4), close_price numeric(20,4), trading_value numeric(24,4), "
                 + "primary key(stock_id, trade_date))");
-        for (String file : List.of("V47__create_ai_premarket_plan.sql", "V48__ai_premarket_plan_v2.sql")) {
+        for (String file : List.of("V47__create_ai_premarket_plan.sql", "V48__ai_premarket_plan_v2.sql",
+                "V51__ai_premarket_plan_v5_nxt.sql")) {
             String migration = new ClassPathResource("db/migration/" + file).getContentAsString(StandardCharsets.UTF_8);
             for (String statement : migration.replaceAll("(?m)^\s*--.*$", "").split(";"))
                 if (!statement.isBlank())
@@ -61,6 +62,35 @@ class AiPlanServiceTest {
         jdbc.update("update daily_adjusted_candle set close_price = 104, high_price = 105 where stock_id = 1 and trade_date = '2026-11-11'");
         for (LocalDate d : List.of(LocalDate.of(2026, 11, 10), LocalDate.of(2026, 11, 11)))
             jdbc.update("insert into daily_adjusted_candle values (900, ?, 100, 101, 97, ?, 2000000000)", d, d.getDayOfMonth() == 11 ? 98 : 101);
+    }
+
+    /** 기대: v5 계획은 시장·종목별 NXT 관찰(AI가 적은 값)을 따로 저장하고, 목록·상세에서 돌려줘요. */
+    @Test
+    void storesVersionFiveNxtObservations() throws Exception {
+        var mapper = new ObjectMapper();
+        String example = new ClassPathResource("ai-premarket/ai-premarket-v5.example.json").getContentAsString(StandardCharsets.UTF_8)
+                .replace("YYYY-MM-DD", "2026-11-11").replace("YYYYMMDD", "20261111");
+        var root = (com.fasterxml.jackson.databind.node.ObjectNode) mapper.readTree(example);
+        ((com.fasterxml.jackson.databind.node.ObjectNode) root.get("market").get("nxtPremarket")).put("status", "PARTIAL");
+        var pick = (com.fasterxml.jackson.databind.node.ObjectNode) root.withArray("picks").get(0);
+        pick.put("reason", "NXT 거래대금 집중");
+        ((com.fasterxml.jackson.databind.node.ObjectNode) pick.get("nxtPremarket")).put("status", "VERIFIED").put("eligible", true)
+                .put("lastPriceKRW", 10500).put("changeRatePct", 3.2).put("turnoverKRW", 1_250_000_000L)
+                .put("recentTurnoverTrend", "INCREASING").put("priceRetention", "NEAR_HIGH")
+                .put("marketDataAsOf", "2026-11-11T07:50:00+09:00").put("source", "넥스트레이드").put("verified", true);
+
+        var saved = plans("2026-11-10T22:55:00Z").submit(mapper.writeValueAsString(root));
+
+        assertThat(saved.saved()).isTrue();
+        assertThat(saved.plan().nxtStatus()).isEqualTo("PARTIAL");
+        assertThat(saved.plan().nxtVerified()).isFalse();
+        var nxt = plans("2026-11-10T22:55:00Z").detail(saved.plan().id()).picks().get(0).nxt();
+        assertThat(nxt.status()).isEqualTo("VERIFIED");
+        assertThat(nxt.verified()).isTrue();
+        assertThat(nxt.changePct()).isEqualByComparingTo("3.2");
+        assertThat(nxt.turnover()).isEqualByComparingTo("1250000000");
+        assertThat(nxt.turnoverTrend()).isEqualTo("INCREASING");
+        assertThat(nxt.asOf()).isEqualTo(Instant.parse("2026-11-10T22:50:00Z"));
     }
 
     @AfterEach

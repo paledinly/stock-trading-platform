@@ -16,11 +16,13 @@ import { RecordCalendar, monthRange, seoulToday, type DayMark } from './RecordCa
 
 // 아래 타입은 /api/v1/ai-plans 응답 모양이에요. 퍼센트 값은 2가 2%예요.
 /** 날짜별 계획 한 판의 요약이에요. scored는 성과 집계에 쓰는 판(장 시작 전 마지막 판)인지예요. */
-export type PlanSummary = { id: number; targetDate: string; revision: number; schemaVersion: string; analysisId: string | null; analysisMode: string; analyzedAt: string | null; submittedAt: string; onTime: boolean; scored: boolean; tradeDecision: string; marketOutlook: string; marketRegime: string | null; riskLevel: string | null; modelName: string; modelVersion: string | null; promptVersion: string; pickCount: number; avoidCount: number; warnings: string[] }
+export type PlanSummary = { id: number; targetDate: string; revision: number; schemaVersion: string; analysisId: string | null; analysisMode: string; analyzedAt: string | null; submittedAt: string; onTime: boolean; scored: boolean; tradeDecision: string; marketOutlook: string; marketRegime: string | null; riskLevel: string | null; modelName: string; modelVersion: string | null; promptVersion: string; pickCount: number; avoidCount: number; warnings: string[]; nxtStatus?: string | null; nxtVerified?: boolean | null }
 /** 장 마감 뒤 실제 일봉으로 잰 결과예요. */
 type Outcome = { tradeDate: string; status: string; gapPct: number | null; openClosePct: number | null; highPct: number | null; lowPct: number | null; netOpenClosePct: number | null; universeOpenClosePct: number | null; excessOpenClosePct: number | null; universeCount: number | null }
 /** 계획에 나온 종목 하나예요. kind는 PICK(매수 후보) 또는 AVOID(매수 금지)예요. */
-type Pick = { id: number; kind: string; stockCode: string; stockName: string; priority: number | null; reason: string | null; topPriority: boolean; confidence: string | null; outcome: Outcome | null }
+/** v5 계획에서 AI가 적은 NXT 프리마켓 관찰이에요(프로그램이 잰 값이 아님). changePct는 3.2가 3.2%예요. */
+type Nxt = { status: string | null; eligible: boolean | null; lastPrice: number | null; changePct: number | null; turnover: number | null; turnoverTrend: string | null; priceRetention: string | null; asOf: string | null; verified: boolean | null }
+type Pick = { id: number; kind: string; stockCode: string; stockName: string; priority: number | null; reason: string | null; topPriority: boolean; confidence: string | null; outcome: Outcome | null; nxt?: Nxt | null }
 type Detail = { plan: PlanSummary; rawJson: string; picks: Pick[]; revisions: PlanSummary[] }
 type SubmitResult = { saved: boolean; errors: string[]; warnings: string[]; plan: PlanSummary | null }
 type Day = { date: string; picks: number; pickOpenClose: number | null; pickNet: number | null; universeOpenClose: number | null; excess: number | null }
@@ -54,6 +56,26 @@ function tone(value?: number | null) {
 
 const OUTLOOK: Record<string, string> = { BULLISH: '강세', NEUTRAL: '중립', BEARISH: '약세' }
 const DECISION: Record<string, string> = { TRADE: '매매', WATCH_ONLY: '감시만', NO_TRADE: '매매 안 함', DATA_INSUFFICIENT: '자료 부족' }
+const NXT_STATUS: Record<string, string> = { VERIFIED: '확인', PARTIAL: '일부 확인', UNAVAILABLE: '확인 못 함', NOT_ELIGIBLE: '거래 대상 아님' }
+const NXT_TREND: Record<string, string> = { INCREASING: '대금 증가', STABLE: '대금 유지', DECREASING: '대금 감소' }
+const NXT_RETENTION: Record<string, string> = { NEAR_HIGH: '고가권', MID_RANGE: '중간', NEAR_LOW: '저가권' }
+
+/** 종목의 NXT 프리마켓 관찰을 한 줄로 보여 줘요. AI가 적은 값이고, 검증(verified) 안 된 값은 흐리게 보여요. */
+function NxtBadge({ nxt }: { nxt: Nxt }) {
+  const parts = [
+    nxt.changePct != null ? `${nxt.changePct >= 0 ? '+' : ''}${Number(nxt.changePct).toFixed(2)}%` : null,
+    nxt.turnover != null ? `${(Number(nxt.turnover) / 100_000_000).toLocaleString('ko-KR', { maximumFractionDigits: 1 })}억` : null,
+    nxt.turnoverTrend ? NXT_TREND[nxt.turnoverTrend] ?? null : null,
+    nxt.priceRetention ? NXT_RETENTION[nxt.priceRetention] ?? null : null,
+  ].filter(Boolean)
+  const label = nxt.status ? NXT_STATUS[nxt.status] ?? nxt.status : '상태 없음'
+  return (
+    <small className={nxt.verified ? 'aiNxt verified' : 'aiNxt'} title={`AI가 적은 NXT 프리마켓 값${nxt.asOf ? ` (기준 ${new Date(nxt.asOf).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit' })})` : ''}${nxt.verified ? '' : ' · 검증 안 됨'}`}>
+      NXT {parts.length ? parts.join(' · ') : label}{parts.length && nxt.status !== 'VERIFIED' ? ` (${label})` : ''}
+    </small>
+  )
+}
+
 const RISK: Record<string, string> = { LOW: '위험 낮음', MEDIUM: '위험 보통', HIGH: '위험 높음', EXTREME: '위험 매우 높음' }
 const VERDICT: Record<string, string> = { PENDING: '기록 중', PASS: '통과', FAIL: '미달' }
 const STATUS: Record<string, string> = { COMPLETE: '완료', NO_DATA: '일봉 없음', SUSPECT: '확인 필요' }
@@ -178,7 +200,7 @@ export function AiPlanPage() {
             </div>
           )}
           <textarea aria-label="AI 장전 분석 JSON" value={raw} onChange={event => { setRaw(event.target.value); setResult(null) }}
-            placeholder='{"schemaVersion":"ai-premarket-v4", ...}' rows={10} spellCheck={false} />
+            placeholder='{"schemaVersion":"ai-premarket-v5", ...}' rows={10} spellCheck={false} />
           <div className="aiActions">
             <button type="button" onClick={() => check.mutate()} disabled={!raw.trim() || check.isPending}>검사만 하기</button>
             <button type="button" className="primary" onClick={() => save.mutate()} disabled={!raw.trim() || save.isPending}>검사 후 저장</button>
@@ -229,7 +251,7 @@ function PlanDetailView({ detail, showRaw, onToggleRaw, onSelect }: { detail: De
       <div className="aiDetailHead">
         <div>
           <h2>{plan.targetDate} · {plan.revision}판</h2>
-          <span>{DECISION[plan.tradeDecision] ?? plan.tradeDecision} · {OUTLOOK[plan.marketOutlook] ?? plan.marketOutlook}{plan.riskLevel ? ` · ${RISK[plan.riskLevel] ?? plan.riskLevel}` : ''}{plan.marketRegime ? ` · ${plan.marketRegime}` : ''}</span>
+          <span>{DECISION[plan.tradeDecision] ?? plan.tradeDecision} · {OUTLOOK[plan.marketOutlook] ?? plan.marketOutlook}{plan.riskLevel ? ` · ${RISK[plan.riskLevel] ?? plan.riskLevel}` : ''}{plan.marketRegime ? ` · ${plan.marketRegime}` : ''}{plan.nxtStatus ? ` · NXT ${NXT_STATUS[plan.nxtStatus] ?? plan.nxtStatus}` : ''}</span>
           <span>분석 {kstTime(plan.analyzedAt)} · 저장 {kstTime(plan.submittedAt)} · {plan.modelName}{plan.modelVersion ? ` ${plan.modelVersion}` : ''} · 프롬프트 {plan.promptVersion}{plan.analysisMode === 'INTRADAY' ? ' · 장중 분석' : ''}</span>
         </div>
         <em className={plan.scored ? 'aiBadge ok' : 'aiBadge'}>{plan.scored ? '집계 대상' : plan.onTime ? '이전 판' : '장 시작 뒤 입력'}</em>
@@ -251,7 +273,7 @@ function PlanDetailView({ detail, showRaw, onToggleRaw, onSelect }: { detail: De
               onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setOpen(expanded ? null : pick.id) } }}>
               <span role="cell" title={pick.reason ?? ''}>
                 <em className={pick.kind === 'AVOID' ? 'aiBadge warn' : pick.topPriority ? 'aiBadge top' : 'aiBadge'}>{pick.kind === 'AVOID' ? '매수 금지' : `${pick.priority ?? '-'}순위${pick.topPriority ? ' ★' : ''}`}</em>
-                <b>{pick.stockName}</b><small>{pick.stockCode}{o && o.status !== 'COMPLETE' ? ` · ${STATUS[o.status] ?? o.status}` : ''}{!o ? ' · 채점 전' : ''}</small>
+                <b>{pick.stockName}</b><small>{pick.stockCode}{o && o.status !== 'COMPLETE' ? ` · ${STATUS[o.status] ?? o.status}` : ''}{!o ? ' · 채점 전' : ''}</small>{pick.nxt && <NxtBadge nxt={pick.nxt} />}
               </span>
               <span role="cell" className={tone(o?.gapPct)}>{pct(o?.gapPct)}</span>
               <span role="cell" className={tone(o?.openClosePct)}>{pct(o?.openClosePct)}</span>

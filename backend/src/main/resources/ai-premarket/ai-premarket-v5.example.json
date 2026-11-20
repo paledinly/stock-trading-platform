@@ -1,0 +1,160 @@
+{
+  "schemaVersion": "ai-premarket-v5",
+  "analysisId": "YYYYMMDD-PREMARKET",
+  "targetDate": "YYYY-MM-DD",
+  "analysisMode": "PREMARKET",
+  "analyzedAt": null,
+  "analysisValidUntil": null,
+  "timezone": "Asia/Seoul",
+  "model": {
+    "name": "ChatGPT",
+    "version": null,
+    "promptVersion": "premarket-v5.0",
+    "temperature": null
+  },
+  "market": {
+    "outlook": "NEUTRAL",
+    "regime": "VOLATILE_MIXED",
+    "riskLevel": "HIGH",
+    "summary": "",
+    "reasons": [],
+    "overseas": {
+      "summary": "",
+      "indices": [],
+      "leadingSectors": [],
+      "weakSectors": []
+    },
+    "domestic": {
+      "kospiPreviousClose": null,
+      "kosdaqPreviousClose": null,
+      "foreignNetBuyKRW": null,
+      "institutionNetBuyKRW": null
+    },
+    "nxtPremarket": {
+      "status": "UNAVAILABLE",
+      "marketDataAsOf": null,
+      "checkedAt": null,
+      "source": null,
+      "verified": false,
+      "summary": "",
+      "leadingThemes": [],
+      "risks": []
+    },
+    "themes": [],
+    "risks": [],
+    "news": [],
+    "dataCheckedAt": null
+  },
+  "tradeDecision": "WATCH_ONLY",
+  "tradeDecisionReason": "",
+  "marketNoTradeConditions": [],
+  "topPriorityStockCodes": [],
+  "picks": [
+    {
+      "stockCode": "005930",
+      "stockName": "삼성전자",
+      "priority": 1,
+      "status": "WATCH",
+      "themes": [],
+      "reason": "",
+      "marketCapCategory": null,
+      "relativeTurnoverRatio": null,
+      "confidence": "MEDIUM",
+      "dataQuality": "PARTIAL",
+      "sources": [],
+      "marketData": {
+        "previousOpenKRW": null,
+        "previousHighKRW": null,
+        "previousLowKRW": null,
+        "previousCloseKRW": null,
+        "previousVolumeShares": null,
+        "previousTurnoverKRW": null,
+        "averageTurnover20dKRW": null,
+        "marketDataAsOf": null,
+        "source": null,
+        "verified": false
+      },
+      "nxtPremarket": {
+        "status": "UNAVAILABLE",
+        "eligible": null,
+        "lastPriceKRW": null,
+        "changeRatePct": null,
+        "openKRW": null,
+        "highKRW": null,
+        "lowKRW": null,
+        "volumeShares": null,
+        "turnoverKRW": null,
+        "recentTurnoverTrend": "UNKNOWN",
+        "priceRetention": "UNKNOWN",
+        "marketDataAsOf": null,
+        "source": null,
+        "verified": false,
+        "assessment": ""
+      },
+      "scenario": {
+        "bull": "",
+        "bear": "",
+        "pricedInRisk": "UNKNOWN"
+      },
+      "keyLevels": [],
+      "strategies": [
+        {
+          "strategyType": "CONFIRMED_ENTRY",
+          "subtype": "OPENING_RANGE_BREAKOUT",
+          "profileId": null,
+          "enabled": false,
+          "entryRules": {
+            "operator": "AND",
+            "conditions": [
+              {
+                "metric": "CLOSE_5M",
+                "operator": ">",
+                "value": null,
+                "reference": "OPENING_RANGE_15M_HIGH",
+                "unit": "KRW",
+                "required": true
+              },
+              {
+                "metric": "PRICE_VS_VWAP",
+                "operator": ">",
+                "value": 0,
+                "reference": null,
+                "unit": "KRW",
+                "required": true
+              },
+              {
+                "metric": "RVOL_5M",
+                "operator": ">=",
+                "value": null,
+                "reference": "PROGRAM_CONFIG",
+                "unit": "RATIO",
+                "required": true
+              },
+              {
+                "metric": "TURNOVER_5M",
+                "operator": ">=",
+                "value": null,
+                "reference": "PROGRAM_CONFIG",
+                "unit": "KRW",
+                "required": true
+              }
+            ]
+          },
+          "entryPriceKRW": null,
+          "stopLossPriceKRW": null,
+          "takeProfit1KRW": null,
+          "takeProfit2KRW": null
+        }
+      ],
+      "noBuyReasons": [],
+      "invalidationReasons": [],
+      "exitStrategy": {
+        "stopLossMethod": "STRUCTURAL_SUPPORT",
+        "takeProfitMethod": "RISK_REWARD_BASED",
+        "calculationOwner": "TRADING_ENGINE",
+        "overnightAllowed": false
+      }
+    }
+  ],
+  "avoid": []
+}

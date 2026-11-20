@@ -10,7 +10,8 @@ const summary = { scoredDays: 3, gateDays: 20, gateWinDaysRequired: 12, gateVerd
 const detail = {
   plan, rawJson: '{"schemaVersion":"ai-premarket-v1"}', revisions: [plan],
   picks: [
-    { id: 1, kind: 'PICK', stockCode: '005930', stockName: '삼성전자', priority: 1, reason: '테스트', topPriority: true, confidence: 'MEDIUM', outcome: { tradeDate: '2026-11-11', status: 'COMPLETE', gapPct: -0.99, openClosePct: 4, highPct: 5, lowPct: -1, netOpenClosePct: 3.59, universeOpenClosePct: 1.02, excessOpenClosePct: 2.98, universeCount: 150 } },
+    { id: 1, kind: 'PICK', stockCode: '005930', stockName: '삼성전자', priority: 1, reason: '테스트', topPriority: true, confidence: 'MEDIUM', outcome: { tradeDate: '2026-11-11', status: 'COMPLETE', gapPct: -0.99, openClosePct: 4, highPct: 5, lowPct: -1, netOpenClosePct: 3.59, universeOpenClosePct: 1.02, excessOpenClosePct: 2.98, universeCount: 150 },
+      nxt: { status: 'VERIFIED', eligible: true, lastPrice: 10500, changePct: 3.2, turnover: 1250000000, turnoverTrend: 'INCREASING', priceRetention: 'NEAR_HIGH', asOf: '2026-11-10T23:40:00Z', verified: true } },
     { id: 2, kind: 'AVOID', stockCode: '000660', stockName: 'SK하이닉스', priority: null, reason: '과열', topPriority: false, confidence: null, outcome: null },
   ],
 }
@@ -49,6 +50,7 @@ it('shows the gate progress and the scored picks of the latest plan', async () =
   expect(screen.getByText('+1.50%')).toBeInTheDocument()
   expect(screen.getByText(/감시만 · 강세 · 위험 높음/)).toBeInTheDocument()
   expect(screen.getByText(/분석 시각 없음/)).toBeInTheDocument()
+  expect(screen.getByText('NXT +3.20% · 12.5억 · 대금 증가 · 고가권')).toBeInTheDocument()
 })
 
 it('lists validation errors when saving fails', async () => {

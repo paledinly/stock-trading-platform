@@ -4,13 +4,31 @@ ChatGPT가 장 시작 전에 고른 종목을 기록하고, 장 마감 뒤 실�
 
 ## 매일 하는 일
 
-1. Web `AI 장전` 화면에서 "ChatGPT 프롬프트 보기" → "프롬프트 복사". 분석 대상 거래일과 JSON 예시가 채워져 있다.
+1. Web `AI 장전` 화면에서 "ChatGPT 프롬프트 보기" → "프롬프트 복사". 분석 대상 거래일과 JSON 예시가 채워져 있다. v5.0 프롬프트는 NXT 프리마켓(08:00~08:50)을 보도록 **08:35~08:45 실행**을 권한다.
 2. ChatGPT에 붙여넣고, 나온 JSON을 화면 입력 칸에 넣는다.
 3. "검사만 하기"로 오류를 확인하고 "검사 후 저장". **장 시작(09:00, 특별 개장일은 그 시각) 전에 저장해야 집계된다.**
-4. 다시 넣으면 새 판으로 저장된다. 장 시작 전 마지막 판만 집계한다. 장 시작 뒤 판은 저장만 한다.
+4. 다시 넣으면 새 판으로 저장된다. 장 시작 전 마지막 판만 집계한다. 장 시작 뒤 판은 저장만 한다. 실시간 감시(2단계)는 08:50에 그날 계획을 불러오고, 장 시작 전에 새 판이 오면 30초 안에 바꾼다. 그래서 08:50~09:00에 저장한 판도 감시에 쓰인다.
 5. 매일 21:30에 자동 채점한다(`AI_PLAN_EVALUATION_ENABLED`, `AI_PLAN_EVALUATION_CRON`). 화면의 "채점 지금 실행"으로 바로 돌릴 수 있다. 그날 수정주가 일봉(18:30 갱신)이 들어오기 전에는 채점을 미룬다.
 
-## JSON 규격 `ai-premarket-v4`
+## JSON 규격 `ai-premarket-v5` (2026-11-20 배포 뒤부터)
+
+프롬프트는 사용자가 정한 원문 [`ai-premarket-v5.prompt.md`](../backend/src/main/resources/ai-premarket/ai-premarket-v5.prompt.md)(`promptVersion` `premarket-v5.0`)이다. 출력 예시 [`ai-premarket-v5.example.json`](../backend/src/main/resources/ai-premarket/ai-premarket-v5.example.json)은 프롬프트 16절 자리(`{{example}}`)에 들어간다. 화면의 프롬프트 복사는 v5.0을 준다. v4·v4.2 답도 계속 받는다.
+
+v5가 v4와 다른 점은 **당일 NXT 프리마켓 관찰**뿐이다. 진입 조건(규칙 A), 종목·판단 칸, 채점은 v4와 같다.
+
+| 칸 | 검사 | 저장 |
+| --- | --- | --- |
+| `market.nxtPremarket` | 없으면 경고(UNAVAILABLE로 저장). `status`는 VERIFIED / PARTIAL / UNAVAILABLE(시장 전체에 NOT_ELIGIBLE은 경고) | `ai_premarket_plan.nxt_status`, `nxt_as_of`, `nxt_verified` |
+| `picks[].nxtPremarket` | 없으면 경고. `status`에 NOT_ELIGIBLE 추가. `recentTurnoverTrend`·`priceRetention`이 정해진 값이 아니면 경고하고 null. NOT_ELIGIBLE인데 `eligible`이 false가 아니거나 시세 수치가 있으면 경고 | `ai_premarket_pick.nxt_*`(상태, 거래 가능, 현재가, 등락률, 누적 거래대금, 대금 추세, 가격 유지력, 기준 시각, 검증) |
+| `marketDataAsOf` | 지금보다 5분 넘게 미래면 **거부**(아직 없던 정보). 대상 거래일이 아닌 날짜면 경고 | |
+| `verified` | AI가 true라고 적어도 `status` VERIFIED·기준 시각·출처가 모두 있어야 true로 저장. 아니면 경고하고 false | |
+| `priceRetention` | 현재가·고가·저가가 있으면 (현재가 − 저가) / (고가 − 저가)로 다시 계산해(0.8 이상 NEAR_HIGH, 0.2 이하 NEAR_LOW) 다르면 경고 | AI가 적은 값 그대로 |
+
+- NXT 값은 **AI가 웹에서 보고 적은 값**이다. 프로그램이 NXT 시세를 받지 않으며, 실시간 감시·규칙 A·채점에 쓰지 않는다. 나중에 "NXT 확인 종목 vs NXT 자료 없는 종목", "고가권 유지 종목" 같이 나눠 보는 데만 쓴다.
+- 판정(ADR-012 1단계 20채점일, 2단계)은 바꾸지 않았다. v4.2와 v5.0 판은 같은 기준으로 함께 센다. 프롬프트별로 나눠 보려면 `prompt_version`을 쓴다.
+- 분석 시각이 08:35~08:45로 늦어지면서 장 시작 전 저장 여유가 15~25분으로 줄었다. 09:00을 넘기면 집계에서 빠진다.
+
+## JSON 규격 `ai-premarket-v4` (11-12 ~ 11-20)
 
 프롬프트는 사용자가 정한 원문 [`ai-premarket-v4.prompt.md`](../backend/src/main/resources/ai-premarket/ai-premarket-v4.prompt.md)이다. 11-12 계획은 v4, 11-13 계획은 v4.1, 11-16 계획부터는 v4.2(`promptVersion` `premarket-v4.2`, 규격은 그대로 `ai-premarket-v4`)이다. v4.1부터 날짜를 적지 않고 AI가 대상 거래일을 정하므로 화면의 프롬프트 복사는 원문을 그대로 준다. 출력 구조 예시는 [`ai-premarket-v4.example.json`](../backend/src/main/resources/ai-premarket/ai-premarket-v4.example.json)이고 프롬프트 14절 자리(`{{example}}`)에 그대로 들어간다. v4.2는 규칙 A가 계산할 수 있는 조건(8~9절)만 쓰게 하고, 종목당 `CONFIRMED_ENTRY` 하나, `model` 필수를 요구한다. 이전 규격 `ai-premarket-v3`(배포 전 하루 쓴 초안, 화면에서 준 적 없음), `ai-premarket-v2`(11-10~11-11, [프롬프트](../backend/src/main/resources/ai-premarket/ai-premarket-v2.prompt.md))와 `ai-premarket-v1`(11-10)도 계속 받는다. 규격을 바꾸면 `schemaVersion`을 올린다.
 

@@ -40,11 +40,16 @@ public class AiPlanService {
     public record PlanSummary(long id, LocalDate targetDate, int revision, String schemaVersion, String analysisId,
             String analysisMode, Instant analyzedAt, Instant submittedAt, boolean onTime, boolean scored,
             String tradeDecision, String marketOutlook, String marketRegime, String riskLevel, String modelName,
-            String modelVersion, String promptVersion, int pickCount, int avoidCount, List<String> warnings) { }
+            String modelVersion, String promptVersion, int pickCount, int avoidCount, List<String> warnings,
+            String nxtStatus, Boolean nxtVerified) { }
 
-    /** 종목 하나와 그 종목의 채점 결과예요(아직 채점 전이면 outcome이 null). */
+    /** 종목 하나와 그 종목의 채점 결과예요(아직 채점 전이면 outcome이 null). nxt는 v5 계획에서 AI가 적은 NXT 관찰이에요. */
     public record PickView(long id, String kind, String stockCode, String stockName, Integer priority, String reason,
-            boolean topPriority, String confidence, Outcome outcome) { }
+            boolean topPriority, String confidence, Outcome outcome, NxtView nxt) { }
+
+    /** AI가 적은 NXT 프리마켓 관찰이에요(v5). 프로그램이 잰 값이 아니에요. changePct는 퍼센트(3.2는 3.2%)예요. */
+    public record NxtView(String status, Boolean eligible, BigDecimal lastPrice, BigDecimal changePct, BigDecimal turnover,
+            String turnoverTrend, String priceRetention, Instant asOf, Boolean verified) { }
 
     /** 장 마감 뒤 실제 시장 데이터로 잰 값이에요. 퍼센트 단위(2는 2%)예요. AI가 적은 값은 들어 있지 않아요. */
     public record Outcome(LocalDate tradeDate, String status, BigDecimal prevClose, BigDecimal open, BigDecimal high,
@@ -90,8 +95,8 @@ public class AiPlanService {
             PreparedStatement ps = connection.prepareStatement("""
                     insert into ai_premarket_plan(target_date, revision, schema_version, analyzed_at, valid_until, submitted_at,
                       on_time, trade_decision, market_outlook, model_name, model_version, prompt_version, raw_json, warnings,
-                      analysis_id, analysis_mode, market_regime, risk_level)
-                    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", new String[] { "id" });
+                      analysis_id, analysis_mode, market_regime, risk_level, nxt_status, nxt_as_of, nxt_verified)
+                    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", new String[] { "id" });
             ps.setDate(1, Date.valueOf(plan.targetDate()));
             ps.setInt(2, revision);
             ps.setString(3, plan.schemaVersion());
@@ -110,15 +115,27 @@ public class AiPlanService {
             ps.setString(16, plan.analysisMode());
             ps.setString(17, plan.regime());
             ps.setString(18, plan.riskLevel());
+            AiPlanValidator.Nxt nxt = plan.marketNxt();
+            ps.setString(19, nxt == null ? null : nxt.status());
+            ps.setTimestamp(20, nxt == null || nxt.asOf() == null ? null : Timestamp.from(nxt.asOf()));
+            ps.setObject(21, nxt == null ? null : nxt.verified());
             return ps;
         }, key);
         long planId = key.getKey().longValue();
-        for (ParsedPick pick : plan.picks())
+        for (ParsedPick pick : plan.picks()) {
+            AiPlanValidator.Nxt nxt = pick.nxt();
             jdbc.update("""
                     insert into ai_premarket_pick(plan_id, kind, stock_id, stock_code, stock_name, priority, reason,
-                      top_priority, confidence) values (?, ?, ?, ?, ?, ?, ?, ?, ?)""", planId, pick.kind(), pick.stock().id(),
+                      top_priority, confidence, nxt_status, nxt_eligible, nxt_last_price, nxt_change_pct, nxt_turnover,
+                      nxt_turnover_trend, nxt_price_retention, nxt_as_of, nxt_verified)
+                    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", planId, pick.kind(), pick.stock().id(),
                     pick.stock().code(), pick.stock().name(), pick.priority(), pick.reason(), pick.topPriority(),
-                    pick.confidence());
+                    pick.confidence(), nxt == null ? null : nxt.status(), nxt == null ? null : nxt.eligible(),
+                    nxt == null ? null : nxt.lastPrice(), nxt == null ? null : nxt.changePct(),
+                    nxt == null ? null : nxt.turnover(), nxt == null ? null : nxt.turnoverTrend(),
+                    nxt == null ? null : nxt.priceRetention(),
+                    nxt == null || nxt.asOf() == null ? null : Timestamp.from(nxt.asOf()), nxt == null ? null : nxt.verified());
+        }
         return new SubmitResult(true, List.of(), result.warnings(), summary(planId));
     }
 
@@ -135,12 +152,14 @@ public class AiPlanService {
         PlanSummary plan = summary(id);
         String raw = jdbc.queryForObject("select raw_json from ai_premarket_plan where id = ?", String.class, id);
         List<PickView> picks = jdbc.query("""
-                select k.id, k.kind, k.stock_code, k.stock_name, k.priority, k.reason, k.top_priority, k.confidence, o.*
+                select k.id, k.kind, k.stock_code, k.stock_name, k.priority, k.reason, k.top_priority, k.confidence,
+                  k.nxt_status, k.nxt_eligible, k.nxt_last_price, k.nxt_change_pct, k.nxt_turnover, k.nxt_turnover_trend,
+                  k.nxt_price_retention, k.nxt_as_of, k.nxt_verified, o.*
                 from ai_premarket_pick k left join ai_premarket_outcome o on o.pick_id = k.id
                 where k.plan_id = ? order by k.kind desc, k.priority nulls last, k.id""", (rs, i) -> new PickView(
                 rs.getLong("id"), rs.getString("kind"), rs.getString("stock_code"), rs.getString("stock_name"),
                 (Integer) rs.getObject("priority"), rs.getString("reason"), rs.getBoolean("top_priority"),
-                rs.getString("confidence"), outcome(rs)), id);
+                rs.getString("confidence"), outcome(rs), nxt(rs)), id);
         List<PlanSummary> revisions = jdbc.query(SUMMARY_SQL + " where p.target_date = ? order by p.revision desc",
                 this::summaryRow, Date.valueOf(plan.targetDate()));
         return new PlanDetail(plan, raw, picks, revisions);
@@ -173,7 +192,17 @@ public class AiPlanService {
                 rs.getString("market_outlook"), rs.getString("market_regime"), rs.getString("risk_level"),
                 rs.getString("model_name"), rs.getString("model_version"),
                 rs.getString("prompt_version"), rs.getInt("picks"), rs.getInt("avoids"),
-                warnings == null ? List.of() : List.of(warnings.split("\n")));
+                warnings == null ? List.of() : List.of(warnings.split("\n")), rs.getString("nxt_status"),
+                (Boolean) rs.getObject("nxt_verified"));
+    }
+
+    private static NxtView nxt(ResultSet rs) throws SQLException {
+        if (rs.getString("nxt_status") == null && rs.getObject("nxt_verified") == null)
+            return null;
+        Timestamp asOf = rs.getTimestamp("nxt_as_of");
+        return new NxtView(rs.getString("nxt_status"), (Boolean) rs.getObject("nxt_eligible"), rs.getBigDecimal("nxt_last_price"),
+                rs.getBigDecimal("nxt_change_pct"), rs.getBigDecimal("nxt_turnover"), rs.getString("nxt_turnover_trend"),
+                rs.getString("nxt_price_retention"), asOf == null ? null : asOf.toInstant(), (Boolean) rs.getObject("nxt_verified"));
     }
 
     private static Outcome outcome(ResultSet rs) throws SQLException {

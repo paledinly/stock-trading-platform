@@ -31,7 +31,7 @@ PostgreSQL은 영구 데이터의 시스템 오브 레코드다. Redis와 프로
 | 연구: 장중 5분봉 (과거 1년 재현) | `intraday_research_bar`, `intraday_research_state`(V43) |
 | 연구: 투자자별 일별 순매수 | `investor_daily_flow`, `investor_flow_state`(V44) |
 | 연구: 상장폐지 종목 과거 기록 | `delisted_stock`, `delisted_daily_history`(V45) |
-| AI 장전 계획 (Forward 기록) | `ai_premarket_plan`, `ai_premarket_pick`, `ai_premarket_outcome`, `ai_premarket_universe`(V47, v2 칸 V48) |
+| AI 장전 계획 (Forward 기록) | `ai_premarket_plan`, `ai_premarket_pick`, `ai_premarket_outcome`, `ai_premarket_universe`(V47, v2 칸 V48, v5 NXT 칸 V51) |
 | AI 장전 계획 실시간 감시 (2단계) | `ai_watch_session`, `ai_signal_event`, `ai_virtual_position`(V49) |
 | AI 후보 평가 (Forward 기록, ADR-014) | `ai_candidate_pool`, `ai_candidate_pool_stock`(그날 명단과 카드 글, 고정), `ai_candidate_eval`(응답 원본, 판), `ai_candidate_grade`(종목별 등급), `ai_candidate_outcome`(명단 전체 시가→종가)(V50) |
 | 기록 전용: 외부 요인 | `closing_candidate_context`, `dart_filing`(V35), `market_index_daily`(V37), `overseas_daily`(V40) |
@@ -55,9 +55,9 @@ KIS 국내휴장일조회로 받은 날짜별 개장 여부(`market_open`), 출�
 
 `daily_adjusted_candle`은 ETF·ETN을 제외한 상장 종목 전체의 수정주가 일봉을 `(stock_id, trade_date)` 기본키로 저장한다. 시점 기준 Universe(각 날짜 이전 거래대금 순위 등)를 재구성하기 위한 테이블이다. 수정주가는 기업행사 후 과거 값이 다시 계산되므로 `stock_candle`과 달리 행을 갱신하며 `fetched_at`은 마지막 기록시각이다. 운영 이동평균이 쓰는 `stock_candle`의 `1D`(원주가)는 바뀌지 않는다. `daily_adjusted_sweep_state`는 종목별 수집 범위(`covered_from`~`covered_through`)로 중단된 수집을 이어 가고 최근 구간만 다시 읽게 한다.
 
-### ai_premarket_plan · ai_premarket_pick · ai_premarket_outcome · ai_premarket_universe (V47, V48)
+### ai_premarket_plan · ai_premarket_pick · ai_premarket_outcome · ai_premarket_universe (V47, V48, V51)
 
-[ADR-012](decisions/ADR-012-AI-PREMARKET-FORWARD-RECORD.md)의 AI 장전 계획 기록이다. `ai_premarket_plan.raw_json`은 붙여넣은 원문 그대로이며 고치지 않는다. 같은 `target_date`를 다시 넣으면 `revision`이 늘어난다. `on_time`은 그날 장 시작 전 저장 여부이고, 집계는 날짜별 `on_time` 마지막 판만 쓴다. `ai_premarket_pick`은 원본에서 뽑은 종목(`kind` PICK/AVOID, 종목 마스터 id)이다. AI가 적은 가격·조건은 원본에만 있다. `ai_premarket_outcome`(종목별)과 `ai_premarket_universe`(날짜별 시장 평균)는 장 마감 뒤 `daily_adjusted_candle`로 잰 값이며 다시 채점하면 바꿔 쓴다. 채점 규칙은 [AI_PREMARKET](AI_PREMARKET.md#채점). V48은 v2 규격 칸을 더했다: `analyzed_at` null 허용, `analysis_id`, `analysis_mode`, `market_regime`, `risk_level`, 종목의 `top_priority`, `confidence`.
+[ADR-012](decisions/ADR-012-AI-PREMARKET-FORWARD-RECORD.md)의 AI 장전 계획 기록이다. `ai_premarket_plan.raw_json`은 붙여넣은 원문 그대로이며 고치지 않는다. 같은 `target_date`를 다시 넣으면 `revision`이 늘어난다. `on_time`은 그날 장 시작 전 저장 여부이고, 집계는 날짜별 `on_time` 마지막 판만 쓴다. `ai_premarket_pick`은 원본에서 뽑은 종목(`kind` PICK/AVOID, 종목 마스터 id)이다. AI가 적은 가격·조건은 원본에만 있다. `ai_premarket_outcome`(종목별)과 `ai_premarket_universe`(날짜별 시장 평균)는 장 마감 뒤 `daily_adjusted_candle`로 잰 값이며 다시 채점하면 바꿔 쓴다. 채점 규칙은 [AI_PREMARKET](AI_PREMARKET.md#채점). V48은 v2 규격 칸을 더했다: `analyzed_at` null 허용, `analysis_id`, `analysis_mode`, `market_regime`, `risk_level`, 종목의 `top_priority`, `confidence`. V51은 v5 규격의 NXT 프리마켓 관찰을 원본에서 꺼내 둔 칸이다: 계획의 `nxt_status`, `nxt_as_of`, `nxt_verified`, 종목의 `nxt_status`, `nxt_eligible`, `nxt_last_price`, `nxt_change_pct`(퍼센트), `nxt_turnover`(원), `nxt_turnover_trend`, `nxt_price_retention`, `nxt_as_of`, `nxt_verified`. AI가 적은 값이며 프로그램이 잰 값이 아니다. v4 이하 계획은 null이다.
 
 ### ai_watch_session · ai_signal_event · ai_virtual_position (V49)
 
