@@ -12,6 +12,7 @@ import './aiPlan.css'
 import { AiWatchPanel } from './AiWatchPanel'
 import { AiCandidatePanel } from './AiCandidatePanel'
 import { PriceFlow } from './PriceFlow'
+import { RecordCalendar, monthRange, seoulToday, type DayMark } from './RecordCalendar'
 
 // 아래 타입은 /api/v1/ai-plans 응답 모양이에요. 퍼센트 값은 2가 2%예요.
 /** 날짜별 계획 한 판의 요약이에요. scored는 성과 집계에 쓰는 판(장 시작 전 마지막 판)인지예요. */
@@ -74,9 +75,17 @@ export function AiPlanPage() {
   const [showRaw, setShowRaw] = useState(false)
   const [tab, setTab] = useState<'plan' | 'watch' | 'candidate'>('plan')
   const summary = useQuery({ queryKey: ['ai-plans', 'summary'], queryFn: () => get<Summary>('/api/v1/ai-plans/summary') })
-  const plans = useQuery({ queryKey: ['ai-plans', 'list'], queryFn: () => get<PlanSummary[]>('/api/v1/ai-plans') })
+  const [month, setMonth] = useState(() => seoulToday().slice(0, 7))
+  const [day, setDay] = useState<string | null>(null)
+  const range = monthRange(month)
+  const plans = useQuery({ queryKey: ['ai-plans', 'list', month], queryFn: () => get<PlanSummary[]>(`/api/v1/ai-plans?from=${range.from}&to=${range.to}`) })
   const template = useQuery({ queryKey: ['ai-plans', 'template'], queryFn: () => get<Template>('/api/v1/ai-plans/template'), enabled: showPrompt })
-  const currentId = selected ?? plans.data?.[0]?.id ?? null
+  const latest = plans.data?.reduce<string | null>((max, plan) => max == null || plan.targetDate > max ? plan.targetDate : max, null) ?? null
+  const currentDay = day ?? latest ?? seoulToday()
+  const dayPlans = plans.data?.filter(plan => plan.targetDate === currentDay) ?? []
+  const marks: Record<string, DayMark> = {}
+  plans.data?.forEach(plan => { marks[plan.targetDate] = { label: plan.pickCount > 0 ? `${plan.pickCount}종목` : (DECISION[plan.tradeDecision] ?? plan.tradeDecision), tone: plan.scored ? 'ok' : plan.onTime ? undefined : 'muted' } })
+  const currentId = selected ?? (dayPlans.find(plan => plan.scored) ?? dayPlans[0])?.id ?? null
   const detail = useQuery({ queryKey: ['ai-plans', 'detail', currentId], queryFn: () => get<Detail>(`/api/v1/ai-plans/${currentId}`), enabled: currentId != null })
 
   const check = useMutation({ mutationFn: () => post('/api/v1/ai-plans/check', raw), onSuccess: setResult })
@@ -86,6 +95,8 @@ export function AiPlanPage() {
       setResult(data)
       if (data.saved && data.plan) {
         setSelected(data.plan.id)
+        setDay(data.plan.targetDate)
+        setMonth(data.plan.targetDate.slice(0, 7))
         setRaw('')
         client.invalidateQueries({ queryKey: ['ai-plans'] })
       }
@@ -185,20 +196,24 @@ export function AiPlanPage() {
 
         <section className="aiHistory">
           <aside aria-label="계획 기록">
-            <h2>기록</h2>
-            {plans.data?.length === 0 && <p className="aiEmpty">아직 저장한 계획이 없어요.</p>}
-            {plans.data?.map(plan => (
+            <RecordCalendar label="계획 기록 달력" month={month} onMonth={setMonth} marks={marks} selected={currentDay}
+              onSelect={date => { setDay(date); setSelected(null); setShowRaw(false) }} />
+            <div className="aiDayList">
+            <h2>{currentDay} 기록</h2>
+            {dayPlans.length === 0 && <p className="aiEmpty">{plans.isLoading ? '불러오는 중이에요.' : '이 날짜에는 저장한 계획이 없어요.'}</p>}
+            {dayPlans.map(plan => (
               <button type="button" key={plan.id} className={plan.id === currentId ? 'active' : ''} onClick={() => { setSelected(plan.id); setShowRaw(false) }}>
                 <b>{plan.targetDate}</b>
                 <span>{DECISION[plan.tradeDecision] ?? plan.tradeDecision}{plan.pickCount > 0 ? ` ${plan.pickCount}종목` : ''} · {OUTLOOK[plan.marketOutlook] ?? plan.marketOutlook} · {plan.revision}판</span>
               </button>
             ))}
+            </div>
           </aside>
-          <div className="aiDetail">
-            {!detail.data && <p className="aiEmpty">계획을 고르면 종목별 결과가 보여요.</p>}
+          {currentId != null && <div className="aiDetail">
+            {!detail.data && <p className="aiEmpty">불러오는 중이에요.</p>}
             {detail.data && <PlanDetailView detail={detail.data} showRaw={showRaw} onToggleRaw={() => setShowRaw(value => !value)}
               onSelect={id => { setSelected(id); setShowRaw(false) }} />}
-          </div>
+          </div>}
         </section>
       </main>}
     </div>

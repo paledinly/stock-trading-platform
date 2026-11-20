@@ -24,7 +24,7 @@ beforeEach(() => {
   globalThis.fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
     if (init?.method === 'POST')
       return Promise.resolve({ ok: false, status: 422, json: async () => ({ saved: false, errors: ['평가하지 않은 명단 종목이 1개 있어요: 000020'], warnings: [], evaluation: null }) })
-    const body = url.includes('/intraday-flow') ? flow : url.endsWith('/summary') ? summary : url.endsWith('/ai-candidates') ? [evaluation] : url.endsWith('/3') ? detail : url.endsWith('/card') ? card : {}
+    const body = url.includes('/intraday-flow') ? flow : url.endsWith('/summary') ? summary : url.split('?')[0].endsWith('/ai-candidates') ? [evaluation] : url.endsWith('/3') ? detail : url.endsWith('/card') ? card : {}
     return Promise.resolve({ ok: true, status: 200, json: async () => body })
   }) as unknown as typeof fetch
 })
@@ -67,4 +67,15 @@ it('opens the price flow right under the clicked stock and closes it again', asy
 
   fireEvent.click(screen.getByText('가나전자'))
   await waitFor(() => expect(screen.queryByLabelText('가나전자 가격 흐름')).not.toBeInTheDocument())
+})
+
+it('marks recorded days on the calendar and shows an empty list for a day without records', async () => {
+  renderPanel()
+  expect(await screen.findByText('2026-11-20 기록')).toBeInTheDocument()
+  expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringMatching(/\/ai-candidates\?from=\d{4}-\d{2}-01&to=\d{4}-\d{2}-\d{2}$/))
+
+  fireEvent.click(screen.getByRole('button', { name: '이전 달' }))
+  fireEvent.click(await screen.findByRole('gridcell', { name: /-03 기록 (있음|없음)/ }))
+  expect(await screen.findByText('이 날짜에는 저장한 평가가 없어요.')).toBeInTheDocument()
+  expect(screen.queryByText('가나전자')).not.toBeInTheDocument()
 })

@@ -21,7 +21,7 @@ const view = {
 
 beforeEach(() => {
   globalThis.fetch = vi.fn().mockImplementation((url: string) => {
-    const body = url.endsWith('/watch/summary') ? summary : url.includes('/watch') ? view : url.endsWith('/ai-plans') ? [] : {}
+    const body = url.endsWith('/watch/summary') ? summary : url.includes('/watch') ? view : url.split('?')[0].endsWith('/ai-plans') ? [] : {}
     return Promise.resolve({ ok: true, status: 200, json: async () => body })
   }) as unknown as typeof fetch
 })

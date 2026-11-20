@@ -8,6 +8,7 @@ import { Fragment, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { pct } from './AiPlanPage'
 import { PriceFlow } from './PriceFlow'
+import { RecordCalendar, monthRange, seoulToday, type DayMark } from './RecordCalendar'
 
 // 아래 타입은 /api/v1/ai-candidates 응답 모양이에요. 퍼센트 값은 2가 2%예요.
 type PoolStock = { rank: number; stockCode: string; stockName: string }
@@ -66,9 +67,20 @@ export function AiCandidatePanel() {
   const [selected, setSelected] = useState<number | null>(null)
   const [showRaw, setShowRaw] = useState(false)
   const summary = useQuery({ queryKey: ['ai-candidates', 'summary'], queryFn: () => get<CandidateSummary>(`${BASE}/summary`) })
-  const list = useQuery({ queryKey: ['ai-candidates', 'list'], queryFn: () => get<EvalSummary[]>(BASE) })
+  const [month, setMonth] = useState(() => seoulToday().slice(0, 7))
+  const [day, setDay] = useState<string | null>(null)
+  const range = monthRange(month)
+  const list = useQuery({ queryKey: ['ai-candidates', 'list', month], queryFn: () => get<EvalSummary[]>(`${BASE}?from=${range.from}&to=${range.to}`) })
   const card = useQuery({ queryKey: ['ai-candidates', 'card'], queryFn: () => get<Card>(`${BASE}/card`), enabled: showCard, retry: false })
-  const currentId = selected ?? list.data?.[0]?.id ?? null
+  const latest = list.data?.reduce<string | null>((max, item) => max == null || item.targetDate > max ? item.targetDate : max, null) ?? null
+  const currentDay = day ?? latest ?? seoulToday()
+  const dayItems = (list.data?.filter(item => item.targetDate === currentDay) ?? []).sort((a, b) => a.revision - b.revision)
+  const marks: Record<string, DayMark> = {}
+  list.data?.forEach(item => {
+    const prev = marks[item.targetDate]
+    if (!prev || item.counted) marks[item.targetDate] = { label: `A${item.gradeA}·회피${item.gradeAvoid}`, tone: item.counted ? 'ok' : 'muted' }
+  })
+  const currentId = selected ?? (dayItems.find(item => item.counted) ?? dayItems[0])?.id ?? null
   const detail = useQuery({ queryKey: ['ai-candidates', 'detail', currentId], queryFn: () => get<Detail>(`${BASE}/${currentId}`), enabled: currentId != null })
 
   const check = useMutation({ mutationFn: () => post(`${BASE}/check`, raw), onSuccess: setResult })
@@ -78,6 +90,8 @@ export function AiCandidatePanel() {
       setResult(data)
       if (data.saved && data.evaluation) {
         setSelected(data.evaluation.id)
+        setDay(data.evaluation.targetDate)
+        setMonth(data.evaluation.targetDate.slice(0, 7))
         setRaw('')
         client.invalidateQueries({ queryKey: ['ai-candidates'] })
       }
@@ -169,19 +183,23 @@ export function AiCandidatePanel() {
 
       <section className="aiHistory">
         <aside aria-label="후보 평가 기록">
-          <h2>기록</h2>
-          {list.data?.length === 0 && <p className="aiEmpty">아직 저장한 평가가 없어요.</p>}
-          {list.data?.map(item => (
+          <RecordCalendar label="후보 평가 기록 달력" month={month} onMonth={setMonth} marks={marks} selected={currentDay}
+            onSelect={date => { setDay(date); setSelected(null); setShowRaw(false) }} />
+          <div className="aiDayList">
+          <h2>{currentDay} 기록</h2>
+          {dayItems.length === 0 && <p className="aiEmpty">{list.isLoading ? '불러오는 중이에요.' : '이 날짜에는 저장한 평가가 없어요.'}</p>}
+          {dayItems.map(item => (
             <button type="button" key={item.id} className={item.id === currentId ? 'active' : ''} onClick={() => { setSelected(item.id); setShowRaw(false) }}>
               <b>{item.targetDate} · {item.revision}판</b>
               <span>A {item.gradeA} · 회피 {item.gradeAvoid} · {OUTLOOK[item.marketOutlook] ?? item.marketOutlook}{item.counted ? ' · 집계' : ''}</span>
             </button>
           ))}
+          </div>
         </aside>
-        <div className="aiDetail">
-          {!detail.data && <p className="aiEmpty">평가를 고르면 종목별 등급과 결과가 보여요.</p>}
+        {currentId != null && <div className="aiDetail">
+          {!detail.data && <p className="aiEmpty">불러오는 중이에요.</p>}
           {detail.data && <EvalDetailView detail={detail.data} day={s?.days.find(d => d.date === detail.data.evaluation.targetDate)} showRaw={showRaw} onToggleRaw={() => setShowRaw(value => !value)} />}
-        </div>
+        </div>}
       </section>
     </>
   )

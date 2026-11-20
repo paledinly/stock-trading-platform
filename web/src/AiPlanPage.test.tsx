@@ -20,7 +20,7 @@ beforeEach(() => {
   globalThis.fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
     if (init?.method === 'POST')
       return Promise.resolve({ ok: false, status: 422, json: async () => ({ saved: false, errors: ['targetDate는 YYYY-MM-DD 형식이어야 해요.'], warnings: [], plan: null }) })
-    const body = url.endsWith('/summary') ? summary : url.endsWith('/ai-plans') ? [plan] : url.endsWith('/7') ? detail : {}
+    const body = url.endsWith('/summary') ? summary : url.split('?')[0].endsWith('/ai-plans') ? [plan] : url.endsWith('/7') ? detail : {}
     return Promise.resolve({ ok: true, status: 200, json: async () => body })
   }) as unknown as typeof fetch
 })
