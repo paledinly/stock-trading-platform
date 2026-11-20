@@ -4,9 +4,11 @@
  * 장 마감 뒤 같은 명단의 평균·무작위·단순 규칙 바구니와 비교한 채점과 사전 등록 판정(처음 40채점일)을 보여 줘요.
  * 실주문·추천·구독에는 영향이 없어요. AiPlanPage의 탭으로 들어가요.
  */
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { pct } from './AiPlanPage'
+import { PriceFlow } from './PriceFlow'
+import { RecordCalendar, monthRange, seoulToday, type DayMark } from './RecordCalendar'
 
 // 아래 타입은 /api/v1/ai-candidates 응답 모양이에요. 퍼센트 값은 2가 2%예요.
 type PoolStock = { rank: number; stockCode: string; stockName: string }
@@ -65,9 +67,20 @@ export function AiCandidatePanel() {
   const [selected, setSelected] = useState<number | null>(null)
   const [showRaw, setShowRaw] = useState(false)
   const summary = useQuery({ queryKey: ['ai-candidates', 'summary'], queryFn: () => get<CandidateSummary>(`${BASE}/summary`) })
-  const list = useQuery({ queryKey: ['ai-candidates', 'list'], queryFn: () => get<EvalSummary[]>(BASE) })
+  const [month, setMonth] = useState(() => seoulToday().slice(0, 7))
+  const [day, setDay] = useState<string | null>(null)
+  const range = monthRange(month)
+  const list = useQuery({ queryKey: ['ai-candidates', 'list', month], queryFn: () => get<EvalSummary[]>(`${BASE}?from=${range.from}&to=${range.to}`) })
   const card = useQuery({ queryKey: ['ai-candidates', 'card'], queryFn: () => get<Card>(`${BASE}/card`), enabled: showCard, retry: false })
-  const currentId = selected ?? list.data?.[0]?.id ?? null
+  const latest = list.data?.reduce<string | null>((max, item) => max == null || item.targetDate > max ? item.targetDate : max, null) ?? null
+  const currentDay = day ?? latest ?? seoulToday()
+  const dayItems = (list.data?.filter(item => item.targetDate === currentDay) ?? []).sort((a, b) => a.revision - b.revision)
+  const marks: Record<string, DayMark> = {}
+  list.data?.forEach(item => {
+    const prev = marks[item.targetDate]
+    if (!prev || item.counted) marks[item.targetDate] = { label: `A${item.gradeA}·회피${item.gradeAvoid}`, tone: item.counted ? 'ok' : 'muted' }
+  })
+  const currentId = selected ?? (dayItems.find(item => item.counted) ?? dayItems[0])?.id ?? null
   const detail = useQuery({ queryKey: ['ai-candidates', 'detail', currentId], queryFn: () => get<Detail>(`${BASE}/${currentId}`), enabled: currentId != null })
 
   const check = useMutation({ mutationFn: () => post(`${BASE}/check`, raw), onSuccess: setResult })
@@ -77,6 +90,8 @@ export function AiCandidatePanel() {
       setResult(data)
       if (data.saved && data.evaluation) {
         setSelected(data.evaluation.id)
+        setDay(data.evaluation.targetDate)
+        setMonth(data.evaluation.targetDate.slice(0, 7))
         setRaw('')
         client.invalidateQueries({ queryKey: ['ai-candidates'] })
       }
@@ -168,19 +183,23 @@ export function AiCandidatePanel() {
 
       <section className="aiHistory">
         <aside aria-label="후보 평가 기록">
-          <h2>기록</h2>
-          {list.data?.length === 0 && <p className="aiEmpty">아직 저장한 평가가 없어요.</p>}
-          {list.data?.map(item => (
+          <RecordCalendar label="후보 평가 기록 달력" month={month} onMonth={setMonth} marks={marks} selected={currentDay}
+            onSelect={date => { setDay(date); setSelected(null); setShowRaw(false) }} />
+          <div className="aiDayList">
+          <h2>{currentDay} 기록</h2>
+          {dayItems.length === 0 && <p className="aiEmpty">{list.isLoading ? '불러오는 중이에요.' : '이 날짜에는 저장한 평가가 없어요.'}</p>}
+          {dayItems.map(item => (
             <button type="button" key={item.id} className={item.id === currentId ? 'active' : ''} onClick={() => { setSelected(item.id); setShowRaw(false) }}>
               <b>{item.targetDate} · {item.revision}판</b>
               <span>A {item.gradeA} · 회피 {item.gradeAvoid} · {OUTLOOK[item.marketOutlook] ?? item.marketOutlook}{item.counted ? ' · 집계' : ''}</span>
             </button>
           ))}
+          </div>
         </aside>
-        <div className="aiDetail">
-          {!detail.data && <p className="aiEmpty">평가를 고르면 종목별 등급과 결과가 보여요.</p>}
+        {currentId != null && <div className="aiDetail">
+          {!detail.data && <p className="aiEmpty">불러오는 중이에요.</p>}
           {detail.data && <EvalDetailView detail={detail.data} day={s?.days.find(d => d.date === detail.data.evaluation.targetDate)} showRaw={showRaw} onToggleRaw={() => setShowRaw(value => !value)} />}
-        </div>
+        </div>}
       </section>
     </>
   )
@@ -189,6 +208,7 @@ export function AiCandidatePanel() {
 /** 평가 한 판의 종목별 등급·채점 결과와 그날 바구니 비교예요. */
 function EvalDetailView({ detail, day, showRaw, onToggleRaw }: { detail: Detail; day?: Day; showRaw: boolean; onToggleRaw: () => void }) {
   const e = detail.evaluation
+  const [open, setOpen] = useState<string | null>(null)
   return (
     <>
       <div className="aiDetailHead">
@@ -207,8 +227,13 @@ function EvalDetailView({ detail, day, showRaw, onToggleRaw }: { detail: Detail;
           <span role="columnheader">과열·공시위험</span><span role="columnheader">매수 방식</span><span role="columnheader">손절/목표</span>
           <span role="columnheader">확신도</span><span role="columnheader">시가→종가</span>
         </div>
-        {detail.grades.map(g => (
-          <div role="row" className="aiRow" key={g.stockCode}>
+        {detail.grades.map(g => {
+          const expanded = open === g.stockCode
+          return (
+          <Fragment key={g.stockCode}>
+          <div role="row" className={expanded ? 'aiRow aiRowButton open' : 'aiRow aiRowButton'} tabIndex={0} aria-expanded={expanded}
+            onClick={() => setOpen(expanded ? null : g.stockCode)}
+            onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setOpen(expanded ? null : g.stockCode) } }}>
             <span role="cell" title={g.riskFlags ?? ''}>
               <em className={g.grade === 'AVOID' ? 'aiBadge warn' : g.grade === 'A' ? 'aiBadge top' : 'aiBadge'}>{g.poolRank}</em>
               <b>{g.stockName}</b><small>{g.stockCode}{g.riskFlags ? ` · ${g.riskFlags}` : ''}{g.usedExternalInfo ? ' · 외부정보' : ''}{g.status && g.status !== 'COMPLETE' ? ` · ${g.status}` : ''}</small>
@@ -221,7 +246,10 @@ function EvalDetailView({ detail, day, showRaw, onToggleRaw }: { detail: Detail;
             <span role="cell">{g.confidence}</span>
             <span role="cell" className={tone(g.openClosePct)}>{g.status ? pct(g.openClosePct) : '채점 전'}</span>
           </div>
-        ))}
+          {expanded && <div role="row" className="aiFlowRow"><div role="cell"><PriceFlow code={g.stockCode} date={e.targetDate} name={g.stockName} /></div></div>}
+          </Fragment>
+          )
+        })}
       </div>
       <p className="aiNote">채점: 그날 시가 매수 → 종가 매도. 비교 대상은 같은 명단 40종목이에요. AI가 적은 매수 방식·손절·목표는 기록만 하고 v1 채점에는 쓰지 않아요.</p>
       {detail.revisions.length > 1 && (

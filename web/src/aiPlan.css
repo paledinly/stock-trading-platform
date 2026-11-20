@@ -22,19 +22,34 @@
 .aiErrors,.aiWarnings{margin:8px 0;padding:10px 10px 10px 28px;border-radius:6px;font-size:13px}
 .aiErrors{border:1px solid var(--up-border);background:var(--up-bg);color:var(--up-fg)}
 .aiWarnings{border:1px solid var(--warn-border);background:var(--warn-bg);color:var(--warn-fg)}
-.aiHistory{display:grid;grid-template-columns:240px 1fr;gap:16px;align-items:start}
-.aiHistory aside{display:flex;flex-direction:column;gap:8px}.aiHistory aside h2{margin-bottom:4px}
-.aiHistory aside button{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left}
-.aiHistory aside button span{color:var(--text-muted);font-size:12px}
+.aiHistory{display:flex;flex-direction:column;gap:16px}
+.aiHistory aside{display:grid;grid-template-columns:minmax(300px,420px) 1fr;gap:20px;align-items:start}
+.aiDayList{display:flex;flex-direction:column;gap:8px;min-width:0}.aiDayList h2{margin-bottom:2px}.aiDayList .aiEmpty{margin:4px 0}
+.aiDayList button{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left}
+.aiDayList button span{color:var(--text-muted);font-size:12px}
+.aiCalendarHead{display:flex;align-items:center;gap:8px;margin-bottom:8px}.aiCalendarHead b{min-width:96px;text-align:center}.aiCalendarHead small{margin-left:auto;color:var(--text-muted);font-size:12px}
+.aiPlanPage .aiCalendarHead button{padding:3px 10px}
+.aiCalendarGrid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.aiCalendarWeek{padding:2px 0;color:var(--text-muted);font-size:11px;text-align:center}.aiCalendarWeek.sun{color:var(--up-fg)}.aiCalendarWeek.sat{color:var(--down-fg)}
+.aiPlanPage button.aiCalendarDay{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:1px;min-height:46px;padding:4px 2px;border-color:transparent;background:transparent}
+.aiPlanPage button.aiCalendarDay:hover{background:var(--surface-2)}
+.aiCalendarDay b{font-size:13px;font-weight:500}.aiCalendarDay.weekend b{color:var(--text-muted)}
+.aiCalendarDay small{max-width:100%;overflow:hidden;color:var(--violet-fg);font-size:10px;white-space:nowrap}
+.aiPlanPage button.aiCalendarDay.marked{border-color:var(--violet-border);background:var(--violet-bg)}.aiCalendarDay.marked b{font-weight:700;color:var(--text)}
+.aiPlanPage button.aiCalendarDay.marked.ok{border-color:var(--ok-border);background:var(--ok-bg)}.aiCalendarDay.marked.ok small{color:var(--ok-fg)}
+.aiPlanPage button.aiCalendarDay.marked.muted{border-style:dashed;background:transparent}.aiCalendarDay.marked.muted small{color:var(--text-muted)}
+.aiCalendarLegend{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin:8px 0 0;color:var(--text-muted);font-size:11px}.aiCalendarLegend i{display:inline-block;width:10px;height:10px;margin-left:6px;border:1px solid var(--ok-border);border-radius:3px;background:var(--ok-bg)}.aiCalendarLegend i:first-child{margin-left:0}.aiCalendarLegend i.muted{border:1px dashed var(--violet-border);background:transparent}
+.aiCalendarDay.today b{text-decoration:underline;text-underline-offset:3px}
+.aiPlanPage button.aiCalendarDay.selected{outline:2px solid var(--violet-solid);outline-offset:-1px}
 .aiHistory button.active,.aiRevisions button.active{border-color:var(--violet-border);background:var(--violet-bg)}
 .aiEmpty{color:var(--text-muted)}
-.aiDetailHead{display:flex;justify-content:space-between;gap:12px;margin-bottom:10px}.aiDetailHead span{display:block;color:var(--text-muted);font-size:12px}
+.aiDetailHead{display:flex;justify-content:space-between;gap:12px;margin-bottom:10px}.aiDetailHead span{display:block;color:var(--text-muted);font-size:12px}.aiDetailHead>.aiBadge{align-self:flex-start}
 .aiBadge{display:inline-block;padding:2px 8px;border:1px solid var(--border);border-radius:999px;color:var(--text-2);font-size:11px;font-style:normal;white-space:nowrap}
 .aiBadge.ok{border-color:var(--ok-border);color:var(--ok-fg)}.aiBadge.top{border-color:var(--violet-border);color:var(--violet-fg)}.aiBadge.warn{border-color:var(--warn-border);color:var(--warn-fg)}
 .aiTable{display:flex;flex-direction:column;gap:4px;margin-top:8px}
-.aiRow{display:grid;grid-template-columns:minmax(180px,2fr) repeat(7,minmax(64px,1fr));gap:8px;align-items:center;padding:9px 10px;border-radius:6px;background:var(--surface-2);font-size:13px}
+.aiRow{display:grid;grid-template-columns:minmax(240px,3fr) repeat(7,minmax(64px,1fr));gap:8px;align-items:center;padding:9px 10px;border-radius:6px;background:var(--surface-2);font-size:13px}
 .aiRow.head{background:transparent;color:var(--text-muted);font-size:11px}
-.aiRow>span:first-child{display:flex;align-items:center;gap:8px;min-width:0}.aiRow>span:first-child b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.aiRow>span:first-child{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;min-width:0}.aiRow>span:first-child b{overflow-wrap:anywhere}
 .aiRow small{color:var(--text-muted)}.aiRow>span:not(:first-child){text-align:right}
 .aiNote{margin:10px 0;color:var(--text-muted);font-size:12px}
 .aiRevisions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0}.aiRevisions small{color:var(--text-muted)}
@@ -57,5 +72,19 @@
 .aiEvents{margin:10px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px;font-size:13px}
 .aiEvents li{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:6px 10px;border-radius:6px;background:var(--surface-2)}
 .aiEvents small{color:var(--text-muted);font-size:11px}
-@media(max-width:1050px){.aiGate{grid-template-columns:1fr 1fr}.aiHistory{grid-template-columns:1fr}}
+@media(max-width:1050px){.aiGate{grid-template-columns:1fr 1fr}.aiHistory aside{grid-template-columns:1fr}}
 @media(max-width:720px){.aiGate{grid-template-columns:1fr}.aiTable{overflow-x:auto}.aiRow{min-width:720px}.aiWatchRow{min-width:860px}.aiConditions{grid-template-columns:1fr}.aiInputHead{flex-direction:column;align-items:flex-start}}
+.aiRowButton{cursor:pointer}.aiRowButton:hover{background:var(--surface-3)}.aiRowButton:focus-visible{outline:2px solid var(--violet-border);outline-offset:1px}.aiRowButton.open{border-radius:6px 6px 0 0;background:var(--violet-bg)}
+.aiFlowRow{margin-top:-4px;padding:12px 14px 10px;border:1px solid var(--violet-border);border-top:0;border-radius:0 0 6px 6px;background:var(--surface)}
+.aiFlow .aiEmpty{margin:4px 0}
+.aiFlowStats{display:flex;flex-wrap:wrap;gap:6px 22px;margin-bottom:6px}.aiFlowStats span{display:flex;flex-direction:column;gap:2px}.aiFlowStats small{color:var(--text-muted);font-size:11px}.aiFlowStats b{font-size:14px}.aiFlowStats em{font-size:11px;font-style:normal}
+.aiFlowChart svg{display:block;width:100%;height:auto;max-height:260px}
+.aiFlowLine{fill:none;stroke-width:1.6}.aiFlowLine.up{stroke:var(--up-fg)}.aiFlowLine.down{stroke:var(--down-fg)}
+.aiFlowDot.up{fill:var(--up-fg)}.aiFlowDot.down{fill:var(--down-fg)}
+.aiFlowOpen{stroke:var(--text-muted);stroke-dasharray:4 4;stroke-width:1}
+.aiFlowVol{fill:var(--border)}
+.aiFlowCursor{stroke:var(--text-muted);stroke-width:1}
+.aiFlowAxis{fill:var(--text-muted);font-size:11px}
+.aiFlowHover{min-height:18px;color:var(--text-2);font-size:12px}
+.aiFlow .aiNote{margin:6px 0 0}
+.aiNxt{flex-basis:100%;color:var(--text-muted);font-size:11px}.aiNxt.verified{color:var(--violet-fg)}

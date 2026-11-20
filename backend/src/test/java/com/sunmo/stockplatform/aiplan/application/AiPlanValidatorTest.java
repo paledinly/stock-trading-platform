@@ -283,8 +283,79 @@ class AiPlanValidatorTest {
         assertThat(pullback.unsupported()).containsExactly("CLOSE_5M 기준 PULLBACK_RECOVERY_LEVEL");
     }
 
+    /**
+     * 기대: 화면이 내려주는 v5 예시(NXT 관찰 없음, UNAVAILABLE)에 선정 이유·매수 금지 사유·출처만 채우면 경고 없이 저장할 수 있어요.
+     * 진입 조건은 v4와 같아 규칙 A가 그대로 읽어요.
+     */
+    @Test
+    void acceptsTheVersionFiveExample() throws Exception {
+        var mapper = new ObjectMapper();
+        var root = example(mapper, "ai-premarket-v5");
+
+        var result = beforeOpen().validate(mapper.writeValueAsString(root));
+
+        assertThat(result.errors()).isEmpty();
+        assertThat(result.warnings()).noneMatch(w -> w.contains("nxtPremarket")).noneMatch(w -> w.contains("규칙 A"));
+        assertThat(result.plan().schemaVersion()).isEqualTo("ai-premarket-v5");
+        assertThat(result.plan().promptVersion()).isEqualTo("premarket-v5.0");
+        assertThat(result.plan().marketNxt().status()).isEqualTo("UNAVAILABLE");
+        assertThat(result.plan().picks()).singleElement().satisfies(p -> {
+            assertThat(p.nxt().status()).isEqualTo("UNAVAILABLE");
+            assertThat(p.nxt().verified()).isFalse();
+            assertThat(p.nxt().turnoverTrend()).isEqualTo("UNKNOWN");
+        });
+        assertThat(com.sunmo.stockplatform.aiplan.realtime.AiCondition.parse(root.withArray("picks").get(0)).supported()).isTrue();
+    }
+
+    /**
+     * 기대: 당일 NXT 값을 확인한 종목은 숫자·추세·유지력·기준 시각을 저장하고 verified를 인정해요.
+     * 유지력이 계산과 다르거나, 근거 없이 verified=true면 경고하고(검증 안 됨으로 저장), 기준 시각이 미래면 저장을 막아요.
+     */
+    @Test
+    void readsVersionFiveNxtObservations() throws Exception {
+        var mapper = new ObjectMapper();
+        var root = example(mapper, "ai-premarket-v5");
+        var nxt = (com.fasterxml.jackson.databind.node.ObjectNode) root.withArray("picks").get(0).get("nxtPremarket");
+        nxt.put("status", "VERIFIED").put("eligible", true).put("lastPriceKRW", 10500).put("changeRatePct", 3.2)
+                .put("highKRW", 10600).put("lowKRW", 10000).put("turnoverKRW", 1_250_000_000L)
+                .put("recentTurnoverTrend", "INCREASING").put("priceRetention", "NEAR_HIGH")
+                .put("marketDataAsOf", "2026-11-11T07:50:00+09:00").put("source", "넥스트레이드").put("verified", true);
+
+        var result = beforeOpen().validate(mapper.writeValueAsString(root));
+
+        assertThat(result.errors()).isEmpty();
+        assertThat(result.warnings()).noneMatch(w -> w.contains("nxtPremarket"));
+        var saved = result.plan().picks().get(0).nxt();
+        assertThat(saved.verified()).isTrue();
+        assertThat(saved.changePct()).isEqualByComparingTo("3.2");
+        assertThat(saved.turnover()).isEqualByComparingTo("1250000000");
+        assertThat(saved.priceRetention()).isEqualTo("NEAR_HIGH");
+
+        nxt.put("priceRetention", "MID_RANGE").remove("source");
+        result = beforeOpen().validate(mapper.writeValueAsString(root));
+        assertThat(result.errors()).isEmpty();
+        assertThat(result.plan().picks().get(0).nxt().verified()).isFalse();
+        assertThat(result.warnings()).anyMatch(w -> w.contains("priceRetention") && w.contains("NEAR_HIGH"))
+                .anyMatch(w -> w.contains("verified가 true인데"));
+
+        nxt.put("marketDataAsOf", "2026-11-11T08:40:00+09:00");
+        assertThat(beforeOpen().validate(mapper.writeValueAsString(root)).errors())
+                .anyMatch(e -> e.contains("marketDataAsOf가 지금보다 미래"));
+
+        ((com.fasterxml.jackson.databind.node.ObjectNode) root.withArray("picks").get(0)).remove("nxtPremarket");
+        ((com.fasterxml.jackson.databind.node.ObjectNode) root.get("market")).put("nxtPremarket", "none");
+        result = beforeOpen().validate(mapper.writeValueAsString(root));
+        assertThat(result.errors()).isEmpty();
+        assertThat(result.warnings()).anyMatch(w -> w.startsWith("market.nxtPremarket가 없어요"))
+                .anyMatch(w -> w.startsWith("picks[0].nxtPremarket가 없어요"));
+    }
+
     private static com.fasterxml.jackson.databind.node.ObjectNode versionFourExample(ObjectMapper mapper) throws Exception {
-        String example = new org.springframework.core.io.ClassPathResource("ai-premarket/ai-premarket-v4.example.json")
+        return example(mapper, "ai-premarket-v4");
+    }
+
+    private static com.fasterxml.jackson.databind.node.ObjectNode example(ObjectMapper mapper, String name) throws Exception {
+        String example = new org.springframework.core.io.ClassPathResource("ai-premarket/" + name + ".example.json")
                 .getContentAsString(java.nio.charset.StandardCharsets.UTF_8).replace("YYYY-MM-DD", "2026-11-11").replace("YYYYMMDD", "20261111");
         var root = (com.fasterxml.jackson.databind.node.ObjectNode) mapper.readTree(example);
         var pick = (com.fasterxml.jackson.databind.node.ObjectNode) root.withArray("picks").get(0);

@@ -6,19 +6,23 @@
  * '후보 평가' 탭(AiCandidatePanel)은 ADR-014: 프로그램이 정한 후보 40종목을 AI가 평가하고 같은 명단과 비교해 채점해요.
  * 화면 이동과 메뉴는 AppShell.tsx가 맡아요.
  */
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import './aiPlan.css'
 import { AiWatchPanel } from './AiWatchPanel'
 import { AiCandidatePanel } from './AiCandidatePanel'
+import { PriceFlow } from './PriceFlow'
+import { RecordCalendar, monthRange, seoulToday, type DayMark } from './RecordCalendar'
 
 // 아래 타입은 /api/v1/ai-plans 응답 모양이에요. 퍼센트 값은 2가 2%예요.
 /** 날짜별 계획 한 판의 요약이에요. scored는 성과 집계에 쓰는 판(장 시작 전 마지막 판)인지예요. */
-export type PlanSummary = { id: number; targetDate: string; revision: number; schemaVersion: string; analysisId: string | null; analysisMode: string; analyzedAt: string | null; submittedAt: string; onTime: boolean; scored: boolean; tradeDecision: string; marketOutlook: string; marketRegime: string | null; riskLevel: string | null; modelName: string; modelVersion: string | null; promptVersion: string; pickCount: number; avoidCount: number; warnings: string[] }
+export type PlanSummary = { id: number; targetDate: string; revision: number; schemaVersion: string; analysisId: string | null; analysisMode: string; analyzedAt: string | null; submittedAt: string; onTime: boolean; scored: boolean; tradeDecision: string; marketOutlook: string; marketRegime: string | null; riskLevel: string | null; modelName: string; modelVersion: string | null; promptVersion: string; pickCount: number; avoidCount: number; warnings: string[]; nxtStatus?: string | null; nxtVerified?: boolean | null }
 /** 장 마감 뒤 실제 일봉으로 잰 결과예요. */
 type Outcome = { tradeDate: string; status: string; gapPct: number | null; openClosePct: number | null; highPct: number | null; lowPct: number | null; netOpenClosePct: number | null; universeOpenClosePct: number | null; excessOpenClosePct: number | null; universeCount: number | null }
 /** 계획에 나온 종목 하나예요. kind는 PICK(매수 후보) 또는 AVOID(매수 금지)예요. */
-type Pick = { id: number; kind: string; stockCode: string; stockName: string; priority: number | null; reason: string | null; topPriority: boolean; confidence: string | null; outcome: Outcome | null }
+/** v5 계획에서 AI가 적은 NXT 프리마켓 관찰이에요(프로그램이 잰 값이 아님). changePct는 3.2가 3.2%예요. */
+type Nxt = { status: string | null; eligible: boolean | null; lastPrice: number | null; changePct: number | null; turnover: number | null; turnoverTrend: string | null; priceRetention: string | null; asOf: string | null; verified: boolean | null }
+type Pick = { id: number; kind: string; stockCode: string; stockName: string; priority: number | null; reason: string | null; topPriority: boolean; confidence: string | null; outcome: Outcome | null; nxt?: Nxt | null }
 type Detail = { plan: PlanSummary; rawJson: string; picks: Pick[]; revisions: PlanSummary[] }
 type SubmitResult = { saved: boolean; errors: string[]; warnings: string[]; plan: PlanSummary | null }
 type Day = { date: string; picks: number; pickOpenClose: number | null; pickNet: number | null; universeOpenClose: number | null; excess: number | null }
@@ -52,6 +56,26 @@ function tone(value?: number | null) {
 
 const OUTLOOK: Record<string, string> = { BULLISH: '강세', NEUTRAL: '중립', BEARISH: '약세' }
 const DECISION: Record<string, string> = { TRADE: '매매', WATCH_ONLY: '감시만', NO_TRADE: '매매 안 함', DATA_INSUFFICIENT: '자료 부족' }
+const NXT_STATUS: Record<string, string> = { VERIFIED: '확인', PARTIAL: '일부 확인', UNAVAILABLE: '확인 못 함', NOT_ELIGIBLE: '거래 대상 아님' }
+const NXT_TREND: Record<string, string> = { INCREASING: '대금 증가', STABLE: '대금 유지', DECREASING: '대금 감소' }
+const NXT_RETENTION: Record<string, string> = { NEAR_HIGH: '고가권', MID_RANGE: '중간', NEAR_LOW: '저가권' }
+
+/** 종목의 NXT 프리마켓 관찰을 한 줄로 보여 줘요. AI가 적은 값이고, 검증(verified) 안 된 값은 흐리게 보여요. */
+function NxtBadge({ nxt }: { nxt: Nxt }) {
+  const parts = [
+    nxt.changePct != null ? `${nxt.changePct >= 0 ? '+' : ''}${Number(nxt.changePct).toFixed(2)}%` : null,
+    nxt.turnover != null ? `${(Number(nxt.turnover) / 100_000_000).toLocaleString('ko-KR', { maximumFractionDigits: 1 })}억` : null,
+    nxt.turnoverTrend ? NXT_TREND[nxt.turnoverTrend] ?? null : null,
+    nxt.priceRetention ? NXT_RETENTION[nxt.priceRetention] ?? null : null,
+  ].filter(Boolean)
+  const label = nxt.status ? NXT_STATUS[nxt.status] ?? nxt.status : '상태 없음'
+  return (
+    <small className={nxt.verified ? 'aiNxt verified' : 'aiNxt'} title={`AI가 적은 NXT 프리마켓 값${nxt.asOf ? ` (기준 ${new Date(nxt.asOf).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit' })})` : ''}${nxt.verified ? '' : ' · 검증 안 됨'}`}>
+      NXT {parts.length ? parts.join(' · ') : label}{parts.length && nxt.status !== 'VERIFIED' ? ` (${label})` : ''}
+    </small>
+  )
+}
+
 const RISK: Record<string, string> = { LOW: '위험 낮음', MEDIUM: '위험 보통', HIGH: '위험 높음', EXTREME: '위험 매우 높음' }
 const VERDICT: Record<string, string> = { PENDING: '기록 중', PASS: '통과', FAIL: '미달' }
 const STATUS: Record<string, string> = { COMPLETE: '완료', NO_DATA: '일봉 없음', SUSPECT: '확인 필요' }
@@ -73,9 +97,17 @@ export function AiPlanPage() {
   const [showRaw, setShowRaw] = useState(false)
   const [tab, setTab] = useState<'plan' | 'watch' | 'candidate'>('plan')
   const summary = useQuery({ queryKey: ['ai-plans', 'summary'], queryFn: () => get<Summary>('/api/v1/ai-plans/summary') })
-  const plans = useQuery({ queryKey: ['ai-plans', 'list'], queryFn: () => get<PlanSummary[]>('/api/v1/ai-plans') })
+  const [month, setMonth] = useState(() => seoulToday().slice(0, 7))
+  const [day, setDay] = useState<string | null>(null)
+  const range = monthRange(month)
+  const plans = useQuery({ queryKey: ['ai-plans', 'list', month], queryFn: () => get<PlanSummary[]>(`/api/v1/ai-plans?from=${range.from}&to=${range.to}`) })
   const template = useQuery({ queryKey: ['ai-plans', 'template'], queryFn: () => get<Template>('/api/v1/ai-plans/template'), enabled: showPrompt })
-  const currentId = selected ?? plans.data?.[0]?.id ?? null
+  const latest = plans.data?.reduce<string | null>((max, plan) => max == null || plan.targetDate > max ? plan.targetDate : max, null) ?? null
+  const currentDay = day ?? latest ?? seoulToday()
+  const dayPlans = plans.data?.filter(plan => plan.targetDate === currentDay) ?? []
+  const marks: Record<string, DayMark> = {}
+  plans.data?.forEach(plan => { marks[plan.targetDate] = { label: plan.pickCount > 0 ? `${plan.pickCount}종목` : (DECISION[plan.tradeDecision] ?? plan.tradeDecision), tone: plan.scored ? 'ok' : plan.onTime ? undefined : 'muted' } })
+  const currentId = selected ?? (dayPlans.find(plan => plan.scored) ?? dayPlans[0])?.id ?? null
   const detail = useQuery({ queryKey: ['ai-plans', 'detail', currentId], queryFn: () => get<Detail>(`/api/v1/ai-plans/${currentId}`), enabled: currentId != null })
 
   const check = useMutation({ mutationFn: () => post('/api/v1/ai-plans/check', raw), onSuccess: setResult })
@@ -85,6 +117,8 @@ export function AiPlanPage() {
       setResult(data)
       if (data.saved && data.plan) {
         setSelected(data.plan.id)
+        setDay(data.plan.targetDate)
+        setMonth(data.plan.targetDate.slice(0, 7))
         setRaw('')
         client.invalidateQueries({ queryKey: ['ai-plans'] })
       }
@@ -166,7 +200,7 @@ export function AiPlanPage() {
             </div>
           )}
           <textarea aria-label="AI 장전 분석 JSON" value={raw} onChange={event => { setRaw(event.target.value); setResult(null) }}
-            placeholder='{"schemaVersion":"ai-premarket-v4", ...}' rows={10} spellCheck={false} />
+            placeholder='{"schemaVersion":"ai-premarket-v5", ...}' rows={10} spellCheck={false} />
           <div className="aiActions">
             <button type="button" onClick={() => check.mutate()} disabled={!raw.trim() || check.isPending}>검사만 하기</button>
             <button type="button" className="primary" onClick={() => save.mutate()} disabled={!raw.trim() || save.isPending}>검사 후 저장</button>
@@ -184,20 +218,24 @@ export function AiPlanPage() {
 
         <section className="aiHistory">
           <aside aria-label="계획 기록">
-            <h2>기록</h2>
-            {plans.data?.length === 0 && <p className="aiEmpty">아직 저장한 계획이 없어요.</p>}
-            {plans.data?.map(plan => (
+            <RecordCalendar label="계획 기록 달력" month={month} onMonth={setMonth} marks={marks} selected={currentDay}
+              onSelect={date => { setDay(date); setSelected(null); setShowRaw(false) }} />
+            <div className="aiDayList">
+            <h2>{currentDay} 기록</h2>
+            {dayPlans.length === 0 && <p className="aiEmpty">{plans.isLoading ? '불러오는 중이에요.' : '이 날짜에는 저장한 계획이 없어요.'}</p>}
+            {dayPlans.map(plan => (
               <button type="button" key={plan.id} className={plan.id === currentId ? 'active' : ''} onClick={() => { setSelected(plan.id); setShowRaw(false) }}>
                 <b>{plan.targetDate}</b>
                 <span>{DECISION[plan.tradeDecision] ?? plan.tradeDecision}{plan.pickCount > 0 ? ` ${plan.pickCount}종목` : ''} · {OUTLOOK[plan.marketOutlook] ?? plan.marketOutlook} · {plan.revision}판</span>
               </button>
             ))}
+            </div>
           </aside>
-          <div className="aiDetail">
-            {!detail.data && <p className="aiEmpty">계획을 고르면 종목별 결과가 보여요.</p>}
+          {currentId != null && <div className="aiDetail">
+            {!detail.data && <p className="aiEmpty">불러오는 중이에요.</p>}
             {detail.data && <PlanDetailView detail={detail.data} showRaw={showRaw} onToggleRaw={() => setShowRaw(value => !value)}
               onSelect={id => { setSelected(id); setShowRaw(false) }} />}
-          </div>
+          </div>}
         </section>
       </main>}
     </div>
@@ -207,12 +245,13 @@ export function AiPlanPage() {
 /** 계획 하나의 종목별 채점 결과, 같은 날 다른 판, 원본 JSON을 보여 줘요. */
 function PlanDetailView({ detail, showRaw, onToggleRaw, onSelect }: { detail: Detail; showRaw: boolean; onToggleRaw: () => void; onSelect: (id: number) => void }) {
   const plan = detail.plan
+  const [open, setOpen] = useState<number | null>(null)
   return (
     <>
       <div className="aiDetailHead">
         <div>
           <h2>{plan.targetDate} · {plan.revision}판</h2>
-          <span>{DECISION[plan.tradeDecision] ?? plan.tradeDecision} · {OUTLOOK[plan.marketOutlook] ?? plan.marketOutlook}{plan.riskLevel ? ` · ${RISK[plan.riskLevel] ?? plan.riskLevel}` : ''}{plan.marketRegime ? ` · ${plan.marketRegime}` : ''}</span>
+          <span>{DECISION[plan.tradeDecision] ?? plan.tradeDecision} · {OUTLOOK[plan.marketOutlook] ?? plan.marketOutlook}{plan.riskLevel ? ` · ${RISK[plan.riskLevel] ?? plan.riskLevel}` : ''}{plan.marketRegime ? ` · ${plan.marketRegime}` : ''}{plan.nxtStatus ? ` · NXT ${NXT_STATUS[plan.nxtStatus] ?? plan.nxtStatus}` : ''}</span>
           <span>분석 {kstTime(plan.analyzedAt)} · 저장 {kstTime(plan.submittedAt)} · {plan.modelName}{plan.modelVersion ? ` ${plan.modelVersion}` : ''} · 프롬프트 {plan.promptVersion}{plan.analysisMode === 'INTRADAY' ? ' · 장중 분석' : ''}</span>
         </div>
         <em className={plan.scored ? 'aiBadge ok' : 'aiBadge'}>{plan.scored ? '집계 대상' : plan.onTime ? '이전 판' : '장 시작 뒤 입력'}</em>
@@ -226,11 +265,15 @@ function PlanDetailView({ detail, showRaw, onToggleRaw, onSelect }: { detail: De
         </div>
         {detail.picks.map(pick => {
           const o = pick.outcome
+          const expanded = open === pick.id
           return (
-            <div role="row" className="aiRow" key={pick.id}>
+            <Fragment key={pick.id}>
+            <div role="row" className={expanded ? 'aiRow aiRowButton open' : 'aiRow aiRowButton'} tabIndex={0} aria-expanded={expanded}
+              onClick={() => setOpen(expanded ? null : pick.id)}
+              onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setOpen(expanded ? null : pick.id) } }}>
               <span role="cell" title={pick.reason ?? ''}>
                 <em className={pick.kind === 'AVOID' ? 'aiBadge warn' : pick.topPriority ? 'aiBadge top' : 'aiBadge'}>{pick.kind === 'AVOID' ? '매수 금지' : `${pick.priority ?? '-'}순위${pick.topPriority ? ' ★' : ''}`}</em>
-                <b>{pick.stockName}</b><small>{pick.stockCode}{o && o.status !== 'COMPLETE' ? ` · ${STATUS[o.status] ?? o.status}` : ''}{!o ? ' · 채점 전' : ''}</small>
+                <b>{pick.stockName}</b><small>{pick.stockCode}{o && o.status !== 'COMPLETE' ? ` · ${STATUS[o.status] ?? o.status}` : ''}{!o ? ' · 채점 전' : ''}</small>{pick.nxt && <NxtBadge nxt={pick.nxt} />}
               </span>
               <span role="cell" className={tone(o?.gapPct)}>{pct(o?.gapPct)}</span>
               <span role="cell" className={tone(o?.openClosePct)}>{pct(o?.openClosePct)}</span>
@@ -240,6 +283,8 @@ function PlanDetailView({ detail, showRaw, onToggleRaw, onSelect }: { detail: De
               <span role="cell" className={tone(o?.universeOpenClosePct)}>{pct(o?.universeOpenClosePct)}</span>
               <span role="cell" className={tone(o?.excessOpenClosePct)}><b>{pct(o?.excessOpenClosePct)}</b></span>
             </div>
+            {expanded && <div role="row" className="aiFlowRow"><div role="cell"><PriceFlow code={pick.stockCode} date={plan.targetDate} name={pick.stockName} /></div></div>}
+            </Fragment>
           )
         })}
       </div>

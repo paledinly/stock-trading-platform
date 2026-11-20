@@ -1,5 +1,5 @@
 /*
- * AI 장전 분석 JSON(규격 ai-premarket-v1, v2, v3)을 읽어 형식·종목·거래일·시각을 검사하는 파일이에요.
+ * AI 장전 분석 JSON(규격 ai-premarket-v1 ~ v5)을 읽어 형식·종목·거래일·시각을 검사하는 파일이에요.
  * 저장을 막는 문제는 errors, 저장은 하되 알려 줄 문제는 warnings로 나눠요.
  * AiPlanService가 저장 전에, 검사만 하는 API가 미리보기로 불러요. 규격 설명은 docs/AI_PREMARKET.md에 있어요.
  */
@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sunmo.stockplatform.aiplan.realtime.AiCondition;
 import com.sunmo.stockplatform.closing.application.ClosingTradingCalendar;
 
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -34,8 +35,11 @@ public class AiPlanValidator {
     public static final String SCHEMA_V3 = "ai-premarket-v3";
     // v4(2026-11-11): 전략마다(strategies[]) 진입 조건(entryRules.conditions)을 다시 적어요. 수치 기준은 비워 두고 프로그램이 정해요.
     public static final String SCHEMA_V4 = "ai-premarket-v4";
-    // 새로 만드는 프롬프트가 쓰는 규격이에요. v1~v3도 계속 받아요.
-    public static final String SCHEMA_VERSION = SCHEMA_V4;
+    // v5(2026-11-20, 프롬프트 premarket-v5.0): v4에 당일 NXT 프리마켓 관찰(market.nxtPremarket, picks[].nxtPremarket)을 더했어요.
+    // 진입 조건(규칙 A)은 v4와 같아요. NXT 값은 AI가 적은 값이라 검사·기록만 하고 감시·채점에는 쓰지 않아요.
+    public static final String SCHEMA_V5 = "ai-premarket-v5";
+    // 새로 만드는 프롬프트가 쓰는 규격이에요. v1~v4도 계속 받아요.
+    public static final String SCHEMA_VERSION = SCHEMA_V5;
     public static final int MAX_PICKS = 20;
     public static final int MAX_TOP_PRIORITY = 3;
     public static final int MAX_AVOID = 20;
@@ -51,18 +55,29 @@ public class AiPlanValidator {
     static final List<String> REGIMES = List.of("TREND_UP", "TREND_DOWN", "SECTOR_ROTATION", "VOLATILE_MIXED", "WAIT_AND_SEE");
     static final Set<String> RISK_LEVELS = Set.of("LOW", "MEDIUM", "HIGH", "EXTREME");
     static final Set<String> CONFIDENCE = Set.of("HIGH", "MEDIUM", "LOW");
+    static final Set<String> NXT_STATUS = Set.of("VERIFIED", "PARTIAL", "UNAVAILABLE", "NOT_ELIGIBLE");
+    static final Set<String> NXT_TRENDS = Set.of("INCREASING", "STABLE", "DECREASING", "UNKNOWN");
+    static final Set<String> NXT_RETENTION = Set.of("NEAR_HIGH", "MID_RANGE", "NEAR_LOW", "UNKNOWN");
 
     /** 종목 마스터에서 찾은 종목이에요. */
     public record StockRef(long id, String code, String name) { }
 
-    /** 계획에 나온 종목 하나예요. kind는 PICK(매수 후보) 또는 AVOID(매수 금지)예요. */
+    /**
+     * AI가 적은 NXT 프리마켓 관찰이에요(v5). 정해진 값이 아니면 null로 둬요. verified는 status가 VERIFIED이고
+     * 기준 시각·출처가 있을 때만 true예요(AI가 true라고 적어도 근거가 없으면 false로 저장).
+     */
+    public record Nxt(String status, Boolean eligible, BigDecimal lastPrice, BigDecimal changePct, BigDecimal turnover,
+            String turnoverTrend, String priceRetention, Instant asOf, boolean verified) { }
+
+    /** 계획에 나온 종목 하나예요. kind는 PICK(매수 후보) 또는 AVOID(매수 금지)예요. nxt는 v5 매수 후보에만 있어요. */
     public record ParsedPick(String kind, StockRef stock, Integer priority, String reason, boolean topPriority,
-            String confidence) { }
+            String confidence, Nxt nxt) { }
 
     /** 검사를 통과한 계획의 저장용 값이에요. 원본 JSON은 따로 그대로 저장해요. */
     public record ParsedPlan(String schemaVersion, String analysisId, String analysisMode, LocalDate targetDate,
             Instant analyzedAt, Instant validUntil, boolean onTime, String tradeDecision, String outlook, String regime,
-            String riskLevel, String modelName, String modelVersion, String promptVersion, List<ParsedPick> picks) { }
+            String riskLevel, String modelName, String modelVersion, String promptVersion, List<ParsedPick> picks,
+            Nxt marketNxt) { }
 
     /** 검사 결과예요. errors가 비어 있을 때만 plan이 있어요. */
     public record Result(List<String> errors, List<String> warnings, ParsedPlan plan) {
@@ -94,12 +109,13 @@ public class AiPlanValidator {
             return new Result(List.of("JSON 최상위는 객체({ ... })여야 해요."), List.of(), null);
 
         String schema = text(root, "schemaVersion");
-        // v2: v2 이후 규격(v2~v4)에 공통인 칸, v3: v3 이후 규격(v3·v4)에 공통인 칸을 봐요.
-        boolean v4 = SCHEMA_V4.equals(schema);
+        // v2: v2 이후 규격(v2~v5)에 공통인 칸, v3: v3 이후, v4: v4 이후(v4·v5)에 공통인 칸을 봐요.
+        boolean v5 = SCHEMA_V5.equals(schema);
+        boolean v4 = v5 || SCHEMA_V4.equals(schema);
         boolean v3 = v4 || SCHEMA_V3.equals(schema);
         boolean v2 = v3 || SCHEMA_V2.equals(schema);
         if (!v2 && !SCHEMA_V1.equals(schema))
-            errors.add("schemaVersion은 \"" + SCHEMA_V4 + "\", \"" + SCHEMA_V3 + "\", \"" + SCHEMA_V2 + "\", \""
+            errors.add("schemaVersion은 \"" + SCHEMA_V5 + "\", \"" + SCHEMA_V4 + "\", \"" + SCHEMA_V3 + "\", \"" + SCHEMA_V2 + "\", \""
                     + SCHEMA_V1 + "\" 중 하나여야 해요(받은 값: " + schema + ").");
         String mode = v2 ? text(root, "analysisMode") : "PREMARKET";
         if (!MODES.contains(mode)) errors.add("analysisMode는 PREMARKET 또는 INTRADAY여야 해요.");
@@ -148,7 +164,8 @@ public class AiPlanValidator {
             } else errors.add("model.name이 필요해요(예: ChatGPT).");
         }
         if (blank(promptVersion)) {
-            if (v4) promptVersion = "premarket-v4";
+            if (v5) promptVersion = "premarket-v5.0";
+            else if (v4) promptVersion = "premarket-v4";
             else errors.add("model.promptVersion이 필요해요(예: premarket-v4).");
         }
         if (blank(text(model, "version")))
@@ -168,6 +185,7 @@ public class AiPlanValidator {
             errors.add("tradeDecision은 " + String.join(", ", decisions) + " 중 하나여야 해요.");
 
         checkSources(root.path("market").path("news"), "market.news", now, errors, warnings);
+        Nxt marketNxt = v5 ? nxt(market.path("nxtPremarket"), "market.nxtPremarket", true, targetDate, now, errors, warnings) : null;
 
         List<ParsedPick> picks = new ArrayList<>();
         Set<String> seen = new HashSet<>();
@@ -193,6 +211,8 @@ public class AiPlanValidator {
             JsonNode node = pickNodes.get(i);
             String where = "picks[" + i + "]";
             ParsedPick pick = pick(node, "PICK", where, seen, top, errors, warnings);
+            if (v5 && pick != null)
+                pick = withNxt(pick, nxt(node.path("nxtPremarket"), where + ".nxtPremarket", false, targetDate, now, errors, warnings));
             String confidence = text(node, "confidence");
             if (v2 && confidence != null && !CONFIDENCE.contains(confidence))
                 warnings.add(where + ".confidence는 HIGH, MEDIUM, LOW 중 하나여야 해요.");
@@ -234,7 +254,7 @@ public class AiPlanValidator {
             return new Result(List.copyOf(errors), List.copyOf(warnings), null);
         return new Result(List.of(), List.copyOf(warnings), new ParsedPlan(schema, text(root, "analysisId"), mode,
                 targetDate, analyzedAt, validUntil, onTime, decision, outlook, regime, riskLevel, modelName,
-                text(model, "version"), promptVersion, List.copyOf(picks)));
+                text(model, "version"), promptVersion, List.copyOf(picks), marketNxt));
     }
 
     /** 종목 한 줄을 읽어요. 종목 코드가 없거나, 마스터에 없거나, 이미 나온 종목이면 오류예요. */
@@ -258,7 +278,93 @@ public class AiPlanValidator {
         if (!blank(name) && !name.replace(" ", "").equals(stock.get().name().replace(" ", "")))
             warnings.add(where + ": 종목명 \"" + name + "\"이 마스터 이름 \"" + stock.get().name() + "\"과 달라요. 코드 기준으로 저장해요.");
         Integer priority = node.path("priority").isInt() ? node.path("priority").asInt() : null;
-        return new ParsedPick(kind, stock.get(), priority, text(node, "reason"), top.contains(code), text(node, "confidence"));
+        return new ParsedPick(kind, stock.get(), priority, text(node, "reason"), top.contains(code), text(node, "confidence"), null);
+    }
+
+    private static ParsedPick withNxt(ParsedPick pick, Nxt nxt) {
+        return new ParsedPick(pick.kind(), pick.stock(), pick.priority(), pick.reason(), pick.topPriority(), pick.confidence(), nxt);
+    }
+
+    /**
+     * v5 NXT 프리마켓 칸을 읽어요(프롬프트 15절 규칙). 빠졌거나 정해진 값이 아니면 경고만 하고 null로 저장해요.
+     * 저장을 막는 경우(오류)는 기준 시각이 지금보다 미래인 경우 하나예요(아직 없던 정보).
+     * market이 true면 시장 전체 칸이라 종목 칸(eligible, 가격)은 보지 않아요.
+     */
+    private static Nxt nxt(JsonNode node, String where, boolean market, LocalDate targetDate, Instant now,
+            List<String> errors, List<String> warnings) {
+        if (!node.isObject()) {
+            warnings.add(where + "가 없어요. NXT 관찰 없음(UNAVAILABLE)으로 저장해요.");
+            return new Nxt("UNAVAILABLE", null, null, null, null, null, null, null, false);
+        }
+        String status = text(node, "status");
+        if (!NXT_STATUS.contains(status) || (market && "NOT_ELIGIBLE".equals(status))) {
+            warnings.add(where + ".status가 정해진 값(" + (market ? "VERIFIED, PARTIAL, UNAVAILABLE" : "VERIFIED, PARTIAL, UNAVAILABLE, NOT_ELIGIBLE")
+                    + ")이 아니에요: " + status);
+            status = null;
+        }
+        Instant asOf = null;
+        String rawAsOf = text(node, "marketDataAsOf");
+        if (!blank(rawAsOf)) {
+            try {
+                asOf = OffsetDateTime.parse(rawAsOf).toInstant();
+                if (asOf.isAfter(now.plus(CLOCK_SKEW)))
+                    errors.add(where + ".marketDataAsOf가 지금보다 미래예요(아직 없던 정보).");
+                else if (targetDate != null && !asOf.atZone(SEOUL).toLocalDate().equals(targetDate))
+                    warnings.add(where + ".marketDataAsOf(" + rawAsOf + ")가 대상 거래일 " + targetDate + "의 값이 아니에요. 당일 NXT 데이터만 써야 해요.");
+            } catch (DateTimeParseException error) {
+                warnings.add(where + ".marketDataAsOf를 읽지 못했어요(예: 2026-11-21T08:40:00+09:00).");
+            }
+        }
+        boolean claimed = node.path("verified").asBoolean(false);
+        boolean verified = claimed && "VERIFIED".equals(status) && asOf != null && !blank(text(node, "source"));
+        if (claimed && !verified)
+            warnings.add(where + ".verified가 true인데 status VERIFIED·기준 시각·출처 중 빠진 것이 있어요. 검증 안 됨으로 저장해요.");
+        if ("VERIFIED".equals(status) && !claimed)
+            warnings.add(where + ".status가 VERIFIED인데 verified가 false예요.");
+        if (market)
+            return new Nxt(status, null, null, null, null, null, null, asOf, verified);
+
+        Boolean eligible = node.path("eligible").isBoolean() ? node.path("eligible").asBoolean() : null;
+        BigDecimal last = number(node, "lastPriceKRW", where, warnings), change = number(node, "changeRatePct", where, warnings);
+        BigDecimal high = number(node, "highKRW", where, warnings), low = number(node, "lowKRW", where, warnings);
+        BigDecimal turnover = number(node, "turnoverKRW", where, warnings);
+        String trend = text(node, "recentTurnoverTrend"), retention = text(node, "priceRetention");
+        if (trend != null && !NXT_TRENDS.contains(trend)) {
+            warnings.add(where + ".recentTurnoverTrend가 정해진 값(INCREASING, STABLE, DECREASING, UNKNOWN)이 아니에요: " + trend);
+            trend = null;
+        }
+        if (retention != null && !NXT_RETENTION.contains(retention)) {
+            warnings.add(where + ".priceRetention이 정해진 값(NEAR_HIGH, MID_RANGE, NEAR_LOW, UNKNOWN)이 아니에요: " + retention);
+            retention = null;
+        }
+        if ("NOT_ELIGIBLE".equals(status)) {
+            if (!Boolean.FALSE.equals(eligible))
+                warnings.add(where + ": status가 NOT_ELIGIBLE이면 eligible은 false여야 해요.");
+            if (last != null || change != null || turnover != null || high != null || low != null)
+                warnings.add(where + ": NXT 거래 대상이 아닌데(NOT_ELIGIBLE) 시세 수치가 있어요.");
+        }
+        if (Boolean.FALSE.equals(eligible) && status != null && !"NOT_ELIGIBLE".equals(status))
+            warnings.add(where + ": eligible이 false인데 status가 " + status + "예요.");
+        // 프롬프트 15절: (현재가 - 저가) / (고가 - 저가)가 0.8 이상이면 NEAR_HIGH, 0.2 이하면 NEAR_LOW, 나머지 MID_RANGE예요.
+        if (retention != null && !"UNKNOWN".equals(retention) && last != null && high != null && low != null && high.compareTo(low) > 0) {
+            double ratio = last.subtract(low).doubleValue() / high.subtract(low).doubleValue();
+            String expected = ratio >= 0.8 ? "NEAR_HIGH" : ratio <= 0.2 ? "NEAR_LOW" : "MID_RANGE";
+            if (!expected.equals(retention))
+                warnings.add(where + ".priceRetention이 " + retention + "인데 현재가·고가·저가로 계산하면 " + expected
+                        + "(" + String.format("%.2f", ratio) + ")예요.");
+        }
+        return new Nxt(status, eligible, last, change, turnover, trend, retention, asOf, verified);
+    }
+
+    private static final java.time.ZoneId SEOUL = java.time.ZoneId.of("Asia/Seoul");
+
+    /** 숫자 칸을 읽어요. null이면 null, 숫자가 아니면 경고하고 null이에요. */
+    private static BigDecimal number(JsonNode node, String field, String where, List<String> warnings) {
+        JsonNode value = node.path(field);
+        if (value.isMissingNode() || value.isNull()) return null;
+        if (value.isNumber()) return value.decimalValue();
+        warnings.add(where + "." + field + "는 숫자여야 해요(받은 값: " + value.asText() + ").");
+        return null;
     }
 
     /** 출처 목록의 발행 시각이 지금보다 미래면(미래 정보) 오류예요. 시각이 없으면 경고만 해요. */
