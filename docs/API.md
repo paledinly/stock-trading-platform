@@ -16,6 +16,7 @@ Backend REST/SSE API 목록이다. 모든 경로는 `/api/v1`로 시작하며 Co
 | POST | `/stocks/master/sync` | **[운영]** KIS 종목 마스터 파일로 종목 테이블 동기화 | 없음 |
 | GET | `/stocks/{stockCode}/quote` | 현재가. 실시간 구독을 추가하지 않는다(이미 구독 중이면 최신 체결 반영). | `stockCode`(영숫자 6~12자) |
 | GET | `/stocks/{stockCode}/candles` | 저장된 봉 조회 | `timeFrame`(기본 `5M`), `from`, `to`(필수, Instant) |
+| GET | `/stocks/{stockCode}/intraday-flow` | 그날 1분봉 흐름(표시 전용, 실시간 구독과 무관한 KIS 분봉 조회, 저장 안 함). `status`: `OK`·`EMPTY`·`NOT_STARTED`·`FUTURE`·`HOLIDAY`·`UNAVAILABLE`. 오늘은 1분, 지난 날은 서버 재시작 전까지 기억 | `date`(필수, yyyy-MM-dd) |
 
 ## 관심종목
 

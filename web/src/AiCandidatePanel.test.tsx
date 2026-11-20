@@ -16,13 +16,15 @@ const detail = {
     { poolRank: 2, stockCode: '000020', stockName: '다라바이오', grade: 'AVOID', catalyst: 0, flow: 0, trend: 0, overheat: 2, disclosureRisk: 2, riskFlags: 'DILUTION', confidence: 80, entryType: 'NONE', stopPct: null, targetPct: null, timeExit: null, usedExternalInfo: false, status: null, openClosePct: null, netOpenClosePct: null },
   ],
 }
+const flow = { stockCode: '000010', date: '2026-11-20', status: 'OK', message: null, live: false, fetchedAt: '2026-11-20T07:00:00Z', open: 1000, high: 1080, low: 990, last: 1050, changeFromOpenPct: 5, volume: 300,
+  bars: [{ time: '09:00', open: 1000, high: 1010, low: 990, close: 1005, volume: 100 }, { time: '09:01', open: 1005, high: 1080, low: 1000, close: 1050, volume: 200 }] }
 const card = { schemaVersion: 'ai-candidate-v1', prompt: '# 후보 평가 카드', pool: { targetDate: '2026-11-20', poolId: 'abc123def456', dataDate: '2026-11-19', stored: false, message: '미리보기예요.', stocks: [{ rank: 1, stockCode: '000010', stockName: '가나전자' }] } }
 
 beforeEach(() => {
   globalThis.fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
     if (init?.method === 'POST')
       return Promise.resolve({ ok: false, status: 422, json: async () => ({ saved: false, errors: ['평가하지 않은 명단 종목이 1개 있어요: 000020'], warnings: [], evaluation: null }) })
-    const body = url.endsWith('/summary') ? summary : url.endsWith('/ai-candidates') ? [evaluation] : url.endsWith('/3') ? detail : url.endsWith('/card') ? card : {}
+    const body = url.includes('/intraday-flow') ? flow : url.endsWith('/summary') ? summary : url.endsWith('/ai-candidates') ? [evaluation] : url.endsWith('/3') ? detail : url.endsWith('/card') ? card : {}
     return Promise.resolve({ ok: true, status: 200, json: async () => body })
   }) as unknown as typeof fetch
 })
@@ -52,4 +54,17 @@ it('shows the preview notice on the card and lists validation errors', async () 
   fireEvent.change(screen.getByLabelText('AI 후보 평가 JSON'), { target: { value: '{}' } })
   fireEvent.click(screen.getByText('검사 후 저장'))
   await waitFor(() => expect(screen.getByText('평가하지 않은 명단 종목이 1개 있어요: 000020')).toBeInTheDocument())
+})
+
+it('opens the price flow right under the clicked stock and closes it again', async () => {
+  renderPanel()
+  fireEvent.click(await screen.findByText('가나전자'))
+
+  expect(await screen.findByLabelText('가나전자 가격 흐름')).toBeInTheDocument()
+  expect(await screen.findByText(/1분봉 2개/)).toBeInTheDocument()
+  expect(screen.getByText('1,050')).toBeInTheDocument()
+  expect(globalThis.fetch).toHaveBeenCalledWith('/api/v1/stocks/000010/intraday-flow?date=2026-11-20')
+
+  fireEvent.click(screen.getByText('가나전자'))
+  await waitFor(() => expect(screen.queryByLabelText('가나전자 가격 흐름')).not.toBeInTheDocument())
 })

@@ -6,11 +6,12 @@
  * '후보 평가' 탭(AiCandidatePanel)은 ADR-014: 프로그램이 정한 후보 40종목을 AI가 평가하고 같은 명단과 비교해 채점해요.
  * 화면 이동과 메뉴는 AppShell.tsx가 맡아요.
  */
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import './aiPlan.css'
 import { AiWatchPanel } from './AiWatchPanel'
 import { AiCandidatePanel } from './AiCandidatePanel'
+import { PriceFlow } from './PriceFlow'
 
 // 아래 타입은 /api/v1/ai-plans 응답 모양이에요. 퍼센트 값은 2가 2%예요.
 /** 날짜별 계획 한 판의 요약이에요. scored는 성과 집계에 쓰는 판(장 시작 전 마지막 판)인지예요. */
@@ -207,6 +208,7 @@ export function AiPlanPage() {
 /** 계획 하나의 종목별 채점 결과, 같은 날 다른 판, 원본 JSON을 보여 줘요. */
 function PlanDetailView({ detail, showRaw, onToggleRaw, onSelect }: { detail: Detail; showRaw: boolean; onToggleRaw: () => void; onSelect: (id: number) => void }) {
   const plan = detail.plan
+  const [open, setOpen] = useState<number | null>(null)
   return (
     <>
       <div className="aiDetailHead">
@@ -226,8 +228,12 @@ function PlanDetailView({ detail, showRaw, onToggleRaw, onSelect }: { detail: De
         </div>
         {detail.picks.map(pick => {
           const o = pick.outcome
+          const expanded = open === pick.id
           return (
-            <div role="row" className="aiRow" key={pick.id}>
+            <Fragment key={pick.id}>
+            <div role="row" className={expanded ? 'aiRow aiRowButton open' : 'aiRow aiRowButton'} tabIndex={0} aria-expanded={expanded}
+              onClick={() => setOpen(expanded ? null : pick.id)}
+              onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setOpen(expanded ? null : pick.id) } }}>
               <span role="cell" title={pick.reason ?? ''}>
                 <em className={pick.kind === 'AVOID' ? 'aiBadge warn' : pick.topPriority ? 'aiBadge top' : 'aiBadge'}>{pick.kind === 'AVOID' ? '매수 금지' : `${pick.priority ?? '-'}순위${pick.topPriority ? ' ★' : ''}`}</em>
                 <b>{pick.stockName}</b><small>{pick.stockCode}{o && o.status !== 'COMPLETE' ? ` · ${STATUS[o.status] ?? o.status}` : ''}{!o ? ' · 채점 전' : ''}</small>
@@ -240,6 +246,8 @@ function PlanDetailView({ detail, showRaw, onToggleRaw, onSelect }: { detail: De
               <span role="cell" className={tone(o?.universeOpenClosePct)}>{pct(o?.universeOpenClosePct)}</span>
               <span role="cell" className={tone(o?.excessOpenClosePct)}><b>{pct(o?.excessOpenClosePct)}</b></span>
             </div>
+            {expanded && <div role="row" className="aiFlowRow"><div role="cell"><PriceFlow code={pick.stockCode} date={plan.targetDate} name={pick.stockName} /></div></div>}
+            </Fragment>
           )
         })}
       </div>

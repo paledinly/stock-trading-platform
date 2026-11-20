@@ -4,9 +4,10 @@
  * 장 마감 뒤 같은 명단의 평균·무작위·단순 규칙 바구니와 비교한 채점과 사전 등록 판정(처음 40채점일)을 보여 줘요.
  * 실주문·추천·구독에는 영향이 없어요. AiPlanPage의 탭으로 들어가요.
  */
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { pct } from './AiPlanPage'
+import { PriceFlow } from './PriceFlow'
 
 // 아래 타입은 /api/v1/ai-candidates 응답 모양이에요. 퍼센트 값은 2가 2%예요.
 type PoolStock = { rank: number; stockCode: string; stockName: string }
@@ -189,6 +190,7 @@ export function AiCandidatePanel() {
 /** 평가 한 판의 종목별 등급·채점 결과와 그날 바구니 비교예요. */
 function EvalDetailView({ detail, day, showRaw, onToggleRaw }: { detail: Detail; day?: Day; showRaw: boolean; onToggleRaw: () => void }) {
   const e = detail.evaluation
+  const [open, setOpen] = useState<string | null>(null)
   return (
     <>
       <div className="aiDetailHead">
@@ -207,8 +209,13 @@ function EvalDetailView({ detail, day, showRaw, onToggleRaw }: { detail: Detail;
           <span role="columnheader">과열·공시위험</span><span role="columnheader">매수 방식</span><span role="columnheader">손절/목표</span>
           <span role="columnheader">확신도</span><span role="columnheader">시가→종가</span>
         </div>
-        {detail.grades.map(g => (
-          <div role="row" className="aiRow" key={g.stockCode}>
+        {detail.grades.map(g => {
+          const expanded = open === g.stockCode
+          return (
+          <Fragment key={g.stockCode}>
+          <div role="row" className={expanded ? 'aiRow aiRowButton open' : 'aiRow aiRowButton'} tabIndex={0} aria-expanded={expanded}
+            onClick={() => setOpen(expanded ? null : g.stockCode)}
+            onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setOpen(expanded ? null : g.stockCode) } }}>
             <span role="cell" title={g.riskFlags ?? ''}>
               <em className={g.grade === 'AVOID' ? 'aiBadge warn' : g.grade === 'A' ? 'aiBadge top' : 'aiBadge'}>{g.poolRank}</em>
               <b>{g.stockName}</b><small>{g.stockCode}{g.riskFlags ? ` · ${g.riskFlags}` : ''}{g.usedExternalInfo ? ' · 외부정보' : ''}{g.status && g.status !== 'COMPLETE' ? ` · ${g.status}` : ''}</small>
@@ -221,7 +228,10 @@ function EvalDetailView({ detail, day, showRaw, onToggleRaw }: { detail: Detail;
             <span role="cell">{g.confidence}</span>
             <span role="cell" className={tone(g.openClosePct)}>{g.status ? pct(g.openClosePct) : '채점 전'}</span>
           </div>
-        ))}
+          {expanded && <div role="row" className="aiFlowRow"><div role="cell"><PriceFlow code={g.stockCode} date={e.targetDate} name={g.stockName} /></div></div>}
+          </Fragment>
+          )
+        })}
       </div>
       <p className="aiNote">채점: 그날 시가 매수 → 종가 매도. 비교 대상은 같은 명단 40종목이에요. AI가 적은 매수 방식·손절·목표는 기록만 하고 v1 채점에는 쓰지 않아요.</p>
       {detail.revisions.length > 1 && (

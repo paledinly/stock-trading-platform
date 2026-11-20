@@ -59,3 +59,16 @@
 .aiEvents small{color:var(--text-muted);font-size:11px}
 @media(max-width:1050px){.aiGate{grid-template-columns:1fr 1fr}}
 @media(max-width:720px){.aiGate{grid-template-columns:1fr}.aiTable{overflow-x:auto}.aiRow{min-width:720px}.aiWatchRow{min-width:860px}.aiConditions{grid-template-columns:1fr}.aiInputHead{flex-direction:column;align-items:flex-start}}
+.aiRowButton{cursor:pointer}.aiRowButton:hover{background:var(--surface-3)}.aiRowButton:focus-visible{outline:2px solid var(--violet-border);outline-offset:1px}.aiRowButton.open{border-radius:6px 6px 0 0;background:var(--violet-bg)}
+.aiFlowRow{margin-top:-4px;padding:12px 14px 10px;border:1px solid var(--violet-border);border-top:0;border-radius:0 0 6px 6px;background:var(--surface)}
+.aiFlow .aiEmpty{margin:4px 0}
+.aiFlowStats{display:flex;flex-wrap:wrap;gap:6px 22px;margin-bottom:6px}.aiFlowStats span{display:flex;flex-direction:column;gap:2px}.aiFlowStats small{color:var(--text-muted);font-size:11px}.aiFlowStats b{font-size:14px}.aiFlowStats em{font-size:11px;font-style:normal}
+.aiFlowChart svg{display:block;width:100%;height:auto;max-height:260px}
+.aiFlowLine{fill:none;stroke-width:1.6}.aiFlowLine.up{stroke:var(--up-fg)}.aiFlowLine.down{stroke:var(--down-fg)}
+.aiFlowDot.up{fill:var(--up-fg)}.aiFlowDot.down{fill:var(--down-fg)}
+.aiFlowOpen{stroke:var(--text-muted);stroke-dasharray:4 4;stroke-width:1}
+.aiFlowVol{fill:var(--border)}
+.aiFlowCursor{stroke:var(--text-muted);stroke-width:1}
+.aiFlowAxis{fill:var(--text-muted);font-size:11px}
+.aiFlowHover{min-height:18px;color:var(--text-2);font-size:12px}
+.aiFlow .aiNote{margin:6px 0 0}
