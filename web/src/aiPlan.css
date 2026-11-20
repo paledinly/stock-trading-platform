@@ -1,29 +1,29 @@
 /* AI 장전 계획 화면(AiPlanPage) 스타일이에요. 색은 theme.css 변수만 써서 밝은/어두운 화면에 맞춰져요. */
 .aiPlanPage{min-height:100vh;padding-bottom:60px;background:var(--bg);color:var(--text)}
-.aiPlanPage>header{width:min(1240px,calc(100% - 32px));margin:auto;padding:36px 0 20px}
-.aiPlanPage>header h1{margin:0 0 6px;font-size:32px}.aiPlanPage>header span{color:var(--text-muted)}
-.aiPlanPage main{width:min(1240px,calc(100% - 32px));margin:auto;display:flex;flex-direction:column;gap:16px}
-.aiPlanPage h2{margin:0;font-size:17px}
-.aiPlanPage button{padding:8px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface-2);color:var(--text);cursor:pointer}
+.aiPlanPage>header{width:min(1240px,calc(100% - 40px));margin:auto}
+
+.aiPlanPage main{width:min(1240px,calc(100% - 40px));margin:auto;display:flex;flex-direction:column;gap:16px}
+.aiPlanPage h2{margin:0}
+.aiPlanPage button{padding:8px 14px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface);color:var(--text);font-weight:500;cursor:pointer}
 .aiPlanPage button:hover:not(:disabled){background:var(--surface-3)}.aiPlanPage button:disabled{opacity:.5;cursor:default}
-.aiPlanPage button.primary{border-color:var(--violet-border);background:var(--violet-solid);color:var(--on-solid)}
+.aiPlanPage button.primary{padding:9px 18px;border-color:var(--accent-solid);background:var(--accent-solid);color:var(--on-solid);font-weight:600}.aiPlanPage button.primary:hover:not(:disabled){background:var(--accent-solid-hover)}
 .aiUp{color:var(--up-fg)}.aiDown{color:var(--down-fg)}
 .aiGate{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-.aiGate article{display:flex;flex-direction:column;gap:6px;padding:16px;border:1px solid var(--border);border-radius:8px;background:var(--surface)}
-.aiGate small,.aiGate span{color:var(--text-muted);font-size:12px}.aiGate b{font-size:26px}
-.aiInput,.aiHistory aside,.aiDetail{padding:16px;border:1px solid var(--border);border-radius:8px;background:var(--surface)}
+.aiGate article{display:flex;flex-direction:column;gap:4px;padding:16px 18px;border:1px solid var(--border-soft);box-shadow:var(--shadow-card);border-radius:var(--r-lg);background:var(--surface)}
+.aiGate small,.aiGate span{color:var(--text-muted);font-size:var(--fs-xs)}.aiGate b{color:var(--text-strong);font-size:22px;font-weight:700}
+.aiInput,.aiHistory aside,.aiDetail{padding:20px 22px;border:1px solid var(--border-soft);box-shadow:var(--shadow-card);border-radius:var(--r-xl);background:var(--surface)}
 .aiInputHead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}.aiInputHead div{display:flex;gap:8px;flex-wrap:wrap}
-.aiPrompt{margin-bottom:12px;padding:12px;border:1px solid var(--violet-border);border-radius:8px;background:var(--violet-bg)}
+.aiPrompt{margin-bottom:12px;padding:14px 16px;border:1px solid var(--accent-border);border-radius:var(--r-lg);background:var(--accent-bg)}
 .aiPrompt p{margin:0 0 10px;color:var(--text-2)}
-.aiPrompt pre,.aiRaw{max-height:320px;overflow:auto;margin:10px 0 0;padding:12px;border-radius:6px;background:var(--surface-2);color:var(--text-2);font-size:12px;white-space:pre-wrap;word-break:break-all}
-.aiInput textarea{box-sizing:border-box;width:100%;padding:12px;border:1px solid var(--border-strong);border-radius:6px;background:var(--surface-2);color:var(--text);font:12px/1.5 ui-monospace,Consolas,monospace;resize:vertical}
-.aiActions{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}
+.aiPrompt pre,.aiRaw{max-height:320px;overflow:auto;margin:10px 0 0;padding:12px;border-radius:var(--r-md);background:var(--surface-2);color:var(--text-2);font:12px/1.6 var(--font-mono);white-space:pre-wrap;word-break:break-all}
+.aiInput textarea{box-sizing:border-box;width:100%;padding:14px;border:1px solid var(--border);border-radius:var(--r-lg);background:var(--surface-2);color:var(--text);font:12px/1.6 var(--font-mono);resize:vertical}
+.aiActions{display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:12px}
 .aiResult{margin-top:12px}.aiOk{margin:0;color:var(--ok-fg)}.aiError{color:var(--up-fg)}
-.aiErrors,.aiWarnings{margin:8px 0;padding:10px 10px 10px 28px;border-radius:6px;font-size:13px}
+.aiErrors,.aiWarnings{margin:8px 0;padding:10px 12px 10px 30px;border-radius:var(--r-md);font-size:var(--fs-sm)}
 .aiErrors{border:1px solid var(--up-border);background:var(--up-bg);color:var(--up-fg)}
 .aiWarnings{border:1px solid var(--warn-border);background:var(--warn-bg);color:var(--warn-fg)}
 .aiHistory{display:flex;flex-direction:column;gap:16px}
-.aiHistory aside{display:grid;grid-template-columns:minmax(300px,420px) 1fr;gap:20px;align-items:start}
+.aiHistory aside{display:grid;grid-template-columns:minmax(300px,400px) 1fr;gap:28px;align-items:start}
 .aiDayList{display:flex;flex-direction:column;gap:8px;min-width:0}.aiDayList h2{margin-bottom:2px}.aiDayList .aiEmpty{margin:4px 0}
 .aiDayList button{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left}
 .aiDayList button span{color:var(--text-muted);font-size:12px}
@@ -31,7 +31,7 @@
 .aiPlanPage .aiCalendarHead button{padding:3px 10px}
 .aiCalendarGrid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
 .aiCalendarWeek{padding:2px 0;color:var(--text-muted);font-size:11px;text-align:center}.aiCalendarWeek.sun{color:var(--up-fg)}.aiCalendarWeek.sat{color:var(--down-fg)}
-.aiPlanPage button.aiCalendarDay{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:1px;min-height:46px;padding:4px 2px;border-color:transparent;background:transparent}
+.aiPlanPage button.aiCalendarDay{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:1px;min-height:46px;padding:5px 2px;border-color:transparent;border-radius:var(--r-md);background:transparent}
 .aiPlanPage button.aiCalendarDay:hover{background:var(--surface-2)}
 .aiCalendarDay b{font-size:13px;font-weight:500}.aiCalendarDay.weekend b{color:var(--text-muted)}
 .aiCalendarDay small{max-width:100%;overflow:hidden;color:var(--violet-fg);font-size:10px;white-space:nowrap}
@@ -40,42 +40,42 @@
 .aiPlanPage button.aiCalendarDay.marked.muted{border-style:dashed;background:transparent}.aiCalendarDay.marked.muted small{color:var(--text-muted)}
 .aiCalendarLegend{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin:8px 0 0;color:var(--text-muted);font-size:11px}.aiCalendarLegend i{display:inline-block;width:10px;height:10px;margin-left:6px;border:1px solid var(--ok-border);border-radius:3px;background:var(--ok-bg)}.aiCalendarLegend i:first-child{margin-left:0}.aiCalendarLegend i.muted{border:1px dashed var(--violet-border);background:transparent}
 .aiCalendarDay.today b{text-decoration:underline;text-underline-offset:3px}
-.aiPlanPage button.aiCalendarDay.selected{outline:2px solid var(--violet-solid);outline-offset:-1px}
+.aiPlanPage button.aiCalendarDay.selected{border-color:var(--accent-solid);box-shadow:inset 0 0 0 1px var(--accent-solid)}
 .aiHistory button.active,.aiRevisions button.active{border-color:var(--violet-border);background:var(--violet-bg)}
 .aiEmpty{color:var(--text-muted)}
 .aiDetailHead{display:flex;justify-content:space-between;gap:12px;margin-bottom:10px}.aiDetailHead span{display:block;color:var(--text-muted);font-size:12px}.aiDetailHead>.aiBadge{align-self:flex-start}
-.aiBadge{display:inline-block;padding:2px 8px;border:1px solid var(--border);border-radius:999px;color:var(--text-2);font-size:11px;font-style:normal;white-space:nowrap}
+.aiBadge{display:inline-block;padding:2px 9px;border:1px solid var(--border);border-radius:var(--r-pill);font-weight:500;color:var(--text-2);font-size:11px;font-style:normal;white-space:nowrap}
 .aiBadge.ok{border-color:var(--ok-border);color:var(--ok-fg)}.aiBadge.top{border-color:var(--violet-border);color:var(--violet-fg)}.aiBadge.warn{border-color:var(--warn-border);color:var(--warn-fg)}
 .aiTable{display:flex;flex-direction:column;gap:4px;margin-top:8px}
-.aiRow{display:grid;grid-template-columns:minmax(240px,3fr) repeat(7,minmax(64px,1fr));gap:8px;align-items:center;padding:9px 10px;border-radius:6px;background:var(--surface-2);font-size:13px}
+.aiRow{display:grid;grid-template-columns:minmax(240px,3fr) repeat(7,minmax(64px,1fr));gap:8px;align-items:center;padding:10px 12px;border-radius:var(--r-md);background:var(--surface-2);font-size:var(--fs-sm);font-variant-numeric:tabular-nums}
 .aiRow.head{background:transparent;color:var(--text-muted);font-size:11px}
 .aiRow>span:first-child{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;min-width:0}.aiRow>span:first-child b{overflow-wrap:anywhere}
 .aiRow small{color:var(--text-muted)}.aiRow>span:not(:first-child){text-align:right}
 .aiNote{margin:10px 0;color:var(--text-muted);font-size:12px}
 .aiRevisions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0}.aiRevisions small{color:var(--text-muted)}
 .aiRawToggle{margin-top:4px}
-.aiTabs{display:flex;gap:8px;margin-top:16px}.aiTabs button.active{border-color:var(--violet-border);background:var(--violet-bg)}
+.aiPlanPage>header>span{display:block}.aiTabs{display:flex;width:fit-content;max-width:100%;overflow-x:auto;gap:2px;margin-top:18px;padding:4px;border-radius:var(--r-lg);background:var(--surface-3)}.aiPlanPage .aiTabs button{padding:7px 16px;border:0;border-radius:var(--r-md);background:transparent;color:var(--text-2);font-weight:550}.aiPlanPage .aiTabs button:hover:not(:disabled){background:transparent;color:var(--text-strong)}.aiPlanPage .aiTabs button.active{background:var(--surface);color:var(--text-strong);font-weight:650;box-shadow:var(--shadow-card)}
 .aiWatch{display:flex;flex-direction:column;gap:16px}
 .aiWatchTools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.aiWatchTools input{padding:7px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface-2);color:var(--text)}
-.aiWatchRow{display:grid;grid-template-columns:minmax(180px,2fr) repeat(2,minmax(72px,.8fr)) repeat(3,minmax(72px,1fr)) minmax(56px,.6fr) minmax(200px,2.2fr);gap:8px;align-items:center;width:100%;padding:9px 10px;border:0;border-radius:6px;background:var(--surface-2);color:var(--text);font-size:13px;text-align:left}
-.aiPlanPage button.aiWatchRow{border:0;border-radius:6px;background:var(--surface-2)}
+.aiWatchTools input{padding:7px 11px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface-2);color:var(--text)}
+.aiWatchRow{display:grid;grid-template-columns:minmax(180px,2fr) repeat(2,minmax(72px,.8fr)) repeat(3,minmax(72px,1fr)) minmax(56px,.6fr) minmax(200px,2.2fr);gap:8px;align-items:center;width:100%;padding:10px 12px;border:0;border-radius:var(--r-md);background:var(--surface-2);color:var(--text);font-size:var(--fs-sm);font-variant-numeric:tabular-nums;text-align:left}
+.aiPlanPage button.aiWatchRow{border:0;border-radius:var(--r-md);background:var(--surface-2)}
 .aiWatchRow.head{background:transparent;color:var(--text-muted);font-size:11px}
 .aiWatchRow>span:first-child{display:flex;align-items:center;gap:8px;min-width:0}.aiWatchRow>span:first-child b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .aiWatchRow small{color:var(--text-muted)}
-.aiState{display:inline-block;padding:2px 8px;border:1px solid var(--border);border-radius:999px;color:var(--text-2);font-size:11px;font-style:normal;white-space:nowrap}
+.aiState{display:inline-block;padding:2px 9px;font-weight:500;border:1px solid var(--border);border-radius:var(--r-pill);color:var(--text-2);font-size:11px;font-style:normal;white-space:nowrap}
 .aiState.buy{border-color:var(--up-border);background:var(--up-bg);color:var(--up-fg)}.aiState.ready{border-color:var(--violet-border);color:var(--violet-fg)}
 .aiState.caution{border-color:var(--warn-border);color:var(--warn-fg)}.aiState.invalid{border-color:var(--down-border);color:var(--down-fg)}
 .aiPositions{display:flex;flex-direction:column;gap:2px}.aiPosition{display:flex;flex-wrap:wrap;gap:6px;font-size:12px}
-.aiConditions{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:4px 0 8px;padding:10px 14px;border:1px solid var(--border);border-radius:6px}
+.aiConditions{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:4px 0 8px;padding:12px 16px;border:1px solid var(--border-soft);border-radius:var(--r-lg);background:var(--surface-2)}
 .aiConditions small{color:var(--text-muted)}.aiConditions ul{margin:6px 0 0;padding-left:0;list-style:none;font-size:12px;display:flex;flex-wrap:wrap;gap:4px 14px}
 .aiEvents{margin:10px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px;font-size:13px}
-.aiEvents li{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:6px 10px;border-radius:6px;background:var(--surface-2)}
+.aiEvents li{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:7px 12px;border-radius:var(--r-md);background:var(--surface-2)}
 .aiEvents small{color:var(--text-muted);font-size:11px}
 @media(max-width:1050px){.aiGate{grid-template-columns:1fr 1fr}.aiHistory aside{grid-template-columns:1fr}}
 @media(max-width:720px){.aiGate{grid-template-columns:1fr}.aiTable{overflow-x:auto}.aiRow{min-width:720px}.aiWatchRow{min-width:860px}.aiConditions{grid-template-columns:1fr}.aiInputHead{flex-direction:column;align-items:flex-start}}
-.aiRowButton{cursor:pointer}.aiRowButton:hover{background:var(--surface-3)}.aiRowButton:focus-visible{outline:2px solid var(--violet-border);outline-offset:1px}.aiRowButton.open{border-radius:6px 6px 0 0;background:var(--violet-bg)}
-.aiFlowRow{margin-top:-4px;padding:12px 14px 10px;border:1px solid var(--violet-border);border-top:0;border-radius:0 0 6px 6px;background:var(--surface)}
+.aiRowButton{cursor:pointer;transition:background-color .16s var(--ease)}.aiRowButton:hover{background:var(--surface-3)}.aiRowButton:focus-visible{outline:2px solid var(--accent-fg);outline-offset:1px}.aiRowButton.open{border-radius:var(--r-md) var(--r-md) 0 0;background:var(--accent-bg)}
+.aiFlowRow{margin-top:-4px;padding:14px 16px 12px;border:1px solid var(--accent-border);border-top:0;border-radius:0 0 var(--r-md) var(--r-md);background:var(--surface)}
 .aiFlow .aiEmpty{margin:4px 0}
 .aiFlowStats{display:flex;flex-wrap:wrap;gap:6px 22px;margin-bottom:6px}.aiFlowStats span{display:flex;flex-direction:column;gap:2px}.aiFlowStats small{color:var(--text-muted);font-size:11px}.aiFlowStats b{font-size:14px}.aiFlowStats em{font-size:11px;font-style:normal}
 .aiFlowChart svg{display:block;width:100%;height:auto;max-height:260px}

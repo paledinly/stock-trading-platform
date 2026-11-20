@@ -1,14 +1,63 @@
+/*
+ * 화면 전체의 바탕 규칙이에요. 글자·버튼·입력창·포커스 모양을 한 번에 정해서, 화면별 CSS는 배치와 그 화면만의 모양만 다뤄요.
+ * 화면 CSS가 쉽게 덮어쓸 수 있도록 부품 규칙은 :where()로 우선순위를 0으로 둬요.
+ */
 :root {
   font-family: var(--font-sans);
+  font-size: var(--fs-md);
+  line-height: 1.55;
   color: var(--text);
   background: var(--bg);
   font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; min-width: 320px; min-height: 100vh; }
-h1 { margin: 12px 0; font-size: clamp(2rem, 6vw, 4rem); line-height: 1.05; }
-.status { display: inline-block; margin-top: 18px; padding: 8px 12px; border-radius: 999px; color: var(--ok-fg); background: var(--ok-bg); }
-.menuGuide { margin-bottom: 14px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); color: var(--text-2); }
-.menuGuide h2 { margin: 0 0 6px; font-size: 15px; color: var(--text); }
-.menuGuide p { margin: 0; line-height: 1.6; font-size: 13px; }
+body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--bg); }
+button, input, select, textarea { font: inherit; letter-spacing: inherit; }
+:where(h1, h2, h3, h4) { color: var(--text-strong); letter-spacing: -.02em; line-height: 1.3; }
+:where(h2) { font-size: 17px; font-weight: 700; }
+:where(h3) { font-size: 15px; font-weight: 700; }
+:where(b, strong) { font-weight: 650; }
+::selection { background: var(--accent-bg); color: var(--text-strong); }
+
+/* 스크롤 막대: 얇고 흐리게 */
+* { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { border: 3px solid transparent; border-radius: 999px; background: var(--border-strong) padding-box; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* 버튼 기본: 둥근 모서리, 부드러운 전환. 화면 CSS에서 모양을 정하지 않은 버튼도 이 모양을 따라요. */
+:where(.appMain) :where(button) {
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: background-color .16s var(--ease), border-color .16s var(--ease), color .16s var(--ease), box-shadow .16s var(--ease), transform .16s var(--ease);
+}
+:where(.appMain) :where(button:disabled) { cursor: not-allowed; }
+:where(.appMain) :where(button:not(:disabled):active) { transform: translateY(1px); }
+
+/* 입력창 기본: 같은 높이·둥글기, 포커스 때 강조색 고리 */
+:where(.appMain) :where(input:not([type='checkbox'], [type='radio']), select, textarea) {
+  border-radius: var(--r-md);
+  transition: border-color .16s var(--ease), box-shadow .16s var(--ease), background-color .16s var(--ease);
+}
+:where(.appMain) :where(input:not([type='checkbox'], [type='radio']), select, textarea):focus {
+  outline: none;
+  border-color: var(--accent-border);
+  box-shadow: 0 0 0 3px var(--accent-bg);
+}
+:where(.appMain) :where(input[type='checkbox'], input[type='radio']) { accent-color: var(--accent-solid); }
+:where(.appMain) :where(button, a, summary, [tabindex]):focus-visible { outline: 2px solid var(--accent-fg); outline-offset: 2px; }
+
+.status { display: inline-block; margin-top: 18px; padding: 6px 12px; border-radius: var(--r-pill); color: var(--ok-fg); background: var(--ok-bg); font-size: var(--fs-sm); }
+
+/* 화면 안내 상자 */
+.menuGuide { margin-bottom: 16px; padding: 14px 18px; border: 1px solid var(--border-soft); border-radius: var(--r-lg); background: var(--surface); box-shadow: var(--shadow-card); color: var(--text-2); }
+.menuGuide h2 { margin: 0 0 4px; font-size: var(--fs-md); color: var(--text-strong); }
+.menuGuide p { margin: 0; line-height: 1.65; font-size: var(--fs-sm); }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}

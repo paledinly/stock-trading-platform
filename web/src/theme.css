@@ -1,98 +1,135 @@
 /*
- * 화면 전체가 함께 쓰는 색·글꼴 규칙(디자인 토큰)이에요. 어두운 화면이 기본이고, html에 data-theme="light"가 붙으면 밝은 화면 값으로 바뀌어요.
- * 각 화면 CSS는 색을 직접 쓰지 않고 var(--토큰)으로만 써요. 새 색이 필요하면 여기에 두 테마 값을 함께 추가해요.
- * 등락 색은 국내 관례대로 상승 빨강(up)·하락 파랑(down)이고, 상태 색은 정상 초록(ok)·경고 주황(warn)을 써요.
+ * 화면 전체가 함께 쓰는 디자인 토큰이에요. 어두운 화면이 기본이고, html에 data-theme="light"가 붙으면 밝은 화면 값으로 바뀌어요.
+ * 각 화면 CSS는 색·둥글기·그림자를 직접 쓰지 않고 var(--토큰)으로만 써요. 새 값이 필요하면 여기에 두 테마 값을 함께 추가해요.
+ * 색 역할:
+ *   accent(보라 남색) = 버튼·선택·탭·포커스처럼 "누르고 고르는 것" 한 가지 색이에요. 화면마다 다른 강조색을 쓰지 않아요.
+ *   up(빨강)·down(파랑) = 국내 관례 등락 색이라 가격 오르내림에만 써요.
+ *   ok(초록)·warn(주황) = 정상·주의 상태에만 써요. 카드 테두리나 버튼 꾸밈에 쓰지 않아요.
  */
 :root {
   color-scheme: dark;
-  --font-sans: Pretendard, 'Pretendard Variable', Inter, system-ui, -apple-system, 'Segoe UI', 'Malgun Gothic', sans-serif;
+  --font-sans: Pretendard, 'Pretendard Variable', 'Apple SD Gothic Neo', 'Malgun Gothic', Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Consolas, 'D2Coding', monospace;
+
+  /* 둥글기: 작은 칸·입력 < 버튼 < 카드 < 큰 판. pill은 배지·칩. */
+  --r-sm: 8px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-xl: 18px;
+  --r-pill: 999px;
+
+  /* 글자 크기 단계 */
+  --fs-2xs: 11px;
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-md: 14px;
+  --fs-lg: 16px;
+  --fs-xl: 20px;
+  --fs-2xl: 26px;
+
+  --ease: cubic-bezier(.2, .7, .2, 1);
 
   /* 바탕과 표면: bg(페이지) < surface(카드) < surface-2(카드 안 칸·입력창) < surface-3(선택·hover) */
-  --bg: #090e17;
-  --surface: #0f1521;
-  --surface-2: #131c2a;
-  --surface-3: #1a2638;
-  --surface-glass: #0b111ddd;
-  --border: #243246;
-  --border-strong: #3a4a62;
+  --bg: #0e1118;
+  --surface: #161a23;
+  --surface-2: #1c212c;
+  --surface-3: #252b38;
+  --surface-glass: #12161ee6;
+  --border: #272e3b;
+  --border-soft: #20262f;
+  --border-strong: #3a4252;
 
   /* 글자: text-strong(가장 진함) > text > text-2 > text-muted */
-  --text-strong: #ffffff;
-  --text: #e9eef8;
-  --text-2: #aebbd0;
-  --text-muted: #8792a3;
+  --text-strong: #f6f7fb;
+  --text: #e3e7ef;
+  --text-2: #a9b2c1;
+  --text-muted: #7f8898;
   --on-solid: #ffffff;
-  --shadow-color: #0009;
+  --shadow-color: #0008;
+  --shadow-card: 0 1px 2px #0000004d;
+  --shadow-pop: 0 12px 32px #00000080;
 
-  /* 계열별 색: bg(옅은 바탕) · border(테두리) · solid(진한 버튼 바탕) · fg(글자·강조) */
-  --up-bg: #2e1921;
-  --up-border: #683f4b;
+  /* 강조(accent): 누르고 고르는 것 */
+  --accent-bg: #23213f;
+  --accent-border: #464081;
+  --accent-solid: #6c62f0;
+  --accent-solid-hover: #7c73f5;
+  --accent-fg: #aaa4ff;
+
+  /* 계열별 색: bg(옅은 바탕) · border(테두리) · solid(진한 바탕) · fg(글자·강조) */
+  --up-bg: #2d1a21;
+  --up-border: #613c47;
   --up-solid: #c43a4f;
   --up-fg: #ff6b7d;
-  --down-bg: #14223a;
-  --down-border: #33527e;
+  --down-bg: #15213a;
+  --down-border: #33507b;
   --down-solid: #3568ca;
   --down-fg: #6aa8ff;
-  --ok-bg: #12302e;
-  --ok-border: #2d756a;
+  --ok-bg: #132b29;
+  --ok-border: #2b6a60;
   --ok-solid: #2d756a;
-  --ok-fg: #63d6a5;
-  --warn-bg: #2b2415;
-  --warn-border: #6a5a36;
+  --ok-fg: #5fd0a0;
+  --warn-bg: #2a2416;
+  --warn-border: #64553a;
   --warn-solid: #9a6b1c;
-  --warn-fg: #f4c86a;
-  --violet-bg: #2c2540;
-  --violet-border: #5e4a7e;
-  --violet-solid: #6d4fc4;
-  --violet-fg: #c3a6ff;
+  --warn-fg: #f1c66d;
+  --violet-bg: var(--accent-bg);
+  --violet-border: var(--accent-border);
+  --violet-solid: var(--accent-solid);
+  --violet-fg: var(--accent-fg);
 
   /* 차트(lightweight-charts)는 CSS 변수를 직접 못 읽어서 CandleChart가 이 값을 읽어 넘겨요. */
-  --chart-bg: #0b121d;
-  --chart-grid: #182235;
-  --chart-axis: #26334a;
-  --chart-text: #758296;
+  --chart-bg: #161a23;
+  --chart-grid: #1f2530;
+  --chart-axis: #2a3140;
+  --chart-text: #7f8898;
 }
 
 :root[data-theme='light'] {
   color-scheme: light;
-  --bg: #f4f6fa;
+  --bg: #f4f5f8;
   --surface: #ffffff;
-  --surface-2: #f6f8fb;
-  --surface-3: #eaeff6;
+  --surface-2: #f6f7fa;
+  --surface-3: #eceef3;
   --surface-glass: #ffffffe6;
-  --border: #dce3ec;
-  --border-strong: #b8c3d2;
+  --border: #e3e6ec;
+  --border-soft: #eceef2;
+  --border-strong: #cdd2db;
 
-  --text-strong: #0b1220;
-  --text: #172133;
-  --text-2: #3d4a5e;
-  --text-muted: #667386;
+  --text-strong: #111827;
+  --text: #1e2533;
+  --text-2: #4a5468;
+  --text-muted: #6d7686;
   --on-solid: #ffffff;
-  --shadow-color: #1018281f;
+  --shadow-color: #1018281a;
+  --shadow-card: 0 1px 2px #1018280a, 0 2px 10px #1018280a;
+  --shadow-pop: 0 14px 36px #1018281f;
 
-  --up-bg: #fdecee;
-  --up-border: #f3b9c2;
+  --accent-bg: #efeefe;
+  --accent-border: #d4d0fb;
+  --accent-solid: #5a4fe3;
+  --accent-solid-hover: #4c41d6;
+  --accent-fg: #4b40cf;
+
+  --up-bg: #fdeef0;
+  --up-border: #f4c3ca;
   --up-solid: #d62f45;
   --up-fg: #d1243a;
-  --down-bg: #e8f0fd;
-  --down-border: #b9cff4;
+  --down-bg: #ebf2fe;
+  --down-border: #c0d5f6;
   --down-solid: #2563eb;
   --down-fg: #1d5bd6;
-  --ok-bg: #e6f6ee;
-  --ok-border: #a8dcc0;
+  --ok-bg: #e8f6ef;
+  --ok-border: #b2e0c7;
   --ok-solid: #13804f;
   --ok-fg: #12784a;
-  --warn-bg: #fff4dc;
-  --warn-border: #f0d29a;
+  --warn-bg: #fff6e2;
+  --warn-border: #f1d8a6;
   --warn-solid: #b86e00;
-  --warn-fg: #9a5b00;
-  --violet-bg: #f1ebfd;
-  --violet-border: #d6c6f6;
-  --violet-solid: #6d3fd1;
-  --violet-fg: #6236c4;
+  --warn-fg: #965800;
 
   --chart-bg: #ffffff;
-  --chart-grid: #eef2f7;
-  --chart-axis: #d5dde8;
-  --chart-text: #667386;
+  --chart-grid: #f0f2f6;
+  --chart-axis: #dde1e8;
+  --chart-text: #6d7686;
 }
