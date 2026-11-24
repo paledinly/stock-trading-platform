@@ -77,7 +77,10 @@ public class IntradayFlowService {
         boolean live = isToday && local.toLocalTime().isBefore(close.plusMinutes(1));
         String key = stockCode + "|" + date;
         Cached hit = cache.get(key);
-        if (hit != null && (!live || Duration.between(hit.at(), now).compareTo(TODAY_TTL) < 0))
+        // 장중에 받아 둔 값(live)은 장이 끝난 뒤 다시 쓰지 않아요. 그러지 않으면 장중에 열어 본 시각에서 끊긴 흐름이 계속 보여요.
+        if (hit != null && (hit.flow().live()
+                ? live && Duration.between(hit.at(), now).compareTo(TODAY_TTL) < 0
+                : true))
             return hit.flow();
         Flow flow;
         try {
