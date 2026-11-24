@@ -85,6 +85,27 @@ class IntradayFlowServiceTest {
     }
 
     @Test
+    void refetchesAfterTheCloseWhatWasSeenDuringTheSession() {
+        KisMinuteCandleClient kis = mock(KisMinuteCandleClient.class);
+        when(kis.fetch(eq("000010"), any())).thenAnswer(call -> page(DAY, call.getArgument(1), 30));
+        ClosingTradingCalendar calendar = calendarAt(DAY, LocalTime.of(14, 0, 10));
+        IntradayFlowService service = new IntradayFlowService(kis, calendar);
+
+        assertThat(service.flow("000010", DAY).bars().get(300).time()).isEqualTo("14:00");
+
+        when(calendar.now()).thenReturn(DAY.atTime(16, 50).atZone(MarketSessionHours.ZONE).toInstant());
+        IntradayFlowService.Flow after = service.flow("000010", DAY);
+
+        assertThat(after.live()).isFalse();
+        assertThat(after.bars()).hasSize(391);
+        assertThat(after.bars().get(390).time()).isEqualTo("15:30");
+
+        int calls = mockingDetails(kis).getInvocations().size();
+        service.flow("000010", DAY);
+        assertThat(mockingDetails(kis).getInvocations()).hasSize(calls);
+    }
+
+    @Test
     void tellsWhyThereIsNothingToShow() {
         KisMinuteCandleClient kis = mock(KisMinuteCandleClient.class);
         IntradayFlowService service = new IntradayFlowService(kis, calendarAt(DAY, LocalTime.of(8, 30)));
