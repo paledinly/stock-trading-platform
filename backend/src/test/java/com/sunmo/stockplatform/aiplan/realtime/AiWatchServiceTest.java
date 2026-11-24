@@ -150,6 +150,32 @@ class AiWatchServiceTest {
         assertThat(watch.view(DAY).session().endedAt()).isEqualTo(at("15:20:01"));
     }
 
+    /**
+     * 기대: 제시간 판이 없고 장 시작 뒤(09:30)에 입력한 판만 있으면 그 판으로 감시를 시작해요.
+     * 감시 기록은 LATE_RULE_VERSION으로 남아 판정 집계(RULE_VERSION만 셈)에서 빠져요.
+     */
+    @Test
+    void watchesAPlanEnteredAfterTheOpenWithoutCountingIt() {
+        var saved = new AiPlanService(jdbc, new ObjectMapper(), calendar(at("09:30:00"))).submit("""
+                {"schemaVersion":"ai-premarket-v2","targetDate":"2026-11-11","analysisMode":"PREMARKET","analyzedAt":null,
+                 "model":{"name":"ChatGPT","version":null,"promptVersion":"premarket-v2"},
+                 "market":{"outlook":"NEUTRAL","regime":"VOLATILE_MIXED","riskLevel":"HIGH"},
+                 "tradeDecision":"WATCH_ONLY",
+                 "picks":[{"stockCode":"005930","priority":1,"status":"WATCH","reason":"r","noBuyConditions":["n"],
+                           "sources":[{"title":"t"}]}]}""");
+        assertThat(saved.saved()).isTrue();
+        assertThat(saved.plan().onTime()).isFalse();
+
+        AiWatchService watch = service(at("09:31:00"));
+        watch.sync(at("09:31:00"));
+
+        var view = watch.view(DAY);
+        assertThat(view.live()).isTrue();
+        assertThat(view.stocks()).extracting(AiWatchEngine.StockView::stockCode).containsExactly("005930");
+        assertThat(view.session().ruleVersion()).isEqualTo(WatchRules.LATE_RULE_VERSION);
+        assertThat(registry.entries()).containsKey("005930");
+    }
+
     /** 기대: 거래량 프로필은 5분봉이 있는 날(12일)로 칸 평균을 내고, 전일 5분 평균 거래대금과 전일 고가·종가를 읽어요. */
     @Test
     void buildsTheVolumeProfileFromResearchBars() {

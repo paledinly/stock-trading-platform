@@ -88,7 +88,8 @@ public class AiWatchService {
         if (time.isBefore(LOAD_FROM) || !time.isBefore(WatchRules.SESSION_END)) return;
         AiWatchStore.PlanRow plan = store.plan(today).orElse(null);
         if (plan == null) return;
-        // 장 시작 뒤에는 계획이 바뀌지 않아요(장 시작 뒤 판은 집계 대상이 아님). 재시작이면 engine이 없어서 다시 만들어요.
+        // 장 시작 뒤에는 계획이 바뀌지 않아요. 재시작이면 engine이 없어서 다시 만들어요.
+        // 제시간 판이 없으면 장 시작 뒤 입력한 판도 감시해요(LATE_RULE_VERSION으로 남아 판정에서 빠져요).
         if (engine != null && (plan.id() == planId || !time.isBefore(MarketSessionHours.REGULAR_OPEN))) return;
         load(today, plan, now);
     }
