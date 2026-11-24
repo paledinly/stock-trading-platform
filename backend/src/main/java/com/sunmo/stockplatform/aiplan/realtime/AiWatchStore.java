@@ -29,7 +29,8 @@ public class AiWatchStore {
     private static final ZoneId ZONE = ZoneId.of("Asia/Seoul");
 
     /** 그날 집계 대상 계획(장 시작 전 마지막 판, PREMARKET)이에요. */
-    public record PlanRow(long id, String tradeDecision, String rawJson) { }
+    /** onTime: 장 시작 전에 입력한 판이에요. false면 장 시작 뒤 입력한 판이라 감시는 하되 판정에서 빼요. */
+    public record PlanRow(long id, String tradeDecision, String rawJson, boolean onTime) { }
 
     /** 감시할 종목(PICK)이에요. */
     public record PickRow(long id, long stockId, String stockCode, String stockName, Integer priority, boolean topPriority) { }
@@ -48,10 +49,11 @@ public class AiWatchStore {
 
     public Optional<PlanRow> plan(LocalDate date) {
         return jdbc.query("""
-                select id, trade_decision, raw_json from ai_premarket_plan
-                where target_date = ? and on_time and analysis_mode = 'PREMARKET'
-                order by revision desc limit 1""",
-                (rs, i) -> new PlanRow(rs.getLong("id"), rs.getString("trade_decision"), rs.getString("raw_json")),
+                select id, trade_decision, raw_json, on_time from ai_premarket_plan
+                where target_date = ? and analysis_mode = 'PREMARKET'
+                order by on_time desc, revision desc limit 1""",
+                (rs, i) -> new PlanRow(rs.getLong("id"), rs.getString("trade_decision"), rs.getString("raw_json"),
+                        rs.getBoolean("on_time")),
                 Date.valueOf(date)).stream().findFirst();
     }
 
@@ -110,17 +112,18 @@ public class AiWatchStore {
     public void session(LocalDate date, PlanRow plan, int pickCount, int subscribed, List<String> unsubscribed,
             BigDecimal amount, Instant now) {
         String missing = unsubscribed.isEmpty() ? null : String.join(",", unsubscribed);
+        String version = plan.onTime() ? WatchRules.RULE_VERSION : WatchRules.LATE_RULE_VERSION;
         int updated = jdbc.update("""
                 update ai_watch_session set plan_id = ?, trade_decision = ?, pick_count = ?, subscribed_count = ?,
                   unsubscribed_codes = ?, position_amount = ?, rule_version = ?, ended_at = null
                 where trade_date = ?""", plan.id(), plan.tradeDecision(), pickCount, subscribed, missing, amount,
-                WatchRules.RULE_VERSION, Date.valueOf(date));
+                version, Date.valueOf(date));
         if (updated == 0)
             jdbc.update("""
                     insert into ai_watch_session(trade_date, plan_id, trade_decision, started_at, pick_count, subscribed_count,
                       unsubscribed_codes, position_amount, rule_version) values (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     Date.valueOf(date), plan.id(), plan.tradeDecision(), Timestamp.from(now), pickCount, subscribed, missing,
-                    amount, WatchRules.RULE_VERSION);
+                    amount, version);
     }
 
     public void endSession(LocalDate date, Instant now) {

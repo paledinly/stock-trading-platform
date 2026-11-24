@@ -140,8 +140,9 @@ export function AiWatchPanel() {
                 계획 {DECISION[data.session.tradeDecision] ?? data.session.tradeDecision}
                 {data.session.tradeDecision !== 'TRADE' ? ' (진입은 그림자 기록)' : ''} · 구독 {data.session.subscribedCount}/{data.session.pickCount}종목
                 {data.session.unsubscribedCodes ? ` · 구독 못 함 ${data.session.unsubscribedCodes}` : ''} · 1회 {num(data.session.positionAmount)}원 · {data.session.ruleVersion}
+                {data.session.ruleVersion.endsWith('-late') && <em className="aiBadge warn">장 시작 뒤 입력 · 판정 제외</em>}
               </span>
-            ) : <span>이날 감시 기록이 없어요. 장 시작 전에 저장한 계획이 있으면 08:50에 감시를 시작해요.</span>}
+            ) : <span>이날 감시 기록이 없어요. 장 시작 전에 저장한 계획은 08:50에, 장 시작 뒤 입력한 계획은 입력 후 30초 안에 감시를 시작해요(판정 제외).</span>}
           </div>
           <div className="aiWatchTools">
             <input type="date" aria-label="날짜" value={date} onChange={event => setDate(event.target.value)} />

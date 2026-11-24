@@ -14,6 +14,11 @@ import java.time.LocalTime;
 public final class WatchRules {
     // p2(2026-11-12~): 누적 거래량 불일치를 끊김으로 보지 않고, 칸 거래량을 누적 거래량 증가분으로 계산해요. 임계값은 p1과 같아요.
     public static final String RULE_VERSION = "ai-watch-p2";
+    /**
+     * 장 전에 작성했지만 장 시작 뒤에 입력한 판(on_time=false)을 감시한 날의 버전이에요(2026-11-24 추가).
+     * 같은 규칙으로 감시·기록하지만 판정 집계(RULE_VERSION만 셈)에서는 빠져요. 시가 범위·VWAP을 장 시작부터 보지 못했을 수 있어요.
+     */
+    public static final String LATE_RULE_VERSION = RULE_VERSION + "-late";
 
     /** 종목별 감시 상태예요. 우선순위는 INVALIDATED > CAUTION > BUY_CANDIDATE > READY > WATCH. */
     public enum State { NOT_SUBSCRIBED, WATCH, READY, BUY_CANDIDATE, CAUTION, INVALIDATED, EXPIRED, UNSUPPORTED }

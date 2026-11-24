@@ -40,7 +40,7 @@ class AiPlanServiceTest {
                 + "high_price numeric(20,4), low_price numeric(20,4), close_price numeric(20,4), trading_value numeric(24,4), "
                 + "primary key(stock_id, trade_date))");
         for (String file : List.of("V47__create_ai_premarket_plan.sql", "V48__ai_premarket_plan_v2.sql",
-                "V51__ai_premarket_plan_v5_nxt.sql")) {
+                "V51__ai_premarket_plan_v5_nxt.sql", "V52__widen_ai_plan_trade_decision.sql")) {
             String migration = new ClassPathResource("db/migration/" + file).getContentAsString(StandardCharsets.UTF_8);
             for (String statement : migration.replaceAll("(?m)^\s*--.*$", "").split(";"))
                 if (!statement.isBlank())
@@ -191,6 +191,22 @@ class AiPlanServiceTest {
         assertThat(summary.noTradeDays()).isEqualTo(1);
         assertThat(summary.noTradeUniverseOpenClose()).isEqualByComparingTo("1.02");
         assertThat(summary.scoredDays()).isZero();
+    }
+
+    /** 기대: 가장 긴 판단 값 DATA_INSUFFICIENT(17자)도 저장돼요. 2026-11-24 열 길이 16자에 걸려 저장이 실패했어요. */
+    @Test
+    void storesDataInsufficientDecision() {
+        String insufficient = """
+                {"schemaVersion":"ai-premarket-v2","targetDate":"2026-11-11","analysisMode":"PREMARKET","analyzedAt":null,
+                 "model":{"name":"ChatGPT","version":null,"promptVersion":"premarket-v2"},
+                 "market":{"outlook":"NEUTRAL","regime":"WAIT_AND_SEE","riskLevel":"HIGH"},
+                 "tradeDecision":"DATA_INSUFFICIENT","picks":[]}""";
+        var saved = plans("2026-11-10T23:10:00Z").submit(insufficient);
+
+        assertThat(saved.errors()).isEmpty();
+        assertThat(saved.saved()).isTrue();
+        assertThat(jdbc.queryForObject("select trade_decision from ai_premarket_plan", String.class))
+                .isEqualTo("DATA_INSUFFICIENT");
     }
 
     /** 기대: 그날 일봉이 아직 없으면(시장 평균 종목 100개 미만) 채점을 미뤄요. */
