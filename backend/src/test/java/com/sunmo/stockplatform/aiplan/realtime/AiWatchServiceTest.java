@@ -57,7 +57,8 @@ class AiWatchServiceTest {
         jdbc.execute("create table intraday_research_bar(stock_id bigint, start_time timestamp with time zone, open_price int, "
                 + "high_price int, low_price int, close_price int, volume bigint, trading_value bigint, primary key(stock_id, start_time))");
         for (String file : List.of("V47__create_ai_premarket_plan.sql", "V48__ai_premarket_plan_v2.sql", "V49__create_ai_watch.sql",
-                "V51__ai_premarket_plan_v5_nxt.sql", "V52__widen_ai_plan_trade_decision.sql")) {
+                "V51__ai_premarket_plan_v5_nxt.sql", "V52__widen_ai_plan_trade_decision.sql",
+                "V53__widen_ai_watch_rule.sql")) {
             String migration = new ClassPathResource("db/migration/" + file).getContentAsString(StandardCharsets.UTF_8);
             for (String statement : migration.replaceAll("(?m)^\\s*--.*$", "").split(";"))
                 if (!statement.isBlank()) jdbc.execute(statement);
@@ -221,6 +222,8 @@ class AiWatchServiceTest {
         for (int d = 0; d < 16; d++, day = day.plusDays(1)) {
             for (int i = 0; i < 3; i++)
                 store.position(day, position(picks[i], d == 15 ? "-9" : "0.5"), "{}");
+            // 비교 규칙 XL은 날마다 한 건(−0.2%)이라 16일이 지나도 40건이 안 돼 기록 중이에요.
+            store.position(day, position(picks[0], "-0.2", "XL"), "{}");
             if (d == 13) assertThat(service(at("12:00:00")).summary().verdict()).isEqualTo("PENDING");
         }
 
@@ -233,6 +236,16 @@ class AiWatchServiceTest {
         assertThat(summary.gate().meanVsOpenPct()).isEqualByComparingTo("0.4");
         assertThat(summary.groups()).filteredOn(g -> g.rule().equals("P") && g.exit().equals("E1") && g.scope().equals("ALL"))
                 .singleElement().satisfies(g -> assertThat(g.trades()).isEqualTo(48));
+        assertThat(summary.variants()).extracting(AiWatchService.VariantGate::rule)
+                .containsExactly("XM", "XC", "XV", "XI", "XL", "X0");
+        assertThat(summary.variants()).filteredOn(v -> v.rule().equals("XL")).singleElement().satisfies(v -> {
+            assertThat(v.verdict()).isEqualTo("PENDING");
+            assertThat(v.gate().trades()).isEqualTo(16);
+            assertThat(v.gate().meanNetPct()).isEqualByComparingTo("-0.2");
+            assertThat(v.e2().trades()).isEqualTo(16);
+        });
+        assertThat(summary.variants()).filteredOn(v -> v.rule().equals("XM")).singleElement()
+                .satisfies(v -> assertThat(v.gate().trades()).isZero());
     }
 
     /** 기대: 같은 날·종목·규칙의 포지션을 다시 저장하면 새 줄이 아니라 청산 값만 고쳐요. */
@@ -260,9 +273,11 @@ class AiWatchServiceTest {
         });
     }
 
-    private static AiWatchEngine.PositionView position(long pick, String net) {
+    private static AiWatchEngine.PositionView position(long pick, String net) { return position(pick, net, "P"); }
+
+    private static AiWatchEngine.PositionView position(long pick, String net, String rule) {
         var exit = new AiWatchEngine.Exit(BigDecimal.TEN, Instant.parse("2026-12-01T06:19:00Z"), "CLOSE", new BigDecimal(net));
-        return new AiWatchEngine.PositionView(pick, "900000", "P", true, Instant.parse("2026-12-01T00:20:00Z"),
+        return new AiWatchEngine.PositionView(pick, "900000", rule, true, Instant.parse("2026-12-01T00:20:00Z"),
                 Instant.parse("2026-12-01T00:20:01Z"), Instant.parse("2026-12-01T00:20:01Z"), BigDecimal.TEN,
                 new BigDecimal("0.05"), "FALLBACK", BigDecimal.TEN, 1, false, BigDecimal.ONE, exit, exit, BigDecimal.TEN,
                 BigDecimal.TEN, BigDecimal.TEN, false);

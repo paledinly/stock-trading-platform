@@ -219,6 +219,7 @@ public final class AiWatchEngine {
         watch.checksP = p;
         State stateP = state(watch, RULE_P, p, x, last, now, time);
         transition(watch, RULE_P, stateP, failing(p), now, effects);
+        for (WatchRules.Variant variant : WatchRules.VARIANTS) variant(watch, variant, p, x, last, now, time, effects);
 
         if (watch.states.get(RULE_A) == State.UNSUPPORTED) return;
         Map<String, Check> a = new LinkedHashMap<>();
@@ -249,6 +250,41 @@ public final class AiWatchEngine {
                 && x.price.compareTo(watch.monitor.or15High().multiply(BigDecimal.ONE.subtract(
                         WatchRules.READY_NEAR_PCT.divide(HUNDRED)))) >= 0) return State.READY;
         return State.WATCH;
+    }
+
+    /**
+     * 하는 일: 비교 규칙 하나를 판단해요. 규칙 P의 조건표에서 그 규칙이 빼는 조건만 빼고, 나머지가 모두 PASS면 매수 신호를 내요.
+     * 상태 이력은 남기지 않아요. 거래정지·자료 끊김·14:30 뒤·이미 진입한 날은 규칙 P와 똑같이 막아요.
+     */
+    private void variant(Watch watch, WatchRules.Variant v, Map<String, Check> p, Indicators x, MarketTick last,
+            Instant now, LocalTime time, List<Effect> effects) {
+        String rule = v.code();
+        if (closedOut || watch.positions.containsKey(rule) || watch.pending.containsKey(rule)) return;
+        if (time.isAfter(WatchRules.ENTRY_END) || (watch.invalidated && !v.ignoreInvalidation())) return;
+        if ((last != null && last.tradingHalted()) || watch.monitor.recentGap(now)) return;
+        Map<String, Check> checks = new LinkedHashMap<>();
+        if (v.simple()) {
+            checks.put("TIME", x.time);
+            checks.put("DATA", x.data);
+            checks.put("STOP_AVAILABLE", x.stop == null || x.price == null ? Check.UNAVAILABLE : check(x.price.compareTo(x.stop) > 0));
+        } else {
+            checks.putAll(p);
+            if (v.ignoreMarket()) checks.remove("MARKET");
+            if (v.ignoreChasing()) List.of("NOT_CHASING_OPEN", "NOT_CHASING_5M", "NOT_CHASING_BREAKOUT").forEach(checks::remove);
+            if (v.minVolume() != null) checks.put("VOLUME_5M", volume(watch.monitor, x.rvol, v.minVolume()));
+        }
+        if (!checks.values().stream().allMatch(c -> c == Check.PASS)) return;
+        watch.pending.put(rule, new Pending(now, x.stop));
+        effects.add(new EntryRequested(watch.monitor.pick.stockCode(), rule));
+    }
+
+    /** 거래량 조건: RVOL ≥ 배수. RVOL이 없으면 마지막 5분 거래대금 ≥ 전일 5분 평균 거래대금 × 배수. */
+    private static Check volume(StockMonitor m, BigDecimal rvol, BigDecimal multiple) {
+        StockMonitor.Bar five = m.lastFive();
+        if (five == null) return Check.UNAVAILABLE;
+        if (rvol != null) return check(rvol.compareTo(multiple) >= 0);
+        BigDecimal previous = m.profile.previousBarTurnover();
+        return previous == null ? Check.UNAVAILABLE : check(five.value.compareTo(previous.multiply(multiple)) >= 0);
     }
 
     /** 하는 일: 상태가 바뀌었으면 기록하고, BUY_CANDIDATE면서 그 규칙의 진입이 아직 없으면 매수 신호를 내요. */
@@ -288,8 +324,7 @@ public final class AiWatchEngine {
         x.aboveVwap = x.price == null || vwap == null ? Check.UNAVAILABLE : check(x.price.compareTo(vwap) > 0);
         BigDecimal fallback = m.profile.previousBarTurnover() == null ? null
                 : m.profile.previousBarTurnover().multiply(WatchRules.FALLBACK_TURNOVER_MULTIPLE);
-        x.volume = five == null ? Check.UNAVAILABLE : rvol != null ? check(rvol.compareTo(WatchRules.MIN_RVOL) >= 0)
-                : fallback != null ? check(five.value.compareTo(fallback) >= 0) : Check.UNAVAILABLE;
+        x.volume = volume(m, rvol, WatchRules.MIN_RVOL);
         x.fallbackTurnover = fallback;
         if (x.or15Final && vwap != null && atr != null)
             x.stop = m.or15Low().max(vwap.subtract(WatchRules.STOP_VWAP_ATR.multiply(atr))).setScale(4, RoundingMode.HALF_UP);

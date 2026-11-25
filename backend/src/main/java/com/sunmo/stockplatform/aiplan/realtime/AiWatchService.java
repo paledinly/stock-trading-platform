@@ -293,7 +293,10 @@ public class AiWatchService {
             BigDecimal winRate, int paired, BigDecimal meanVsOpenPct) { }
 
     /** 2단계 판정이에요. verdict: PENDING(표본 부족)·PASS·FAIL. gate는 판정에 쓰는 규칙 P·E1 표본이에요. */
-    public record Summary(String verdict, int minTrades, int minDays, Group gate, List<Group> groups) { }
+    public record Summary(String verdict, int minTrades, int minDays, Group gate, List<Group> groups, List<VariantGate> variants) { }
+
+    /** 비교 규칙 하나의 기록이에요. 규칙 P와 같은 방식(E1, 40건·15거래일)으로 세지만, 운영 판정이 아니라 참고예요. */
+    public record VariantGate(String rule, String label, String verdict, Group gate, Group e2) { }
 
     /**
      * 하는 일: 가상 거래를 규칙(P/A)·청산(E1/E2)·구분(전체/실제/shadow)별로 집계하고, 규칙 P·E1으로 판정해요.
@@ -308,21 +311,38 @@ public class AiWatchService {
                 for (String scope : List.of("ALL", "LIVE", "SHADOW"))
                     groups.add(group(rule, exit, scope, trades.stream().filter(t -> t.rule().equals(rule))
                             .filter(t -> scope.equals("ALL") || (scope.equals("SHADOW") == t.shadow())).toList()));
+        Gate p = gate(trades, AiWatchEngine.RULE_P);
+        List<VariantGate> variants = new ArrayList<>();
+        for (WatchRules.Variant v : WatchRules.VARIANTS) {
+            Gate g = gate(trades, v.code());
+            variants.add(new VariantGate(v.code(), v.label(), g.verdict(), g.group(),
+                    group(v.code(), "E2", "ALL", trades.stream().filter(t -> t.rule().equals(v.code())).toList())));
+        }
+        return new Summary(p.verdict(), GATE_TRADES, GATE_DAYS, p.group(), groups, variants);
+    }
+
+    private record Gate(String verdict, Group group) { }
+
+    /**
+     * 하는 일: 한 규칙의 E1 거래를 날짜 순으로 쌓아 40건 이상·15거래일 이상이 처음 된 날까지를 표본으로 판정해요.
+     * PASS = 비용 뺀 평균 > 0 그리고 같은 종목 시가 매수보다 나은 정도 평균 > 0.
+     */
+    private static Gate gate(List<AiWatchStore.TradeRow> trades, String rule) {
         List<AiWatchStore.TradeRow> sample = new ArrayList<>();
         Set<LocalDate> days = new TreeSet<>();
         boolean reached = false;
         LocalDate cutoff = null;
-        for (AiWatchStore.TradeRow trade : trades.stream().filter(t -> t.rule().equals(AiWatchEngine.RULE_P)).toList()) {
+        for (AiWatchStore.TradeRow trade : trades.stream().filter(t -> t.rule().equals(rule)).toList()) {
             if (cutoff != null && trade.tradeDate().isAfter(cutoff)) break;
             sample.add(trade);
             days.add(trade.tradeDate());
             if (!reached && sample.size() >= GATE_TRADES && days.size() >= GATE_DAYS) { reached = true; cutoff = trade.tradeDate(); }
         }
-        Group gate = group(AiWatchEngine.RULE_P, "E1", "GATE", sample);
+        Group group = group(rule, "E1", "GATE", sample);
         String verdict = !reached ? "PENDING"
-                : gate.meanNetPct() != null && gate.meanNetPct().signum() > 0
-                        && gate.meanVsOpenPct() != null && gate.meanVsOpenPct().signum() > 0 ? "PASS" : "FAIL";
-        return new Summary(verdict, GATE_TRADES, GATE_DAYS, gate, groups);
+                : group.meanNetPct() != null && group.meanNetPct().signum() > 0
+                        && group.meanVsOpenPct() != null && group.meanVsOpenPct().signum() > 0 ? "PASS" : "FAIL";
+        return new Gate(verdict, group);
     }
 
     private static Group group(String rule, String exit, String scope, List<AiWatchStore.TradeRow> rows) {

@@ -79,7 +79,9 @@ class AiWatchEngineTest {
     }
 
     /** 09:00~09:15 시가 범위(고가 102, 저가 100)를 평소 거래량(5분 1,000주)으로 만들고, 09:15~09:20에 돌파 봉을 만들어요. */
-    private void openingAndBreakout(AiWatchEngine engine, String[] breakout) {
+    private void openingAndBreakout(AiWatchEngine engine, String[] breakout) { openingAndBreakout(engine, breakout, 500); }
+
+    private void openingAndBreakout(AiWatchEngine engine, String[] breakout, long breakoutVolume) {
         String[][] bars = {
                 { "100", "101.5", "100.5", "101", "100.5", "101", "100.5", "101", "100.5", "101" },
                 { "101", "102", "100.5", "101.5", "101", "101.5", "101", "101.5", "101", "101.5" },
@@ -88,7 +90,7 @@ class AiWatchEngineTest {
             for (int i = 0; i < 10; i++)
                 tick(engine, LocalTime.of(9, bar * 5 + i / 2, i % 2 == 0 ? 5 : 35).toString(), bars[bar][i], 100);
         for (int i = 0; i < breakout.length; i++)
-            tick(engine, LocalTime.of(9, 15 + i / 2, i % 2 == 0 ? 5 : 35).toString(), breakout[i], 500);
+            tick(engine, LocalTime.of(9, 15 + i / 2, i % 2 == 0 ? 5 : 35).toString(), breakout[i], breakoutVolume);
     }
 
     private static final String[] BREAKOUT = { "101.5", "101.8", "102", "102.2", "102.3", "102.4", "102.5", "102.5", "102.6", "102.6" };
@@ -96,6 +98,11 @@ class AiWatchEngineTest {
     private List<SignalChanged> signals(String rule) {
         return effects.stream().filter(SignalChanged.class::isInstance).map(SignalChanged.class::cast)
                 .filter(s -> s.rule().equals(rule)).toList();
+    }
+
+    /** 매수 신호를 낸 규칙들이에요(낸 순서대로). */
+    private List<String> requested() {
+        return effects.stream().filter(EntryRequested.class::isInstance).map(e -> ((EntryRequested) e).rule()).toList();
     }
 
     private List<PositionChanged> positions() {
@@ -112,7 +119,8 @@ class AiWatchEngineTest {
         var engine = engine("TRADE", EXAMPLE_CONDITIONS);
         market(engine, "09:00:30", "0.4");
         openingAndBreakout(engine, BREAKOUT);
-        assertThat(effects).noneMatch(EntryRequested.class::isInstance);
+        // 비교 규칙 X0(09:15 바로 진입)만 09:15 첫 판단에서 신호를 내요. 규칙 P·A는 돌파 봉이 닫히기 전이라 아직이에요.
+        assertThat(requested()).containsExactly("X0");
         market(engine, "09:19:50", "0.4");
 
         effects.addAll(engine.evaluate(at("09:20:03")));
@@ -123,7 +131,10 @@ class AiWatchEngineTest {
             assertThat(s.sourceAt()).isEqualTo(at("09:19:35"));
         });
         assertThat(signals("A")).last().extracting(SignalChanged::to).isEqualTo(State.BUY_CANDIDATE);
-        assertThat(effects).filteredOn(EntryRequested.class::isInstance).hasSize(2);
+        // 규칙 P가 통과하면 P에서 조건을 뺀 비교 규칙도 모두 통과해요. 비교 규칙은 상태 이력(SignalChanged)을 남기지 않아요.
+        assertThat(requested()).containsExactly("X0", "P", "XM", "XC", "XV", "XI", "XL", "A");
+        assertThat(effects).filteredOn(SignalChanged.class::isInstance).allSatisfy(e ->
+                assertThat(((SignalChanged) e).rule()).isIn("P", "A"));
         var view = engine.view().get(0);
         assertThat(view.checksP()).allSatisfy((name, check) -> assertThat(check).as(name).isEqualTo(Check.PASS));
         assertThat(view.indicators()).containsEntry("or15High", "102").containsEntry("or15Low", "100");
@@ -159,7 +170,7 @@ class AiWatchEngineTest {
         assertThat(p.maxPrice()).isEqualByComparingTo("105.9");
         assertThat(p.minPrice()).isEqualByComparingTo("101");
         // 하루 1회: 다시 조건이 맞아도 새로 진입하지 않아요.
-        assertThat(effects).filteredOn(EntryRequested.class::isInstance).hasSize(2);
+        assertThat(requested()).hasSize(8);
     }
 
     /** 기대: 계획이 WATCH_ONLY면 진입은 기록하되 shadow예요. 15:19에 남은 청산은 마지막 체결 가격으로 정리해요(CLOSE). */
@@ -197,8 +208,8 @@ class AiWatchEngineTest {
             assertThat(s.to()).isEqualTo(State.CAUTION);
             assertThat(s.reasons()).contains("MARKET:FAIL");
         });
-        assertThat(effects).filteredOn(EntryRequested.class::isInstance).extracting(e -> ((EntryRequested) e).rule())
-                .containsExactly("A");
+        // 시장 필터를 뺀 비교 규칙(XM, XL)과 시간 기준선(X0)은 신호를 내요.
+        assertThat(requested()).containsExactly("X0", "XM", "XL", "A");
     }
 
     /** 기대: 15분 고가보다 2% 넘게 올라간 뒤의 돌파는 추격이라 규칙 P는 READY에 머물러요. */
@@ -211,8 +222,28 @@ class AiWatchEngineTest {
 
         assertThat(engine.view().get(0).stateP()).isEqualTo(State.READY);
         assertThat(engine.view().get(0).checksP()).containsEntry("NOT_CHASING_BREAKOUT", Check.FAIL);
-        assertThat(effects).filteredOn(EntryRequested.class::isInstance).extracting(e -> ((EntryRequested) e).rule())
-                .doesNotContain("P");
+        // 추격 금지를 뺀 비교 규칙(XC, XL)은 신호를 내요.
+        assertThat(requested()).containsExactly("X0", "XC", "XL", "A");
+    }
+
+    /** 기대: 돌파 5분봉 거래량이 평소의 1.75배면 규칙 P·A(2배)는 막히고, 1.5배 비교 규칙(XV, XL)만 신호를 내요. */
+    @Test
+    void recordsTheLowerVolumeVariantSeparately() throws Exception {
+        var engine = engine("TRADE", EXAMPLE_CONDITIONS);
+        market(engine, "09:00:30", "0.4");
+        openingAndBreakout(engine, BREAKOUT, 175);
+        market(engine, "09:19:50", "0.4");
+        effects.addAll(engine.evaluate(at("09:20:03")));
+
+        assertThat(engine.view().get(0).checksP()).containsEntry("VOLUME_5M", Check.FAIL);
+        assertThat(requested()).containsExactly("X0", "XV", "XL");
+
+        engine.arm("005930", "XV", new BigDecimal("0.05"), "ORDERBOOK", at("09:20:05"));
+        tick(engine, "09:20:10", "102.7", 100);
+        assertThat(engine.view().get(0).positions()).singleElement().satisfies(p -> {
+            assertThat(p.rule()).isEqualTo("XV");
+            assertThat(p.entryTickPrice()).isEqualByComparingTo("102.7");
+        });
     }
 
     /** 기대: 15분 시가 범위 뒤 5분봉 종가가 15분 저가(100) 아래로 마감하면 그날은 INVALIDATED로 남아요. */
@@ -225,10 +256,12 @@ class AiWatchEngineTest {
         assertThat(engine.view().get(0).stateP()).isEqualTo(State.INVALIDATED);
 
         for (int i = 0; i < 10; i++) tick(engine, LocalTime.of(9, 20 + i / 2, i % 2 == 0 ? 5 : 35).toString(), "103", 500);
+        market(engine, "09:24:50", "0.4");
         effects.addAll(engine.evaluate(at("09:25:03")));
 
         assertThat(engine.view().get(0).stateP()).isEqualTo(State.INVALIDATED);
-        assertThat(effects).noneMatch(EntryRequested.class::isInstance);
+        // 무효화를 무시하는 비교 규칙(XI, XL)만 다시 올라온 돌파에서 신호를 내요.
+        assertThat(requested()).doesNotContain("P", "A", "XM", "XC", "XV").contains("XI", "XL");
     }
 
     /** 기대: AI 조건에 계산할 수 없는 지표가 있으면 규칙 A는 UNSUPPORTED이고 판단하지 않아요. 규칙 P는 그대로 돌아요. */
@@ -302,6 +335,7 @@ class AiWatchEngineTest {
         effects.addAll(engine.evaluate(at("09:20:03")));
 
         assertThat(signals("P")).last().extracting(SignalChanged::to).isEqualTo(State.CAUTION);
-        assertThat(effects).noneMatch(EntryRequested.class::isInstance);
+        // X0은 끊김 전(09:15)에 이미 신호를 냈어요. 끊김 뒤에는 비교 규칙을 포함해 어느 규칙도 신호를 내지 않아요.
+        assertThat(requested()).containsExactly("X0");
     }
 }

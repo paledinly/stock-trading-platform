@@ -9,6 +9,7 @@ package com.sunmo.stockplatform.aiplan.realtime;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalTime;
+import java.util.List;
 
 /** 규칙 P 임계값이에요. 시각은 모두 정규장 기준 시각(MarketSessionHours.regularTime)이에요. */
 public final class WatchRules {
@@ -68,6 +69,30 @@ public final class WatchRules {
     // 청산 E2(기존 앱 규칙): +3% 익절 / −2% 손절
     static final BigDecimal E2_TAKE_PCT = new BigDecimal("3");
     static final BigDecimal E2_STOP_PCT = new BigDecimal("-2");
+
+    /**
+     * 비교 규칙(기록만, 2026-11-26~, 세트 x1)이에요. 규칙 P에서 조건 하나(또는 여러 개)를 뺀 변형을 같은 종목에 동시에 적용해
+     * 가상 진입만 따로 남겨요. 상태 이력은 남기지 않아요. 규칙 P·A와 판정은 그대로예요.
+     * 11-11~11-25 10일 동안 규칙 P·A 진입이 0건이라, 어느 조건이 진입을 막고 그 막음이 손실을 피했는지 수익을 놓쳤는지 보려는 기록이에요.
+     * 세트를 바꾸면 VARIANT_SET을 올리고 따로 세요(docs/AI_PREMARKET_PHASE2.md).
+     */
+    public static final String VARIANT_SET = "x1";
+
+    /**
+     * 비교 규칙 하나예요.
+     * ignoreMarket: 시장 필터 없음. ignoreChasing: 추격 금지 세 조건 없음. minVolume: 거래량 배수(null이면 규칙 P와 같은 2배).
+     * ignoreInvalidation: 구조 무효화 없음. simple: 09:15 뒤 첫 판단에서 손절가가 계산되고 현재가가 그 위면 바로 진입(시간 기준선).
+     */
+    public record Variant(String code, String label, boolean ignoreMarket, boolean ignoreChasing, BigDecimal minVolume,
+            boolean ignoreInvalidation, boolean simple) { }
+
+    public static final List<Variant> VARIANTS = List.of(
+            new Variant("XM", "시장 필터 없음", true, false, null, false, false),
+            new Variant("XC", "추격 금지 없음", false, true, null, false, false),
+            new Variant("XV", "거래량 1.5배", false, false, new BigDecimal("1.5"), false, false),
+            new Variant("XI", "무효화 없음", false, false, null, true, false),
+            new Variant("XL", "네 가지 모두 완화", true, true, new BigDecimal("1.5"), true, false),
+            new Variant("X0", "09:15 바로 진입", true, true, null, true, true));
 
     // 호가 조회에 실패하면 스프레드 절반을 0.06%로 가정해요. 1회 금액이 직전 1분 거래대금의 5%를 넘으면 체결 규모 경고.
     static final BigDecimal FALLBACK_HALF_SPREAD_PCT = new BigDecimal("0.06");

@@ -63,6 +63,8 @@
 .aiWatchRow.head{background:transparent;color:var(--text-muted);font-size:11px}
 .aiWatchRow>span:first-child{display:flex;align-items:center;gap:8px;min-width:0}.aiWatchRow>span:first-child b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .aiWatchRow small{color:var(--text-muted)}
+.aiVariantRow{display:grid;grid-template-columns:minmax(160px,2fr) repeat(5,minmax(80px,1fr));gap:8px;align-items:center;padding:8px 12px;border-radius:var(--r-md);background:var(--surface-2);font-size:var(--fs-sm);font-variant-numeric:tabular-nums}
+.aiVariantRow.head{background:transparent;color:var(--text-muted);font-size:11px}
 .aiState{display:inline-block;padding:2px 9px;font-weight:500;border:1px solid var(--border);border-radius:var(--r-pill);color:var(--text-2);font-size:11px;font-style:normal;white-space:nowrap}
 .aiState.buy{border-color:var(--up-border);background:var(--up-bg);color:var(--up-fg)}.aiState.ready{border-color:var(--violet-border);color:var(--violet-fg)}
 .aiState.caution{border-color:var(--warn-border);color:var(--warn-fg)}.aiState.invalid{border-color:var(--down-border);color:var(--down-fg)}
@@ -73,7 +75,7 @@
 .aiEvents li{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:7px 12px;border-radius:var(--r-md);background:var(--surface-2)}
 .aiEvents small{color:var(--text-muted);font-size:11px}
 @media(max-width:1050px){.aiGate{grid-template-columns:1fr 1fr}.aiHistory aside{grid-template-columns:1fr}}
-@media(max-width:720px){.aiGate{grid-template-columns:1fr}.aiTable{overflow-x:auto}.aiRow{min-width:720px}.aiWatchRow{min-width:860px}.aiConditions{grid-template-columns:1fr}.aiInputHead{flex-direction:column;align-items:flex-start}}
+@media(max-width:720px){.aiGate{grid-template-columns:1fr}.aiTable{overflow-x:auto}.aiRow{min-width:720px}.aiWatchRow{min-width:860px}.aiVariantRow{min-width:600px}.aiConditions{grid-template-columns:1fr}.aiInputHead{flex-direction:column;align-items:flex-start}}
 .aiRowButton{cursor:pointer;transition:background-color .16s var(--ease)}.aiRowButton:hover{background:var(--surface-3)}.aiRowButton:focus-visible{outline:2px solid var(--accent-fg);outline-offset:1px}.aiRowButton.open{border-radius:var(--r-md) var(--r-md) 0 0;background:var(--accent-bg)}
 .aiFlowRow{margin-top:-4px;padding:14px 16px 12px;border:1px solid var(--accent-border);border-top:0;border-radius:0 0 var(--r-md) var(--r-md);background:var(--surface)}
 .aiFlow .aiEmpty{margin:4px 0}

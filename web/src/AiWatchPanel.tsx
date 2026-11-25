@@ -15,7 +15,8 @@ type Session = { tradeDecision: string; startedAt: string; endedAt: string | nul
 type Event = { id: number; stockCode: string; rule: string; fromState: string | null; toState: string; reasons: string | null; evaluatedAt: string }
 export type WatchView = { date: string; live: boolean; session: Session | null; stocks: Stock[]; positions: Position[]; events: Event[]; ruleVersion: string; positionAmount: number }
 type Group = { rule: string; exit: string; scope: string; trades: number; days: number; meanNetPct: number | null; winRate: number | null; paired: number; meanVsOpenPct: number | null }
-export type WatchSummary = { verdict: string; minTrades: number; minDays: number; gate: Group; groups: Group[] }
+type VariantGate = { rule: string; label: string; verdict: string; gate: Group; e2: Group }
+export type WatchSummary = { verdict: string; minTrades: number; minDays: number; gate: Group; groups: Group[]; variants?: VariantGate[] }
 
 const STATE: Record<string, string> = { NOT_SUBSCRIBED: '구독 못 함', WATCH: '감시', READY: '준비', BUY_CANDIDATE: '매수 후보', CAUTION: '주의', INVALIDATED: '무효', EXPIRED: '종료', UNSUPPORTED: '지원 안 됨' }
 const EXIT: Record<string, string> = { STOP: '손절', TAKE: '익절', CLOSE: '마감' }
@@ -24,6 +25,8 @@ const MARK: Record<string, string> = { PASS: '✓', FAIL: '✗', UNAVAILABLE: '?
 const VERDICT: Record<string, string> = { PENDING: '기록 중', PASS: '통과', FAIL: '미달' }
 const DECISION: Record<string, string> = { TRADE: '매매', WATCH_ONLY: '감시만', NO_TRADE: '매매 안 함', DATA_INSUFFICIENT: '자료 부족' }
 const ALERT_STATES = new Set(['READY', 'BUY_CANDIDATE', 'INVALIDATED'])
+// 비교 규칙(기록만)은 알림을 보내지 않아요. 규칙 P·A만 알려요.
+const MAIN_RULES = new Set(['P', 'A'])
 
 async function get<T>(url: string): Promise<T> {
   const response = await fetch(url)
@@ -87,7 +90,7 @@ export function AiWatchPanel() {
           if (previous.get(`${stock.stockCode}|${rule}`) !== state && ALERT_STATES.has(state))
             notify(`${stock.stockName} ${STATE[state]}`, `규칙 ${rule} · ${num(stock.indicators.price)}원`)
         }
-        for (const p of stock.positions) {
+        for (const p of stock.positions.filter(p => MAIN_RULES.has(p.rule))) {
           const key = `${stock.stockCode}|${p.rule}|pos`
           if (!previous.has(key)) notify(`${stock.stockName} 가상 매수`, `규칙 ${p.rule} · ${num(p.entryPrice)}원${p.shadow ? ' (그림자)' : ''}`)
           else if (previous.get(key) !== next.get(key) && (p.e1?.reason === 'STOP' || p.e2?.reason === 'STOP'))
@@ -181,6 +184,28 @@ export function AiWatchPanel() {
         </div>
         <p className="aiNote">규칙 P: 15분 시가 범위 고가를 완료 5분봉 종가로 돌파, VWAP 위, 거래량 2배, 추격 금지, 손절 거리, 시장 필터를 모두 통과하면 매수 후보예요.
           가상 매수는 판정 뒤 호가를 한 번 조회하고 처음 들어온 체결 가격에 스프레드 절반을 더해요. 청산은 E1(구조 손절, 아니면 15:19)과 E2(+3%/−2%)를 함께 기록해요.</p>
+      </section>
+
+      <section className="aiDetail" aria-label="비교 규칙">
+        <h2>비교 규칙 (기록만, 세트 x1)</h2>
+        <p className="aiNote">규칙 P에서 조건을 뺀 변형을 같은 종목에 함께 적용해 가상 진입만 남겨요. 어느 조건이 손실을 막았고 어느 조건이 수익을 놓쳤는지 보려는 기록이에요.
+          규칙 P와 같은 방식(구조 손절+마감, 40건·15거래일)으로 세지만 운영 판정이 아니에요. 여러 변형을 함께 보므로 통과해도 새 규칙 버전으로 다시 확인해야 해요.</p>
+        <div className="aiTable" role="table" aria-label="비교 규칙 집계">
+          <div role="row" className="aiVariantRow head">
+            <span role="columnheader">규칙</span><span role="columnheader">기록</span><span role="columnheader">거래·일</span>
+            <span role="columnheader">구조 손절+마감</span><span role="columnheader">시가 매수 대비</span><span role="columnheader">+3%/−2%</span>
+          </div>
+          {(s?.variants ?? []).map(v => (
+            <div role="row" className="aiVariantRow" key={v.rule}>
+              <span role="cell"><b>{v.rule}</b> {v.label}</span>
+              <span role="cell">{VERDICT[v.verdict] ?? v.verdict}</span>
+              <span role="cell">{v.gate.trades}건 · {v.gate.days}일</span>
+              <span role="cell" className={tone(v.gate.meanNetPct)}>{pct(v.gate.meanNetPct)}</span>
+              <span role="cell" className={tone(v.gate.meanVsOpenPct)}>{pct(v.gate.meanVsOpenPct)}</span>
+              <span role="cell" className={tone(v.e2.meanNetPct)}>{pct(v.e2.meanNetPct)}</span>
+            </div>
+          ))}
+        </div>
       </section>
 
       <section className="aiDetail" aria-label="상태 이력">
